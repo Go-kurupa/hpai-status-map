@@ -1,0 +1,35 @@
+# 秘密情報
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+*secret*.json
+*service-account*.json
+
+# 個人の Claude Code 設定
+.claude/settings.local.json
+CLAUDE.local.md
+
+# 部品・生成物
+node_modules/
+.venv/
+__pycache__/
+dist/
+build/
+.next/
+coverage/
+*.log
+
+# 公開しない素材・データ
+private/
+data/private/
+
+# OS・エディタ
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
