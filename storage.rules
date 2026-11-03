@@ -1,0 +1,9 @@
+rules_version = '2';
+// 全拒否。サーバー（Admin SDK）だけが使う。
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

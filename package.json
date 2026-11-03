@@ -1,0 +1,26 @@
+{
+  "name": "hpai-status-map",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "鳥インフル発生状況マップ",
+  "engines": { "node": ">=24.12" },
+  "workspaces": ["shared", "web", "functions", "evals", "scripts"],
+  "scripts": {
+    "test": "vitest run --project shared --project functions --project web --project scripts",
+    "test:rules": "firebase emulators:exec --only firestore,auth --project demo-hpai \"vitest run --project rules\"",
+    "test:emul": "firebase emulators:exec --only firestore,auth,storage --project demo-hpai \"vitest run --project functions-emul\"",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "tsx scripts/copy-web-data.ts && npm run build -w web && npm run bundle -w functions"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "6.0.0",
+    "esbuild": "0.28.2",
+    "firebase-tools": "15.34.2",
+    "mapshaper": "0.7.101",
+    "topojson-server": "3.0.1",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}

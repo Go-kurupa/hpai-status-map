@@ -33,3 +33,13 @@ data/private/
 Thumbs.db
 .vscode/
 .idea/
+
+# ビルド生成物・ローカルの設定
+functions/lib/
+web/public/geo/
+web/public/history/
+web/public/replay/
+web/public/evals/
+web/public/trends/
+.firebase/
+.secret.local

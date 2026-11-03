@@ -1,0 +1,37 @@
+{
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs24",
+    "predeploy": ["npm run bundle -w functions"],
+    "ignore": ["node_modules", "src", "test", "scripts", "*.local", "tsconfig*.json"]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "hosting": {
+    "public": "web/dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/api/v1/**", "function": { "functionId": "api", "region": "asia-northeast1" } },
+      { "source": "/mcp", "function": { "functionId": "mcp", "region": "asia-northeast1" } },
+      { "source": "/unsubscribe", "function": { "functionId": "unsubscribe", "region": "asia-northeast1" } },
+      { "source": "**", "destination": "/index.html" }
+    ],
+    "headers": [
+      { "source": "/geo/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }] },
+      { "source": "/history/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }] }
+    ]
+  },
+  "emulators": {
+    "firestore": { "port": 8080, "host": "0.0.0.0" },
+    "auth": { "port": 9099, "host": "0.0.0.0" },
+    "storage": { "port": 9199, "host": "0.0.0.0" },
+    "functions": { "port": 5001, "host": "0.0.0.0" },
+    "hosting": { "port": 5000, "host": "0.0.0.0" },
+    "ui": { "enabled": false }
+  }
+}

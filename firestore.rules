@@ -1,0 +1,9 @@
+rules_version = '2';
+// 全拒否。F-05 で必要な許可を足す。
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
