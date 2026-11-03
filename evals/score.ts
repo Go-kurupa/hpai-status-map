@@ -199,7 +199,7 @@ export function summarize(scores: readonly DocScore[], tamper: Tamper, detection
     m("read_refusals", count(scores, (s) => s.primaryFailure === "refusal") + count(scores, (s) => s.secondFailure === "refusal"), documents * 2, "件", "主と別の読み手の呼び出しの合計"),
     m("format_errors", count(scores, (s) => s.primaryFailure === "format_error") + count(scores, (s) => s.secondFailure === "format_error"), documents * 2, "件", "主と別の読み手の呼び出しの合計"),
     m("primary_muni_errors", count(scores, (s) => s.errors.muni), readCount, "文書", "読めた文書のうち、市町村の読み違い"),
-    m("primary_stage_errors", count(scores, (s) => s.errors.stage), readCount, "文書", "読めた文書のうち、段階の読み違い"),
+    m("primary_stage_errors", count(scores, (s) => s.errors.stage), readCount, "文書", `読めた文書のうち、段階の読み違い。種類の取り違え ${count(scores, (s) => s.errors.kindClass)} 件（家きんの事例、野鳥、対象外の区別、否定かどうか）は合否に入れない`),
     m("primary_date_errors", count(scores, (s) => s.errors.date), readCount, "文書", "読めた文書のうち、日付の読み違い"),
     m("primary_headcount_errors", count(scores, (s) => s.errors.headCount), readCount, "文書", "羽数の読み違い。合否には入れない（照合で空欄になる）"),
     m("published_mandatory_errors", count(scores, (s) => s.publishedMandatoryError), published, "文書", "自動で載せると決めた文書の、必須の項目の誤り"),
@@ -221,7 +221,15 @@ export function summarize(scores: readonly DocScore[], tamper: Tamper, detection
 
 export const MIN_READ_DOCUMENTS = 30;
 
-/** 合格: 読めた文書が 30 以上、市町村、段階、日付の誤りが 0、公開の誤りが 0、入れ替えがすべて落ちる。主の羽数の誤りは合否に入れない。 */
+// 設計書 §16「読み取り」: 正解つきの発表（疑い、確定、進捗、完了、解除、野鳥の否定を含む 30 文書以上）で、市町村、段階、日付の誤りが 0。
+// 羽数の誤りは照合か二重読みで落ちる。読めなかった文書の許容は書かれていないので、形式エラーと打ち切りは 0 件を合格の条件にする。
+// API の失敗は再実行で解消しうるので合否には入れず、rerunNeeded でやり直しが要る件数を別に出す。
+const failedWith = (s: DocScore, reason: Failure): boolean => s.primaryFailure === reason || s.secondFailure === reason;
+
+/**
+ * 合格: 読めた文書が 30 以上、市町村、段階、日付の誤りが 0、公開の誤りが 0、形式エラーと打ち切りが 0 件、入れ替えがすべて落ちる。
+ * 主の羽数の誤りは合否に入れない。拒否は終了コード（run.ts）で止める。
+ */
 export function evalPasses(s: EvalSummary, scores: readonly DocScore[]): boolean {
   const v = (n: EvalMetricName): number => s.metrics.find((x) => x.name === n)?.value ?? Number.POSITIVE_INFINITY;
   const tamper = s.metrics.find((x) => x.name === "tamper_rejected");
@@ -232,15 +240,31 @@ export function evalPasses(s: EvalSummary, scores: readonly DocScore[]): boolean
     v("primary_date_errors") === 0 &&
     v("published_mandatory_errors") === 0 &&
     v("published_headcount_errors") === 0 &&
+    count(scores, (x) => failedWith(x, "format_error") || failedWith(x, "max_tokens")) === 0 &&
     tamper !== undefined &&
     tamper.denominator !== null &&
     tamper.value === tamper.denominator
   );
 }
 
+/** API の失敗（api_error）があった文書の数。合否とは別に「やり直しが要る」と出す。 */
+export function rerunNeeded(scores: readonly DocScore[]): number {
+  return count(scores, (x) => failedWith(x, "api_error"));
+}
+
+/** 合否に入れない件数。種類の取り違え、区域でない半径、API の失敗。 */
+export function runCounts(scores: readonly DocScore[]) {
+  return {
+    kindClassErrors: count(scores, (x) => x.errors.kindClass),
+    radiusWrong: count(scores, (x) => x.radiusWrong),
+    rerunNeeded: rerunNeeded(scores),
+  };
+}
+
 /** 公開してよい run の記録（事実のみ）。引用、本文、題は入れない。 */
 export function toRunRecord(scores: readonly DocScore[]) {
   return {
+    counts: runCounts(scores),
     documents: scores.map((s) => ({
       id: s.id,
       answerKind: s.answerKind,
@@ -325,6 +349,11 @@ export interface TamperResult {
   rejected: number;
   /** 落ちずに載ってしまった入れ替えの名前。 */
   failures: string[];
+}
+
+/** summary に渡す入れ替えの数。対照が載らないとき（環境や規則が変わった）は、全部が「確認中に回って落ちた」だけなので、落ちた数を 0 にする。 */
+export function tamperForSummary(r: TamperResult): Tamper {
+  return { total: r.total, rejected: r.control === "publish" ? r.rejected : 0 };
 }
 
 /** 入れ替えた結果と誤った読み手が、すべて載らずに落ちるか。 */

@@ -13,6 +13,9 @@
   "primaryDate": "2025-12-28",
   "nationalNo": 6,
   "headCount": null,
-  "radiiKm": [],
+  "radiiKm": [
+    3,
+    10
+  ],
   "wildBirds": null
 }

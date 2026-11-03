@@ -28,7 +28,7 @@ import { decodeBody, extractHtml } from "../functions/src/watch/extract";
 import { loadScriptGeoStore } from "../scripts/lib/geoStore";
 import { measureDetection } from "./detection";
 import { loadAnswers, loadEvalDocument } from "./fetch";
-import { evalPasses, loadTamperBase, runTamper, scoreDocument, summarize, toRunRecord, type DocScore } from "./score";
+import { evalPasses, loadTamperBase, rerunNeeded, runCounts, runTamper, scoreDocument, summarize, tamperForSummary, toRunRecord, type DocScore } from "./score";
 import { FIXTURE_DIR, PRIVATE_BACKFILL_DIR, PRIVATE_RUNS_DIR, RESULTS_DIR, ROOT } from "./types";
 
 // ── Batch の依頼 ──
@@ -463,7 +463,7 @@ export async function main(argv: string[], write: (s: string) => void = (s) => p
   const tamper = runTamper(await loadTamperBase(geo), geo);
   const detection = await measureDetection(path.join(ROOT, "data", "private", "fixtures", "maff"), path.join(ROOT, "data", "history", "cases.json"));
   const cost = costOf(attempts, resumedSettings, mode === "batch" || !!values.resume);
-  const summary = summarize(scores, { total: tamper.total, rejected: tamper.rejected }, detection, cost, toJstIso(new Date()));
+  const summary = summarize(scores, tamperForSummary(tamper), detection, cost, toJstIso(new Date()));
   const passes = evalPasses(summary, scores);
 
   fs.mkdirSync(path.join(RESULTS_DIR, "runs"), { recursive: true });
@@ -481,6 +481,9 @@ export async function main(argv: string[], write: (s: string) => void = (s) => p
   write(
     [
       `合否: ${passes ? "合格" : "不合格"}（autoPublishEnabled は変えていません。変えるのは利用者の確認の後）`,
+      ...(tamper.control !== "publish" ? [`入れ替えの対照（正しい読み）が ${tamper.control} になり、載りませんでした。入れ替えが落ちた数は 0 として数えます`] : []),
+      ...(rerunNeeded(scores) > 0 ? [`やり直しが要る: API の失敗が ${rerunNeeded(scores)} 文書あります（合否とは別。再実行で解消しうる）`] : []),
+      `  合否に入れない件数: 種類の取り違え ${runCounts(scores).kindClassErrors}、区域でない半径 ${runCounts(scores).radiusWrong}`,
       ...summary.metrics.map((x) => `  ${x.name}: ${x.value}${x.denominator !== null ? ` / ${x.denominator}` : ""}`),
       ...(failures.length > 0 ? ["読めなかった依頼（理由の detail は状態の番号か種類だけ。429 や 529 は再試行していない）:", ...failures] : []),
       `  費用: ${cost.toFixed(2)} ドル（1 文書あたり ${summary.costPerDocumentUsd?.toFixed(3)} ドル）`,

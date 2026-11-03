@@ -1,15 +1,17 @@
 // 読み取りの試験の採点、検知の数え方、見積もり、Batch の依頼の形（I-06）。有料の API は呼ばない。
 import type Anthropic from "@anthropic-ai/sdk";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { GeoStore } from "@hpai/shared/geo";
 import type { ReadResult, SecondReadResult } from "@hpai/shared/read/types";
 import { DEFAULT_RUNTIME_SETTINGS, type EvalMetricName, type EvalSummary } from "@hpai/shared/types";
 import type { ReadAttempt } from "../../functions/src/read/claude";
 import { loadScriptGeoStore } from "../lib/geoStore";
-import type { EvalAnswer } from "../../evals/types";
+import path from "node:path";
+import { describeFixture } from "../../functions/test/helpers/fixtures";
+import { FIXTURE_DIR, type EvalAnswer } from "../../evals/types";
 import { loadAnswers } from "../../evals/fetch";
 import { ANSWERS_DIR } from "../../evals/types";
-import { evalPasses, loadTamperBase, runTamper, scoreDocument, summarize, toRunRecord, type DocScore } from "../../evals/score";
+import { evalPasses, loadTamperBase, rerunNeeded, runCounts, runTamper, scoreDocument, summarize, tamperForSummary, toRunRecord, type DocScore } from "../../evals/score";
 import {
   SEASON_TITLE_COUNTS,
   buildBackfillRequests,
@@ -18,6 +20,7 @@ import {
   estimateRun,
   evalCustomIds,
   matchesSeasonTitleCounts,
+  main,
   seasonMonths,
 } from "../../evals/run";
 
@@ -283,6 +286,43 @@ describe("summarize と evalPasses", () => {
     expect(pass([...many(30), fake({ errors: { muni: false, stage: false, date: false, headCount: true, kindClass: false } })])).toBe(true);
   });
 
+  // 設計書 §16「読み取り」: 正解つきの発表 30 文書以上で、市町村、段階、日付の誤りが 0。羽数の誤りは照合か二重読みで落ちる。
+  // 読めなかった文書の許容は書かれていないので、形式エラーと打ち切りは 0 件を合格の条件にする。
+  it("形式エラーと打ち切り（主でも別の読み手でも）が 1 件でもあれば、読めた文書が 30 以上でも不合格", () => {
+    expect(pass([...many(30), fake({ read: null, primaryFailure: "format_error" })])).toBe(false);
+    expect(pass([...many(30), fake({ read: null, primaryFailure: "max_tokens" })])).toBe(false);
+    expect(pass([...many(30), fake({ secondFailure: "format_error", second: null, compare: null })])).toBe(false);
+    expect(pass([...many(30), fake({ secondFailure: "max_tokens", second: null, compare: null })])).toBe(false);
+  });
+
+  it("API の失敗は合否に入れず、やり直しが要る件数として別に出す（再実行で解消しうる）", () => {
+    const scores = [...many(30), fake({ read: null, primaryFailure: "api_error" }), fake({ secondFailure: "api_error", second: null, compare: null })];
+    expect(pass(scores)).toBe(true);
+    expect(rerunNeeded(scores)).toBe(2);
+    expect(rerunNeeded(many(30))).toBe(0);
+  });
+
+  it("対照（正しい読み）が載らないときは、入れ替えが落ちた数を合格に数えない", () => {
+    const ok = { control: "publish", total: 17, rejected: 17, failures: [] } as const;
+    expect(tamperForSummary(ok)).toEqual({ total: 17, rejected: 17 });
+    const broken = tamperForSummary({ control: "review_private", total: 17, rejected: 17, failures: [] });
+    expect(broken).toEqual({ total: 17, rejected: 0 });
+    expect(pass(many(30), broken)).toBe(false);
+  });
+
+  it("種類の取り違えと半径の誤りは、合否に入れず、件数を summary の note と run record に出す", () => {
+    const scores = [
+      ...many(30),
+      fake({ errors: { muni: false, stage: false, date: false, headCount: false, kindClass: true } }),
+      fake({ radiusWrong: true }),
+    ];
+    expect(runCounts(scores)).toMatchObject({ kindClassErrors: 1, radiusWrong: 1 });
+    expect(pass(scores)).toBe(true);
+    const s = summarize(scores, { total: 15, rejected: 15 }, null, 0, NOW);
+    expect(s.metrics.find((m) => m.name === "primary_stage_errors")!.note).toContain("種類の取り違え 1 件");
+    expect(toRunRecord(scores).counts).toMatchObject({ kindClassErrors: 1, radiusWrong: 1 });
+  });
+
   it("入れ替えが 1 件でも通れば不合格", () => {
     expect(pass(many(30), { total: 15, rejected: 14 })).toBe(false);
   });
@@ -388,5 +428,46 @@ describe("summary の型", () => {
     const s: EvalSummary = summarize(many(30), { total: 15, rejected: 15 }, null, 3, NOW);
     expect(Object.keys(s).sort()).toEqual(["costPerDocumentUsd", "measuredAt", "metrics", "unmeasured"]);
     for (const m of s.metrics) expect(Object.keys(m).sort()).toEqual(["denominator", "name", "note", "unit", "value"]);
+  });
+});
+
+// 有料の API を呼ぶ関門: --dry-run と --yes なしでは、API のクライアントを作らない
+const constructed = vi.fn();
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: class {
+    constructor() {
+      constructed();
+    }
+  },
+}));
+
+describeFixture("run.ts の関門（クライアントを作らない）", [path.join(FIXTURE_DIR, "c-maff-okayama.html")], () => {
+  const run = async (argv: string[]) => {
+    constructed.mockClear();
+    let out = "";
+    const code = await main(argv, (s) => (out += s));
+    return { code, out };
+  };
+
+  it("--dry-run は 0 で、クライアントを作らない（--sync と組んでも）", async () => {
+    expect((await run(["--dry-run"])).code).toBe(0);
+    expect((await run(["--sync", "--dry-run"])).code).toBe(0);
+    expect(constructed).not.toHaveBeenCalled();
+  });
+
+  it("--yes がなければ 2 で止まり、クライアントを作らない（--sync、Batch、--resume）", async () => {
+    for (const argv of [["--sync"], [], ["--resume", "msgbatch_x"]]) {
+      const r = await run(argv);
+      expect(r.code, argv.join(" ")).toBe(2);
+      expect(r.out).toContain("--yes");
+    }
+    expect(constructed).not.toHaveBeenCalled();
+  });
+});
+
+describe("run.ts の引数", () => {
+  it("--backfill には --season が要る。effort の値は 5 つだけ", async () => {
+    await expect(main(["--backfill"], () => {})).rejects.toThrow(/--season/);
+    await expect(main(["--effort", "ultra"], () => {})).rejects.toThrow(/effort/);
   });
 });

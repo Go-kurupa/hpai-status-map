@@ -226,7 +226,9 @@ describeFixture("正解と原文の控え", realFiles as string[], () => {
         expect(text, `${a.id} の野鳥の日付`).toMatch(new RegExp(`${Number(m)}(月|/)${Number(d)}`, "u"));
       }
       if (a.headCount !== null) expect(headCountInQuote(a.headCount, text) || text.includes(String(a.headCount)), `${a.id} の羽数`).toBe(true);
-      for (const km of a.radiiKm) expect(radiusInQuote(km, docs.get(a.id)!.fullText) || radiusInQuote(km, text), `${a.id} の半径 ${km}`).toBe(true);
+      // 区域の半径（3km、10km）は、検証と同じ規則で取れる値と一致する（正解の radiiKm が網羅でないと、正しい読みが半径の誤りに見える）
+      const byRule = [3, 10].filter((km) => radiusInQuote(km, docs.get(a.id)!.fullText));
+      expect(a.radiiKm.filter((km) => [3, 10].includes(km)), `${a.id} の半径`).toEqual(byRule);
       if (a.nationalNo !== null) expect(text, `${a.id} の国内何例目`).toContain(`${a.nationalNo}例目`);
     }
   });

@@ -14,7 +14,8 @@
   "nationalNo": null,
   "headCount": null,
   "radiiKm": [
-    3
+    3,
+    10
   ],
   "wildBirds": null
 }
