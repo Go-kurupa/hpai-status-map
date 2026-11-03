@@ -1,5 +1,5 @@
 // 1 時間ごとの見回り（I-01）。入口を 3 つの group に分け、JST の時 % 3 が group と等しいものを回す（3 時間で 1 周）。
-// 取得は再試行しない。失敗は failureCount + 1。入口の種類ごとの確認は handlers が持つ（国は maff.ts、県は I-02）。
+// 取得は再試行しない。失敗は failureCount + 1。入口の種類ごとの確認は handlers が持つ（国は maff.ts、環境省は moe.ts、県は page.ts と rss.ts）。
 import { logger } from "firebase-functions";
 import { toJstIso } from "@hpai/shared/dates";
 import type { Source } from "@hpai/shared/types";
