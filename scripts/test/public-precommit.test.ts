@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -6,7 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // このファイルには検査に一致する文字列を残さない。鍵、メール、電話などは実行時に連結して作る。
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
-const HOOK = path.join(ROOT, ".claude", "hooks", "public-precommit.sh");
+// 古い版との比較のため、環境変数で hook を差し替えられる
+const HOOK = process.env.PRECOMMIT_HOOK ?? path.join(ROOT, ".claude", "hooks", "public-precommit.sh");
 const THIS_TEST = path.join(ROOT, "scripts", "test", "public-precommit.test.ts");
 const TOOLS_TEST = path.join(ROOT, "scripts", "test", "claude-tools.test.ts");
 
@@ -22,7 +24,8 @@ let repo: string;
 
 // 本物の作業ツリーを検査しないよう、CLAUDE_PROJECT_DIR を外し、利用者の git 設定も読まない
 function cleanEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+  // TMPDIR は、hook が一時ファイルを残さないことの確認のため、この試験専用にする
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null", TMPDIR: path.join(tmp, "tmpdir") };
   delete env.CLAUDE_PROJECT_DIR;
   return env;
 }
@@ -69,6 +72,7 @@ function expectOnlyLocations(stderr: string) {
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "hpai-precommit-"));
+  fs.mkdirSync(path.join(tmp, "tmpdir"));
   repo = initRepo();
 });
 afterEach(() => {
@@ -391,6 +395,140 @@ describe("stage の中身が決まらない commit", () => {
     const r = runHook(`git -C ${other} commit -m x`);
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("k.txt:1:anthropic_key");
+  });
+
+  it("cd で別のリポジトリへ移ってからの commit はそちらを見る（&& と ; の範囲）", () => {
+    const other = initRepo();
+    stage({ "k.txt": `${ANTHROPIC_KEY}\n` }, other);
+    for (const sep of ["&&", ";"]) {
+      const r = runHook(`cd ${other} ${sep} git commit -m x`);
+      expect(r.status, sep).toBe(2);
+      expect(r.stderr).toContain("k.txt:1:anthropic_key");
+    }
+    fs.mkdirSync(path.join(other, "sub"));
+    const rel = runHook("cd .. && git commit -m x", path.join(other, "sub"));
+    expect(rel.status).toBe(2);
+    // cd のないコマンドは、hook を呼んだ場所（きれいな repo）を見る
+    expect(runHook(COMMIT).status).toBe(0);
+  });
+});
+
+describe("同じコマンドの git add（一時の索引で stage を再現する）", () => {
+  const indexFile = () => path.join(repo, ".git", "index");
+  const sha = (f: string) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
+  const tmpLeft = () => fs.readdirSync(path.join(tmp, "tmpdir"));
+
+  for (const sep of ["&&", ";"]) {
+    it(`git add <ファイル> ${sep} git commit: 鍵入りのファイルを止める。きれいなファイルは通す`, () => {
+      stage({ "seed.txt": "seed\n" });
+      write("a.txt", `ok\n${ANTHROPIC_KEY}\n`);
+      write("clean.txt", "ok\n");
+      const bad = runHook(`git add a.txt ${sep} git commit -m x`);
+      expect(bad.status).toBe(2);
+      expect(bad.stderr).toContain("a.txt:2:anthropic_key");
+      expect(bad.stderr).not.toContain(ANTHROPIC_KEY);
+      expectOnlyLocations(bad.stderr);
+
+      const good = runHook(`git add clean.txt ${sep} git commit -m x`);
+      expect(good.stderr).toBe("");
+      expect(good.status).toBe(0);
+    });
+  }
+
+  it("複数のパス、新しいファイル、追跡中のファイルの変更、ディレクトリを調べる", () => {
+    stage({ "t.md": "line\n" });
+    git(["commit", "-q", "-m", "seed", "--no-verify"]);
+    write("t.md", `line\n${EMAIL}\n`);
+    write("dir/n.md", `${PHONE}\n`);
+    write("ok.md", "ok\n");
+    const r = runHook("git add ok.md t.md dir && git commit -m x");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("t.md:2:email");
+    expect(r.stderr).toContain("dir/n.md:1:phone");
+    expect(r.stderr).not.toContain("ok.md");
+  });
+
+  it("add のあとの commit が見る stage は、元の stage と add の合計", () => {
+    stage({ "s.txt": `${GOOGLE_KEY}\n` });
+    write("ok.md", "ok\n");
+    const r = runHook("git add ok.md && git commit -m x");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("s.txt:1:google_api_key");
+  });
+
+  it("cd と git -C の先で add したファイルを調べる", () => {
+    const other = initRepo();
+    write("a.txt", `${ANTHROPIC_KEY}\n`, other);
+    const viaCd = runHook(`cd ${other} && git add a.txt && git commit -m x`);
+    expect(viaCd.status).toBe(2);
+    expect(viaCd.stderr).toContain("a.txt:1:anthropic_key");
+    const viaC = runHook(`git -C ${other} add a.txt && git -C ${other} commit -m x`);
+    expect(viaC.status).toBe(2);
+    expect(viaC.stderr).toContain("a.txt:1:anthropic_key");
+  });
+
+  it("リポジトリの索引を変えず、一時ファイルを残さない", () => {
+    stage({ "seed.txt": "seed\n" });
+    write("a.txt", `${ANTHROPIC_KEY}\n`);
+    write("b.txt", "ok\n");
+    const before = sha(indexFile());
+    const stagedBefore = git(["diff", "--cached", "--name-only"]);
+    for (const cmd of ["git add a.txt && git commit -m x", "git add b.txt && git commit -m x"]) runHook(cmd);
+    expect(sha(indexFile())).toBe(before);
+    expect(git(["diff", "--cached", "--name-only"])).toBe(stagedBefore);
+    expect(git(["status", "--porcelain"])).toContain("?? a.txt");
+    expect(tmpLeft()).toEqual([]);
+  });
+
+  it("add が失敗するなら止める（fail-closed）", () => {
+    stage({ "seed.txt": "seed\n" });
+    const r = runHook("git add missing.txt && git commit -m x");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("(command):0:git_add_failed");
+    expect(tmpLeft()).toEqual([]);
+  });
+
+  it("経路の名前: ディレクトリ名（末尾のスラッシュなし）も止める", () => {
+    write("private/n.md", "ok\n");
+    for (const arg of ["private", "private/", "./private", "-f private"]) {
+      const r = runHook(`git add ${arg} && git commit -m x`);
+      expect(r.status, arg).toBe(2);
+      expect(r.stderr, arg).toMatch(/^private:0:private_path$/m);
+    }
+    write("docs/private-notes.md", "ok\n");
+    expect(runHook("git add docs/private-notes.md && git commit -m x").status).toBe(0);
+  });
+});
+
+describe("誤検知と警告", () => {
+  it("ssh の URL は email にしない。人のアドレスは止める", () => {
+    stage({
+      "a.md": ["git" + "@github.com:org/repo.git", "ssh://" + "git" + "@host.corp.co.jp/org/repo"].join("\n") + "\n",
+    });
+    expect(runHook(COMMIT).stderr).toBe("");
+
+    stage({ "b.md": ["git" + "@" + "corp-mail.co.jp に連絡", "taro" + "@github.com:x"].join("\n") + "\n" });
+    const r = runHook(COMMIT);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("b.md:1:email");
+    expect(r.stderr).toContain("b.md:2:email");
+  });
+
+  it("一覧が読めないときは stderr に警告を 1 行出す（一覧が無いときは出さない）", () => {
+    stage({ "a.md": "ok\n" });
+    expect(runHook(COMMIT).stderr).toBe("");
+    // ディレクトリにして読めなくする
+    fs.mkdirSync(path.join(repo, "private", "public-denylist.txt"), { recursive: true });
+    const r = runHook(COMMIT);
+    expect(r.status).toBe(0);
+    expect(r.stderr.trim().split("\n")).toEqual(["private/public-denylist.txt:0:denylist_unreadable"]);
+
+    stage({ "b.md": `${EMAIL}\n` });
+    const bad = runHook(COMMIT);
+    expect(bad.status).toBe(2);
+    expect(bad.stderr).toContain("b.md:1:email");
+    expect(bad.stderr).toContain("private/public-denylist.txt:0:denylist_unreadable");
+    expectOnlyLocations(bad.stderr);
   });
 });
 

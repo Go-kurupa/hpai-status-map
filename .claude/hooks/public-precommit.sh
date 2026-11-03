@@ -39,12 +39,14 @@ fi
 read -r -d '' JS <<'__HOOK_JS__'
 const fs = require("node:fs");
 const path = require("node:path");
+const os = require("node:os");
 const { execFileSync } = require("node:child_process");
 
 const ALL_TRACKED = process.argv.includes("--all-tracked");
 
 // ---- 結果 ----
 const violations = [];
+const warnings = [];
 const seen = new Set();
 function add(file, line, name) {
   const key = `${file}:${line}:${name}`;
@@ -71,6 +73,9 @@ function emailHit(line) {
     const s = m[0].toLowerCase();
     const domain = s.slice(s.indexOf("@") + 1);
     if (s === "noreply" + "@anthropic.com") continue;
+    // git@host:org/repo.git や ssh://git@host/... は人のアドレスではない
+    const next = line[m.index + m[0].length];
+    if (m[0].slice(0, m[0].indexOf("@")) === "git" && (next === ":" || next === "/")) continue;
     if (EXAMPLE_DOMAINS.has(domain) || RESERVED_TLDS.has(domain.slice(domain.lastIndexOf(".") + 1))) continue;
     return true;
   }
@@ -93,7 +98,12 @@ function loadDenylist(top) {
   let text;
   try {
     text = fs.readFileSync(file, "utf8");
-  } catch {
+  } catch (e) {
+    // 無いのは普通（一覧なしでも動く）。あるのに読めないときは検査が弱くなるので知らせる
+    if (!e || (e.code !== "ENOENT" && e.code !== "ENOTDIR")) {
+      const w = "private/public-denylist.txt:0:denylist_unreadable";
+      if (!warnings.includes(w)) warnings.push(w);
+    }
     return [];
   }
   const rules = [];
@@ -141,9 +151,10 @@ function pathCheck(file) {
 }
 
 // ---- git ----
-function git(dir, args) {
+function git(dir, args, env) {
   return execFileSync("git", ["-c", "core.quotepath=false", ...args], {
     cwd: dir,
+    env: env || process.env,
     encoding: "utf8",
     maxBuffer: 1 << 30,
     stdio: ["ignore", "pipe", "pipe"],
@@ -218,14 +229,14 @@ function scanDiffText(text, ctx) {
 }
 
 // stage の中身。pathspecs があれば、その作業ツリーの内容（git commit <パス> が commit するもの）
-function scanStaged(dir, pathspecs, ctx) {
+function scanStaged(dir, pathspecs, ctx, env) {
   const head = hasHead(dir);
   const base = pathspecs.length && head ? ["diff", "HEAD"] : ["diff", "--cached"];
   const tail = pathspecs.length ? ["--", ...pathspecs] : [];
-  for (const f of git(dir, [...base, "--name-only", "-z", "--no-renames", "--diff-filter=ACMR", ...tail]).split("\0")) {
+  for (const f of git(dir, [...base, "--name-only", "-z", "--no-renames", "--diff-filter=ACMR", ...tail], env).split("\0")) {
     if (f) pathCheck(f);
   }
-  scanDiffText(git(dir, [...base, ...DIFF_OPTS, ...tail]), ctx);
+  scanDiffText(git(dir, [...base, ...DIFF_OPTS, ...tail], env), ctx);
 }
 
 function isBinary(buf) {
@@ -428,19 +439,26 @@ function parseCommit(args) {
   return { all, paths };
 }
 
-function analyze(cmd, base, found, depth) {
+// state.cwd は cd を追って動く（&& や ; でつながった範囲）
+function analyze(cmd, state, found, depth) {
   for (const toks of splitCommands(cmd)) {
     let i = 0;
     while (i < toks.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(toks[i]) || WRAPPERS.has(toks[i]))) i++;
     if (i >= toks.length) continue;
     const prog = path.basename(toks[i]);
+    if (prog === "cd" || prog === "pushd") {
+      const a = toks.slice(i + 1).filter((t) => t !== "--")[0];
+      if (a === undefined) state.cwd = os.homedir();
+      else if (a !== "-" && !/[$`]/.test(a)) state.cwd = a.startsWith("~") ? path.join(os.homedir(), a.slice(1)) : path.resolve(state.cwd, a);
+      continue;
+    }
     if (SHELLS.has(prog) && depth < 3) {
-      for (const a of toks.slice(i + 1)) if (/\bgit\b/.test(a) && /\b(commit|add)\b/.test(a)) analyze(a, base, found, depth + 1);
+      for (const a of toks.slice(i + 1)) if (/\bgit\b/.test(a) && /\b(commit|add)\b/.test(a)) analyze(a, { cwd: state.cwd }, found, depth + 1);
       continue;
     }
     if (prog !== "git") continue;
     let j = i + 1;
-    let dir = base;
+    let dir = state.cwd;
     while (j < toks.length && toks[j].startsWith("-")) {
       const t = toks[j];
       if (t === "-C" && toks[j + 1] !== undefined) {
@@ -460,18 +478,53 @@ function analyze(cmd, base, found, depth) {
     } else if (sub === "add") {
       const paths = [];
       let all = false;
+      let force = false;
       let endOpts = false;
       for (const a of args) {
         if (!endOpts && a === "--") endOpts = true;
         else if (!endOpts && (a === "--all" || a === "--update")) all = true;
+        else if (!endOpts && a === "--force") force = true;
         else if (!endOpts && a.startsWith("--")) continue;
         else if (!endOpts && a.startsWith("-") && a.length > 1) {
           if (/[Au]/.test(a)) all = true;
+          if (/f/.test(a)) force = true;
         } else if (a === "." || a === "*" || a === ":/") all = true;
         else paths.push(a);
       }
-      found.adds.push({ all, paths });
+      found.adds.push({ dir, all, force, paths });
     }
+  }
+}
+
+// git add の引数のパス。ディレクトリ名（末尾のスラッシュなし）でも private を見つける
+function pathspecCheck(p) {
+  const norm = p.replace(/^(\.\/)+/, "").replace(/\/+$/, "");
+  if (!norm) return;
+  const parts = norm.split("/");
+  const base = parts[parts.length - 1];
+  if (parts.includes("private") || base === "HANDOFF.md" || base === "CLAUDE.local.md") add(norm, 0, "private_path");
+  if (base.startsWith(".env") && base !== ".env.example") add(norm, 0, "env_file");
+}
+
+// 現在の索引を一時ファイルへ写し、そこへ git add して stage を再現する。リポジトリの索引は変えない
+function withTempIndex(top, adds, fn) {
+  if (!adds.length) return fn(null);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "precommit-idx-"));
+  try {
+    const real = path.resolve(top, git(top, ["rev-parse", "--git-path", "index"]).trim());
+    const tmpIdx = path.join(tmpDir, "index");
+    if (fs.existsSync(real)) fs.copyFileSync(real, tmpIdx);
+    const env = { ...process.env, GIT_INDEX_FILE: tmpIdx };
+    for (const a of adds) {
+      try {
+        git(a.dir, ["add", ...(a.force ? ["-f"] : []), "--", ...a.paths], env);
+      } catch {
+        if (!violations.length) add("(command)", 0, "git_add_failed");
+      }
+    }
+    return fn(env);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 }
 
@@ -500,14 +553,15 @@ function main() {
 
   const base = typeof input.cwd === "string" && input.cwd ? input.cwd : process.cwd();
   const found = { commits: [], adds: [] };
-  analyze(command, base, found, 0);
+  analyze(command, { cwd: base }, found, 0);
   if (!found.commits.length) return;
   armed = true;
 
-  // 同じコマンドの中の git add は、この時点ではまだ stage に入っていないので、コマンドから読む
+  // 同じコマンドの中の git add は、この時点ではまだ stage に入っていない。
+  // -A などは中身が決まらないので止め、明示のパスは一時の索引で stage を再現して調べる
   for (const a of found.adds) {
     if (a.all) add("(command)", 0, "git_add_all");
-    for (const p of a.paths) pathCheck(p);
+    for (const p of a.paths) pathspecCheck(p);
   }
 
   const tops = new Map();
@@ -522,8 +576,11 @@ function main() {
   }
   for (const [top, t] of tops) {
     const ctx = { deny: t.deny };
-    if (t.plain) scanStaged(top, [], ctx);
-    if (t.specs.size) scanStaged(top, [...t.specs], ctx);
+    const adds = found.adds.filter((a) => !a.all && a.paths.length && topOf(a.dir) === top);
+    withTempIndex(top, adds, (env) => {
+      if (t.plain) scanStaged(top, [], ctx, env);
+      if (t.specs.size) scanStaged(top, [...t.specs], ctx, env);
+    });
   }
 }
 
@@ -532,10 +589,8 @@ try {
 } catch (e) {
   if (ALL_TRACKED || armed) add("(hook)", 0, "internal_error");
 }
-if (violations.length) {
-  process.stderr.write(violations.join("\n") + "\n");
-  process.exit(2);
-}
+if (violations.length || warnings.length) process.stderr.write([...violations, ...warnings].join("\n") + "\n");
+if (violations.length) process.exit(2);
 __HOOK_JS__
 
 printf '%s' "$input" | node -e "$JS" -- "$@"
