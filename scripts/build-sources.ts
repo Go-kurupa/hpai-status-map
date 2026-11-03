@@ -68,9 +68,9 @@ export function runBuildSources(argv: string[], io: BuildSourcesIo): number {
   io.write(`${seeds.length} 行を ${path.relative(process.cwd(), out) || out} に書きました\n`);
   if (values.reach) {
     io.write(
-      `届いた ${report.reached}、クラウドから未到達 ${report.cloudUnreached}、古い TLS で未到達 ${report.tlsUnreached}、届いたが内容が違う ${report.noContent.length}\n`,
+      `届いた ${report.reached}、クラウドから未到達 ${report.cloudUnreached}、古い TLS で未到達 ${report.tlsUnreached}、届いた（語なし。平時は正常な入口もある） ${report.noContent.length}\n`,
     );
-    for (const u of report.noContent) io.write(`  届いたが内容が違う（行は動かしていません）: ${u}\n`);
+    for (const u of report.noContent) io.write(`  届いた（語なし。平時は正常な入口もある。行は動かしていません）: ${u}\n`);
   }
   return 0;
 }

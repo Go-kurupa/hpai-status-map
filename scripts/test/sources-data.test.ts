@@ -102,6 +102,40 @@ describe("12 県の確定の内容", () => {
   });
 });
 
+describe("docs/data-sources.md の節「見回り先の未確認の点」", () => {
+  const doc = fs.readFileSync(path.join(ROOT, "docs", "data-sources.md"), "utf8");
+  const start = doc.indexOf("## 見回り先の未確認の点");
+  const rest = start >= 0 ? doc.slice(start + 3) : "";
+  const next = rest.search(/^## /m);
+  const sec = start >= 0 ? rest.slice(0, next >= 0 ? next : undefined) : "";
+
+  it("節の見出しがある", () => {
+    expect(start, "「## 見回り先の未確認の点」の節がありません").toBeGreaterThanOrEqual(0);
+  });
+
+  it("5 項目（新年度の切り替わり／日付や番号の URL の再利用／発生時に動くか／福岡と福井は国で補う）を書く", () => {
+    // 新年度のページへの切り替わり（5 県）
+    expect(sec).toContain("新年度");
+    for (const pref of ["新潟", "高知", "滋賀", "岐阜", "愛媛"]) expect(sec).toContain(pref);
+    // 岐阜 338648、愛媛 95900、富山の日付入りの URL の再利用
+    expect(sec).toContain("338648");
+    expect(sec).toContain("95900");
+    expect(sec).toMatch(/富山[\s\S]{0,40}20260309|20260309[\s\S]{0,40}富山/);
+    expect(sec).toMatch(/再利用/);
+    // 発生時に常設ページや RSS が動くか（§9.2）
+    expect(sec).toMatch(/発生時[\s\S]{0,30}RSS|RSS[\s\S]{0,30}発生時/);
+    expect(sec).toContain("§9.2");
+    // 福岡と福井は国で補う（索引 Q8）
+    expect(sec).toMatch(/福岡と福井/);
+    expect(sec).toContain("国の発表で補う");
+    expect(sec).toContain("Q8");
+  });
+
+  it("クラウドからの到達が未測定の点を書く（開発機で届いてもクラウドからは別）", () => {
+    expect(sec).toMatch(/クラウド[\s\S]{0,40}未測定/);
+  });
+});
+
 describe("note の決まり", () => {
   const notes = seeds.flatMap((s) => (s.note === null ? [] : [{ url: s.url, note: s.note }]));
 

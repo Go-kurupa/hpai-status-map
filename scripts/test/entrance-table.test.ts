@@ -219,6 +219,22 @@ describe("checkEntrances", () => {
     expect(allowed("ftp://www.pref.aichi.jp/x")).toBe(false);
   });
 
+  it("allowUrl は先頭とポートも固定する（evilpref…、pref.<他人の名>.jp、内部のポートは通さない）", async () => {
+    const h = harness({});
+    await checkEntrances([seed("01", "https://www.pref.hokkaido.lg.jp/a.html")], h.deps);
+    const allowed = h.calls[0]!.allowed;
+    expect(allowed("https://evilpref.example.jp/")).toBe(false);
+    expect(allowed("https://evilpref.aichi.jp/")).toBe(false);
+    expect(allowed("https://pref.attacker.jp/")).toBe(false);
+    expect(allowed("https://www.pref.attacker.lg.jp/")).toBe(false);
+    expect(allowed("https://evil-metro.tokyo.lg.jp/")).toBe(false);
+    expect(allowed("https://www.pref.aichi.jp:8080/")).toBe(false);
+    expect(allowed("http://www.pref.aichi.jp:8080/")).toBe(false);
+    expect(allowed("https://www.pref.aichi.jp:443/x")).toBe(true);
+    expect(allowed("http://www.pref.aichi.jp:80/x")).toBe(true);
+    expect(allowed("https://pref.aichi.jp/x")).toBe(true);
+  });
+
   it("語がなければ hasHpaiWord は false（学校の臨時休業だけの本文など）。RSS は題と項目から読む", async () => {
     const h = harness({
       "https://www.pref.hokkaido.lg.jp/a.html": okHtml("お知らせ", "<p>学校の臨時休業について</p>"),
@@ -392,5 +408,11 @@ describe(".claude/skills/entrance-check/SKILL.md", () => {
     for (const s of ["名乗", "robots.txt", "1.2 秒", "再試行", "TLS", "運営者の承認"]) expect(text).toContain(s);
     expect(text).toMatch(/見回り先を勝手に変えない/);
     expect(text).toContain("取得できることと、県の発生を見分けられることは別");
+  });
+
+  it("TLS の握手を 1 回追加で試すこと（再試行ではない唯一の通信）と、47 の県のドメインに限ることを書く", () => {
+    expect(text).toMatch(/握手を 1 回だけ追加で試す/);
+    expect(text).toMatch(/47 の公式のドメイン/);
+    expect(text).toMatch(/ポートは 80、443 だけ/);
   });
 });

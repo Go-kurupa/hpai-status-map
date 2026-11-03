@@ -202,7 +202,7 @@ export interface BuildReport {
   reached: number;
   cloudUnreached: number;
   tlsUnreached: number;
-  /** 届いたが内容が違う行（reached_no_content）。行は動かさない。 */
+  /** 届いたが語がなかった行（reached_no_content）。課のトップなど、平時は正常な入口もある。行は動かさない。 */
   noContent: string[];
   /** 方針で取れない行（robots_denied、not_allowed）。表の間違いなので、直してから作り直す。 */
   policyDenied: string[];
@@ -220,7 +220,7 @@ function withUnreached(seed: SourceSeed, text: string): SourceSeed {
   return { ...seed, note: joined.length <= NOTE_MAX ? joined : text };
 }
 
-/** 国 3 行、12 県 36 行、35 県の行の順に並べた見回り先を作る。 */
+/** 国 3 行の次に県コード順。同じ県の中は 35 県の行、12 県の表の順に並べた見回り先を作る。 */
 export function buildSources(permanentTsv: string, opts: BuildOptions = {}): { seeds: SourceSeed[]; report: BuildReport } {
   const all: SourceSeed[] = [...NATIONAL_SEEDS, ...seedsFromPermanent(permanentTsv), ...TWELVE_SEEDS];
 
