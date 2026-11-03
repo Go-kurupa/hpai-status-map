@@ -61,13 +61,17 @@ const RE_EMAIL = /[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}
 const RE_PHONE = /0[0-9]{1,4}-[0-9]{1,4}-[0-9]{3,4}/g;
 const RE_QUOTE = /"quote"\s*:/;
 
+// 例示用に予約されたドメイン（RFC 2606）。実在の人のアドレスではない
+const EXAMPLE_DOMAINS = new Set(["example.com", "example.jp", "example.org", "example.net"]);
+const RESERVED_TLDS = new Set(["test", "invalid", "example", "localhost"]);
+
 function emailHit(line) {
   if (!line.includes("@")) return false;
   for (const m of line.matchAll(RE_EMAIL)) {
     const s = m[0].toLowerCase();
     const domain = s.slice(s.indexOf("@") + 1);
     if (s === "noreply" + "@anthropic.com") continue;
-    if (domain === "example.com" || domain === "example.jp") continue;
+    if (EXAMPLE_DOMAINS.has(domain) || RESERVED_TLDS.has(domain.slice(domain.lastIndexOf(".") + 1))) continue;
     return true;
   }
   return false;

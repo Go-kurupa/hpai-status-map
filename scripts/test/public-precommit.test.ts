@@ -181,6 +181,21 @@ describe("内容の検査", () => {
     expect(r.status).toBe(0);
   });
 
+  it("予約済みの例示用ドメインは止めない。似た名前の実在風のドメインは止める", () => {
+    stage({
+      "a.md": ["a", "b", "c", "d", "e"]
+        .map((u, i) => u + "@" + ["example.test", "example.invalid", "example.org", "mail.example", "host.localhost"][i])
+        .join("\n") + "\n",
+    });
+    expect(runHook(COMMIT).stderr).toBe("");
+
+    git(["reset", "-q"]);
+    stage({ "b.md": [["x", "notexample.org"], ["y", "example.org.co.jp"], ["z", "example.test.co.jp"]].map((p) => p.join("@")).join("\n") + "\n" });
+    const r = runHook(COMMIT);
+    expect(r.status).toBe(2);
+    for (const n of [1, 2, 3]) expect(r.stderr).toContain(`b.md:${n}:email`);
+  });
+
   it("除外の語と一緒の行でも、別の本物は止める", () => {
     stage({ "a.md": `dummy@example.com and ${EMAIL}\n` });
     const r = runHook(COMMIT);
