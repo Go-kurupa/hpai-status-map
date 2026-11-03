@@ -295,7 +295,7 @@ function summarizeWatch(all: readonly WatchStatus[], now: Date): WatchSummary; /
 type FetchOutcome =
   | { kind: "ok"; status: number; finalUrl: string; contentType: string; body: Buffer; etag: string | null; lastModified: string | null; fetchedAt: IsoDateTime }
   | { kind: "not_modified" } | { kind: "robots_denied" } | { kind: "not_allowed"; url: string }
-  | { kind: "http_error"; status: number }
+  | { kind: "http_error"; status: number; code?: string } // code は robots.txt の取得の失敗のときだけ "robots_unavailable"。本体の失敗には付けない
   | { kind: "network_error"; message: string; code: string | null; tls: boolean };
 function politeFetch(url: string, opts?: { etag?: string | null; lastModified?: string | null; timeoutMs?: number; allowUrl?: (url: URL) => boolean }): Promise<FetchOutcome>;
 const USER_AGENT: string; // "hpai-status-map/0.1 (+<公開リポジトリの URL>)"。同じホストの間隔 1.2 秒以上
