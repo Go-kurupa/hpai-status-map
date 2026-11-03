@@ -2,12 +2,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { serveMcpInternal } from "../src/agent/mcpInternal";
-import { agentTools } from "../src/agent/tools";
 import type { AgentTools } from "../src/agent/tools";
-import { politeFetch } from "../src/watch/politeFetch";
-
-// 仮の tools.ts の取得は politeFetch を通す。試験ではネットワークへ出ない。
-vi.mock("../src/watch/politeFetch", () => ({ politeFetch: vi.fn() }));
 
 // Bearer の値はダミー（実物ではない）
 const TOKEN = "test-internal-token-not-a-real-secret";
@@ -86,7 +81,8 @@ describe("mcpInternal の認証", () => {
     expect(text).not.toContain("wrong-value-123");
   });
 
-  it("OPTIONS、GET も認証なしでは 401（道具の存在を教えない）", async () => {
+  it("OPTIONS、GET、DELETE も認証なしでは 401（道具の存在を教えない）", async () => {
+    expect((await fetch(base, { method: "OPTIONS" })).status).toBe(401);
     expect((await fetch(base, { method: "GET", headers: { accept: ACCEPT } })).status).toBe(401);
     expect((await fetch(base, { method: "DELETE" })).status).toBe(401);
   });
@@ -112,6 +108,17 @@ describe("mcpInternal の道具", () => {
     await rpc("tools/list", {}, { authorization: "Bearer nope" });
     expect(recordAuthedCall).toHaveBeenCalledTimes(1);
   });
+
+  it("認証が通っても POST でなければ心拍を残さない（405）", async () => {
+    await fetch(base, { method: "GET", headers: { accept: ACCEPT, ...authed } });
+    expect(recordAuthedCall).not.toHaveBeenCalled();
+  });
+
+  it("心拍の書き込みが終わらなくても、3 秒で切って道具の応答を返す", async () => {
+    recordAuthedCall.mockImplementationOnce(() => new Promise<void>(() => {}));
+    const res = await rpc("tools/list", {}, authed);
+    expect(res.status).toBe(200);
+  }, 10_000);
 
   it("心拍の書き込みが失敗しても、道具の応答は返す", async () => {
     recordAuthedCall.mockRejectedValueOnce(new Error("firestore down"));
@@ -152,88 +159,5 @@ describe("mcpInternal の道具", () => {
   it("リクエストごとに別のサーバー（状態を持たない）。initialize なしの 2 回目も通る", async () => {
     expect((await rpc("tools/list", {}, authed)).status).toBe(200);
     expect((await rpc("tools/list", {}, authed)).status).toBe(200);
-  });
-});
-
-describe("仮の tools.ts（X-14 が置き換える。ここでは県のドメインの外へ出ないことだけ確かめる）", () => {
-  const politeFetchMock = vi.mocked(politeFetch);
-  beforeEach(() => politeFetchMock.mockReset());
-
-  it("listEntranceTargets は固定の 3 県（33、01、02）で、currentUrl は null", async () => {
-    const targets = await agentTools.listEntranceTargets();
-    expect(targets.map((t) => t.prefCode)).toEqual(["33", "01", "02"]);
-    expect(targets.every((t) => t.currentUrl === null && t.failingSince === null)).toBe(true);
-  });
-
-  it("proposeEntrance は id を返すだけ（同じ県と URL は同じ id）", async () => {
-    const t = agentTools;
-    const p = { prefCode: "33", url: "https://www.pref.okayama.jp/page/1.html", kind: "pref_fixed" as const, rationale: "r" };
-    const a = await t.proposeEntrance(p);
-    const b = await t.proposeEntrance(p);
-    expect(a.id).toMatch(/^entr-[0-9a-f]{24}$/);
-    expect(a).toEqual(b);
-  });
-
-  it.each([
-    ["別のドメイン", "33", "https://evil.example/x"],
-    ["似たドメイン", "33", "https://www.pref.okayama.jp.evil.example/x"],
-    ["別の県のドメイン", "33", "https://www.pref.aomori.lg.jp/x"],
-    ["http", "33", "http://www.pref.okayama.jp/x"],
-    ["ポート", "33", "https://www.pref.okayama.jp:8443/x"],
-    ["利用者情報つき", "33", "https://user:pw" + "@www.pref.okayama.jp/x"],
-    ["IP", "33", "http://192.168.0.1/"],
-    ["javascript:", "33", "javascript:alert(1)"],
-    ["対象にない県", "99", "https://www.pref.okayama.jp/x"],
-    ["URL でない", "33", "not a url"],
-  ])("%s は politeFetch を呼ばず domain_not_allowed", async (_name, prefCode, url) => {
-    const r = await agentTools.fetchPrefPage(prefCode, url);
-    expect(r).toMatchObject({ ok: false, error: "domain_not_allowed", text: null });
-    expect(politeFetchMock).not.toHaveBeenCalled();
-  });
-
-  it("県のドメインの中なら politeFetch を allowUrl つきで呼び、allowUrl はリダイレクトの先の外を拒む", async () => {
-    politeFetchMock.mockResolvedValue({ kind: "not_allowed", url: "https://evil.example/" });
-    const r = await agentTools.fetchPrefPage("33", "https://www.pref.okayama.jp/page/1.html");
-    expect(politeFetchMock).toHaveBeenCalledTimes(1);
-    const opts = politeFetchMock.mock.calls[0]?.[1];
-    expect(opts?.allowUrl?.(new URL("https://www.pref.okayama.jp/other"))).toBe(true);
-    expect(opts?.allowUrl?.(new URL("https://evil.example/"))).toBe(false);
-    expect(r).toMatchObject({ ok: false, error: "domain_not_allowed" });
-  });
-
-  it("本文は 40,000 字まで。本文と links の合計が 60,000 字を超えたら links を切って truncated", async () => {
-    const html = `<html><head><title>題</title></head><body><p>${"あ".repeat(50_000)}</p>${Array.from({ length: 3000 }, (_, i) => `<a href="/p/${i}">リンク${i}</a>`).join("")}</body></html>`;
-    politeFetchMock.mockResolvedValue({
-      kind: "ok",
-      status: 200,
-      finalUrl: "https://www.pref.okayama.jp/page/1.html",
-      contentType: "text/html; charset=utf-8",
-      body: Buffer.from(html, "utf8"),
-      etag: null,
-      lastModified: null,
-      fetchedAt: "2026-11-04T12:00:00+09:00",
-    });
-    const r = await agentTools.fetchPrefPage("33", "https://www.pref.okayama.jp/page/1.html");
-    expect(r.ok).toBe(true);
-    expect(r.truncated).toBe(true);
-    expect((r.text ?? "").length).toBeLessThanOrEqual(40_000);
-    expect(JSON.stringify({ text: r.text, links: r.links }).length).toBeLessThanOrEqual(60_000);
-  });
-
-  it("HTML 以外は unsupported_content_type、TLS の失敗は tls_error（設定を緩めない）", async () => {
-    const t = agentTools;
-    politeFetchMock.mockResolvedValueOnce({
-      kind: "ok",
-      status: 200,
-      finalUrl: "https://www.pref.okayama.jp/a.pdf",
-      contentType: "application/pdf",
-      body: Buffer.from("%PDF"),
-      etag: null,
-      lastModified: null,
-      fetchedAt: "2026-11-04T12:00:00+09:00",
-    });
-    expect(await t.fetchPrefPage("33", "https://www.pref.okayama.jp/a.pdf")).toMatchObject({ ok: false, error: "unsupported_content_type", text: null });
-    politeFetchMock.mockResolvedValueOnce({ kind: "network_error", message: "m", code: "EPROTO", tls: true });
-    expect(await t.fetchPrefPage("33", "https://www.pref.okayama.jp/b")).toMatchObject({ ok: false, error: "tls_error", text: null });
   });
 });

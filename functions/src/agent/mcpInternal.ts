@@ -65,6 +65,16 @@ export function createAgentMcpServer(tools: AgentTools): McpServer {
   return server;
 }
 
+const HEARTBEAT_TIMEOUT_MS = 3000;
+
+function withTimeout(p: Promise<void>, ms: number): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timeout")), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
+}
+
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status;
   res.setHeader("content-type", "application/json");
@@ -73,7 +83,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 
 /**
  * 認証を最初に確かめる。通らなければ 401 で、McpServer も道具も心拍も触らない。
- * 通ったら心拍を残し、`mcpInternal authed` をログに出す（X-01 の確認 G5）。トークンも本文もログに出さない。
+ * 通って POST なら心拍を残し（3 秒で切る）、`mcpInternal authed` をログに出す（X-01 の確認 G5）。トークンも本文もログに出さない。
  */
 export async function serveMcpInternal(
   req: IncomingMessage & { body?: unknown },
@@ -86,18 +96,19 @@ export async function serveMcpInternal(
     return;
   }
 
-  try {
-    await deps.recordAuthedCall(toJstIso((deps.now ?? (() => new Date()))()));
-  } catch {
-    logger.warn("mcpInternal heartbeat failed");
-  }
-  logger.info("mcpInternal authed");
-
   if (req.method !== "POST") {
     res.setHeader("allow", "POST");
     sendJson(res, 405, { error: "POST だけです" });
     return;
   }
+
+  // 心拍は POST の呼び出しだけ。書き込みが遅くても失敗しても、道具の応答は止めない（HEARTBEAT_TIMEOUT_MS で切る）。
+  try {
+    await withTimeout(deps.recordAuthedCall(toJstIso((deps.now ?? (() => new Date()))())), HEARTBEAT_TIMEOUT_MS);
+  } catch {
+    logger.warn("mcpInternal heartbeat failed");
+  }
+  logger.info("mcpInternal authed");
 
   const server = createAgentMcpServer(deps.tools);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
