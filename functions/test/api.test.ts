@@ -257,11 +257,11 @@ describe("公開しない項目", () => {
     }
   });
 
-  it("Firestore の読み取りが失敗したら 500（空の一覧を 200 で返さない）。中身は出さない", async () => {
+  it("Firestore の読み取りが失敗したら 503（空の一覧を 200 で返さない）。中身は出さない", async () => {
     const { deps } = await makeDeps();
     const broken: ApiDeps = { ...deps, watchStatuses: async () => { throw new Error("SECRET-DETAIL"); } };
     const r = await get(broken, "/api/v1/cases");
-    expect(r.status).toBe(500);
+    expect(r.status).toBe(503);
     expect(JSON.stringify(r.body)).not.toContain("SECRET-DETAIL");
     expect(r.headers["Cache-Control"]).toBe("no-store");
   });

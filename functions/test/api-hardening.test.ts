@@ -3,12 +3,12 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCache } from "../src/api/cache";
-import { handleApi, serveApi, type ApiDeps } from "../src/api/handler";
+import { clientIpOf, handleApi, serveApi, type ApiDeps } from "../src/api/handler";
 import { clientIp, createRateLimiter } from "../src/api/rateLimit";
 import { servePublicMcp } from "../src/mcp/server";
 import { NOW, freshStatuses, makeBird, makeCase, makeDeps } from "./helpers/apiDeps";
 
-type Body = { notices: string[]; sources: string[]; data: any };
+type Body = { notices: string[]; sources: string[]; dataAsOf?: string; data: any };
 const get = async (deps: ApiDeps, p: string, query: Record<string, string | undefined> = {}) => {
   const r = await handleApi({ method: "GET", path: p, query }, deps, NOW);
   return { ...r, body: r.body as Body };
@@ -57,13 +57,16 @@ describe("I-1: 回数の制限を偽れない、費用を食えない", () => {
     expect(limit("198.51.100.200", t + 60_000)).toBe("ok"); // 次の分
   });
 
-  it("数える IP の数が上限に達したら、新しい IP は断らず shed", () => {
-    const limit = createRateLimiter(60, { globalPerMinute: 1000, maxTrackedIps: 2 });
+  it("数える IP の数が上限に達したら、追跡されない IP は 1 つの共有の鍵にまとめて数える（無制限に通さない）", () => {
+    const limit = createRateLimiter(3, { globalPerMinute: 1000, maxTrackedIps: 2 });
     const t = Date.UTC(2026, 10, 4, 3, 0, 5);
     expect(limit("203.0.113.1", t)).toBe("ok");
     expect(limit("203.0.113.2", t)).toBe("ok");
-    expect(limit("203.0.113.3", t)).toBe("shed");
-    expect(limit("203.0.113.1", t)).toBe("ok");
+    expect(limit("203.0.113.3", t)).toBe("ok"); // 共有の鍵 1 回目
+    expect(limit("203.0.113.4", t)).toBe("ok");
+    expect(limit("203.0.113.5", t)).toBe("ok");
+    expect(limit("203.0.113.6", t)).toBe("ip"); // 共有の鍵が上限
+    expect(limit("203.0.113.1", t)).toBe("ok"); // 追跡済みの IP は影響されない
   });
 
   it("clientIp は右端", () => {
@@ -72,7 +75,7 @@ describe("I-1: 回数の制限を偽れない、費用を食えない", () => {
     expect(clientIp("203.0.113.9, <script>")).toBe("unknown");
   });
 
-  it("読み取りのキャッシュ: 60 秒は同じ鍵で 1 回だけ読む。過ぎたら読み直す。失敗は残さない。同時の呼び出しは 1 回", async () => {
+  it("読み取りのキャッシュ: 60 秒は同じ鍵で 1 回だけ読む。過ぎたら読み直す。失敗は 5 秒だけ覚える。同時の呼び出しは 1 回", async () => {
     let t = 1_000_000;
     let calls = 0;
     const cache = createCache(60_000, () => t);
@@ -89,7 +92,8 @@ describe("I-1: 回数の制限を偽れない、費用を食えない", () => {
         throw new Error("x");
       }),
     ).rejects.toThrow();
-    expect(await cache("f", async () => ++fails)).toBe(2); // 失敗は次で読み直す
+    t += 5_001; // 失敗は 5 秒だけ覚える。過ぎたら読み直す
+    expect(await cache("f", async () => ++fails)).toBe(2);
     let slow = 0;
     const [x, y] = await Promise.all([
       cache("s", async () => {
@@ -266,8 +270,8 @@ describe("2回目 1: 全体の上限はキャッシュから返す。IPv6 は /6
     let calls = 0;
     const cache = createCache(60_000, () => t);
     expect(await cache("k", async () => ++calls, { staleOk: true })).toBe(1); // 無ければ読む
-    t += 10 * 60_000;
-    expect(await cache("k", async () => ++calls, { staleOk: true })).toBe(1); // 古くても返す
+    t += 9 * 60_000;
+    expect(await cache("k", async () => ++calls, { staleOk: true })).toBe(1); // 10 分までは古くても返す
     expect(calls).toBe(1);
     expect(await cache("k", async () => ++calls)).toBe(2); // 通常は読み直す
     expect(await cache("k", async () => ++calls, { staleOk: true })).toBe(2);
@@ -335,5 +339,108 @@ describe("2回目 4: 形が不正で省いた記録は、件数をログに出�
     });
     for (const p of ["/api/v1/cases", "/api/v1/wild-birds", "/api/v1/areas/33203"]) expect((await get(deps, p)).body.notices.join("\n"), p).toContain(NOTE);
     expect((await get(deps, "/api/v1/cases")).body.data.map((c: { id: string }) => c.id)).toEqual(["ok"]);
+  });
+});
+
+// ── 修正 3 回目 ──
+
+describe("3回目 1: 古い答えには最大の古さ（ttl の 10 倍）がある", () => {
+  it("staleOk でも 10 分を過ぎたら読み直す。同時の読み直しは 1 回。読めなければ古い答えを返さず失敗する", async () => {
+    let t = 0;
+    let calls = 0;
+    const cache = createCache(60_000, () => t);
+    expect(await cache("k", async () => ++calls, { staleOk: true })).toBe(1);
+    t += 10 * 60_000; // ちょうど 10 分: もう古すぎる
+    const [x, y] = await Promise.all([
+      cache("k", async () => { await new Promise((r) => setTimeout(r, 10)); return ++calls; }, { staleOk: true }),
+      cache("k", async () => ++calls, { staleOk: true }),
+    ]);
+    expect([x, y, calls]).toEqual([2, 2, 2]);
+    t += 11 * 60_000;
+    await expect(cache("k", async () => { throw new Error("down"); }, { staleOk: true })).rejects.toThrow("down");
+  });
+
+  it("onRead に使った記録の読んだ時刻が渡る。古い答えは古い時刻", async () => {
+    let t = 5_000;
+    const cache = createCache(60_000, () => t);
+    const seen: number[] = [];
+    await cache("k", async () => 1, { onRead: (at) => seen.push(at) });
+    t += 5 * 60_000;
+    await cache("k", async () => 2, { staleOk: true, onRead: (at) => seen.push(at) });
+    expect(seen).toEqual([5_000, 5_000]);
+  });
+
+  it("読みの失敗は 5 秒だけ覚える。その間は読み直さず、過ぎたら読む", async () => {
+    let t = 0;
+    let calls = 0;
+    const cache = createCache(60_000, () => t);
+    const bad = async () => { calls++; throw new Error("down"); };
+    await expect(cache("k", bad)).rejects.toThrow("down");
+    await expect(cache("k", bad)).rejects.toThrow("down");
+    await expect(cache("k", bad)).rejects.toThrow("down");
+    expect(calls).toBe(1);
+    t += 5_001;
+    await expect(cache("k", bad)).rejects.toThrow("down");
+    expect(calls).toBe(2);
+    t += 5_001;
+    expect(await cache("k", async () => "ok")).toBe("ok" as never); // 直れば通る（失敗の記録は 5 秒で消える）
+  });
+
+  it("答えに読んだ時刻（dataAsOf）。60 秒より古ければ、何分前に読んだ記録かを notices に出す。読めなければ 503", async () => {
+    const { deps } = await makeDeps({ cases: [makeCase()] });
+    const fresh: ApiDeps = { ...deps, dataAt: () => NOW.getTime() - 5_000 };
+    const r1 = await get(fresh, "/api/v1/cases");
+    expect(r1.body.dataAsOf).toBe("2026-11-04T11:59:55+09:00");
+    expect(r1.body.notices.join("\n")).not.toContain("分前に読んだ");
+    const old: ApiDeps = { ...deps, dataAt: () => NOW.getTime() - 7 * 60_000 };
+    for (const p of ["/api/v1/cases", "/api/v1/areas/33203", "/api/v1/wild-birds", "/api/v1/watch-status"]) {
+      const r = await get(old, p);
+      expect(r.body.dataAsOf, p).toBe("2026-11-04T11:53:00+09:00");
+      expect(r.body.notices.join("\n"), p).toContain("7 分前に読んだ記録");
+    }
+    const r3 = await get(deps, "/api/v1/cases", { season: "2025" }); // 同梱の資料だけ: Firestore を読んでいない
+    expect(r3.body.dataAsOf).toBeUndefined();
+    const broken: ApiDeps = { ...deps, watchStatuses: async () => { throw new Error("down"); } };
+    const r4 = await get(broken, "/api/v1/cases");
+    expect(r4.status).toBe(503);
+    expect(r4.headers["Cache-Control"]).toBe("no-store");
+    expect(r4.headers["Retry-After"]).toBeDefined();
+  });
+});
+
+describe("3回目 2: shed の間も IP ごとに数え続ける", () => {
+  it("全体の枠が尽きた後も、同じ IP が上限に達したら 429（ip）", () => {
+    const limit = createRateLimiter(3, { globalPerMinute: 1 });
+    const t = Date.UTC(2026, 10, 4, 3, 0, 5);
+    expect(limit("203.0.113.1", t)).toBe("ok");
+    expect(limit("203.0.113.2", t)).toBe("shed");
+    expect(limit("203.0.113.2", t)).toBe("shed");
+    expect(limit("203.0.113.2", t)).toBe("shed");
+    expect(limit("203.0.113.2", t)).toBe("ip");
+    expect(limit("203.0.113.3", t)).toBe("shed"); // 別の IP はまだ shed
+  });
+});
+
+describe("3回目 3: 細かい直し", () => {
+  it("圧縮なしの IPv4 マップ形は IPv4 として扱う", () => {
+    expect(clientIp("0:0:0:0:0:ffff:203.0.113.9")).toBe("203.0.113.9");
+    expect(clientIp("0000:0000:0000:0000:0000:FFFF:203.0.113.9")).toBe("203.0.113.9");
+    expect(clientIp("::ffff:203.0.113.9")).toBe("203.0.113.9");
+  });
+
+  it("接続元の fallback も同じ正規化（/64、IPv4 マップ）を通る", () => {
+    const req = (addr: string) => ({ headers: {}, socket: { remoteAddress: addr } }) as never;
+    expect(clientIpOf(req("::ffff:198.51.100.7"))).toBe("198.51.100.7");
+    expect(clientIpOf(req("2001:db8:1:2:3:4:5:6"))).toBe(clientIpOf(req("2001:db8:1:2::9")));
+    expect(clientIpOf({ headers: {}, socket: {} } as never)).toBe("unknown");
+  });
+
+  it("返す href の長さも 500 字まで（非 ASCII はパーセント符号で伸びる）", async () => {
+    const wide = "https://www.maff.go.jp/" + "あ".repeat(100); // 入力は 123 字、href は 900 字を超える
+    const ok = "https://www.maff.go.jp/" + "あ".repeat(40); // href は 23 + 360 = 383 字
+    const { deps } = await makeDeps({ cases: [makeCase({ sourceUrls: [wide, ok] })] });
+    const urls = (await get(deps, "/api/v1/cases")).body.data[0].sourceUrls as string[];
+    expect(urls).toHaveLength(1);
+    expect(urls[0]!.length).toBeLessThanOrEqual(500);
   });
 });

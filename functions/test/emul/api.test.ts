@@ -120,6 +120,15 @@ describe("公開 API と公開 MCP（模擬環境の Firestore）", () => {
     expect(await readers(true).casesBySeason(2026, "33")).toBe(first); // 全体の上限のとき: 期限が過ぎていてもキャッシュから返す
     expect((await readers(true).casesBySeason(2026, "13")).map((c) => c.id)).toEqual(["c-tokyo"]); // キャッシュが無い鍵は読む
     expect((await readers(false).casesBySeason(2026, "33")).map((c) => c.id)).toContain("late");
+    // 最大の古さ（10 分）: 中なら全体の上限のとき古くても返し、時刻はキャッシュの実際の時刻。過ぎたら読み直す
+    const stale = readers(true);
+    const at = t;
+    await db.doc("cases/later").set(makeCase({ id: "later" }));
+    t += 9 * 60_000;
+    expect((await stale.casesBySeason(2026, "33")).map((c) => c.id)).not.toContain("later");
+    expect(stale.dataAt()).toBe(at);
+    t += 2 * 60_000;
+    expect((await readers(true).casesBySeason(2026, "33")).map((c) => c.id)).toContain("later");
   });
 
   it("過去のシーズンは同梱の資料から（2025 は 24 件）", async () => {

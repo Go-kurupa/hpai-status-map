@@ -6,6 +6,7 @@ import {
   API_MIN_SEASON,
   baseNotices,
   DROPPED_NOTICE,
+  staleNotice,
   isCaseVisible,
   toPublicCase,
   toPublicWildBird,
@@ -36,6 +37,8 @@ export interface ApiDeps {
   watchStatuses(): Promise<WatchStatus[]>;
   history: readonly HistoryCase[];
   geo: GeoStore;
+  /** この要求で Firestore から読んだ記録のうち最も古いものの読んだ時刻（ミリ秒）。読んでいなければ undefined。 */
+  dataAt?(): number | undefined;
 }
 
 export interface ApiResult {
@@ -62,6 +65,18 @@ const contextOf = (d: ApiDeps): PublicContext => ({
 
 const nonNull = <T>(x: T | null): x is T => x !== null;
 
+/** 答えに、記録を読んだ時刻（キャッシュの実際の時刻）を添える。60 秒より古ければ、何分前かの一文も。 */
+function stamp<T extends { notices: string[]; dataAsOf?: string }>(d: ApiDeps, env: T, now: Date): T {
+  const at = d.dataAt?.();
+  if (at === undefined) return env;
+  const ageMs = now.getTime() - at;
+  return {
+    ...env,
+    dataAsOf: toJstIso(new Date(at)),
+    notices: ageMs > 60_000 ? [...env.notices, staleNotice(Math.floor(ageMs / 60_000))] : env.notices,
+  };
+}
+
 /** 形が不正で省いた記録があれば、件数だけをログに出し（中身は出さない）、答えに一文を足す。 */
 function withDropped(notices: string[], dropped: number, endpoint: string): string[] {
   if (dropped <= 0) return notices;
@@ -86,13 +101,17 @@ export async function buildCases(d: ApiDeps, q: { season: Season; pref: PrefCode
   const shown = all.filter((c) => c.season === q.season && isCaseVisible(c, now)).sort(newestFirst);
   const data: ApiCase[] = shown.map((c) => toPublicCase(c, ctx)).filter(nonNull);
   const notices = withDropped([...baseNotices(), ...(isCurrent ? [] : [FIXED_TEXT.pastDisclaimer]), ...(watch ? [watchNotice(watch.summary)] : [])], shown.length - data.length, "cases");
-  return {
-    asOf: toJstIso(now),
-    notices,
-    sources: uniq(data.flatMap((c) => c.sourceUrls)),
-    ...(watch ? { watch: watch.summary } : {}),
-    data,
-  };
+  return stamp(
+    d,
+    {
+      asOf: toJstIso(now),
+      notices,
+      sources: uniq(data.flatMap((c) => c.sourceUrls)),
+      ...(watch ? { watch: watch.summary } : {}),
+      data,
+    },
+    now,
+  );
 }
 
 /** その市町村の状態。地点がないので距離を見ない。知らない市町村コード（政令市の区など）は null。 */
@@ -119,23 +138,31 @@ export async function buildArea(d: ApiDeps, muniCode: MuniCode, now: Date): Prom
     notices.push(`${prefNameOf(status.prefCode)}の見回りは直近で確認できていません。この町の状況は、県の連絡で確かめてください。`);
   }
 
-  return {
-    asOf: status.asOf,
-    notices: withDropped(notices, allCases.length - cases.length + (allBirds.length - wildBirds.length), "areas"),
-    sources: sourceUrls,
-    watch: watch.summary,
-    data: { ...status, sameMuniCases, adjacentCases, wildBirds: birds, sourceUrls },
-  };
+  return stamp(
+    d,
+    {
+      asOf: status.asOf,
+      notices: withDropped(notices, allCases.length - cases.length + (allBirds.length - wildBirds.length), "areas"),
+      sources: sourceUrls,
+      watch: watch.summary,
+      data: { ...status, sameMuniCases, adjacentCases, wildBirds: birds, sourceUrls },
+    },
+    now,
+  );
 }
 
 export async function buildWatch(d: ApiDeps, now: Date): Promise<ApiWatch> {
   const { rows, summary } = await loadWatch(d, now);
-  return {
-    asOf: summary.asOf,
-    notices: [...baseNotices(), watchNotice(summary)],
-    sources: [],
-    data: { ...summary, prefectures: rows },
-  };
+  return stamp(
+    d,
+    {
+      asOf: summary.asOf,
+      notices: [...baseNotices(), watchNotice(summary)],
+      sources: [],
+      data: { ...summary, prefectures: rows },
+    },
+    now,
+  );
 }
 
 export async function buildWildBirds(d: ApiDeps, season: Season, now: Date): Promise<ApiWildBirds> {
@@ -147,13 +174,13 @@ export async function buildWildBirds(d: ApiDeps, season: Season, now: Date): Pro
     .sort((a, b) => (a.date !== b.date ? (a.date < b.date ? 1 : -1) : a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     .map((b) => toPublicWildBird(b, ctx))
     .filter(nonNull);
-  return {
+  return stamp(d, {
     asOf: toJstIso(now),
     notices: withDropped([...baseNotices(), ...(isCurrent ? [] : [FIXED_TEXT.pastDisclaimer]), ...(watch ? [watchNotice(watch.summary)] : [])], candidates.length - data.length, "wild-birds"),
     sources: uniq(data.map((b) => b.sourceUrl)),
     ...(watch ? { watch: watch.summary } : {}),
     data,
-  };
+  }, now);
 }
 
 // ── 経路 ──
@@ -206,8 +233,9 @@ export async function handleApi(
     return fail(404, "not_found", "知らない path です");
   } catch (e) {
     // 中身（Firestore の応答、文書の内容）はログにも応答にも出さない。空の一覧を 200 で返さない。
+    // 読み取りの失敗は 503（古い「確認済み」や空の一覧を返し続けない）。
     logger.error("api failed", { name: e instanceof Error ? e.name : "unknown" });
-    return fail(500, "internal", "内部エラーです。時間をおいてやり直してください");
+    return fail(503, "unavailable", "データを読めませんでした。時間をおいてやり直してください", { "Retry-After": "30" });
   }
 }
 
@@ -250,7 +278,7 @@ export interface ServeApiContext {
 /** 数える相手の IP。X-Forwarded-For の右端（Google の前段が付けた側）、なければ接続元。 */
 export function clientIpOf(req: IncomingMessage): string {
   const forwarded = clientIp(req.headers["x-forwarded-for"]);
-  return forwarded !== "unknown" ? forwarded : (req.socket?.remoteAddress ?? "unknown");
+  return forwarded !== "unknown" ? forwarded : clientIp(req.socket?.remoteAddress); // 接続元も同じ正規化（/64、IPv4 マップ）を通す
 }
 
 export async function serveApi(req: ApiRequestLike, res: ServerResponse, ctx: ServeApiContext): Promise<void> {

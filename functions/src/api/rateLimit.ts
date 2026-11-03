@@ -16,11 +16,13 @@ const MAX_TRACKED_IPS = 10_000;
 /** ok: 通す。ip: その IP の上限を超えた（429）。shed: インスタンス全体の枠が尽きた（断らず、キャッシュから返す）。 */
 export type RateDecision = "ok" | "ip" | "shed";
 
+/** 追跡の上限を超えた IP をまとめて数える鍵。 */
+const OVERFLOW_KEY = "\u0000overflow";
+
 /**
- * (ip, nowMs) => 判定。同じ分の中で IP ごとに limitPerMinute 回までは ok、それを超えたら ip（IP ごとの数えは best-effort）。
- * インスタンス全体が globalPerMinute 回に達したか、数える IP が上限に達したら shed。誰かが全員を止められないよう、
- * shed は断らずにキャッシュから答える（呼び出し側。キャッシュがなければ読む）。
- * 全体の枠は IP の上限を通った要求だけが使う。1 つの IP は全体の枠を IP の上限までしか使えない。
+ * (ip, nowMs) => 判定。IP ごとに、同じ分の中で limitPerMinute 回まで数える（shed の間も数え続ける）。超えたら ip（429、best-effort）。
+ * インスタンス全体が globalPerMinute 回に達していたら shed。誰かが全員を止められないよう、shed は断らずにキャッシュから答える。
+ * 全体の枠は IP の上限の中の要求だけが使う。数える IP が上限に達したら、追跡されない IP は 1 つの共有の鍵にまとめて数える。
  */
 export function createRateLimiter(limitPerMinute: number, opts: RateLimitOptions = {}): (ip: string, nowMs: number) => RateDecision {
   const globalLimit = opts.globalPerMinute ?? INSTANCE_LIMIT_PER_MINUTE;
@@ -35,16 +37,11 @@ export function createRateLimiter(limitPerMinute: number, opts: RateLimitOptions
       counts = new Map();
       total = 0;
     }
-    const n = counts.get(ip);
-    if (n !== undefined && n >= limitPerMinute) return "ip";
-    if (limitPerMinute < 1) return "ip";
+    const key = counts.has(ip) || counts.size < maxTracked ? ip : OVERFLOW_KEY;
+    const n = counts.get(key) ?? 0;
+    if (n >= limitPerMinute) return "ip";
+    counts.set(key, n + 1);
     if (total >= globalLimit) return "shed";
-    if (n === undefined) {
-      if (counts.size >= maxTracked) return "shed";
-      counts.set(ip, 1);
-    } else {
-      counts.set(ip, n + 1);
-    }
     total++;
     return "ok";
   };
@@ -67,7 +64,7 @@ function v6Prefix64(ip: string): string {
 export function clientIp(xForwardedFor: string | string[] | undefined): string {
   const raw = Array.isArray(xForwardedFor) ? xForwardedFor.join(",") : xForwardedFor;
   const parts = raw?.split(",").map((x) => x.trim()).filter((x) => x !== "") ?? [];
-  const last = (parts[parts.length - 1] ?? "").replace(/^::ffff:/i, "");
+  const last = (parts[parts.length - 1] ?? "").replace(/^(?:(?:0{1,4}:){5}|::)ffff:/i, "");
   const kind = isIP(last);
   return kind === 4 ? last : kind === 6 ? v6Prefix64(last) : "unknown";
 }

@@ -44,20 +44,31 @@ export const READ_CACHE_MS = 60_000;
  * (cacheOnly) => 読み口。cacheOnly のときは、期限が過ぎていてもキャッシュにあれば返し、Firestore を読まない
  * （インスタンス全体の上限のとき。キャッシュが無い最初の 1 回だけ読む）。
  */
-export function cachedReaders(readers: typeof firestoreReaders, nowMs: () => number = Date.now): (cacheOnly: boolean) => typeof firestoreReaders {
+export function cachedReaders(
+  readers: typeof firestoreReaders,
+  nowMs: () => number = Date.now,
+): (cacheOnly: boolean) => typeof firestoreReaders & { dataAt(): number | undefined } {
   const cache = createCache(READ_CACHE_MS, nowMs);
   return (cacheOnly) => {
-    const o = { staleOk: cacheOnly };
+    // 要求ごとに 1 つ作る。使った記録の中で最も古い読んだ時刻を覚える。
+    let oldest: number | undefined;
+    const o = {
+      staleOk: cacheOnly,
+      onRead: (at: number) => {
+        oldest = oldest === undefined ? at : Math.min(oldest, at);
+      },
+    };
     return {
       casesBySeason: (season, pref) => cache(`cases:${season}:${pref ?? "all"}`, () => readers.casesBySeason(season, pref), o),
       wildBirdsBySeason: (season) => cache(`birds:${season}`, () => readers.wildBirdsBySeason(season), o),
       watchStatuses: () => cache("watch", () => readers.watchStatuses(), o),
+      dataAt: () => oldest,
     };
   };
 }
 
 /** 実際の依存。地図の索引と過去の資料は 1 度読んで使い回す（失敗したら捨てて、次の呼び出しでやり直す）。 */
-export function createFirestoreDeps(opts: { geoDir?: string; historyFile?: string; readers?: (cacheOnly: boolean) => typeof firestoreReaders } = {}): (o?: { cacheOnly?: boolean }) => Promise<ApiDeps> {
+export function createFirestoreDeps(opts: { geoDir?: string; historyFile?: string; readers?: (cacheOnly: boolean) => typeof firestoreReaders & { dataAt?(): number | undefined } } = {}): (o?: { cacheOnly?: boolean }) => Promise<ApiDeps> {
   const readers = opts.readers ?? cachedReaders(firestoreReaders);
   let base: Promise<Pick<ApiDeps, "history" | "geo">> | null = null;
   return async (o) => {
