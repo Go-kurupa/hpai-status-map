@@ -1,5 +1,12 @@
-import { Placeholder } from "../../ui/Placeholder";
+import { RequireMember } from "../auth/RequireMember";
+import { DisinfectionPanel } from "./DisinfectionPanel";
+import { RecordTabs } from "./RecordTabs";
 
 export default function DisinfectionPage() {
-  return <Placeholder title="消毒の記録" />;
+  return (
+    <RequireMember>
+      <RecordTabs />
+      <DisinfectionPanel />
+    </RequireMember>
+  );
 }

@@ -1,5 +1,12 @@
-import { Placeholder } from "../../ui/Placeholder";
+import { RequireMember } from "../auth/RequireMember";
+import { RecordTabs } from "./RecordTabs";
+import { SelfCheckPanel } from "./SelfCheckPanel";
 
 export default function SelfCheckPage() {
-  return <Placeholder title="自己点検" />;
+  return (
+    <RequireMember>
+      <RecordTabs />
+      <SelfCheckPanel />
+    </RequireMember>
+  );
 }

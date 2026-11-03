@@ -1,5 +1,12 @@
-import { Placeholder } from "../../ui/Placeholder";
+import { RequireMember } from "../auth/RequireMember";
+import { DeathsPanel } from "./DeathsPanel";
+import { RecordTabs } from "./RecordTabs";
 
 export default function DeathsPage() {
-  return <Placeholder title="死亡数の記録" />;
+  return (
+    <RequireMember>
+      <RecordTabs />
+      <DeathsPanel />
+    </RequireMember>
+  );
 }

@@ -1,5 +1,12 @@
-import { Placeholder } from "../../ui/Placeholder";
+import { RequireMember } from "../auth/RequireMember";
+import { ExportPanel } from "./ExportPanel";
+import { RecordTabs } from "./RecordTabs";
 
 export default function RecordPage() {
-  return <Placeholder title="記録" />;
+  return (
+    <RequireMember>
+      <RecordTabs />
+      <ExportPanel />
+    </RequireMember>
+  );
 }

@@ -9,6 +9,15 @@ export async function redeemInviteCall(code: string): Promise<{ farmId: string |
   return res.data;
 }
 
+/** 農場の全データを消す（その農場の会員だけ。取り消せない）。農場の名前が合わなければ失敗する */
+export async function deleteFarmDataCall(farmId: string, confirmName: string): Promise<void> {
+  const { functions } = await getFirebase();
+  await httpsCallable<{ farmId: string; confirmName: string }, { deleted: true }>(functions, "deleteFarmData")({
+    farmId,
+    confirmName,
+  });
+}
+
 /** 農場に会員を足す招待リンクを作る（その農場の会員だけ） */
 export async function createFarmInviteCall(farmId: string): Promise<{ code: string; url: string }> {
   const { functions } = await getFirebase();
