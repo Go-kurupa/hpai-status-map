@@ -225,6 +225,33 @@ describe("事例への流し込み", () => {
     expect(await listIds("cases")).toEqual([third.id, "rev-d1"].sort());
   });
 
+  it("判断のあとに同じ事例ができたら、書く時に今の状態で時系列の検査をやり直し、通らなければ確認中にする", async () => {
+    await setSettings({ autoPublishEnabled: true });
+    // 読んだ時点では 胎内に事例がなく new。書く前に別の文書が 3 例目の確定 11/4 を作る
+    const third = realCase({ id: "15227-2025-11-04-1", prefCode: "15", muniCode: "15227", muniName: "胎内市", nationalNo: 3, stages: { confirmed: { date: "2025-11-04", time: null } } });
+    const sentence = sentenceOf({ pref: "新潟県", muni: "胎内市", month: 11, day: 8, tail: SUSPECT_TAIL });
+    const s: Scenario = { kind: "suspected", stage: "suspected", pref: "新潟県", muni: "胎内市", month: 11, day: 8, sentence };
+    await seedDoc({ id: "d1", title: TITLE, text: bodyOf(TITLE, sentence), prefCode: "15" });
+    const out = await readDocument("d1", { client: agreeing(s).client, geo, now: () => NOW, afterJudge: async () => void (await db.doc(`cases/${third.id}`).set(third)) });
+    expect(out).toMatchObject({ readState: "review_public", caseId: null });
+    expect(await getDoc(`cases/${third.id}`)).toEqual(third); // 3 例目に疑いを足していない
+    expect(await listIds("cases")).toEqual([third.id, "rev-d1"].sort());
+    expect(await getDoc("documents/d1")).toMatchObject({ readState: "review_public", reasons: ["primaryDate:chronology"] });
+    expect((await getDoc("documents/d1"))?.verify.issues).toContainEqual(expect.objectContaining({ check: "chronology", mandatory: true })); // 書いた検査の結果は、やり直したもの
+    expect(await getDoc("reviewQueue/doc-d1")).toMatchObject({ hasOutbreakWords: true, reasons: ["primaryDate:chronology"] });
+  });
+
+  it("判断のあとに何も変わらなければ、そのまま公開する（確認中に倒すのは変わったときだけ）", async () => {
+    await setSettings({ autoPublishEnabled: true });
+    await db.doc("cases/33203-2025-12-20-1").set(realCase());
+    const s1: Scenario = { ...tsuyamaConfirmed(), kind: "control_done", stage: "control_done", month: 12, day: 23, sentence: sentenceOf({ muni: "津山市", month: 12, day: 23, tail: "防疫措置を完了しました。" }) };
+    await seedDoc({ id: "d1", title: TITLE, text: bodyOf(TITLE, s1.sentence) });
+    let called = 0;
+    const out = await readDocument("d1", { client: agreeing(s1).client, geo, now: () => NOW, afterJudge: async () => void called++ });
+    expect(called).toBe(1);
+    expect(out).toMatchObject({ readState: "published", caseId: "33203-2025-12-20-1" });
+  });
+
   it("続報は同じ事例に足す（疑い → 確定）。出典が増え id は変わらない", async () => {
     await setSettings({ autoPublishEnabled: true });
     const s1: Scenario = { kind: "suspected", stage: "suspected", pref: "岡山県", muni: "津山市", month: 12, day: 19, sentence: sentenceOf({ muni: "津山市", month: 12, day: 19, tail: SUSPECT_TAIL }) };

@@ -25,6 +25,8 @@ export interface PipelineDeps {
   client: Anthropic;
   geo: GeoStore;
   now(): Date;
+  /** 試験用の継ぎ目: 判断を終えてから結果を書くまでの間に呼ぶ（その間に別の文書が事例を作る競合を再現する）。 */
+  afterJudge?: () => Promise<void>;
 }
 
 export type ReadOutcome = { status: "skipped" } | { status: "done"; readState: ReadState; caseId: string | null };
@@ -44,6 +46,25 @@ interface Outcome {
   /** 事例の計画に渡す、照合を通った値。 */
   normalized: NormalizedRead | null;
   error: string | null;
+  /** 発生を示す語が題か本文にある（書く時に判断を確認中へ倒すとき、公開にするかを決める）。 */
+  outbreak: boolean;
+  /**
+   * 時系列の検査（verifyRead の previous）に使った事例の状態の印。書く時にトランザクションで読み直した状態と違えば、redo で検査をやり直す。
+   * null は検査の対象ではない（段階がない、事例の種類ではない）。
+   */
+  judgedKey: string | null;
+  /** previous を替えて照合と判断をやり直す（純粋。トランザクションの中で呼ぶ）。 */
+  redo: ((previous: Case | null) => { verify: VerifyReport; decision: PublishDecision; normalized: NormalizedRead | null }) | null;
+}
+
+/** 事例の状態の印（id と段階の日付）。なければ "none"。 */
+export function caseStateKey(c: Case | null): string {
+  if (c === null) return "none";
+  const stages = Object.entries(c.stages)
+    .map(([stage, stamp]) => `${stage}@${stamp?.date ?? ""}`)
+    .sort()
+    .join(",");
+  return `${c.id}|${stages}`;
 }
 
 /** 文書の本文（raw/{id}.txt。PDF は文字層）と PDF。取れなければ空と null（読めなかったことは判断が確認中に倒す）。 */
@@ -104,7 +125,7 @@ async function judge(rec: DocumentRecord, deps: PipelineDeps, now: Date, setting
     const budgetReason = budget === "stop" ? "budget_stop" : "budget_skip_progress";
     const d = decidePublication({ read: null, verify: null, compare: null, hasTextLayer: rec.hasTextLayer, docText, autoPublishEnabled: settings.autoPublishEnabled });
     const decision = d.action === "publish" || d.action === "discard" ? d : { ...d, reasons: [budgetReason] };
-    return { read: null, second: null, verify: null, compare: null, decision, normalized: null, error: null };
+    return { read: null, second: null, verify: null, compare: null, decision, normalized: null, error: null, outbreak: hasOutbreakWords(docText), judgedKey: null, redo: null };
   }
 
   // 両方の読み手を同時に呼ぶ。別の読み手には主の結果を渡さない（同じ入力だけ）
@@ -116,24 +137,33 @@ async function judge(rec: DocumentRecord, deps: PipelineDeps, now: Date, setting
   const second = s.ok ? s.value : null;
   const error = !p.ok ? failureCode(p) : !s.ok ? `second:${failureCode(s)}` : null;
 
+  const compare = read !== null && second !== null ? compareReads(read, second) : null;
   let verify: VerifyReport | null = null;
+  let judgedKey: string | null = null;
+  let redo: Outcome["redo"] = null;
   if (read !== null) {
     const season = seasonOf(jstDateOf(new Date(rec.fetchedAt)));
     const doc = { text, hasTextLayer: rec.hasTextLayer, season };
     // announcedOn（発表日）はまだ保存されていないので渡さない。「本日」だけの引用は確認中に回る（安全な側）
     const opts = { sourcePrefCode: await sourcePrefCodeOf(rec) };
     verify = verifyRead(read, doc, deps.geo, null, opts);
+    redo = (previous) => {
+      const v = verifyRead(read, doc, deps.geo, previous, opts);
+      const d = decidePublication({ read, verify: v, compare, hasTextLayer: rec.hasTextLayer, docText, autoPublishEnabled: settings.autoPublishEnabled });
+      return { verify: v, decision: d, normalized: v.normalized };
+    };
     const n = verify.normalized;
     if (verify.pass && n !== null && CASE_KINDS.has(n.kind) && n.prefCode !== null && n.muniCode !== null && n.primaryStamp !== null && n.primaryStage !== null) {
       // 同じ事例の続報なら、前の事例を渡して時系列を見直す
       const existing = await casesOf(n.prefCode, seasonOf(n.primaryStamp.date));
       const m = matchCase({ prefCode: n.prefCode, muniCode: n.muniCode, date: n.primaryStamp.date, nationalNo: n.nationalNo, stage: n.primaryStage }, existing);
-      if (m.kind === "same") verify = verifyRead(read, doc, deps.geo, existing.find((c) => c.id === m.caseId) ?? null, opts);
+      const previous = m.kind === "same" ? (existing.find((c) => c.id === m.caseId) ?? null) : null;
+      judgedKey = caseStateKey(previous);
+      if (previous !== null) verify = verifyRead(read, doc, deps.geo, previous, opts);
     }
   }
-  const compare = read !== null && second !== null ? compareReads(read, second) : null;
   const decision = decidePublication({ read, verify, compare, hasTextLayer: rec.hasTextLayer, docText, autoPublishEnabled: settings.autoPublishEnabled });
-  return { read, second, verify, compare, decision, normalized: verify?.normalized ?? null, error };
+  return { read, second, verify, compare, decision, normalized: verify?.normalized ?? null, error, outbreak: hasOutbreakWords(docText), judgedKey, redo };
 }
 
 /**
@@ -174,7 +204,25 @@ async function finalize(rec: DocumentRecord, o: Outcome, now: Date): Promise<{ r
       const snap = await tx.get(db.collection("cases").where("prefCode", "==", n.prefCode).where("season", "==", seasonOf(n.primaryStamp.date)));
       existing = snap.docs.map((d) => d.data() as Case);
     }
-    const plan: ApplyPlan = planApply({ doc: rec, decision: o.decision, normalized: n, existing, now });
+    // 判断のあとに同じ事例が変わっていたら、今の状態で時系列の検査と判断をやり直す（通らなければ確認中になる）
+    let decision = o.decision;
+    let verify = o.verify;
+    let normalized = n;
+    if (decision.action === "publish" && n !== null && o.judgedKey !== null && n.prefCode !== null && n.muniCode !== null && n.primaryStamp !== null) {
+      const m = matchCase({ prefCode: n.prefCode, muniCode: n.muniCode, date: n.primaryStamp.date, nationalNo: n.nationalNo, stage: n.primaryStage }, existing);
+      const previousNow = m.kind === "same" ? (existing.find((c) => c.id === m.caseId) ?? null) : null;
+      if (caseStateKey(previousNow) !== o.judgedKey) {
+        if (o.redo !== null) {
+          const r = o.redo(previousNow);
+          decision = r.decision;
+          verify = r.verify;
+          normalized = r.normalized;
+        } else {
+          decision = { action: o.outbreak ? "review_public" : "review_private", reasons: ["case_changed_during_read"] }; // やり直せないときは確認中
+        }
+      }
+    }
+    const plan: ApplyPlan = planApply({ doc: rec, decision, normalized, existing, now });
     const boxSnaps = await Promise.all(plan.reviews.map((item) => tx.get(db.doc(`reviewQueue/${item.id}`))));
 
     // 書き
@@ -187,7 +235,7 @@ async function finalize(rec: DocumentRecord, o: Outcome, now: Date): Promise<{ r
       readState: plan.readState,
       primary: o.read,
       second: o.second,
-      verify: o.verify,
+      verify,
       compare: o.compare,
       caseId: plan.caseId,
       error: o.error,
@@ -218,13 +266,14 @@ export async function readDocument(docId: string, deps: PipelineDeps): Promise<R
     const body = await loadBody(rec);
     text = body.text;
     const outcome = await judge(rec, deps, now, settings, body.text, body.pdfBase64);
+    await deps.afterJudge?.();
     const done = await finalize(rec, outcome, now);
     return { status: "done", ...done };
   } catch (e) {
     logger.error("読み取りの流れが失敗したので確認中に倒します", { documentId: docId, message: errMessage(e) });
     const outbreak = hasOutbreakWords(`${rec.title}\n${text}`);
     const decision: PublishDecision = { action: outbreak ? "review_public" : "review_private", reasons: ["pipeline_error"] };
-    const done = await finalize(rec, { read: null, second: null, verify: null, compare: null, decision, normalized: null, error: "pipeline_error" }, now);
+    const done = await finalize(rec, { read: null, second: null, verify: null, compare: null, decision, normalized: null, error: "pipeline_error", outbreak, judgedKey: null, redo: null }, now);
     return { status: "done", ...done };
   }
 }
