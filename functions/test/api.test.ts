@@ -198,12 +198,12 @@ describe("否定と野鳥と確認状況", () => {
 
   it("確認中は県名、確認中、リンクだけ。市町村、日付、羽数、用途を出さない", async () => {
     const { deps } = await makeDeps({
-      cases: [makeCase({ id: "rev-x", confirmState: "reviewing", muniCode: null, muniName: null, headCount: 5000, birdUse: "採卵鶏", sourceUrls: ["https://www.pref.example.jp/a"] })],
+      cases: [makeCase({ id: "rev-x", confirmState: "reviewing", muniCode: null, muniName: null, headCount: 5000, birdUse: "採卵鶏", sourceUrls: ["https://www.pref.okayama.jp/a"] })],
     });
     const r = await get(deps, "/api/v1/cases");
     expect(r.body.data).toHaveLength(1);
     expect(r.body.data[0]).toMatchObject({
-      id: "rev-x", prefCode: "33", confirmState: "reviewing", sourceUrls: ["https://www.pref.example.jp/a"],
+      id: "rev-x", prefCode: "33", confirmState: "reviewing", sourceUrls: ["https://www.pref.okayama.jp/a"],
       muniCode: null, muniName: null, headCount: null, birdUse: null, housing: null, stages: {}, updatedAt: null, negation: "none",
     });
     expect(JSON.stringify(r.body)).not.toContain("採卵鶏");
@@ -226,7 +226,7 @@ describe("否定と野鳥と確認状況", () => {
     expect(r.body.data.okCount).toBe(44);
     expect(r.body.data.failedCount).toBe(3);
     expect(r.body.data.failedPrefCodes).toEqual(["04", "46", "47"]);
-    expect(r.body.data.prefectures[46]).toEqual({ prefCode: "47", checkedAt: null, ok: false, lastOkAt: null, failingSince: null });
+    expect(r.body.data.prefectures[46]).toEqual({ prefCode: "47", checkedAt: null, ok: false, confirmed: false, lastOkAt: null, failingSince: null });
   });
 });
 
@@ -277,8 +277,8 @@ describe("回数の制限", () => {
     expect(limit("203.0.113.1", t + 60_000)).toBe(true);
   });
 
-  it("clientIp は X-Forwarded-For の先頭。IP の形でなければ unknown", () => {
-    expect(clientIp("203.0.113.9, 10.0.0.1")).toBe("203.0.113.9");
+  it("clientIp は X-Forwarded-For の右端。IP の形でなければ unknown", () => {
+    expect(clientIp("203.0.113.9, 10.0.0.1")).toBe("10.0.0.1"); // 右端。前段（Google）が付けた側。先頭は送り手が偽れる
     expect(clientIp("::ffff:203.0.113.9")).toBe("203.0.113.9");
     expect(clientIp("2001:db8::1")).toBe("2001:db8::1");
     expect(clientIp("<script>")).toBe("unknown");

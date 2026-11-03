@@ -4,7 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addDays } from "@hpai/shared/dates";
 import { db } from "../../src/admin";
-import { createFirestoreDeps } from "../../src/api/firestoreDeps";
+import { cachedReaders, createFirestoreDeps, firestoreReaders } from "../../src/api/firestoreDeps";
 import { handleApi, type ApiDeps } from "../../src/api/handler";
 import { createPublicMcpServer } from "../../src/mcp/server";
 import { FORBIDDEN_KEYS, GEO_DIR, HISTORY_FILE, NOW, findKeys, freshStatuses, makeBird, makeCase } from "../helpers/apiDeps";
@@ -101,6 +101,23 @@ describe("公開 API と公開 MCP（模擬環境の Firestore）", () => {
     expect(w.data.prefectures).toHaveLength(47);
     expect(w.data.okCount).toBe(46);
     expect(w.data.failedPrefCodes).toEqual(["33"]);
+  });
+
+  it("読み取りは公開の項目だけを Firestore から読む（.select()）。60 秒は同じ読み取りを使い回す", async () => {
+    await seed();
+    await db.doc("cases/poison").set({ ...makeCase({ id: "poison" }), farmId: "f-marker", meshCode: "52334557", memberUids: ["u-member-1"] });
+    const raw = await firestoreReaders.casesBySeason(2026, null);
+    expect(raw.length).toBeGreaterThan(0);
+    for (const c of raw) expect(Object.keys(c).filter((k) => ["farmId", "meshCode", "memberUids", "reviewReason"].includes(k))).toEqual([]);
+    expect(Object.keys((await firestoreReaders.watchStatuses())[0]!).sort()).toEqual(["checkedAt", "failingSince", "lastOkAt", "ok", "prefCode"]);
+
+    let t = 1_000;
+    const cached = cachedReaders(firestoreReaders, () => t);
+    const first = await cached.casesBySeason(2026, "33");
+    await db.doc("cases/late").set(makeCase({ id: "late" }));
+    expect(await cached.casesBySeason(2026, "33")).toBe(first); // 60 秒の間は Firestore を読み直さない
+    t += 60_001;
+    expect((await cached.casesBySeason(2026, "33")).map((c) => c.id)).toContain("late");
   });
 
   it("過去のシーズンは同梱の資料から（2025 は 24 件）", async () => {

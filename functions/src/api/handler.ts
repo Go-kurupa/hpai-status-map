@@ -15,17 +15,19 @@ import {
   type ApiCase,
   type ApiCases,
   type ApiWatch,
+  type ApiWatchRow,
   type ApiWildBirds,
+  type PublicContext,
 } from "@hpai/shared/api";
 import { currentSeason } from "@hpai/shared/season";
 import { toJstIso } from "@hpai/shared/dates";
 import type { GeoStore } from "@hpai/shared/geo";
 import { pastCasesOf } from "@hpai/shared/history";
 import { isZoneActive, summarizeWatch, computeAreaStatus } from "@hpai/shared/level";
-import { PREFS } from "@hpai/shared/pref";
 import type { Case, HistoryCase, MuniCode, PrefCode, Season, WatchStatus, WatchSummary, WildBird } from "@hpai/shared/types";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import { clientIp, type createRateLimiter } from "./rateLimit";
+import { parseMuniCode, parsePref, parseSeason } from "./schema";
 
 export interface ApiDeps {
   casesBySeason(season: Season, pref: PrefCode | null): Promise<Case[]>;
@@ -41,43 +43,28 @@ export interface ApiResult {
   body: unknown;
 }
 
-// ── 入力の検証（API と MCP が同じものを使う） ──
-
-/** 値が文字列の 4 桁の整数で、過去の資料の最初のシーズンから今季まで。未指定は今季。不正は null。 */
-export function parseSeason(raw: unknown, now: Date): Season | null {
-  const current = currentSeason(now);
-  if (raw === undefined) return current;
-  if (typeof raw === "number") raw = String(raw);
-  if (typeof raw !== "string" || !/^\d{4}$/.test(raw)) return null;
-  const n = Number(raw);
-  return n >= API_MIN_SEASON && n <= current ? n : null;
-}
-
-/** "01"〜"47"。未指定は undefined、不正は null。 */
-export function parsePref(raw: unknown): PrefCode | null | undefined {
-  if (raw === undefined) return undefined;
-  return typeof raw === "string" && PREFS.some((p) => p.code === raw) ? raw : null;
-}
-
-export const isMuniCodeShape = (raw: unknown): raw is MuniCode => typeof raw === "string" && /^\d{5}$/.test(raw);
+export { parseMuniCode, parsePref, parseSeason };
 
 // ── 組み立て ──
 
 const uniq = (xs: readonly string[]): string[] => [...new Set(xs)];
 
-async function loadWatch(d: ApiDeps, now: Date): Promise<{ rows: WatchStatus[]; summary: WatchSummary }> {
-  const rows = watchRows(await d.watchStatuses());
+async function loadWatch(d: ApiDeps, now: Date): Promise<{ rows: ApiWatchRow[]; summary: WatchSummary }> {
+  const rows = watchRows(await d.watchStatuses(), now);
   return { rows, summary: summarizeWatch(rows, now) };
 }
 
+/** 文書から来た市町村名は、地図の索引の名前に置き換える（文書の文字列を答えに載せない）。 */
+const contextOf = (d: ApiDeps): PublicContext => ({
+  muniName: (code) => (Object.hasOwn(d.geo.index, code) ? (d.geo.index[code]?.name ?? null) : null),
+});
+
+const nonNull = <T>(x: T | null): x is T => x !== null;
+
 /** その季の事例。過去の資料にあるシーズンは data/history（related:false だけ）、なければ Firestore。 */
 async function casesOf(d: ApiDeps, season: Season, pref: PrefCode | null): Promise<Case[]> {
-  if (d.history.some((h) => h.season === season)) {
-    const rows = pastCasesOf(d.history.filter((h) => h.season === season));
-    return pref === null ? rows : rows.filter((c) => c.prefCode === pref);
-  }
-  const rows = await d.casesBySeason(season, pref);
-  return pref === null ? rows : rows.filter((c) => c.prefCode === pref);
+  const rows = d.history.some((h) => h.season === season) ? pastCasesOf(d.history.filter((h) => h.season === season)) : await d.casesBySeason(season, pref);
+  return rows.filter((c) => c.confirmState !== "replay" && (pref === null || c.prefCode === pref));
 }
 
 /** 新しい順（確認中も更新の順）。同じなら id の降順。 */
@@ -87,8 +74,9 @@ const newestFirst = (a: Case, b: Case): number =>
 export async function buildCases(d: ApiDeps, q: { season: Season; pref: PrefCode | null }, now: Date): Promise<ApiCases> {
   const isCurrent = q.season === currentSeason(now);
   const [all, watch] = await Promise.all([casesOf(d, q.season, q.pref), isCurrent ? loadWatch(d, now) : Promise.resolve(null)]);
+  const ctx = contextOf(d);
   const shown = all.filter((c) => c.season === q.season && isCaseVisible(c, now)).sort(newestFirst);
-  const data: ApiCase[] = shown.map(toPublicCase);
+  const data: ApiCase[] = shown.map((c) => toPublicCase(c, ctx)).filter(nonNull);
   const notices = [...baseNotices(), ...(isCurrent ? [] : [FIXED_TEXT.pastDisclaimer]), ...(watch ? [watchNotice(watch.summary)] : [])];
   return {
     asOf: toJstIso(now),
@@ -101,10 +89,18 @@ export async function buildCases(d: ApiDeps, q: { season: Season; pref: PrefCode
 
 /** その市町村の状態。地点がないので距離を見ない。知らない市町村コード（政令市の区など）は null。 */
 export async function buildArea(d: ApiDeps, muniCode: MuniCode, now: Date): Promise<ApiArea | null> {
-  if (!isMuniCodeShape(muniCode) || !Object.hasOwn(d.geo.index, muniCode)) return null;
+  if (parseMuniCode(muniCode) === null || !Object.hasOwn(d.geo.index, muniCode)) return null;
   const season = currentSeason(now);
-  const [cases, wildBirds, watch] = await Promise.all([casesOf(d, season, null), d.wildBirdsBySeason(season), loadWatch(d, now)]);
+  const [allCases, allBirds, watch] = await Promise.all([casesOf(d, season, null), d.wildBirdsBySeason(season), loadWatch(d, now)]);
+  const ctx = contextOf(d);
+  // 公開できない記録（replay、不正な値）は、段階の計算にも入れない。
+  const cases = allCases.filter((c) => toPublicCase(c, ctx) !== null);
+  const wildBirds = allBirds.filter((b) => toPublicWildBird(b, ctx) !== null);
   const status = computeAreaStatus({ muniCode, cases, wildBirds, geo: d.geo, asOf: toJstIso(now), season });
+  const sameMuniCases = status.sameMuniCases.map((c) => toPublicCase(c, ctx)).filter(nonNull);
+  const adjacentCases = status.adjacentCases.map((c) => toPublicCase(c, ctx)).filter(nonNull);
+  const birds = status.wildBirds.map((b) => toPublicWildBird(b, ctx)).filter(nonNull);
+  const sourceUrls = uniq([...sameMuniCases, ...adjacentCases].flatMap((c) => c.sourceUrls).concat(birds.map((b) => b.sourceUrl)));
 
   const notices = [...baseNotices(), FIXED_TEXT.areaNoDistance];
   // 移動制限の解除の後の同じ市町村（段階 2、同じ町の事例あり）。発生したその町に「隣町」と出さない。
@@ -118,15 +114,9 @@ export async function buildArea(d: ApiDeps, muniCode: MuniCode, now: Date): Prom
   return {
     asOf: status.asOf,
     notices,
-    sources: status.sourceUrls,
+    sources: sourceUrls,
     watch: watch.summary,
-    data: {
-      ...status,
-      sameMuniCases: status.sameMuniCases.map(toPublicCase),
-      adjacentCases: status.adjacentCases.map(toPublicCase),
-      wildBirds: status.wildBirds.map(toPublicWildBird),
-      sourceUrls: status.sourceUrls,
-    },
+    data: { ...status, sameMuniCases, adjacentCases, wildBirds: birds, sourceUrls },
   };
 }
 
@@ -143,10 +133,12 @@ export async function buildWatch(d: ApiDeps, now: Date): Promise<ApiWatch> {
 export async function buildWildBirds(d: ApiDeps, season: Season, now: Date): Promise<ApiWildBirds> {
   const isCurrent = season === currentSeason(now);
   const [birds, watch] = await Promise.all([d.wildBirdsBySeason(season), isCurrent ? loadWatch(d, now) : Promise.resolve(null)]);
+  const ctx = contextOf(d);
   const data = birds
     .filter((b) => b.season === season && b.test !== "negative")
     .sort((a, b) => (a.date !== b.date ? (a.date < b.date ? 1 : -1) : a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
-    .map(toPublicWildBird);
+    .map((b) => toPublicWildBird(b, ctx))
+    .filter(nonNull);
   return {
     asOf: toJstIso(now),
     notices: [...baseNotices(), ...(isCurrent ? [] : [FIXED_TEXT.pastDisclaimer]), ...(watch ? [watchNotice(watch.summary)] : [])],
@@ -198,8 +190,9 @@ export async function handleApi(
     const area = /^\/areas\/([^/]+)$/.exec(path);
     if (area) {
       const code = area[1]!;
-      if (!isMuniCodeShape(code)) return fail(400, "bad_muni_code", "市町村コードは 5 桁の数字です");
-      const built = await buildArea(d, code, now);
+      const muni = parseMuniCode(code);
+      if (muni === null) return fail(400, "bad_muni_code", "市町村コードは 5 桁の数字です");
+      const built = await buildArea(d, muni, now);
       return built ? done(built) : fail(404, "unknown_area", "知らない市町村コードです（政令市は市のコードで呼んでください）");
     }
     return fail(404, "not_found", "知らない path です");
@@ -246,7 +239,7 @@ export interface ServeApiContext {
   now?: () => Date;
 }
 
-/** 数える相手の IP。X-Forwarded-For の先頭、なければ接続元。 */
+/** 数える相手の IP。X-Forwarded-For の右端（Google の前段が付けた側）、なければ接続元。 */
 export function clientIpOf(req: IncomingMessage): string {
   const forwarded = clientIp(req.headers["x-forwarded-for"]);
   return forwarded !== "unknown" ? forwarded : (req.socket?.remoteAddress ?? "unknown");
@@ -258,6 +251,14 @@ export async function serveApi(req: ApiRequestLike, res: ServerResponse, ctx: Se
     sendResult(res, fail(429, "rate_limited", "回数が多すぎます。1 分ほど待ってください", { "Retry-After": "60" }));
     return;
   }
+  // `//[` のように解釈できない URL は、例外ではなく 400。
+  let url: URL;
+  try {
+    url = new URL(req.url ?? "/", "http://localhost");
+  } catch {
+    sendResult(res, fail(400, "bad_url", "URL を解釈できません"));
+    return;
+  }
   let deps: ApiDeps;
   try {
     deps = await ctx.getDeps();
@@ -266,7 +267,6 @@ export async function serveApi(req: ApiRequestLike, res: ServerResponse, ctx: Se
     sendResult(res, fail(500, "internal", "内部エラーです。時間をおいてやり直してください"));
     return;
   }
-  const url = new URL(req.url ?? "/", "http://localhost");
   const query = req.query !== undefined ? queryOf(req.query) : queryOfUrl(url);
   sendResult(res, await handleApi({ method: req.method ?? "GET", path: req.path ?? url.pathname, query }, deps, now));
 }
