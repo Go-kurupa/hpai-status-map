@@ -1,7 +1,7 @@
 import { PREFS } from "@hpai/shared/pref";
 import type { WatchStatus } from "@hpai/shared/types";
 import { describe, expect, it } from "vitest";
-import { completeWatchStatus, watchLine } from "./watchLine";
+import { completeWatchStatus, watchLine } from "./watchLineText";
 
 const NOW = new Date("2026-11-04T09:00:00+09:00");
 const okRow = (prefCode: string, checkedAt = "2026-11-04T08:30:00+09:00"): WatchStatus => ({
@@ -91,5 +91,19 @@ describe("watchLine（§9.7、§2）", () => {
   it("読めない checkedAt は asOf に使わない。すべて読めなければ null", () => {
     expect(watchLine([okRow("01", "not-a-date")], NOW).asOf).toBeNull();
     expect(watchLine([okRow("01", "not-a-date"), okRow("02", "2026-11-04T08:00:00+09:00")], NOW).asOf).toBe("2026-11-04T08:00:00+09:00");
+  });
+
+  it("未来の checkedAt（時計のずれ）は asOf に使わない。summarizeWatch が未確認にするのと同じ", () => {
+    const rows = allOk().map((r) => (r.prefCode === "13" ? okRow("13", "2026-11-04T10:00:00+09:00") : r));
+    const w = watchLine(rows, NOW);
+    expect(w.asOf).toBe("2026-11-04T08:30:00+09:00");
+    expect(w.failedPrefCodes).toEqual(["13"]);
+    expect(watchLine([okRow("13", "2026-11-04T10:00:00+09:00")], NOW).asOf).toBeNull();
+  });
+
+  it("確認できた県の数 okCount を返す（全件失敗のとき、時刻を『時点』と読ませないために使う）", () => {
+    expect(watchLine(allOk(), NOW).okCount).toBe(47);
+    expect(watchLine([], NOW).okCount).toBe(0);
+    expect(watchLine(PREFS.map((p) => failRow(p.code)), NOW).okCount).toBe(0);
   });
 });

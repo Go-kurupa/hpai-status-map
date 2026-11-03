@@ -5,7 +5,7 @@ import { CaseListSheet } from "./CaseListSheet";
 import { Legend } from "./Legend";
 import { DETECTION_LIMIT_NOTE, WILD_ZONE_NOTE, type ListRow, type WildBirdRow } from "./listRows";
 import { SURVEILLANCE_NOTE } from "./texts";
-import { WatchLine } from "./WatchLine";
+import { WatchAsOf, WatchLine } from "./WatchLine";
 
 afterEach(cleanup);
 
@@ -19,7 +19,7 @@ const birds: WildBirdRow[] = [
 ];
 
 const show = (o: Partial<Parameters<typeof CaseListSheet>[0]> = {}) =>
-  render(<CaseListSheet rows={rows} birds={birds} loaded={true} {...o} />);
+  render(<CaseListSheet rows={rows} birds={birds} loaded={true} unwatchedCount={0} {...o} />);
 
 describe("CaseListSheet", () => {
   it("閉じると 1 行（『一覧』のボタン、aria-expanded false）。行は出さない", () => {
@@ -95,6 +95,41 @@ describe("CaseListSheet", () => {
     expect(screen.getByText(/一覧にできる発生の報告はありません/)).toBeTruthy();
   });
 
+  it("見回りに失敗した県があるとき、0 行を『報告はありません』と断定しない。確認できた範囲、M 県は確認できていません", () => {
+    show({ rows: [], birds: [], unwatchedCount: 2 });
+    const btn = screen.getByRole("button", { name: /一覧/ });
+    expect(btn.textContent).toContain("確認できた範囲では 0 件");
+    fireEvent.click(btn);
+    const body = document.body.textContent ?? "";
+    expect(body).toContain("確認できた範囲では、一覧にできる発生の報告はありません（2 県は確認できていません）");
+    expect(body).not.toContain("この期間に、一覧にできる発生の報告はありません");
+  });
+
+  it("47 県とも確認できていないときの空は『まだ確認できていません』。0 件にしない", () => {
+    show({ rows: [], birds: [], unwatchedCount: 47 });
+    const btn = screen.getByRole("button", { name: /一覧/ });
+    expect(btn.textContent).toContain("まだ確認できていません");
+    expect(btn.textContent).not.toMatch(/0 件/);
+    fireEvent.click(btn);
+    expect(document.body.textContent).not.toContain("報告はありません");
+    expect(document.body.textContent).toContain("まだ確認できていません");
+  });
+
+  it("失敗した県があっても行はそのまま出し、件数は『確認できた範囲では N 件』", () => {
+    show({ unwatchedCount: 1 });
+    const btn = screen.getByRole("button", { name: /一覧/ });
+    expect(btn.textContent).toContain("確認できた範囲では 3 件");
+    fireEvent.click(btn);
+    expect(within(screen.getByRole("list", { name: "発生の一覧" })).getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("全県確認できているとき（0）は従来どおり", () => {
+    show({ rows: [], birds: [], unwatchedCount: 0 });
+    expect(screen.getByRole("button", { name: /一覧/ }).textContent).toContain("0 件");
+    fireEvent.click(screen.getByRole("button", { name: /一覧/ }));
+    expect(screen.getByText(/この期間に、一覧にできる発生の報告はありません/)).toBeTruthy();
+  });
+
   it("全文に禁止語がない", () => {
     show();
     fireEvent.click(screen.getByRole("button", { name: /一覧/ }));
@@ -121,19 +156,50 @@ describe("Legend", () => {
 
 describe("WatchLine", () => {
   it("確認状況の文をそのまま出す。確認できていない県があれば、発生がないとは言えない旨を添える", () => {
-    render(<WatchLine loaded={true} line={{ text: "47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）", asOf: null, failedPrefCodes: ["33"] }} />);
+    render(<WatchLine loaded={true} line={{ text: "47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）", asOf: null, failedPrefCodes: ["33"], okCount: 46 }} />);
     const el = screen.getByTestId("watch-line");
     expect(el.textContent).toContain("47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）");
     expect(el.textContent).toContain("発生がないとは言えません");
   });
 
   it("全県確認なら添えない", () => {
-    render(<WatchLine loaded={true} line={{ text: "47 都道府県のうち 47 件を確認、0 件は確認できていません", asOf: null, failedPrefCodes: [] }} />);
+    render(<WatchLine loaded={true} line={{ text: "47 都道府県のうち 47 件を確認、0 件は確認できていません", asOf: null, failedPrefCodes: [], okCount: 47 }} />);
     expect(screen.getByTestId("watch-line").textContent).not.toContain("言えません");
   });
 
   it("見回りの結果が未着のときは、文を出さず『まだ読めていません』", () => {
-    render(<WatchLine loaded={false} line={{ text: "47 都道府県のうち 0 件を確認、47 件は確認できていません（北海道）", asOf: null, failedPrefCodes: ["01"] }} />);
+    render(<WatchLine loaded={false} line={{ text: "47 都道府県のうち 0 件を確認、47 件は確認できていません（北海道）", asOf: null, failedPrefCodes: ["01"], okCount: 0 }} />);
     expect(screen.getByTestId("watch-line").textContent).toContain("まだ読めていません");
+  });
+});
+
+describe("WatchAsOf（いつ時点か）", () => {
+  const line = (o: Partial<Parameters<typeof WatchAsOf>[0]["line"]> = {}) => ({
+    text: "",
+    asOf: "2026-11-04T08:30:00+09:00",
+    failedPrefCodes: [] as string[],
+    okCount: 47,
+    ...o,
+  });
+
+  it("確認できた県があれば『8:30 時点』", () => {
+    render(<WatchAsOf loaded={true} line={line()} />);
+    expect(document.querySelector(".as-of")?.textContent).toBe("11 月 4 日 8:30 時点");
+  });
+
+  it("確認できた県が 0 のときは『時点』と出さず、最後に確認を試した時刻だと分かる言い方にする", () => {
+    render(<WatchAsOf loaded={true} line={line({ okCount: 0 })} />);
+    const t = document.querySelector(".as-of")?.textContent ?? "";
+    expect(t).toContain("最後に確認を試した");
+    expect(t).toContain("11 月 4 日 8:30");
+    expect(t).not.toContain("時点");
+  });
+
+  it("時刻がなければ『確認できていません』。結果が未着でも同じ", () => {
+    render(<WatchAsOf loaded={true} line={line({ asOf: null, okCount: 0 })} />);
+    expect(document.querySelector(".as-of")?.textContent).toBe("確認できていません");
+    cleanup();
+    render(<WatchAsOf loaded={false} line={line({ asOf: null, okCount: 0 })} />);
+    expect(document.querySelector(".as-of")?.textContent).toBe("確認できていません");
   });
 });

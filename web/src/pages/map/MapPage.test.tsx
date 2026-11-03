@@ -552,3 +552,74 @@ describe("MapPage: 一覧", () => {
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
   });
 });
+
+describe("MapPage: レビュー指摘の修正（1 回目）", () => {
+  it("自分の県（岡山県）は確認できていて、隣の県（鳥取県）だけ未確認: 真庭市の④は『隣の県（鳥取県）は確認できていません』", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(["31"]));
+    await waitFor(() => expect(bannerText()).toContain("隣の県（鳥取県）"));
+    expect(bannerText()).not.toContain(TEXT.national);
+    expect(bannerText()).not.toContain(TEXT.prefUnwatched);
+    expect(bannerText()).toContain(FIXED_TEXT.riskAnywhere);
+  });
+
+  it("隣の県が確認できていれば出ない（別の県だけ未確認）", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(["13"]));
+    await screen.findByText(TEXT.national);
+    expect(bannerText()).not.toContain("隣の県");
+  });
+
+  it("一覧が空で見回りに失敗した県があるとき、閉じた行に『確認できた範囲では』", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(["33"]));
+    const btn = screen.getByRole("button", { name: /一覧/ });
+    expect(btn.textContent).toContain("確認できた範囲では 0 件");
+    fireEvent.click(btn);
+    expect(document.body.textContent).toContain("（1 県は確認できていません）");
+    expect(document.body.textContent).not.toContain("この期間に、一覧にできる発生の報告はありません");
+  });
+
+  it("見回りの結果が未着の間は、空の一覧を『0 件』にしない（まだ確認できていません）", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    const btn = screen.getByRole("button", { name: /一覧/ });
+    expect(btn.textContent).toContain("まだ確認できていません");
+    expect(btn.textContent).not.toMatch(/0 件/);
+  });
+
+  it("過去のシーズンの一覧には、今の見回りの失敗を持ち込まない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(["33"]));
+    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    expect(screen.getByRole("button", { name: /一覧/ }).textContent).toContain("24 件");
+    expect(screen.getByRole("button", { name: /一覧/ }).textContent).not.toContain("確認できた範囲");
+  });
+
+  it("全県が失敗のとき、上の時刻は『時点』ではなく『最後に確認を試した』", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(PREFS.map((p) => p.code)));
+    const t = document.querySelector(".as-of")?.textContent ?? "";
+    expect(t).toContain("最後に確認を試した");
+    expect(t).not.toContain("時点");
+  });
+});

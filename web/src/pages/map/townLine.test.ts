@@ -8,7 +8,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import adjacencyJson from "../../../../data/geo/adjacency.json";
 import indexJson from "../../../../data/geo/muni-index.json";
-import { areaLine, levelLine, resolveTown, resolveTownLine, withWatchState, type TownLine } from "./townLine";
+import { areaLine, levelLine, neighborPrefsOf, resolveTown, resolveTownLine, withWatchState, type TownLine } from "./townLine";
 import { SURVEILLANCE_NOTE, TEXT } from "./texts";
 
 const SEASON = 2026;
@@ -368,5 +368,55 @@ describe("withWatchState（自分の町の県が未確認のとき）", () => {
     const l = withWatchState(lv1, "33", ["33"]);
     expect(findForbiddenPhrases(textOf(l))).toEqual([]);
     expect(JSON.stringify(lv1)).toBe(before);
+  });
+});
+
+// ── 隣の県が未確認（W-06 レビュー I-1）。区域は県をまたぐので、④で何も出ないと安全と読める ──
+describe("neighborPrefsOf / withWatchState（隣の県）", () => {
+  const { geo } = realGeo();
+  const lv4: TownLine = { tone: "lv4", main: TEXT.national, details: [FIXED_TEXT.riskAnywhere] };
+  const lv2: TownLine = { tone: "lv2", main: TEXT.adjacent, details: ["津山市で確定（11 月 2 日）"] };
+
+  it("真庭市（岡山県）は鳥取県と接する。自分の県は含めない", () => {
+    expect(neighborPrefsOf("33214", geo)).toEqual(["31"]);
+  });
+
+  it("県境に接しない町や、知らない町は空", () => {
+    expect(neighborPrefsOf("33202", geo)).not.toContain("33"); // 倉敷市: 自分の県は含めない
+    expect(neighborPrefsOf("99999", geo)).toEqual([]);
+  });
+
+  it("自分の県は確認できていて、隣の県（鳥取県）だけ未確認: ④は主文を『隣の県（鳥取県）は確認できていません』にする", () => {
+    const l = withWatchState(lv4, "33", ["31"], ["31"]);
+    expect(l.main).toContain("隣の県（鳥取県）");
+    expect(l.main).toContain("確認できていません");
+    expect(l.main).not.toBe(TEXT.national);
+    expect(l.tone).toBe("none");
+    expect(l.details).toContain(FIXED_TEXT.riskAnywhere);
+  });
+
+  it("②でも、詳細の先頭に足す。段階の文と色は保つ", () => {
+    const l = withWatchState(lv2, "33", ["31"], ["31"]);
+    expect(l.main).toBe(TEXT.adjacent);
+    expect(l.tone).toBe("lv2");
+    expect(l.details[0]).toContain("隣の県（鳥取県）");
+    expect(l.details).toContain("津山市で確定（11 月 2 日）");
+  });
+
+  it("自分の県と隣の県の両方が未確認なら、両方を伝える（④の主文は自分の県）", () => {
+    const l = withWatchState(lv4, "33", ["33", "31"], ["31"]);
+    expect(l.main).toBe(TEXT.prefUnwatched);
+    expect(l.details.join("\n")).toContain("隣の県（鳥取県）");
+  });
+
+  it("隣の県が複数なら県名を並べる。確認できている隣の県は入れない", () => {
+    const l = withWatchState(lv2, "33", ["28", "31"], ["28", "31", "34"]);
+    expect(l.details[0]).toContain("兵庫県、鳥取県");
+    expect(l.details[0]).not.toContain("広島県");
+  });
+
+  it("隣の県が確認できていれば、そのまま（同じ参照）。禁止語もない", () => {
+    expect(withWatchState(lv4, "33", ["13"], ["31"])).toBe(lv4);
+    expect(findForbiddenPhrases(textOf(withWatchState(lv4, "33", ["31"], ["31"])))).toEqual([]);
   });
 });

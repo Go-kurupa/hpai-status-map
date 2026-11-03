@@ -44,8 +44,11 @@ export function completeWatchStatus(all: readonly WatchStatus[]): WatchStatus[] 
 
 export interface WatchLineResult {
   text: string;
-  /** checkedAt の最大。now には動かさない。読める checkedAt がなければ null */
+  /** checkedAt の最大（now より後の時刻は使わない。now には動かさない）。使える checkedAt がなければ null。
+   * 失敗の行の「最後に試した時刻」も含むので、okCount が 0 のときは「時点」と出さず、試した時刻として出す */
   asOf: IsoDateTime | null;
+  /** 確認できた県の数（6 時間以内に ok） */
+  okCount: number;
   failedPrefCodes: PrefCode[];
 }
 
@@ -57,7 +60,9 @@ export function watchLine(all: readonly WatchStatus[], now: Date): WatchLineResu
   const tail = names.length > 0 && names.length < PREFS.length ? `（${names.join("、")}）` : "";
   return {
     text: `${PREFS.length} 都道府県のうち ${summary.okCount} 件を確認、${summary.failedCount} 件は確認できていません${tail}`,
-    asOf: pickBy(rows.map((r) => r.checkedAt), (a, b) => a > b),
+    // 未来の時刻（時計のずれ）は summarizeWatch が未確認にするのと同じく、asOf にも使わない
+    asOf: pickBy(rows.map((r) => (validMs(r.checkedAt) !== null && Date.parse(r.checkedAt as string) <= now.getTime() ? r.checkedAt : null)), (a, b) => a > b),
+    okCount: summary.okCount,
     failedPrefCodes: summary.failedPrefCodes,
   };
 }

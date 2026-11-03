@@ -5,7 +5,7 @@ import type { Case, HistoryCase, IsoDateTime, PrefCode, Season, WatchStatus, Wil
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDataSource } from "../../data/context";
 import { buildSeasonView, listSeasonBars, type SeasonView } from "./seasonView";
-import { watchLine, type WatchLineResult } from "./watchLine";
+import { watchLine, type WatchLineResult } from "./watchLineText";
 
 const MINUTE_MS = 60_000;
 

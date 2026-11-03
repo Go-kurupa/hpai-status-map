@@ -4,7 +4,6 @@ import type { MuniCode } from "@hpai/shared/types";
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { useDataSource } from "../../data/context";
 import { useSpotState } from "../../data/spotContext";
-import { AsOf } from "../../ui/AsOf";
 import type { MapViewProps } from "./MapView";
 import { CaseListSheet } from "./CaseListSheet";
 import { Legend } from "./Legend";
@@ -18,7 +17,7 @@ import { TEXT } from "./texts";
 import { TownBanner } from "./TownBanner";
 import { TownPicker } from "./TownPicker";
 import { useGeoStore, usePast, useTownLine } from "./useTownView";
-import { WatchLine } from "./WatchLine";
+import { WatchAsOf, WatchLine } from "./WatchLine";
 import { useSeasonData } from "./useSeasonData";
 import "./map.css";
 
@@ -104,7 +103,7 @@ export default function MapPage() {
     <div className="map-page">
       <h1>{view.label}の発生状況</h1>
       {view.isCurrent ? (
-        <AsOf iso={d.asOf} />
+        <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
       ) : (
         <p className="as-of">
           {view.season}年6月〜{view.season + 1}年5月の記録
@@ -199,7 +198,12 @@ export default function MapPage() {
         <p className="map-status">確認中の発表がある県: {names(view.reviewingPrefCodes)}。件数にはまだ入れていません。</p>
       ) : null}
 
-      <CaseListSheet rows={rows} birds={view.isCurrent ? birdRows : null} loaded={d.listCases !== null} />
+      <CaseListSheet
+        rows={rows}
+        birds={view.isCurrent ? birdRows : null}
+        loaded={d.listCases !== null}
+        unwatchedCount={view.isCurrent ? d.failedPrefCodes.length : 0}
+      />
 
       <SeasonBar bars={bars} selected={d.selected} onSelect={d.select} />
 

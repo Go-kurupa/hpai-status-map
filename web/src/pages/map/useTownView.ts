@@ -7,7 +7,7 @@ import { describePast } from "@hpai/shared/past";
 import type { Case, FarmPoint, HistoryCase, MuniCode, PrefCode, Season, WildBird } from "@hpai/shared/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PastState } from "./TownBanner";
-import { resolveTown, withWatchState, type TownLine } from "./townLine";
+import { neighborPrefsOf, resolveTown, withWatchState, type TownLine } from "./townLine";
 
 export function useGeoStore(): { geo: GeoStore | null; failed: boolean } {
   const [state, setState] = useState<{ geo: GeoStore | null; failed: boolean }>({ geo: null, failed: false });
@@ -43,7 +43,7 @@ export interface TownViewInput {
   season: Season;
   geo: GeoStore | null;
   now: Date;
-  /** 見回りで確認できていない県（結果が届く前は 47 県すべて）。自分の町の県がここにあれば、1 文にそれを加える */
+  /** 見回りで確認できていない県（結果が届く前は 47 県すべて）。自分の町の県と隣の県がここにあれば、1 文にそれを加える */
   unwatchedPrefCodes?: readonly PrefCode[];
 }
 
@@ -76,9 +76,11 @@ export function useTownLine(i: TownViewInput): { line: TownLine | null; failed: 
   const townPref = townCode === null ? null : (geo?.index[townCode]?.prefCode ?? townCode.slice(0, 2));
   const unwatched = i.unwatchedPrefCodes;
   const freshLine = fresh?.line ?? null;
+  // 区域は県をまたぐので、隣の市町村がある県の未確認も伝える
+  const neighborPrefs = useMemo(() => (geo && townCode !== null ? neighborPrefsOf(townCode, geo) : []), [geo, townCode]);
   const line = useMemo(
-    () => (freshLine !== null && unwatched !== undefined ? withWatchState(freshLine, townPref, unwatched) : freshLine),
-    [freshLine, townPref, unwatched],
+    () => (freshLine !== null && unwatched !== undefined ? withWatchState(freshLine, townPref, unwatched, neighborPrefs) : freshLine),
+    [freshLine, townPref, unwatched, neighborPrefs],
   );
   return { line, failed: fresh !== null && fresh.line === null, nearMuniCodes: fresh?.near ?? [] };
 }

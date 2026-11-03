@@ -1,3 +1,4 @@
+import { PREFS } from "@hpai/shared/pref";
 import type { IsoDate } from "@hpai/shared/types";
 import { useId, useState } from "react";
 import { DETECTION_LIMIT_NOTE, WILD_ZONE_NOTE, type ListRow, type WildBirdRow } from "./listRows";
@@ -9,6 +10,8 @@ export interface CaseListSheetProps {
   birds: readonly WildBirdRow[] | null;
   /** false は「まだ読めていない」。0 件とは違う */
   loaded: boolean;
+  /** 見回りで確認できていない県の数（今季）。1 以上なら「報告はありません」と断定しない。47 は「まだ確認できていません」。過去のシーズンは 0 */
+  unwatchedCount: number;
 }
 
 function isWebUrl(url: string): boolean {
@@ -61,21 +64,30 @@ function CaseRow({ r }: { r: ListRow }) {
  * 発生の一覧。閉じると 1 行で、押して開ける。農場の特徴や不備の項目は持たない（§12）。
  * 開くと、検知の限り（§9.2）、野鳥の区域との違い（§5）、監視強化区域の説明を添える。
  */
-export function CaseListSheet({ rows, birds, loaded }: CaseListSheetProps) {
+export function CaseListSheet({ rows, birds, loaded, unwatchedCount }: CaseListSheetProps) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const count = rows.length;
+  const noneChecked = unwatchedCount >= PREFS.length && count === 0;
+  // 確認できていない県があるうちは、件数を「確認できた範囲では N 件」にする（0 件を「発生なし」と読ませない）
+  const countLabel = noneChecked ? TEXT.listNoneCheckedShort : unwatchedCount > 0 ? `${TEXT.listPartialLabel} ${count} 件` : `${count} 件`;
   return (
     <section className="case-list">
       <button type="button" className="case-list-toggle" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
-        {TEXT.listClosed}（{loaded ? `${count} 件` : TEXT.listNotLoaded}）<span aria-hidden="true">{open ? " ▲" : " ▼"}</span>
+        {TEXT.listClosed}（{loaded ? countLabel : TEXT.listNotLoaded}）<span aria-hidden="true">{open ? " ▲" : " ▼"}</span>
       </button>
       {open ? (
         <div id={id} className="case-list-body">
           {!loaded ? (
             <p role="status">{TEXT.listLoadingBody}</p>
           ) : count === 0 ? (
-            <p>{TEXT.listEmpty}</p>
+            <p>
+              {noneChecked
+                ? TEXT.listNoneChecked
+                : unwatchedCount > 0
+                  ? `${TEXT.listEmptyPartial}（${unwatchedCount} 県は確認できていません）。`
+                  : TEXT.listEmpty}
+            </p>
           ) : (
             <ul className="case-rows" aria-label={TEXT.listAria}>
               {rows.map((r) => (

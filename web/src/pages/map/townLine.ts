@@ -15,6 +15,7 @@ import type {
   WildBird,
 } from "@hpai/shared/types";
 import { FIXED_TEXT } from "@hpai/shared/wording";
+import { PREFS } from "@hpai/shared/pref";
 import { SURVEILLANCE_NOTE, TEXT } from "./texts";
 
 export interface TownLine {
@@ -113,15 +114,42 @@ export function areaLine(status: AreaStatus): TownLine {
   return { tone: "lv4", main: TEXT.national, details: [...birds, ...tail] };
 }
 
+/** 町の隣の市町村が属する県（自分の県を除く）。区域は県をまたぐので、これらの県の見回りも町の 1 文に関わる */
+export function neighborPrefsOf(townCode: MuniCode, geo: Pick<GeoStore, "index" | "adjacency">): PrefCode[] {
+  const own = geo.index[townCode]?.prefCode;
+  const prefs = new Set<PrefCode>();
+  for (const n of geo.adjacency[townCode] ?? []) {
+    const p = geo.index[n]?.prefCode;
+    if (p !== undefined && p !== own) prefs.add(p);
+  }
+  return [...prefs].sort();
+}
+
+const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
+
 /**
- * 自分の町の県が見回りで確認できていないとき、1 文にそれを加える（同期。見回りの結果が変わるたびに計算し直さない）。
- * ④は「全国の動き」だけにせず、県が確認できていないことを主文にして色も段階の色にしない。
+ * 自分の町の県、または隣の県が見回りで確認できていないとき、1 文にそれを加える（同期。見回りの結果が変わるたびに計算し直さない）。
+ * ④は「全国の動き」だけにせず、確認できていないことを主文にして色も段階の色にしない。
  * ①②③は段階の文と色を保ち、先頭の詳細に足す。町が未選択か読めなかったとき（色なし）は足さない。
+ * 隣の県の文は、隣の市町村より先に届く区域（地点は 10.85km）までは見ていない最低線。
  */
-export function withWatchState(line: TownLine, townPref: PrefCode | null, failedPrefCodes: readonly PrefCode[]): TownLine {
-  if (townPref === null || line.tone === "none" || !failedPrefCodes.includes(townPref)) return line;
-  if (line.tone === "lv4") return { tone: "none", main: TEXT.prefUnwatched, details: [...line.details] };
-  return { ...line, details: [TEXT.prefUnwatched, ...line.details] };
+export function withWatchState(
+  line: TownLine,
+  townPref: PrefCode | null,
+  failedPrefCodes: readonly PrefCode[],
+  neighborPrefs: readonly PrefCode[] = [],
+): TownLine {
+  if (townPref === null || line.tone === "none") return line;
+  const notes: string[] = [];
+  if (failedPrefCodes.includes(townPref)) notes.push(TEXT.prefUnwatched);
+  const failedNeighbors = neighborPrefs.filter((p) => p !== townPref && failedPrefCodes.includes(p));
+  if (failedNeighbors.length > 0) {
+    const names = failedNeighbors.map((p) => PREF_NAME.get(p) ?? p).join("、");
+    notes.push(`隣の県（${names}）は、見回りで確認できていません。発生がないとは言えません`);
+  }
+  if (notes.length === 0) return line;
+  if (line.tone === "lv4") return { tone: "none", main: notes[0]!, details: [...notes.slice(1), ...line.details] };
+  return { ...line, details: [...notes, ...line.details] };
 }
 
 export interface ResolveInput {
