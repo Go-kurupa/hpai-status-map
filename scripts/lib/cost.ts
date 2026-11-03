@@ -18,18 +18,21 @@ import {
   parseMeasuredUsage,
   PEAK_SEASON_CASES,
   PREV_SEASON_CASES,
+  PRICE_NOTE,
 } from "@hpai/shared/cost";
 
 export {
   ASSUMED_DOCS_PER_CASE,
   ASSUMED_DOCUMENT_TOKENS,
   ASSUMED_MODEL,
+  ASSUMED_SECOND_MODEL,
   BUSY_MONTH_CASES,
   costBases,
   estimateSeasonCost,
   MONTHLY_BUDGET_JPY,
   PEAK_SEASON_CASES,
   PREV_SEASON_CASES,
+  PRICE_NOTE,
   toTokenUsage,
 } from "@hpai/shared/cost";
 
@@ -102,20 +105,27 @@ export function buildCostReport({ usage, summary, unreadable = [] }: ReportInput
       const m = summary.metrics.find((x) => x.name === name);
       push(`  ${name}: ${m && !summary.unmeasured.includes(name) ? metricText(m) : "未実測"}`);
     }
-    if (summary.costPerDocumentUsd !== null) push(`  試験 1 文書あたりの費用（計算。別の読み手を含む）: $${formatUsd(summary.costPerDocumentUsd)}`);
+    if (summary.costPerDocumentUsd !== null) push(`  試験 1 文書あたりの費用（計算。別の読み手を含む。実行方式〔通常の API か Batch か〕は記録なし）: $${formatUsd(summary.costPerDocumentUsd)}`);
   }
 
-  push("", "■ 1 シーズンの費用（計算）", `  1 事例 ${ASSUMED_DOCS_PER_CASE} 文書は仮定です（実測していません）。見積もり（推定）の換算: 1 ドル ${jpyPerUsd} 円。`);
-  for (const b of costBases(usage, summary)) {
+  push("", "■ 1 シーズンの費用（計算）", `  1 事例 ${ASSUMED_DOCS_PER_CASE} 文書は仮定です（実測していません）。見積もり（推定）の換算: 1 ドル ${jpyPerUsd} 円。${PRICE_NOTE}`);
+  const bases = costBases(usage, summary);
+  const line = (b: (typeof bases)[number]): string => {
     const season = (cases: number) => formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy);
     const cap = monthlyCaseCapacity(b, jpyPerUsd);
-    push(
-      `  ${b.label}: 1 文書 $${formatUsd(b.usdPerDocument)} → 前季 ${PREV_SEASON_CASES} 事例 ${season(PREV_SEASON_CASES)}／事例が集中した月（${BUSY_MONTH_CASES} 事例と仮定） ${season(BUSY_MONTH_CASES)}／過去最多 ${PEAK_SEASON_CASES} 事例 ${season(PEAK_SEASON_CASES)}` +
-        `（月 ${n(MONTHLY_BUDGET_JPY)} 円なら 1 か月に ${cap === null ? "—" : cap} 事例まで）`,
+    const prefix = b.measured ? `計算（実測の使用量から。円額は 1 事例 ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う）` : "見積もり（推定。実測ではありません）";
+    const excl = b.id === "assumed" ? "。別の読み手を除く" : "";
+    return (
+      `  ${prefix} ${b.label}: 1 文書 $${formatUsd(b.usdPerDocument)} → 前季 ${PREV_SEASON_CASES} 事例 ${season(PREV_SEASON_CASES)}／事例が集中した月（${BUSY_MONTH_CASES} 事例と仮定） ${season(BUSY_MONTH_CASES)}／過去最多 ${PEAK_SEASON_CASES} 事例 ${season(PEAK_SEASON_CASES)}` +
+      `（月 ${n(MONTHLY_BUDGET_JPY)} 円なら 1 か月に ${cap === null ? "—" : cap} 事例まで${excl}）`
     );
-  }
+  };
+  const measuredBases = bases.filter((b) => b.measured);
+  const assumedBases = bases.filter((b) => !b.measured);
+  if (measuredBases.length > 0) push("  [実測の使用量から計算]", ...measuredBases.map(line));
+  push("  [見積もり（推定）。実測ではありません]", ...assumedBases.map(line));
   push(
-    "  見積もり（推定）の行は、仮定の数字から計算したもので、実測ではありません。",
+    "  見積もり（推定）の行は、仮定の数字から計算したもので、実測ではありません。主の読み手だけの行は別の読み手（Haiku）の費用を含みません。足した行の Haiku の量も仮定で、実際の増分は未計測です。",
     "  見積もり（推定）の補足: 設計書 §15 の「約 2,900 円」は 1 文書を 8 円に丸めた値で、丸めずに計算すると 30 事例の月は 2,700 円です。",
   );
   return out.join("\n");

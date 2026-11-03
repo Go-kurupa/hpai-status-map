@@ -78,6 +78,16 @@ describe("measured-usage.json と docs/cost.md", () => {
     expect(cost).toContain("3,000 円");
   });
 
+  it("別の読み手（Haiku）を含まないこと、通常の API の単価（Batch なら約半分）、試験の実行方式は記録なし、を書いている", () => {
+    expect(cost).toContain("別の読み手（`claude-haiku-5-5`）の費用を含みません");
+    expect(cost).toContain("実際の増分は未計測");
+    expect(cost).toContain("通常の API");
+    expect(cost).toMatch(/Batch[^。]*約半分/);
+    expect(cost).toContain("実行方式");
+    expect(cost).toContain("記録なし");
+    expect(cost).toContain("2,214 円"); // Haiku を足した前季
+  });
+
   it("禁じた語がない。削減時間は測っていないと言う場合も『削減』『時間短縮』の語を使わない", () => {
     expect(cost).not.toMatch(/削減|時間短縮/);
     expect(findForbiddenPhrases(cost)).toEqual([]);

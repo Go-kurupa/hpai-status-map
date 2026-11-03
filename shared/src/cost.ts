@@ -6,6 +6,8 @@ import type { EvalSummary } from "./types";
 
 /** 見積もりの仮定（設計書 §15）: 1 文書 入力 5,000・出力 1,500 トークンを Opus 5.5 で読む。実測ではない。 */
 export const ASSUMED_MODEL = "claude-opus-5-5";
+/** 別の読み手の既定（DEFAULT_RUNTIME_SETTINGS.secondModel）。見積もりの 1 行目には含めず、同じトークン数の仮定で足した行を別に出す */
+export const ASSUMED_SECOND_MODEL = "claude-haiku-5-5";
 export const ASSUMED_DOCUMENT_TOKENS: Readonly<ModelTokens> = Object.freeze({ inputTokens: 5000, outputTokens: 1500, cacheReadTokens: 0, cacheWriteTokens: 0 });
 /** 1 事例で読む文書の数。仮定（実測していない） */
 export const ASSUMED_DOCS_PER_CASE = 12;
@@ -49,7 +51,7 @@ export function replayUsdPerDocument(usage: MeasuredUsage): number | null {
   return usageUsd(usage) / usage.documents;
 }
 
-export type CostBasisId = "replay" | "eval" | "assumed";
+export type CostBasisId = "replay" | "eval" | "assumed" | "assumed_with_second";
 export interface CostBasis {
   id: CostBasisId;
   /** 実測の使用量から計算した（replay、eval）か、仮定から出した（assumed）か */
@@ -58,16 +60,30 @@ export interface CostBasis {
   usdPerDocument: number;
 }
 
-/** 1 シーズンの計算の根拠。測ったものがあれば先に並べ、仮定の見積もりは常に最後に置く（実測と取り違えない）。 */
+/**
+ * 1 シーズンの計算の根拠。測ったものがあれば先に並べ、仮定の見積もりは最後に置く（実測と取り違えない）。
+ * 単価はすべて通常の API のもの（Batch は半額。BATCH_NOTE）。試験の行は、実行方式（通常か Batch か）が summary.json に残らないので方式不明。
+ */
 export function costBases(usage: MeasuredUsage, summary: EvalSummary | null): CostBasis[] {
   const bases: CostBasis[] = [];
   const replay = replayUsdPerDocument(usage);
   if (replay !== null) bases.push({ id: "replay", measured: true, label: "再現の実測から", usdPerDocument: replay });
   if (summary && summary.costPerDocumentUsd !== null && nonNegative(summary.costPerDocumentUsd))
-    bases.push({ id: "eval", measured: true, label: "読み取りの試験から（別の読み手を含む 1 文書）", usdPerDocument: summary.costPerDocumentUsd });
-  bases.push({ id: "assumed", measured: false, label: "見積もり（推定）", usdPerDocument: estimateUsd(ASSUMED_MODEL, toTokenUsage(ASSUMED_DOCUMENT_TOKENS)) });
+    bases.push({ id: "eval", measured: true, label: "読み取りの試験から（別の読み手を含む 1 文書。実行方式は記録なし）", usdPerDocument: summary.costPerDocumentUsd });
+  const tokens = toTokenUsage(ASSUMED_DOCUMENT_TOKENS);
+  const primary = estimateUsd(ASSUMED_MODEL, tokens);
+  bases.push({ id: "assumed", measured: false, label: "見積もり（推定）: 主の読み手だけ（別の読み手を含まない）", usdPerDocument: primary });
+  bases.push({
+    id: "assumed_with_second",
+    measured: false,
+    label: "見積もり（推定）: 別の読み手（Haiku）にも同じ量を読ませたと仮定して足した",
+    usdPerDocument: primary + estimateUsd(ASSUMED_SECOND_MODEL, tokens),
+  });
   return bases;
 }
+
+/** 見積もりの単価の前提。Batch は半額になるが、見積もりは通常の API の単価で出している */
+export const PRICE_NOTE = "単価は通常の API のものです。Batch で読めば、この約半分になりえます。";
 
 /** 月の上限の中で読める事例の数（端数は切り捨て）。1 事例の費用が 0 なら null（割れない） */
 export function monthlyCaseCapacity(b: CostBasis, jpyPerUsd: number): number | null {

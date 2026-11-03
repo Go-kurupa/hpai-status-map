@@ -144,6 +144,28 @@ describe("buildCostReport", () => {
     expect(text).not.toContain("試験はまだ実行していません");
   });
 
+  it("見積もりの行は『見積もり（推定。実測ではありません）』で始まり、実測由来の行と別の見出しに分かれる", () => {
+    const text = buildCostReport({ usage: MEASURED_USAGE, summary: SUMMARY });
+    expect(text).toContain("[実測の使用量から計算]");
+    expect(text).toContain("[見積もり（推定）。実測ではありません]");
+    const lines = text.split("\n");
+    const split = lines.findIndex((l) => l.includes("[見積もり（推定）。実測ではありません]"));
+    for (const l of lines.slice(0, split).filter((x) => x.includes("→ 前季"))) expect(l).toMatch(/^ {2}計算（実測の使用量から。円額は 1 事例 12 文書の仮定を使う）/);
+    for (const l of lines.slice(split + 1).filter((x) => x.includes("→ 前季"))) expect(l).toMatch(/^ {2}見積もり（推定。実測ではありません）/);
+  });
+
+  it("別の読み手（Haiku）を含まないこと、Haiku を足した行、通常の API の単価（Batch なら約半分）、試験の実行方式は記録なし、を CLI にも書く", () => {
+    const text = buildCostReport({ usage: UNMEASURED_USAGE, summary: SUMMARY });
+    expect(text).toContain("別の読み手（Haiku）の費用を含みません");
+    expect(text).toContain("実際の増分は未計測");
+    expect(text).toContain("別の読み手を除く");
+    expect(text).toMatch(/Haiku\）にも同じ量を読ませたと仮定して足した: 1 文書 \$0\.05125/);
+    expect(text).toContain("2,214 円");
+    expect(text).toContain("通常の API");
+    expect(text).toContain("約半分");
+    expect(text).toContain("実行方式〔通常の API か Batch か〕は記録なし");
+  });
+
   it("月 3,000 円との比較がある。禁じた語（削減、時間短縮、安全、安心）がない", () => {
     for (const usage of [UNMEASURED_USAGE, MEASURED_USAGE]) {
       const text = buildCostReport({ usage, summary: SUMMARY });

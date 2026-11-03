@@ -148,9 +148,15 @@ describe("/results（試験の結果がある）", () => {
     expect(row.textContent).not.toContain("0/54");
   });
 
-  it("形が違う summary は結果とは扱わない", async () => {
-    await show({ summary: { measuredAt: "2026-11-05T17:30:00+09:00", metrics: "x" } });
-    expect(region(/読み取りの試験/).textContent).toContain("試験はまだ実行していません");
+  it("ファイルはあるが形が違う summary は、結果とは扱わず、『まだ実行していません』とも言わない（読めなかった）", async () => {
+    stub({ summary: { measuredAt: "2026-11-05T17:30:00+09:00", metrics: "x" } });
+    render(
+      <MemoryRouter>
+        <ResultsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText(/読めませんでした/);
+    expect(document.body.textContent).not.toContain("試験はまだ実行していません");
   });
 
   it("1 文書あたりの費用は『計算』の節に出し、実測の節には出さない", async () => {
@@ -196,6 +202,25 @@ describe("/results（読めなかった）", () => {
     await waitFor(() => expect(screen.getByText("24/24 件")).toBeTruthy());
   });
 
+  it("JSON として壊れた中身（HTML ではない）も読めなかった扱い", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        calls.push(String(url));
+        if (String(url).endsWith("evals/summary.json")) return Promise.resolve(new Response("{ broken", { status: 200, headers: { "content-type": "application/json" } }));
+        return Promise.resolve(new Response(JSON.stringify(usageJson), { status: 200 }));
+      }),
+    );
+    render(
+      <MemoryRouter>
+        <ResultsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText(/読めませんでした/);
+    expect(document.body.textContent).not.toContain("試験はまだ実行していません");
+  });
+
   it("サーバーの 500 も読めなかった扱い", async () => {
     stub({ summary: "error" });
     render(
@@ -204,6 +229,52 @@ describe("/results（読めなかった）", () => {
       </MemoryRouter>,
     );
     await screen.findByText(/読めませんでした/);
+  });
+});
+
+describe("見積もり（推定）と実測の分離、前提の開示（レビュー I-1、I-2、I-3）", () => {
+  const estimateBox = () => within(region(/計算/)).getByRole("heading", { name: /見積もり（推定）。実測ではありません/ }).parentElement!;
+
+  it("見積もりは実測の表とは別の表。見出しと表の題に『見積もり（推定）。実測ではありません』がある", async () => {
+    await show({ usage: MEASURED_USAGE, summary: SUMMARY });
+    const tables = within(region(/計算/)).getAllByRole("table");
+    expect(tables).toHaveLength(2);
+    expect(within(tables[0]!).getByText(/実測の使用量から計算/)).toBeTruthy(); // 題
+    expect(within(tables[1]!).getByText("見積もり（推定）。実測ではありません")).toBeTruthy(); // 題
+    expect(tables[0]!.textContent).not.toContain("見積もり（推定）"); // 実測の表に見積もりの行が混ざらない
+    expect(estimateBox().contains(tables[1]!)).toBe(true);
+  });
+
+  it("実測の行の円の額は、仮定の文書数を使うことを行の中に書く。方式不明も書く", async () => {
+    await show({ usage: MEASURED_USAGE, summary: SUMMARY });
+    const tables = within(region(/計算/)).getAllByRole("table");
+    for (const row of within(tables[0]!).getAllByRole("row").slice(1)) expect(row.textContent, row.textContent ?? "").toContain("12 文書の仮定を使う");
+    expect(tables[0]!.textContent).toContain("実行方式は記録なし");
+  });
+
+  it("何も測っていなくても、見積もりの表は見出し付きで 1 つだけ出る（実測の表は出ない）", async () => {
+    await show();
+    expect(within(region(/計算/)).getAllByRole("table")).toHaveLength(1);
+    expect(within(region(/計算/)).queryByRole("heading", { name: /実測の使用量から計算/ })).toBeNull();
+  });
+
+  it("主の読み手だけの行は別の読み手（Haiku）を含まないと画面に書き、Haiku を足した行も出す。増分は未計測", async () => {
+    await show();
+    const box = estimateBox();
+    expect(box.textContent).toContain("別の読み手（Haiku）の費用を含みません");
+    expect(box.textContent).toContain("増分は未計測");
+    expect(within(box).getByRole("row", { name: /主の読み手だけ.*別の読み手を含まない/ }).textContent).toContain("（別の読み手を除く）");
+    const withSecond = within(box).getByRole("row", { name: /Haiku.*足した/ });
+    // 0.05 + 0.00125（Haiku 5.5 の単価で同じ 5,000/1,500）= 0.05125 ドル → 24 事例 × 12 × 150 = 2,214 円
+    expect(withSecond.textContent).toContain("$0.05125");
+    expect(withSecond.textContent).toContain("2,214 円");
+  });
+
+  it("単価は通常の API のもので、Batch ならこの約半分になりうると書く", async () => {
+    await show();
+    expect(region(/計算/).textContent).toContain("通常の API");
+    expect(region(/計算/).textContent).toContain("Batch");
+    expect(region(/計算/).textContent).toContain("約半分");
   });
 });
 

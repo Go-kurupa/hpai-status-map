@@ -3,6 +3,8 @@
 // 「実測」（測った数）と「計算」（測った数や仮定から出した数）を分けて出す。測っていないものは「未実測」「未計測」と書き、0 とも空欄とも書かない。
 import {
   ASSUMED_DOCS_PER_CASE,
+  ASSUMED_DOCUMENT_TOKENS,
+  ASSUMED_MODEL,
   BUSY_MONTH_CASES,
   costBases,
   estimateSeasonCost,
@@ -14,6 +16,7 @@ import {
   parseMeasuredUsage,
   PEAK_SEASON_CASES,
   PREV_SEASON_CASES,
+  PRICE_NOTE,
 } from "@hpai/shared/cost";
 import type { MeasuredUsage } from "@hpai/shared/replay";
 import { DEFAULT_RUNTIME_SETTINGS, type EvalSummary } from "@hpai/shared/types";
@@ -34,14 +37,16 @@ async function load<T>(name: string, parse: (x: unknown) => T | null): Promise<S
     const res = await fetch(`${import.meta.env.BASE_URL}${name}`);
     if (res.status === 404) return { s: "none" };
     if (!res.ok) return { s: "failed" };
+    const text = await res.text();
     let json: unknown;
     try {
-      json = await res.json();
+      json = JSON.parse(text);
     } catch {
-      return { s: "none" }; // ファイルが無いときに index.html が返る配信でも、結果があるとは扱わない
+      // ファイルが無いときに index.html を返す配信は、まだ測っていない扱い。それ以外の壊れた中身は、読めなかったと分ける
+      return (res.headers.get("content-type") ?? "").includes("text/html") ? { s: "none" } : { s: "failed" };
     }
     const v = parse(json);
-    return v === null ? { s: "none" } : { s: "ready", v };
+    return v === null ? { s: "failed" } : { s: "ready", v }; // ファイルはあるが形が違う: 読めなかった
   } catch {
     return { s: "failed" };
   }
@@ -190,12 +195,41 @@ const SCENARIOS = [
 function CalcSection({ usage, summary }: { usage: MeasuredUsage; summary: EvalSummary | null }) {
   const jpyPerUsd = DEFAULT_RUNTIME_SETTINGS.jpyPerUsd;
   const bases = costBases(usage, summary);
+  const measured = bases.filter((b) => b.measured);
+  const assumed = bases.filter((b) => !b.measured);
+  const t = ASSUMED_DOCUMENT_TOKENS;
   return (
     <div>
       <p className="replay-hint">
-        1 事例で読む文書は {ASSUMED_DOCS_PER_CASE} 文書と<strong>仮定</strong>しました（測っていません）。1 ドル {jpyPerUsd} 円で換算します。
+        1 事例で読む文書は {ASSUMED_DOCS_PER_CASE} 文書と<strong>仮定</strong>しました（測っていません）。1 ドル {jpyPerUsd} 円で換算します。{PRICE_NOTE}
       </p>
+
+      {measured.length > 0 && (
+        <div>
+          <h3>実測の使用量から計算した費用</h3>
+          <p>1 文書あたりの費用は、測った使用量に単価を掛けた計算で、請求画面の額とは別です。事例の数ごとの円の額は、1 事例 {ASSUMED_DOCS_PER_CASE} 文書の仮定を使った計算です。</p>
+          <CostTable bases={measured} jpyPerUsd={jpyPerUsd} caption="実測の使用量から計算（円の額は仮定の文書数を使う）" />
+        </div>
+      )}
+
+      <div className="backstage-unmeasured">
+        <h3>見積もり（推定）。実測ではありません</h3>
+        <p>
+          1 文書を入力 {n(t.inputTokens)}・出力 {n(t.outputTokens)} トークンの {ASSUMED_MODEL}（${formatUsd(assumed[0]?.usdPerDocument ?? 0)}）と仮定した数です。測った数ではありません。
+          {assumed.length > 1 && "上の行は別の読み手（Haiku）の費用を含みません。下の行は、Haiku にも同じ量を読ませたと仮定して足した数で、実際の増分は未計測です。"}
+        </p>
+        <CostTable bases={assumed} jpyPerUsd={jpyPerUsd} caption="見積もり（推定）。実測ではありません" />
+      </div>
+
+      <p className="replay-hint">運用の上限は月 {n(MONTHLY_BUDGET_JPY)} 円です。詳しい計算は docs/cost.md にあります。</p>
+    </div>
+  );
+}
+
+function CostTable({ bases, jpyPerUsd, caption }: { bases: ReturnType<typeof costBases>; jpyPerUsd: number; caption: string }) {
+  return (
       <table>
+        <caption>{caption}</caption>
         <thead>
           <tr>
             <th scope="col">根拠</th>
@@ -213,21 +247,16 @@ function CalcSection({ usage, summary }: { usage: MeasuredUsage; summary: EvalSu
             const cap = monthlyCaseCapacity(b, jpyPerUsd);
             return (
               <tr key={b.id}>
-                <th scope="row">{b.label}</th>
+                <th scope="row">{b.measured ? `${b.label}。円の額は ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う` : b.label}</th>
                 <td>${formatUsd(b.usdPerDocument)}</td>
                 {SCENARIOS.map((c) => (
                   <td key={c.label}>{formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases: c.cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy)}</td>
                 ))}
-                <td>{cap === null ? "—" : `1 か月に ${cap} 事例まで`}</td>
+                <td>{cap === null ? "—" : `1 か月に ${cap} 事例まで${b.id === "assumed" ? "（別の読み手を除く）" : ""}`}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
-      <p>
-        「見積もり（推定）」の行は、1 文書を入力 5,000・出力 1,500 トークンの Opus 5.5（0.05 ドル）と仮定して出した数で、<strong>実測ではありません</strong>。実測の行は、応答の使用量に単価を掛けた計算で、請求画面の額とは別です。
-      </p>
-      <p className="replay-hint">運用の上限は月 {n(MONTHLY_BUDGET_JPY)} 円です。詳しい計算は docs/cost.md にあります。</p>
-    </div>
   );
 }
