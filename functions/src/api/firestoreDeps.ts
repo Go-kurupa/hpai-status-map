@@ -40,26 +40,34 @@ export const firestoreReaders = {
 
 /** 認証なしの API が Firestore の読み取りの費用を食われないよう、プロセス内で 60 秒だけ使い回す（鍵: season、pref）。 */
 export const READ_CACHE_MS = 60_000;
-export function cachedReaders(readers: typeof firestoreReaders, nowMs: () => number = Date.now): typeof firestoreReaders {
+/**
+ * (cacheOnly) => 読み口。cacheOnly のときは、期限が過ぎていてもキャッシュにあれば返し、Firestore を読まない
+ * （インスタンス全体の上限のとき。キャッシュが無い最初の 1 回だけ読む）。
+ */
+export function cachedReaders(readers: typeof firestoreReaders, nowMs: () => number = Date.now): (cacheOnly: boolean) => typeof firestoreReaders {
   const cache = createCache(READ_CACHE_MS, nowMs);
-  return {
-    casesBySeason: (season, pref) => cache(`cases:${season}:${pref ?? "all"}`, () => readers.casesBySeason(season, pref)),
-    wildBirdsBySeason: (season) => cache(`birds:${season}`, () => readers.wildBirdsBySeason(season)),
-    watchStatuses: () => cache("watch", () => readers.watchStatuses()),
+  return (cacheOnly) => {
+    const o = { staleOk: cacheOnly };
+    return {
+      casesBySeason: (season, pref) => cache(`cases:${season}:${pref ?? "all"}`, () => readers.casesBySeason(season, pref), o),
+      wildBirdsBySeason: (season) => cache(`birds:${season}`, () => readers.wildBirdsBySeason(season), o),
+      watchStatuses: () => cache("watch", () => readers.watchStatuses(), o),
+    };
   };
 }
 
 /** 実際の依存。地図の索引と過去の資料は 1 度読んで使い回す（失敗したら捨てて、次の呼び出しでやり直す）。 */
-export function createFirestoreDeps(opts: { geoDir?: string; historyFile?: string; readers?: typeof firestoreReaders } = {}): () => Promise<ApiDeps> {
+export function createFirestoreDeps(opts: { geoDir?: string; historyFile?: string; readers?: (cacheOnly: boolean) => typeof firestoreReaders } = {}): (o?: { cacheOnly?: boolean }) => Promise<ApiDeps> {
   const readers = opts.readers ?? cachedReaders(firestoreReaders);
-  let cached: Promise<ApiDeps> | null = null;
-  return () => {
-    if (!cached) {
-      cached = Promise.all([loadGeoStore(opts.geoDir), loadHistory(opts.historyFile)]).then(([geo, history]) => ({ ...readers, history, geo }));
-      cached.catch(() => {
-        cached = null;
+  let base: Promise<Pick<ApiDeps, "history" | "geo">> | null = null;
+  return async (o) => {
+    if (!base) {
+      const p = Promise.all([loadGeoStore(opts.geoDir), loadHistory(opts.historyFile)]).then(([geo, history]) => ({ geo, history }));
+      p.catch(() => {
+        if (base === p) base = null;
       });
+      base = p;
     }
-    return cached;
+    return { ...(await base), ...readers(o?.cacheOnly === true) };
   };
 }

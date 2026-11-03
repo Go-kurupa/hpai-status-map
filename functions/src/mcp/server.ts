@@ -105,7 +105,7 @@ export function createPublicMcpServer(d: ApiDeps, now: () => Date): McpServer {
 }
 
 export interface ServeMcpContext {
-  getDeps: () => Promise<ApiDeps>;
+  getDeps: (o?: { cacheOnly?: boolean }) => Promise<ApiDeps>;
   limiter: ReturnType<typeof createRateLimiter>;
   now?: () => Date;
 }
@@ -113,7 +113,8 @@ export interface ServeMcpContext {
 /** POST だけ通す。リクエストごとに新しい McpServer と transport（状態を持たない）。GET と DELETE は 405。 */
 export async function servePublicMcp(req: IncomingMessage & { body?: unknown }, res: ServerResponse, ctx: ServeMcpContext): Promise<void> {
   const now = ctx.now ?? (() => new Date());
-  if (!ctx.limiter(clientIpOf(req), now().getTime())) {
+  const decision = ctx.limiter(clientIpOf(req), now().getTime());
+  if (decision === "ip") {
     sendResult(res, fail(429, "rate_limited", "回数が多すぎます。1 分ほど待ってください", { "Retry-After": "60" }));
     return;
   }
@@ -126,9 +127,14 @@ export async function servePublicMcp(req: IncomingMessage & { body?: unknown }, 
     sendResult(res, fail(400, "batch_not_allowed", "一括の要求は受け付けません。1 回に 1 件ずつ呼んでください"));
     return;
   }
+  // 本文が解析済みのオブジェクトでなければ断る。SDK が生のストリームを読むと、実行環境のボディパーサに頼らず一括を受けてしまう。
+  if (typeof req.body !== "object" || req.body === null) {
+    sendResult(res, fail(400, "json_body_required", "JSON の本文（content-type: application/json）が必要です"));
+    return;
+  }
   let deps: ApiDeps;
   try {
-    deps = await ctx.getDeps();
+    deps = await ctx.getDeps({ cacheOnly: decision === "shed" });
   } catch {
     logger.error("mcp deps failed");
     sendResult(res, fail(500, "internal", "内部エラーです。時間をおいてやり直してください"));

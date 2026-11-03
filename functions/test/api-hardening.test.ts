@@ -45,24 +45,25 @@ describe("I-1: 回数の制限を偽れない、費用を食えない", () => {
     expect((await hit(61)).status).toBe(429);
   });
 
-  it("インスタンス全体の上限: 別の IP でも超えたら false。1 つの IP は全体の枠を IP の上限までしか使えない", () => {
+  it('インスタンス全体の上限: 超えたら断らず shed（キャッシュから返す合図）。1 つの IP は全体の枠を IP の上限までしか使えない', () => {
     const limit = createRateLimiter(60, { globalPerMinute: 100 });
     const t = Date.UTC(2026, 10, 4, 3, 0, 5);
     for (let i = 0; i < 200; i++) limit("203.0.113.1", t); // 1 つの IP が叩き続けても、全体の枠は 60 しか使わない
-    expect(limit("203.0.113.2", t)).toBe(true);
-    for (let i = 0; i < 39; i++) expect(limit(`198.51.100.${i}`, t)).toBe(true);
-    expect(limit("198.51.100.200", t)).toBe(false); // 全体で 100 に達した
-    expect(limit("203.0.113.2", t)).toBe(false);
-    expect(limit("198.51.100.200", t + 60_000)).toBe(true); // 次の分
+    expect(limit("203.0.113.1", t)).toBe("ip");
+    expect(limit("203.0.113.2", t)).toBe("ok");
+    for (let i = 0; i < 39; i++) expect(limit(`198.51.100.${i}`, t)).toBe("ok");
+    expect(limit("198.51.100.200", t)).toBe("shed"); // 全体で 100 に達した
+    expect(limit("203.0.113.2", t)).toBe("shed");
+    expect(limit("198.51.100.200", t + 60_000)).toBe("ok"); // 次の分
   });
 
-  it("数える IP の数が上限に達したら、新しい IP は通さない（fail-closed）", () => {
+  it("数える IP の数が上限に達したら、新しい IP は断らず shed", () => {
     const limit = createRateLimiter(60, { globalPerMinute: 1000, maxTrackedIps: 2 });
     const t = Date.UTC(2026, 10, 4, 3, 0, 5);
-    expect(limit("203.0.113.1", t)).toBe(true);
-    expect(limit("203.0.113.2", t)).toBe(true);
-    expect(limit("203.0.113.3", t)).toBe(false);
-    expect(limit("203.0.113.1", t)).toBe(true);
+    expect(limit("203.0.113.1", t)).toBe("ok");
+    expect(limit("203.0.113.2", t)).toBe("ok");
+    expect(limit("203.0.113.3", t)).toBe("shed");
+    expect(limit("203.0.113.1", t)).toBe("ok");
   });
 
   it("clientIp は右端", () => {
@@ -226,5 +227,113 @@ describe("I-5: 解釈できない URL は 400", () => {
       expect(r.status, path).toBe(400);
     }
     expect((await rawGet(port, "/api/v1/watch-status")).status).toBe(200);
+  });
+});
+
+// ── 修正 2 回目 ──
+
+describe("2回目 1: 全体の上限はキャッシュから返す。IPv6 は /64 でまとめる", () => {
+  it("全体の上限（shed）の要求は 429 にせず 200。依存はキャッシュだけの形で作る。IP の上限は 429", async () => {
+    const { deps } = await makeDeps();
+    const modes: boolean[] = [];
+    const limiter = createRateLimiter(3, { globalPerMinute: 4 });
+    const port = await listen((req, res) => void serveApi(req as never, res, { getDeps: async (o) => (modes.push(o?.cacheOnly === true), deps), limiter, now: () => NOW }));
+    const hit = (ip: string) => rawGet(port, "/api/v1/watch-status", { "x-forwarded-for": ip });
+    expect((await hit("203.0.113.1")).status).toBe(200);
+    expect((await hit("203.0.113.2")).status).toBe(200);
+    expect((await hit("203.0.113.3")).status).toBe(200);
+    expect((await hit("203.0.113.4")).status).toBe(200);
+    expect(modes).toEqual([false, false, false, false]);
+    expect((await hit("203.0.113.5")).status).toBe(200); // 全体の上限。断らない
+    expect(modes[4]).toBe(true);
+    expect((await hit("203.0.113.1")).status).toBe(200); // 1 回目の IP は上限の前
+    for (let i = 0; i < 3; i++) await hit("198.51.100.9");
+    expect((await hit("203.0.113.1")).status).toBe(200);
+  });
+
+  it("IP の上限を超えた IP は 429（best-effort）", async () => {
+    const { deps } = await makeDeps();
+    const limiter = createRateLimiter(2, { globalPerMinute: 100 });
+    const port = await listen((req, res) => void serveApi(req as never, res, { getDeps: async () => deps, limiter, now: () => NOW }));
+    const hit = () => rawGet(port, "/api/v1/watch-status", { "x-forwarded-for": "203.0.113.1" });
+    expect((await hit()).status).toBe(200);
+    expect((await hit()).status).toBe(200);
+    expect((await hit()).status).toBe(429);
+  });
+
+  it("キャッシュの staleOk: 期限が過ぎていても残っていれば返す。なければ読む", async () => {
+    let t = 0;
+    let calls = 0;
+    const cache = createCache(60_000, () => t);
+    expect(await cache("k", async () => ++calls, { staleOk: true })).toBe(1); // 無ければ読む
+    t += 10 * 60_000;
+    expect(await cache("k", async () => ++calls, { staleOk: true })).toBe(1); // 古くても返す
+    expect(calls).toBe(1);
+    expect(await cache("k", async () => ++calls)).toBe(2); // 通常は読み直す
+    expect(await cache("k", async () => ++calls, { staleOk: true })).toBe(2);
+  });
+
+  it("IPv6 は /64 でまとめて数える。書き方が違っても同じ。IPv4 はそのまま", () => {
+    const a = clientIp("2001:db8:1:2:aaaa:bbbb:cccc:dddd");
+    expect(clientIp("2001:db8:1:2::1")).toBe(a);
+    expect(clientIp("2001:0DB8:0001:0002:0:0:0:9")).toBe(a);
+    expect(clientIp("2001:db8:1:3::1")).not.toBe(a);
+    expect(clientIp("2001:db8::1")).toBe(clientIp("2001:db8:0:0:ffff::2"));
+    expect(clientIp("203.0.113.9")).toBe("203.0.113.9");
+    const limit = createRateLimiter(3);
+    const t = Date.UTC(2026, 10, 4, 3, 0, 5);
+    const results = ["2001:db8:1:2::1", "2001:db8:1:2::2", "2001:db8:1:2::3", "2001:db8:1:2::4"].map((x) => limit(clientIp(x), t));
+    expect(results).toEqual(["ok", "ok", "ok", "ip"]);
+  });
+});
+
+describe("2回目 2: 出典の URL は正規化した href を返す", () => {
+  it("空白、制御文字、改行、501 字以上は拒否。大文字のホストは正規化して返す。500 字は通る", async () => {
+    const long500 = "https://www.maff.go.jp/" + "a".repeat(500 - "https://www.maff.go.jp/".length);
+    const long501 = long500 + "a";
+    const bad = ["https://www.maff.go.jp/a b", "https://www.maff.go.jp/a\nb", "https://www.maff.go.jp/a\tb", "https://www.maff.go.jp/a\u0000b", " https://www.maff.go.jp/a", "https://www.maff.go.jp/a ", long501];
+    const { deps } = await makeDeps({ cases: [makeCase({ sourceUrls: [...bad, "HTTPS://WWW.MAFF.GO.JP/Path?x=1", long500] })] });
+    const r = await get(deps, "/api/v1/cases");
+    expect(r.body.data[0].sourceUrls).toEqual(["https://www.maff.go.jp/Path?x=1", long500]);
+  });
+});
+
+describe("2回目 3: 公開 MCP は本文の形を自分で確かめる", () => {
+  it("本文が解析されていない（req.body が undefined）要求は、中身が配列でも 400。依存を作らない", async () => {
+    let depsCalls = 0;
+    const { deps } = await makeDeps();
+    // 実行環境のボディパーサがない想定: req.body を入れずに渡す
+    const port = await listen((req, res) => void servePublicMcp(req as never, res, { getDeps: async () => (depsCalls++, deps), limiter: createRateLimiter(60), now: () => NOW }));
+    const batch = Array.from({ length: 5 }, (_, i) => ({ jsonrpc: "2.0", id: i + 1, method: "tools/list" }));
+    for (const body of [JSON.stringify(batch), "", "text"]) {
+      const res = await fetch(`http://127.0.0.1:${port}/mcp`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body });
+      expect([400, 415], body).toContain(res.status);
+    }
+    expect(depsCalls).toBe(0);
+  });
+
+  it("本文が文字列や数でも 400", async () => {
+    const { deps } = await makeDeps();
+    const port = await listen((req, res) => {
+      (req as http.IncomingMessage & { body?: unknown }).body = "x";
+      void servePublicMcp(req as never, res, { getDeps: async () => deps, limiter: createRateLimiter(60), now: () => NOW });
+    });
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    expect([400, 415]).toContain(res.status);
+  });
+});
+
+describe("2回目 4: 形が不正で省いた記録は、件数をログに出し、答えに一文を足す", () => {
+  const NOTE = "一部の記録は形が読めず省きました";
+  it("事例、野鳥、/areas の答えに一文。省いた記録がなければ出さない。replay と negative は数えない", async () => {
+    const clean = await makeDeps({ cases: [makeCase({ id: "r", confirmState: "replay" })], birds: [makeBird({ id: "n", test: "negative" })] });
+    for (const p of ["/api/v1/cases", "/api/v1/wild-birds", "/api/v1/areas/33203"]) expect((await get(clean.deps, p)).body.notices.join("\n"), p).not.toContain(NOTE);
+
+    const { deps } = await makeDeps({
+      cases: [makeCase({ id: "ok" }), makeCase({ id: "bad", negation: "かも" as never }), makeCase({ id: "bad2", prefCode: "99" })],
+      birds: [makeBird({ id: "b-ok" }), makeBird({ id: "b-bad", test: "危険" as never })],
+    });
+    for (const p of ["/api/v1/cases", "/api/v1/wild-birds", "/api/v1/areas/33203"]) expect((await get(deps, p)).body.notices.join("\n"), p).toContain(NOTE);
+    expect((await get(deps, "/api/v1/cases")).body.data.map((c: { id: string }) => c.id)).toEqual(["ok"]);
   });
 });

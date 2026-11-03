@@ -112,12 +112,14 @@ describe("公開 API と公開 MCP（模擬環境の Firestore）", () => {
     expect(Object.keys((await firestoreReaders.watchStatuses())[0]!).sort()).toEqual(["checkedAt", "failingSince", "lastOkAt", "ok", "prefCode"]);
 
     let t = 1_000;
-    const cached = cachedReaders(firestoreReaders, () => t);
-    const first = await cached.casesBySeason(2026, "33");
+    const readers = cachedReaders(firestoreReaders, () => t);
+    const first = await readers(false).casesBySeason(2026, "33");
     await db.doc("cases/late").set(makeCase({ id: "late" }));
-    expect(await cached.casesBySeason(2026, "33")).toBe(first); // 60 秒の間は Firestore を読み直さない
+    expect(await readers(false).casesBySeason(2026, "33")).toBe(first); // 60 秒の間は Firestore を読み直さない
     t += 60_001;
-    expect((await cached.casesBySeason(2026, "33")).map((c) => c.id)).toContain("late");
+    expect(await readers(true).casesBySeason(2026, "33")).toBe(first); // 全体の上限のとき: 期限が過ぎていてもキャッシュから返す
+    expect((await readers(true).casesBySeason(2026, "13")).map((c) => c.id)).toEqual(["c-tokyo"]); // キャッシュが無い鍵は読む
+    expect((await readers(false).casesBySeason(2026, "33")).map((c) => c.id)).toContain("late");
   });
 
   it("過去のシーズンは同梱の資料から（2025 は 24 件）", async () => {

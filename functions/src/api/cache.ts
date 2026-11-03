@@ -4,14 +4,19 @@
 /** 鍵の数の上限。入力は検証済みで鍵は有限だが、万一の増え方に備える。 */
 const MAX_KEYS = 500;
 
-export function createCache(ttlMs: number, nowMs: () => number = Date.now): <T>(key: string, load: () => Promise<T>) => Promise<T> {
+export interface CacheOptions {
+  /** 期限が過ぎていても、残っていれば返す（全体の上限のとき。Firestore を読まない）。なければ読む。 */
+  staleOk?: boolean;
+}
+
+export function createCache(ttlMs: number, nowMs: () => number = Date.now): <T>(key: string, load: () => Promise<T>, opts?: CacheOptions) => Promise<T> {
   const entries = new Map<string, { at: number; value: Promise<unknown> }>();
-  return <T>(key: string, load: () => Promise<T>): Promise<T> => {
+  return <T>(key: string, load: () => Promise<T>, opts: CacheOptions = {}): Promise<T> => {
     const now = nowMs();
     const hit = entries.get(key);
-    if (hit && now - hit.at < ttlMs) return hit.value as Promise<T>;
+    if (hit && (opts.staleOk === true || now - hit.at < ttlMs)) return hit.value as Promise<T>;
     if (entries.size >= MAX_KEYS) {
-      for (const [k, v] of entries) if (now - v.at >= ttlMs) entries.delete(k);
+      for (const [k, v] of entries) if (now - v.at >= ttlMs * 10) entries.delete(k);
       if (entries.size >= MAX_KEYS) entries.clear();
     }
     const value = load();

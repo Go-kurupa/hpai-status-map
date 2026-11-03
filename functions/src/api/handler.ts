@@ -5,6 +5,7 @@ import { logger } from "firebase-functions";
 import {
   API_MIN_SEASON,
   baseNotices,
+  DROPPED_NOTICE,
   isCaseVisible,
   toPublicCase,
   toPublicWildBird,
@@ -61,6 +62,13 @@ const contextOf = (d: ApiDeps): PublicContext => ({
 
 const nonNull = <T>(x: T | null): x is T => x !== null;
 
+/** 形が不正で省いた記録があれば、件数だけをログに出し（中身は出さない）、答えに一文を足す。 */
+function withDropped(notices: string[], dropped: number, endpoint: string): string[] {
+  if (dropped <= 0) return notices;
+  logger.warn("api dropped malformed records", { endpoint, count: dropped });
+  return [...notices, DROPPED_NOTICE];
+}
+
 /** その季の事例。過去の資料にあるシーズンは data/history（related:false だけ）、なければ Firestore。 */
 async function casesOf(d: ApiDeps, season: Season, pref: PrefCode | null): Promise<Case[]> {
   const rows = d.history.some((h) => h.season === season) ? pastCasesOf(d.history.filter((h) => h.season === season)) : await d.casesBySeason(season, pref);
@@ -77,7 +85,7 @@ export async function buildCases(d: ApiDeps, q: { season: Season; pref: PrefCode
   const ctx = contextOf(d);
   const shown = all.filter((c) => c.season === q.season && isCaseVisible(c, now)).sort(newestFirst);
   const data: ApiCase[] = shown.map((c) => toPublicCase(c, ctx)).filter(nonNull);
-  const notices = [...baseNotices(), ...(isCurrent ? [] : [FIXED_TEXT.pastDisclaimer]), ...(watch ? [watchNotice(watch.summary)] : [])];
+  const notices = withDropped([...baseNotices(), ...(isCurrent ? [] : [FIXED_TEXT.pastDisclaimer]), ...(watch ? [watchNotice(watch.summary)] : [])], shown.length - data.length, "cases");
   return {
     asOf: toJstIso(now),
     notices,
@@ -113,7 +121,7 @@ export async function buildArea(d: ApiDeps, muniCode: MuniCode, now: Date): Prom
 
   return {
     asOf: status.asOf,
-    notices,
+    notices: withDropped(notices, allCases.length - cases.length + (allBirds.length - wildBirds.length), "areas"),
     sources: sourceUrls,
     watch: watch.summary,
     data: { ...status, sameMuniCases, adjacentCases, wildBirds: birds, sourceUrls },
@@ -134,14 +142,14 @@ export async function buildWildBirds(d: ApiDeps, season: Season, now: Date): Pro
   const isCurrent = season === currentSeason(now);
   const [birds, watch] = await Promise.all([d.wildBirdsBySeason(season), isCurrent ? loadWatch(d, now) : Promise.resolve(null)]);
   const ctx = contextOf(d);
-  const data = birds
-    .filter((b) => b.season === season && b.test !== "negative")
+  const candidates = birds.filter((b) => b.season === season && b.test !== "negative");
+  const data = candidates
     .sort((a, b) => (a.date !== b.date ? (a.date < b.date ? 1 : -1) : a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     .map((b) => toPublicWildBird(b, ctx))
     .filter(nonNull);
   return {
     asOf: toJstIso(now),
-    notices: [...baseNotices(), ...(isCurrent ? [] : [FIXED_TEXT.pastDisclaimer]), ...(watch ? [watchNotice(watch.summary)] : [])],
+    notices: withDropped([...baseNotices(), ...(isCurrent ? [] : [FIXED_TEXT.pastDisclaimer]), ...(watch ? [watchNotice(watch.summary)] : [])], candidates.length - data.length, "wild-birds"),
     sources: uniq(data.map((b) => b.sourceUrl)),
     ...(watch ? { watch: watch.summary } : {}),
     data,
@@ -233,8 +241,8 @@ export function sendResult(res: ServerResponse, result: ApiResult): void {
 }
 
 export interface ServeApiContext {
-  /** 遅れて作る（過去の資料と地図を読むため）。失敗したら 500。 */
-  getDeps: () => Promise<ApiDeps>;
+  /** 遅れて作る（過去の資料と地図を読むため）。失敗したら 500。cacheOnly は全体の上限のとき（キャッシュから返す）。 */
+  getDeps: (o?: { cacheOnly?: boolean }) => Promise<ApiDeps>;
   limiter: ReturnType<typeof createRateLimiter>;
   now?: () => Date;
 }
@@ -247,7 +255,8 @@ export function clientIpOf(req: IncomingMessage): string {
 
 export async function serveApi(req: ApiRequestLike, res: ServerResponse, ctx: ServeApiContext): Promise<void> {
   const now = (ctx.now ?? (() => new Date()))();
-  if (!ctx.limiter(clientIpOf(req), now.getTime())) {
+  const decision = ctx.limiter(clientIpOf(req), now.getTime());
+  if (decision === "ip") {
     sendResult(res, fail(429, "rate_limited", "回数が多すぎます。1 分ほど待ってください", { "Retry-After": "60" }));
     return;
   }
@@ -261,7 +270,7 @@ export async function serveApi(req: ApiRequestLike, res: ServerResponse, ctx: Se
   }
   let deps: ApiDeps;
   try {
-    deps = await ctx.getDeps();
+    deps = await ctx.getDeps({ cacheOnly: decision === "shed" });
   } catch {
     logger.error("api deps failed");
     sendResult(res, fail(500, "internal", "内部エラーです。時間をおいてやり直してください"));

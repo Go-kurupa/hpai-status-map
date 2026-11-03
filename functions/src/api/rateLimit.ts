@@ -13,11 +13,16 @@ export interface RateLimitOptions {
 export const INSTANCE_LIMIT_PER_MINUTE = 600;
 const MAX_TRACKED_IPS = 10_000;
 
+/** ok: 通す。ip: その IP の上限を超えた（429）。shed: インスタンス全体の枠が尽きた（断らず、キャッシュから返す）。 */
+export type RateDecision = "ok" | "ip" | "shed";
+
 /**
- * (ip, nowMs) => 通してよいか。同じ分の中で IP ごとに limitPerMinute 回まで、インスタンス全体で globalPerMinute 回までは true。
- * 1 つの IP が叩き続けても、全体の枠は IP の上限までしか使えない。全体の枠が尽きたら、新しい IP は数えずに断る。
+ * (ip, nowMs) => 判定。同じ分の中で IP ごとに limitPerMinute 回までは ok、それを超えたら ip（IP ごとの数えは best-effort）。
+ * インスタンス全体が globalPerMinute 回に達したか、数える IP が上限に達したら shed。誰かが全員を止められないよう、
+ * shed は断らずにキャッシュから答える（呼び出し側。キャッシュがなければ読む）。
+ * 全体の枠は IP の上限を通った要求だけが使う。1 つの IP は全体の枠を IP の上限までしか使えない。
  */
-export function createRateLimiter(limitPerMinute: number, opts: RateLimitOptions = {}): (ip: string, nowMs: number) => boolean {
+export function createRateLimiter(limitPerMinute: number, opts: RateLimitOptions = {}): (ip: string, nowMs: number) => RateDecision {
   const globalLimit = opts.globalPerMinute ?? INSTANCE_LIMIT_PER_MINUTE;
   const maxTracked = opts.maxTrackedIps ?? MAX_TRACKED_IPS;
   let windowStart = -1;
@@ -31,21 +36,31 @@ export function createRateLimiter(limitPerMinute: number, opts: RateLimitOptions
       total = 0;
     }
     const n = counts.get(ip);
-    if (n !== undefined && n >= limitPerMinute) return false;
-    if (total >= globalLimit) return false;
+    if (n !== undefined && n >= limitPerMinute) return "ip";
+    if (limitPerMinute < 1) return "ip";
+    if (total >= globalLimit) return "shed";
     if (n === undefined) {
-      if (counts.size >= maxTracked || limitPerMinute < 1) return false;
+      if (counts.size >= maxTracked) return "shed";
       counts.set(ip, 1);
     } else {
       counts.set(ip, n + 1);
     }
     total++;
-    return true;
+    return "ok";
   };
 }
 
+/** IPv6 の上位 64 ビット（/64）を「a:b:c:d::/64」の形にする。1 つの家庭や事業者が下位を自由に変えても、同じ相手として数える。 */
+function v6Prefix64(ip: string): string {
+  const [head = "", tail] = ip.split("::");
+  const h = head === "" ? [] : head.split(":");
+  const t = tail === undefined || tail === "" ? [] : tail.split(":");
+  const groups = tail === undefined ? h : [...h, ...Array<string>(Math.max(0, 8 - h.length - t.length)).fill("0"), ...t];
+  return `${groups.slice(0, 4).map((g) => g.toLowerCase().replace(/^0+(?=.)/, "")).join(":")}::/64`;
+}
+
 /**
- * X-Forwarded-For の右端の値。IP の形でなければ "unknown"。
+ * X-Forwarded-For の右端の値。IP の形でなければ "unknown"。IPv6 は /64 でまとめた値。
  * 左側は送り手が好きに書ける値（偽ると別の IP として数えられる）。右端は経路の前段（Google）が付けた側。
  * 本番での形（要素数と位置）は deploy の後に確かめる（docs/mcp-usage.md）。
  */
@@ -53,5 +68,6 @@ export function clientIp(xForwardedFor: string | string[] | undefined): string {
   const raw = Array.isArray(xForwardedFor) ? xForwardedFor.join(",") : xForwardedFor;
   const parts = raw?.split(",").map((x) => x.trim()).filter((x) => x !== "") ?? [];
   const last = (parts[parts.length - 1] ?? "").replace(/^::ffff:/i, "");
-  return isIP(last) !== 0 ? last : "unknown";
+  const kind = isIP(last);
+  return kind === 4 ? last : kind === 6 ? v6Prefix64(last) : "unknown";
 }

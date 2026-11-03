@@ -271,16 +271,16 @@ describe("回数の制限", () => {
   it("同じ IP の 61 回目は false。次の分は通る。別の IP は別に数える", () => {
     const limit = createRateLimiter(60);
     const t = Date.UTC(2026, 10, 4, 3, 0, 5);
-    for (let i = 0; i < 60; i++) expect(limit("203.0.113.1", t + i)).toBe(true);
-    expect(limit("203.0.113.1", t + 100)).toBe(false);
-    expect(limit("203.0.113.2", t + 100)).toBe(true);
-    expect(limit("203.0.113.1", t + 60_000)).toBe(true);
+    for (let i = 0; i < 60; i++) expect(limit("203.0.113.1", t + i)).toBe("ok");
+    expect(limit("203.0.113.1", t + 100)).toBe("ip");
+    expect(limit("203.0.113.2", t + 100)).toBe("ok");
+    expect(limit("203.0.113.1", t + 60_000)).toBe("ok");
   });
 
   it("clientIp は X-Forwarded-For の右端。IP の形でなければ unknown", () => {
     expect(clientIp("203.0.113.9, 10.0.0.1")).toBe("10.0.0.1"); // 右端。前段（Google）が付けた側。先頭は送り手が偽れる
     expect(clientIp("::ffff:203.0.113.9")).toBe("203.0.113.9");
-    expect(clientIp("2001:db8::1")).toBe("2001:db8::1");
+    expect(clientIp("2001:db8::1")).toBe("2001:db8:0:0::/64"); // IPv6 は /64 でまとめる
     expect(clientIp("<script>")).toBe("unknown");
     expect(clientIp(undefined)).toBe("unknown");
   });
