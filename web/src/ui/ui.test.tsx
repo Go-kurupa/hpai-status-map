@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ChecklistClass } from "@hpai/shared/types";
 import { afterEach, describe, expect, it } from "vitest";
-import { AsOf, formatAsOf } from "./AsOf";
+import { AsOf, AsOfPrecisionContext, formatAsOf } from "./AsOf";
 import { Button } from "./Button";
 import { ClassBlock } from "./ClassBlock";
 import { SourceLine } from "./SourceLine";
@@ -34,6 +34,33 @@ describe("AsOf", () => {
   });
   it("null は『確認できていません』", () => {
     render(<AsOf iso={null} />);
+    expect(screen.getByText("確認できていません")).toBeTruthy();
+  });
+});
+
+describe("AsOf の精度（時刻が分からないとき、時刻の文字を描かない）", () => {
+  it("date は日付だけ。時刻の文字がない", () => {
+    render(
+      <AsOfPrecisionContext.Provider value="date">
+        <AsOf iso="2025-12-19T23:59:59+09:00" />
+      </AsOfPrecisionContext.Provider>,
+    );
+    expect(screen.getByText("12 月 19 日 時点")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/\d:\d{2}/);
+  });
+  it("none は何も描かない（null の『確認できていません』は date でも出る）", () => {
+    const { container } = render(
+      <AsOfPrecisionContext.Provider value="none">
+        <AsOf iso="2025-12-19T23:59:59+09:00" />
+      </AsOfPrecisionContext.Provider>,
+    );
+    expect(container.textContent).toBe("");
+    cleanup();
+    render(
+      <AsOfPrecisionContext.Provider value="date">
+        <AsOf iso={null} />
+      </AsOfPrecisionContext.Provider>,
+    );
     expect(screen.getByText("確認できていません")).toBeTruthy();
   });
 });

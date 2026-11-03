@@ -7,6 +7,7 @@ import { useSyncExternalStore, type ReactNode } from "react";
 import { DataSourceProvider, RecordStoreProvider } from "../../data/context";
 import { SpotProvider } from "../../data/spotContext";
 import type { RecordStore } from "../../data/types";
+import { AsOfPrecisionContext, type AsOfPrecision } from "../../ui/AsOf";
 import { isDefaultSpot, pointInTime } from "./replayEngine";
 import type { ReplayDataSource } from "./ReplayDataSource";
 import "./replay.css";
@@ -49,6 +50,8 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, children 
   const fixed = spot ?? scenario.defaultSpot;
   const tentative = isDefaultSpot(scenario, spot);
   const timeKnown = order > 0 && scenario.events[order - 1]!.time !== null;
+  // 時刻の記載がない時点は、時刻の文字を描かない（日付だけ。はじまる前は何も描かない）。内部の 23:59:59 は画面に出さない
+  const precision: AsOfPrecision = timeKnown ? "time" : order === 0 ? "none" : "date";
 
   return (
     <DataSourceProvider value={dataSource}>
@@ -70,11 +73,12 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, children 
               <li>{REPLAY_NOTES.noTime}</li>
             </ul>
           </section>
-          {/* 時刻の記載がない時点では、地図などの『N 月 N 日 H:MM 時点』を隠す（内部の 23:59:59 を時刻として見せない）。
-              地図の h1 は『今季』と出るので隠し、再現の画面が『去年の再現』の見出しを出す（replay.css） */}
-          <div className="replay-scope" data-time-known={timeKnown ? "true" : "false"}>
-            {children}
-          </div>
+          {/* 地図の h1 は『今季』と出るので隠し、再現の画面が『去年の再現』の見出しを出す（replay.css） */}
+          <AsOfPrecisionContext.Provider value={precision}>
+            <div className="replay-scope" data-time-known={timeKnown ? "true" : "false"}>
+              {children}
+            </div>
+          </AsOfPrecisionContext.Provider>
         </SpotProvider>
       </RecordStoreProvider>
     </DataSourceProvider>

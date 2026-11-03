@@ -49,8 +49,9 @@ test.describe("去年の再現（/replay）", () => {
     await item(page, /12 月 19 日.*津山市.*疑い/).click();
     await expect(page.getByText(ZONE)).toBeVisible();
     await expect(page.getByText("再現の時点: 12 月 19 日（時刻の記載なし）")).toBeVisible();
-    // 時刻の記載がないので、地図の『H:MM 時点』（内部の 23:59:59）は見せない。地図の h1 『今季』も隠し、再現の見出しを出す
-    await expect(page.locator(".replay-scope .as-of").first()).toBeHidden();
+    // 時刻の記載がないので、地図の時点は日付だけ。内部の 23:59:59 は DOM にも出さない。地図の h1 『今季』は隠し、再現の見出しを出す
+    await expect(page.locator(".replay-scope .as-of").first()).toHaveText("12 月 19 日 時点");
+    expect(await page.evaluate(() => document.body.textContent ?? "")).not.toMatch(/23:59/);
     await expect(page.getByRole("heading", { level: 1, name: /去年の再現/ })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: /今季/ })).toHaveCount(0);
     await filterHas(page, "case-suspected", "33203");
@@ -62,7 +63,7 @@ test.describe("去年の再現（/replay）", () => {
     // 12/20 確定、1/10 搬出制限の解除のあとも、移動制限が続く間は①のまま
     await item(page, /12 月 20 日.*津山市.*確定/).click();
     await expect(page.getByText(ZONE)).toBeVisible();
-    await expect(page.locator(".replay-scope .as-of").first()).toBeVisible(); // 09:00 は出典に時刻がある
+    await expect(page.locator(".replay-scope .as-of").first()).toHaveText("12 月 20 日 9:00 時点"); // 09:00 は出典に時刻がある
     await filterHas(page, "case-confirmed", "33203");
     await item(page, /1 月 10 日.*津山市.*搬出制限の解除/).click();
     await expect(page.getByText(ZONE)).toBeVisible();

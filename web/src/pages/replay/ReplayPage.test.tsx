@@ -95,23 +95,38 @@ describe("ReplayPage", () => {
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
   });
 
-  it("見出しは『去年の再現』。地図の『今季』の見出しと、時刻のない時点の『H:MM 時点』は、隠す印（replay-scope）の中にある。再現の見出しは隠さない", async () => {
+  it("見出しは『去年の再現』。地図の『今季』の見出しは隠す（replay.css）。再現の見出しは隠さない", async () => {
     await show();
     await screen.findByTestId("map");
     const h1s = [...document.querySelectorAll("h1")];
     expect(h1s.filter((h) => !h.closest(".map-page")).map((h) => h.textContent)).toEqual(["去年の再現（2025 年シーズンの発生状況）"]);
-    const scope = document.querySelector(".replay-scope") as HTMLElement;
-    expect(scope.querySelector(".map-page > h1")?.textContent).toContain("今季");
-    expect(scope.dataset.timeKnown).toBe("false"); // order 0
-    fireEvent.click(item(/12 月 19 日.*津山市.*疑い/)); // 時刻の記載なし
-    expect(scope.dataset.timeKnown).toBe("false");
-    expect(document.body.textContent).toContain("再現の時点: 12 月 19 日（時刻の記載なし）");
-    fireEvent.click(item(/12 月 20 日.*津山市.*確定/)); // 09:00
-    expect(scope.dataset.timeKnown).toBe("true");
-    // 隠す規則は replay.css にある（jsdom は CSS を当てないので、規則の存在を確かめる）
+    expect(document.querySelector(".replay-scope .map-page > h1")?.textContent).toContain("今季");
+    // jsdom は CSS を当てないので、隠す規則の存在を確かめる
     const css = readFileSync(path.resolve(import.meta.dirname, "replay.css"), "utf8");
-    expect(css).toMatch(/\.replay-scope\[data-time-known="false"\] \.as-of\s*\{\s*display:\s*none/);
     expect(css).toMatch(/\.replay-scope \.map-page > h1\s*\{\s*display:\s*none/);
+    expect(css).not.toMatch(/\.as-of/); // 時刻は隠さず、描かない
+  });
+
+  it("時刻の記載がない時点では、画面のどこにも時刻（23:59 など）の文字がない。日付だけ。はじまる前は何も描かない", async () => {
+    await show();
+    await screen.findByTestId("map");
+    await waitFor(() => expect(document.querySelector(".watch-line")).toBeTruthy());
+    const asOfs = () => [...document.querySelectorAll(".as-of")].map((e) => e.textContent);
+    const noFakeTime = () => expect(document.body.textContent).not.toMatch(/23:59|23時59|\d{1,2}:\d{2} 時点/);
+    // はじまる前（order 0）
+    noFakeTime();
+    expect(asOfs()).toEqual([]);
+    // 時刻の記載がない出来事（すべて）
+    for (const e of scenario.events.filter((x) => x.time === null)) {
+      fireEvent.click(item(new RegExp(`${Number(e.date.slice(5, 7))} 月 ${Number(e.date.slice(8))} 日.*${e.caseAfter.muniName}`)));
+      await waitFor(() => expect(lastProps().view.total).toBeGreaterThan(0));
+      noFakeTime();
+      expect(asOfs()).toEqual([`${Number(e.date.slice(5, 7))} 月 ${Number(e.date.slice(8))} 日 時点`]);
+    }
+    // 時刻のある出来事は、その時刻を出す（津山の確定は 9:00）
+    fireEvent.click(item(/12 月 20 日.*津山市.*確定/));
+    await waitFor(() => expect(asOfs()).toEqual(["12 月 20 日 9:00 時点"]));
+    expect((document.querySelector(".replay-scope") as HTMLElement).dataset.timeKnown).toBe("true");
   });
 
   it("読み込めなければ、そう書く（空の地図を出さない）", async () => {
