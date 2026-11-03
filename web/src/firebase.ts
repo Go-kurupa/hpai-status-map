@@ -17,6 +17,12 @@ export function resolveFirebaseMode(search: string, isDev: boolean): "emulator" 
   return new URLSearchParams(search).get("emulator") === "1" ? "emulator" : "hosting";
 }
 
+/**
+ * 模擬環境の app の設定。キーが無いと getAuth が auth/invalid-api-key で例外になり、
+ * メールの送信が通信に出る前に失敗する。模擬環境は値を見ないので、秘密ではない名前を置く。
+ */
+export const EMULATOR_APP_OPTIONS: FirebaseOptions = { projectId: "demo-hpai", apiKey: "demo-hpai-emulator" };
+
 const REGION = "asia-northeast1";
 let handles: Promise<FirebaseHandles> | null = null;
 
@@ -25,7 +31,7 @@ async function init(): Promise<FirebaseHandles> {
   if (mode === "emulator") {
     // 利用者は別の機械から開くので、接続先は開いたホストの名前にする（localhost にしない）
     const host = location.hostname;
-    const app = initializeApp({ projectId: "demo-hpai" });
+    const app = initializeApp(EMULATOR_APP_OPTIONS);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const functions = getFunctions(app, REGION);
