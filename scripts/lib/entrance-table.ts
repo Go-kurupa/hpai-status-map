@@ -1,7 +1,7 @@
 // 入口の点検（§13）。47 都道府県の見回り先を 1 件ずつ取り、結果を表にする。
 // 取得は注入された取得器（politeFetch）だけを通す。ここでは fetch を直接呼ばない。
 import { toJstIso } from "@hpai/shared/dates";
-import { PREFS } from "@hpai/shared/pref";
+import { isPrefDomainHost, PREFS } from "@hpai/shared/pref";
 import { hasHpaiWord } from "@hpai/shared/text";
 import type { IsoDateTime, PrefCode, SourceKind, SourceSeed } from "@hpai/shared/types";
 import { decodeBody, extractHtml } from "../../functions/src/watch/extract";
@@ -30,32 +30,11 @@ export interface CheckDeps {
   now: () => Date;
 }
 
-/**
- * 県の公式のドメイン（47）。この名前そのものか、その下のホスト（www、web、www.sangyo-rodo など）だけを許す。
- * 「pref.<名>.jp」の形だけでは他人の取ったドメイン（pref.attacker.jp）も通るので、名前を固定する。
- * 先頭は必ず「.」で区切る（evilpref.… は通さない）。取得の関門（functions/src/probe/run.ts の isProbeHostAllowed）より狭い。
- */
-const PREF_DOMAINS: ReadonlySet<string> = new Set([
-  "metro.tokyo.lg.jp", "pref.aichi.jp", "pref.akita.lg.jp", "pref.aomori.lg.jp", "pref.chiba.lg.jp", "pref.ehime.jp",
-  "pref.fukui.lg.jp", "pref.fukuoka.lg.jp", "pref.fukushima.lg.jp", "pref.gifu.lg.jp", "pref.gunma.jp", "pref.hiroshima.lg.jp",
-  "pref.hokkaido.lg.jp", "pref.hyogo.lg.jp", "pref.ibaraki.jp", "pref.ishikawa.lg.jp", "pref.iwate.jp", "pref.kagawa.lg.jp",
-  "pref.kagoshima.jp", "pref.kanagawa.jp", "pref.kochi.lg.jp", "pref.kumamoto.jp", "pref.kyoto.jp", "pref.mie.lg.jp",
-  "pref.miyagi.jp", "pref.miyazaki.lg.jp", "pref.nagano.lg.jp", "pref.nagasaki.jp", "pref.nara.lg.jp", "pref.niigata.lg.jp",
-  "pref.oita.jp", "pref.okayama.jp", "pref.okinawa.lg.jp", "pref.osaka.lg.jp", "pref.saga.lg.jp", "pref.saitama.lg.jp",
-  "pref.shiga.lg.jp", "pref.shimane.lg.jp", "pref.shizuoka.jp", "pref.tochigi.lg.jp", "pref.tokushima.lg.jp", "pref.tottori.lg.jp",
-  "pref.toyama.jp", "pref.wakayama.lg.jp", "pref.yamagata.jp", "pref.yamaguchi.lg.jp", "pref.yamanashi.jp",
-]);
-
 /** 県のホストだけを許す。ポートは空・80・443 に限る（内部のポートへ向けさせない）。リダイレクトの先もこれを通る。 */
 export function isPrefHost(url: URL): boolean {
   if (url.protocol !== "https:" && url.protocol !== "http:") return false;
   if (url.port !== "" && url.port !== "80" && url.port !== "443") return false;
-  const host = url.hostname.toLowerCase();
-  const labels = host.split(".");
-  for (let i = 0; i < labels.length; i++) {
-    if (PREF_DOMAINS.has(labels.slice(i).join("."))) return true;
-  }
-  return false;
+  return isPrefDomainHost(url.hostname);
 }
 
 const collapse = (s: string) => s.replace(/\s+/g, " ").trim();

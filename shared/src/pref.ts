@@ -29,3 +29,28 @@ const CODE_BY_NAME: ReadonlyMap<string, PrefCode> = new Map(
 export function prefCodeOfName(name: string): PrefCode | null {
   return CODE_BY_NAME.get(normalizeForMatch(name)) ?? null;
 }
+
+/**
+ * 県の公式のドメイン（47）。この名前そのものか、その下のホスト（www、web、www.sangyo-rodo など）だけを許す。
+ * 「pref.<名>.jp」の形だけでは他人の取ったドメイン（pref.attacker.jp）も通るので、名前を固定する。
+ * 先頭は必ず「.」で区切る（evilpref.… は通さない）。取得の関門（functions/src/probe/run.ts の isProbeHostAllowed）と入口の点検（scripts/lib/entrance-table.ts の isPrefHost）が共有する。
+ */
+export const PREF_DOMAINS: ReadonlySet<string> = new Set([
+  "metro.tokyo.lg.jp", "pref.aichi.jp", "pref.akita.lg.jp", "pref.aomori.lg.jp", "pref.chiba.lg.jp", "pref.ehime.jp",
+  "pref.fukui.lg.jp", "pref.fukuoka.lg.jp", "pref.fukushima.lg.jp", "pref.gifu.lg.jp", "pref.gunma.jp", "pref.hiroshima.lg.jp",
+  "pref.hokkaido.lg.jp", "pref.hyogo.lg.jp", "pref.ibaraki.jp", "pref.ishikawa.lg.jp", "pref.iwate.jp", "pref.kagawa.lg.jp",
+  "pref.kagoshima.jp", "pref.kanagawa.jp", "pref.kochi.lg.jp", "pref.kumamoto.jp", "pref.kyoto.jp", "pref.mie.lg.jp",
+  "pref.miyagi.jp", "pref.miyazaki.lg.jp", "pref.nagano.lg.jp", "pref.nagasaki.jp", "pref.nara.lg.jp", "pref.niigata.lg.jp",
+  "pref.oita.jp", "pref.okayama.jp", "pref.okinawa.lg.jp", "pref.osaka.lg.jp", "pref.saga.lg.jp", "pref.saitama.lg.jp",
+  "pref.shiga.lg.jp", "pref.shimane.lg.jp", "pref.shizuoka.jp", "pref.tochigi.lg.jp", "pref.tokushima.lg.jp", "pref.tottori.lg.jp",
+  "pref.toyama.jp", "pref.wakayama.lg.jp", "pref.yamagata.jp", "pref.yamaguchi.lg.jp", "pref.yamanashi.jp",
+]);
+
+/** ホスト名が県の公式ドメインそのもの、またはその下のホストなら true。先頭は「.」で区切る（evilpref.… や pref.<他人>.jp は通さない）。 */
+export function isPrefDomainHost(hostname: string): boolean {
+  const labels = hostname.toLowerCase().replace(/\.$/, "").split(".");
+  for (let i = 0; i < labels.length; i++) {
+    if (PREF_DOMAINS.has(labels.slice(i).join("."))) return true;
+  }
+  return false;
+}

@@ -1,5 +1,7 @@
 import net from "node:net";
 import type { AddressInfo } from "node:net";
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   isProbeHostAllowed,
@@ -48,7 +50,7 @@ const HPAI_PAGE = "<html><head><title>高病原性鳥インフルエンザ</titl
 const SCHOOL_PAGE = "<html><body><main><p>インフルエンザによる学校の臨時休業（第23報）</p></main></body></html>";
 
 describe("許可するホスト", () => {
-  it("go.jp、lg.jp、pref.<名>.jp（先頭の www と数字は可）だけ", () => {
+  it("go.jp、lg.jp、県の公式ドメインかその下だけ", () => {
     for (const ok of [
       "https://www.maff.go.jp/j/",
       "https://maps.gsi.go.jp/x",
@@ -60,6 +62,9 @@ describe("許可するホスト", () => {
       "https://www.maff.go.jp:443/j/",
       "http://www.maff.go.jp:80/j/",
       "https://www.maff.go.jp:80/j/",
+      "https://www.env.go.jp/",
+      "https://www.city.example.lg.jp/",
+      "https://x.pref.okayama.jp/", // 県の公式ドメインの下のホストは通す
     ])
       expect(isProbeHostAllowed(new URL(ok)), ok).toBe(true);
     for (const ng of [
@@ -68,13 +73,26 @@ describe("許可するホスト", () => {
       "https://evil-go.jp/",
       "https://example.test/pref.okayama.jp",
       "https://www.pref.okayama.jp.evil.test/",
-      "https://x.pref.okayama.jp/",
+      "https://pref.attacker.jp/",
+      "https://www.pref.attacker.jp/",
+      "https://evilpref.okayama.jp/",
+      "https://pref.okayama.jp.evil.com/",
       "ftp://www.maff.go.jp/",
       "https://www.maff.go.jp:8443/",
       "https://www.maff.go.jp:22/",
       "http://www.pref.okayama.jp:8080/",
     ])
       expect(isProbeHostAllowed(new URL(ng)), ng).toBe(false);
+  });
+
+  it("見回り先（data/sources.json）の県のホストは、すべて許可される（手書きの一覧と data の食い違いの検出）", () => {
+    const seeds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "data", "sources.json"), "utf8")) as Array<{
+      prefCode: string | null;
+      url: string;
+    }>;
+    const prefSeeds = seeds.filter((s) => s.prefCode !== null);
+    expect(prefSeeds.length).toBeGreaterThan(0);
+    for (const s of prefSeeds) expect(isProbeHostAllowed(new URL(s.url)), s.url).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PREFS, prefCodeOfName } from "../src/pref";
+import { isPrefDomainHost, PREF_DOMAINS, PREFS, prefCodeOfName } from "../src/pref";
 
 describe("PREFS", () => {
   it("47 都道府県が 01〜47 の順に並ぶ", () => {
@@ -50,5 +50,18 @@ describe("prefCodeOfName", () => {
       expect(prefCodeOfName(p.name), p.name).toBe(p.code);
       if (p.name !== "北海道") expect(prefCodeOfName(p.name.slice(0, -1)), p.name).toBe(p.code);
     }
+  });
+});
+
+describe("isPrefDomainHost", () => {
+  it("県の公式ドメインは 47 件", () => {
+    expect(PREF_DOMAINS.size).toBe(47);
+  });
+
+  it("名前そのものとその下のホストだけ通す", () => {
+    for (const ok of ["pref.okayama.jp", "www.pref.okayama.jp", "www2.pref.fukui.lg.jp", "metro.tokyo.lg.jp", "PREF.OKAYAMA.JP"])
+      expect(isPrefDomainHost(ok), ok).toBe(true);
+    for (const ng of ["pref.attacker.jp", "www.pref.attacker.jp", "evilpref.okayama.jp", "pref.okayama.jp.evil.com", "okayama.jp", ""])
+      expect(isPrefDomainHost(ng), ng).toBe(false);
   });
 });

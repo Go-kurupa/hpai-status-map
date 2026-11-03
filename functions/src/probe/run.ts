@@ -3,6 +3,7 @@
 import https from "node:https";
 import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
+import { isPrefDomainHost } from "@hpai/shared/pref";
 import { hasHpaiWord, normalizeForMatch } from "@hpai/shared/text";
 import type { PrefCode } from "@hpai/shared/types";
 import { checkBearer } from "../ops/auth";
@@ -41,12 +42,12 @@ export interface ProbeDeps {
   hostConcurrency?: number;
 }
 
-/** 許可するホスト: .go.jp、.lg.jp、pref.<名>.jp（先頭の www と数字は可）。 */
+/** 許可するホスト: .go.jp、.lg.jp、県の公式ドメインかその下（shared の PREF_DOMAINS）。 */
 export function isProbeHostAllowed(url: URL): boolean {
   if (url.protocol !== "https:" && url.protocol !== "http:") return false;
   if (url.port !== "" && url.port !== "80" && url.port !== "443") return false; // 内部のポートへ向けさせない
   const host = url.hostname.toLowerCase();
-  return host.endsWith(".go.jp") || host.endsWith(".lg.jp") || /^(www\d*\.)?pref\.[a-z]+\.jp$/.test(host);
+  return host.endsWith(".go.jp") || host.endsWith(".lg.jp") || isPrefDomainHost(host);
 }
 
 // ── 握手 ──
