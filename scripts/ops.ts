@@ -4,6 +4,8 @@
 //   npx tsx scripts/ops.ts create-invite --kind signup --max-uses 5   # 平文のコードは 1 度だけ出る
 //   npx tsx scripts/ops.ts seed-sources
 //   npx tsx scripts/ops.ts set-setting <キー> <値>
+//   npx tsx scripts/ops.ts probe --permanent <tsv> --entrances <tsv>   # 全入口への到達試験（docs/reachability.md を更新）
+//   npx tsx scripts/ops.ts probe --from-sources
 //
 // 呼び先は FIREBASE_PROJECT から作る。別の呼び先は OPS_URL で指定する。
 import fs from "node:fs";
@@ -12,12 +14,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { OpRequest } from "../functions/src/ops/handlers";
+import { runProbe } from "./lib/reachability";
 
 const USAGE = `使い方:
   ops.ts set-claims --email <メール> --operator [--member]
   ops.ts create-invite --kind signup --max-uses <回数>
   ops.ts seed-sources
-  ops.ts set-setting <キー> <値>`;
+  ops.ts set-setting <キー> <値>
+  ops.ts probe --permanent <tsv> --entrances <tsv>
+  ops.ts probe --from-sources`;
 
 /** コマンドの引数から opsAdmin への本文を作る。足りなければ例外。 */
 export function buildRequest(argv: string[]): OpRequest {
@@ -82,6 +87,16 @@ export interface OpsDeps {
 }
 
 export async function runOps(argv: string[], deps: OpsDeps): Promise<number> {
+  if (argv[0] === "probe") {
+    return runProbe(argv.slice(1), {
+      env: deps.env,
+      readToken: deps.readToken,
+      fetch: deps.fetch,
+      write: deps.write,
+      repoRoot: path.resolve(import.meta.dirname, ".."),
+      now: () => new Date(),
+    });
+  }
   let body: OpRequest;
   try {
     body = buildRequest(argv);
