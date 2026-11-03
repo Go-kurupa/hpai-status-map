@@ -30,8 +30,8 @@ describe("docs/data-sources.md の N03 の節", () => {
     expect(sec).not.toMatch(/手続き.{0,6}不要/);
   });
 
-  it("簡略化の値と、0.75km に 30m の誤差を足さない限界（§19）がある", () => {
-    for (const s of ["1.5%", "interval=30", "0.75km", "30m", "§19"]) expect(sec).toContain(s);
+  it("簡略化の値と、0.85km が半対角と 30m を覆うこと（§19）がある", () => {
+    for (const s of ["1.5%", "interval=30", "0.85km", "30m", "§19"]) expect(sec).toContain(s);
   });
 
   it("2 つの節（出典と加工／利用条件）に分かれ、加工済みの出典の文がある", () => {

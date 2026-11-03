@@ -281,11 +281,11 @@ function prefsToLoad(cases: readonly Case[], birds?: readonly WildBird[]): PrefC
 function relationToCase(p: FarmPoint, c: Case, geo: GeoStore): { level: Level; reason: LevelReason | null }; // 時期を見ない
 function computeLevel(p: FarmPoint, cases: readonly Case[], season: Season, geo: GeoStore): LevelResult;
 function computeAreaStatus(i: { muniCode: MuniCode; cases: readonly Case[]; wildBirds: readonly WildBird[]; geo: GeoStore; asOf: IsoDateTime; season: Season }): AreaStatus;
-function wildBirdsNotifiable(p: FarmPoint, birds: readonly WildBird[], geo: GeoStore): WildBird[]; // hpai_confirmed、メッシュ中心から 10.75km 以内
+function wildBirdsNotifiable(p: FarmPoint, birds: readonly WildBird[], geo: GeoStore): WildBird[]; // hpai_confirmed、メッシュ中心から 10.85km 以内
 function summarizeWatch(all: readonly WatchStatus[], now: Date): WatchSummary; // ok かつ 6 時間以内を確認済みと数える
 ```
 
-- ①は同じ市町村か `distanceToMuniKm <= Math.max(10, ...radiiKm) + 0.75` で、`isZoneActive` の間。②③は否定を除き今季ずっと（§7【決定】）。解除の後の同じ市町村は 2.4（索引 Q5）。
+- ①は同じ市町村か `distanceToMuniKm <= Math.max(10, ...radiiKm) + 0.85` で、`isZoneActive` の間。②③は否定を除き今季ずっと（§7【決定】）。解除の後の同じ市町村は 2.4（索引 Q5）。
 - **距離の前に必ず `await geo.ensurePrefs(prefsToLoad(cases, birds))`。** 全領域の試験の偽の `GeoStore` は、その前に `GeoNotLoadedError` を投げる。冷えた状態から県をまたぐ試験（津山市の center のメッシュと鳥取市の事例）を F-07、W-03、M-03、M-13 に置く。
 
 ### 3.7 取得
@@ -395,7 +395,7 @@ Secret: `ANTHROPIC_API_KEY`、`GMAIL_APP_PASSWORD`、`UNSUBSCRIBE_SECRET`、`OPS
 
 ## 5. 地図のデータ
 
-`data/geo/`（F-06、commit する）: `japan.topo.json`（全国、`1.5%`、表示用）／`pref/NN.topo.json`（県ごと、`interval=30`。**距離の計算は画面でもサーバーでもこれだけ**）／`adjacency.json`（`Record<MuniCode, MuniCode[]>`、簡略化の前の全国の形から）／`muni-index.json`／`pref-anchors.json`／`build-info.json`。オブジェクト名は `muni`、properties は `{c, n, p}`。30m の誤差は 0.75km に足さず、§19 の限界として README と `docs/data-sources.md` に書く。
+`data/geo/`（F-06、commit する）: `japan.topo.json`（全国、`1.5%`、表示用）／`pref/NN.topo.json`（県ごと、`interval=30`。**距離の計算は画面でもサーバーでもこれだけ**）／`adjacency.json`（`Record<MuniCode, MuniCode[]>`、簡略化の前の全国の形から）／`muni-index.json`／`pref-anchors.json`／`build-info.json`。オブジェクト名は `muni`、properties は `{c, n, p}`。30m の誤差は 0.85km に含み（半対角の最大約 0.78km と合わせて）、§19 の限界として README と `docs/data-sources.md` に書く。
 
 W-02 が作り、M-01、再現が使う部品:
 

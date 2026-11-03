@@ -209,7 +209,7 @@ expect(sec).not.toMatch(/手続き.{0,6}不要/);
   地理院タイルの節に `ichiran.html` と `Vector Map Level 0` がある。
 - [ ] **Step 2: 失敗を確かめる** `npx vitest run --project shared --project scripts --passWithNoTests=false mesh geo data-sources`。期待: 失敗。
 - [ ] **Step 3: 実装** 関数と `npx tsx scripts/build-geo.ts`。`docs/data-sources.md` は次の 3 節。
-  - `## N03 の出典と加工`: 利用規約の例に沿った出典（国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、形の簡略化、政令市の区の統合、隣り合いの計算を行って作成）、簡略化の値、0.75km はメッシュの半対角だけを覆い 30m の誤差を含まないこと（§19）。
+  - `## N03 の出典と加工`: 利用規約の例に沿った出典（国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、形の簡略化、政令市の区の統合、隣り合いの計算を行って作成）、簡略化の値、0.85km はメッシュの半対角（最大約 0.78km）と簡略化の約 30m を覆う。
   - `## N03 の利用条件`: 明記の条件 CC BY 4.0／配布ページの「測量法に基づく国土地理院長承認（複製）R 7JHf 351」／Q1-24（複製承認の成果の二次利用は「申請が必要な場合がある」）／Q1-11（地図が主な内容の Web サイトは、挿入の原則の例外に当たる）／確かめた日／問い合わせの状況。判断の文は §10.3【決定】のまま: 「手続きの要否は確認できていない。明記された CC BY 4.0 に従って公開する判断をした」。回答が「要る」なら公開の前に止めて相談する。「要らない」なら日付と窓口を添えて書き、試験は利用者の確認の後に直す。
   - `## 地理院タイル`: 公式の文「出典の明示のみで申請不要」、一覧ページへのリンク、淡色地図の ZL5〜8 に要る VMAP0 の文（W-02 の `MAP_ATTRIBUTION` と同じ）、アクセス数の上限は未確認。
 - [ ] **Step 4: 通ることを確かめる** `npm run bundle -w functions && npx vitest run --project shared --project scripts --project functions && npm run typecheck`。
@@ -225,7 +225,7 @@ expect(sec).not.toMatch(/手続き.{0,6}不要/);
 
 **Files:** Create `shared/src/level.ts`。Test `shared/test/level.test.ts`、`scripts/test/level-real.test.ts`
 
-**Interfaces:** Produces 契約 3.2 の `level` の全部、`ZONE_BASE_KM: 10`、`MESH_MARGIN_KM: 0.75`、`zoneRadiusKm(c: Case): number`（`Math.max(10, ...c.radiiKm)`）。文を持たない。索引 Q5 の回答が既定と違えば、解除の後の同じ市町村の期待を直す。
+**Interfaces:** Produces 契約 3.2 の `level` の全部、`ZONE_BASE_KM: 10`、`MESH_MARGIN_KM: 0.85`、`zoneRadiusKm(c: Case): number`（`Math.max(10, ...c.radiiKm)`）。文を持たない。索引 Q5 の回答が既定と違えば、解除の後の同じ市町村の期待を直す。
 
 - [ ] **Step 1: 失敗する試験を書く**（偽の `GeoStore` は `ensurePrefs` の前に `GeoNotLoadedError`）
   - §5、§16: 同じ市町村は①（`same_muni`、遠くても）／10.70km は①、10.80km は①でない（理由に `within_radius`、`radiusKm` 10、距離）／`radiiKm` `[3]`、`[3,10]`、`[20]` は 10、10、20、20.70km は①、20.80km は①でない／隣は②、登録は③、他は④で `reasons` 空／複数は最も高い段階で、`reasons` は高い順／否定は外し、候補は数える／確認中と別のシーズンは数えない／搬出制限の解除の後も①で `shipmentLifted` true／完了から 28 日でも移動制限の解除がなければ①／`inSurveillanceNote` は①のときだけ／離島は②にならず距離なら①／`muniCode` なしは④／未読み込みは `GeoNotLoadedError`。
@@ -265,7 +265,7 @@ expect(sec).not.toMatch(/手続き.{0,6}不要/);
 - [ ] **Step 3: 実装** 入力は手元の `private/research/cases-6seasons.json`（読むだけ）。1 件でも対応しなければ `unmatched.md` に出して exit 1 にし、利用者に聞く。校正は bbox から緯度 0.3 度、経度 0.4 度より離れていれば距離を計算しない。
 - [ ] **Step 4: 出典を確かめる** `check-history-sources.ts` は 6 本の PDF を `politeFetch` で 1 回ずつ取り（`data/private/` に置く）、`unpdf` の文字層を `normalizeForMatch` して各行の `muniNameThen` を探す。期待: 全行で見つかる（本体は `pdftotext` で確認済み、`unpdf` と関連農場は未確認）。見つからない行は利用者に示す。
 - [ ] **Step 5: 通ることを確かめる** `npx tsx scripts/build-history.ts --input private/research/cases-6seasons.json && npx tsx scripts/check-history-sources.ts && npx tsx scripts/calibrate-levels.ts && npx vitest run --project shared --project scripts`。
-- [ ] **Step 6: 校正を利用者に示す** ①が広すぎる市町村があれば数字で報告する。0.75km と 10km は §5 の決まりなので変えない。
+- [ ] **Step 6: 校正を利用者に示す** ①が広すぎる市町村があれば数字で報告する。0.85km と 10km は §5 の決まりなので変えない。
 - [ ] **Step 7: Commit** `feat(data): 過去 6 シーズンを市町村に対応づけ、段階の回数を数える`
 
 ---
