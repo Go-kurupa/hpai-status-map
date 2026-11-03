@@ -96,6 +96,26 @@ export interface SourceSeed {
   confirmedOn: IsoDate;
   note: string | null;
 }
+export interface Source extends SourceSeed {
+  // sources/{sha256(url) 先頭 24 桁}
+  id: string;
+  group: 0 | 1 | 2;
+  enabled: boolean;
+  lastCheckedAt: IsoDateTime | null;
+  lastOkAt: IsoDateTime | null;
+  etag: string | null;
+  lastModified: string | null;
+  fingerprint: string | null;
+  failureCount: number;
+}
+export interface Invite {
+  // invites/{sha256(code.trim()) の 16 進小文字}。平文は保存しない
+  kind: "signup" | "farm";
+  farmId: string | null;
+  maxUses: number;
+  usedBy: string[];
+  expiresAt: IsoDateTime | null;
+}
 export interface RuntimeSettings {
   // usage/settings
   softLimitJpy: number;
