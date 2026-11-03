@@ -3,7 +3,7 @@
 // - statements は国の機関（農林水産省、厚生労働省、環境省、e-Gov の法令）の文だけ。原文の連続した引用で、
 //   言い換えも、断定の追加もしない。checkedOn は、原本を取得して文を照合した日。
 // - 県のページ、家保の一覧は links に入れ、文を写さない（§2）。農場のある県のページは入れない（索引 Q14）。
-// - 受診の案内は写さない（§2）。「安全」「安心」と書かない。
+// - 受診の案内は写さない（§2）。「安全」「安心」と書かない。獣医師への届出の条文は、受診の案内ではないので引用する。
 // - 作品側の文（出典のないもの）は PAGE_NOTES（web の pageNotes.ts）に置く。MCP には渡さない。
 import type { IsoDate } from "../types";
 
@@ -61,6 +61,9 @@ const MAFF_GUIDELINE = {
   sourceUrl: "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_bousi/attach/pdf/index-75.pdf",
 } as const;
 const ACT = "https://laws.e-gov.go.jp/law/326AC1000000166";
+/** 第 13 条の 2、第 24 条の位置を直接指す（e-Gov の条のアンカー。アンカーの先は画面の中の位置で、取得では確かめられない） */
+const ACT_ART_13_2 = `${ACT}#Mp-At_13_2`;
+const ACT_ART_24 = `${ACT}#Mp-At_24`;
 const RULE = "https://laws.e-gov.go.jp/law/326M50010000035";
 
 type Statement = OfficialGuidance["statements"][number];
@@ -131,7 +134,7 @@ export const OFFICIAL_GUIDANCE: readonly OfficialGuidance[] = [
     heading: "埋却と地下水",
     statements: [
       st(
-        "焼却し、又は発生農場若しくはその周辺（人家、水源、河川及び道路に近接しない場所であって、日常、人及び家きんが接近しない場所に限る。）において埋却し、又は化製処理を行う。",
+        "患畜又は疑似患畜の死体は、原則として、第５の２により患畜又は疑似患畜であると判定された後、１の（３）の発生農場における措置が完了してから72時間以内に焼却し、又は発生農場若しくはその周辺（人家、水源、河川及び道路に近接しない場所であって、日常、人及び家きんが接近しない場所に限る。）において埋却し、又は化製処理を行う。",
         MAFF_GUIDELINE,
       ),
       st("河川、湖、池等に近い場所は避けます。", MAFF_MANUAL),
@@ -146,7 +149,7 @@ export const OFFICIAL_GUIDANCE: readonly OfficialGuidance[] = [
       ),
       st(
         "第二十一条第一項若しくは第四項又は前条第一項若しくは第三項の規定により家畜の死体又は家畜伝染病の病原体により汚染し、若しくは汚染したおそれがある物品を埋却した土地は、農林水産省令で定める期間内は、掘つてはならない。",
-        { sourceTitle: "家畜伝染病予防法 第 24 条（発掘の禁止）", sourceUrl: ACT },
+        { sourceTitle: "家畜伝染病予防法 第 24 条（発掘の禁止）", sourceUrl: ACT_ART_24 },
       ),
       st("埋却完了後、病名（高病原性鳥インフルエンザ）、家畜の種類、埋却年月日、発掘禁止期間（３年）を記載した立て看板を設置します。", MAFF_MANUAL),
     ],
@@ -194,6 +197,10 @@ export const OFFICIAL_GUIDANCE: readonly OfficialGuidance[] = [
         sourceTitle: "家畜伝染病予防法施行規則 別表第二 三（鶏、あひる等の飼養衛生管理基準）32",
         sourceUrl: RULE,
       }),
+      st(
+        "家畜が農林水産大臣が家畜の種類ごとに指定する症状を呈していることを発見したときは、当該家畜を診断し、又はその死体を検案した獣医師（獣医師による診断又は検案を受けていない家畜又はその死体については、その所有者）は、農林水産省令で定める手続に従い、遅滞なく、当該家畜又はその死体の所在地を管轄する都道府県知事にその旨を届け出なければならない。",
+        { sourceTitle: "家畜伝染病予防法 第 13 条の 2（農林水産大臣の指定する症状を呈している家畜の届出義務）", sourceUrl: ACT_ART_13_2 },
+      ),
       st("鳥が死んだからといって直ちに鳥インフルエンザを疑う必要はありません。", MAFF_KNOW),
       st(
         "原因がわからないまま、鳥が連続して死んでしまったという場合には、その鳥に素手で触ったり、土に埋めたりせずに、なるべく早く獣医師やお近くの都道府県、市町村役場にご相談下さい。",
@@ -204,11 +211,8 @@ export const OFFICIAL_GUIDANCE: readonly OfficialGuidance[] = [
         MAFF_KNOW,
       ),
     ],
-    // 届出の条文（第 13 条の 2）は文を写さず、e-Gov へのリンクにする。条文の「獣医師による診断」が、
-    // 受診の案内を持たない検査（/医師に/）に当たるため、文としては持たない（羽数の条件がない、は PAGE_NOTES）
     links: [
       { title: "農林水産省「家畜保健衛生所について」（全国の所在地の一覧）", url: "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_kaho/" },
-      { title: "家畜伝染病予防法 第 13 条の 2 の条文（e-Gov 法令検索）", url: ACT },
     ],
   },
 ];

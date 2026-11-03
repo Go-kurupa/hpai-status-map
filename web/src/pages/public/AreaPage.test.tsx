@@ -220,7 +220,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
   });
 
   it("未知のコードと、区のコード（33101）は『この市町村は見つかりません』。段階の文を出さない", async () => {
-    for (const code of ["99999", "33101", "abc"]) {
+    for (const code of ["99999", "33101", "abc", "constructor", "toString", "__proto__"]) {
       const r = rig();
       const { unmount } = show(r, code);
       r.deliverCases([mkCase({ id: "c1" })]);

@@ -16,7 +16,8 @@ const TOPICS: ReadonlyArray<[GuidanceTopic, string]> = [
 ];
 
 const ALLOWED_HOSTS = ["maff.go.jp", "mhlw.go.jp", "env.go.jp", "e-gov.go.jp"];
-const MEDICAL_ADVICE = /受診|治療|医師に|病院へ|保健所/u;
+// 「獣医師による診断」（届出の条文）は受診の案内ではないので、獣医師は止めない
+const MEDICAL_ADVICE = /受診|治療|(?<!獣)医師に|病院へ|保健所/u;
 
 const everyStatement = OFFICIAL_GUIDANCE.flatMap((g) => g.statements.map((s) => ({ topic: g.topic, ...s })));
 
@@ -59,6 +60,25 @@ describe("OFFICIAL_GUIDANCE", () => {
       expect(s.text, s.text).not.toMatch(MEDICAL_ADVICE);
       expect(s.sourceTitle, s.sourceTitle).not.toMatch(MEDICAL_ADVICE);
     }
+  });
+
+  it("禁止の表現は、獣医師を止めず、受診の案内を止める", () => {
+    expect("獣医師による診断又は検案を受けていない").not.toMatch(MEDICAL_ADVICE);
+    expect("前もって医師に連絡を入れて").toMatch(MEDICAL_ADVICE);
+    expect("近くの保健所に相談し").toMatch(MEDICAL_ADVICE);
+  });
+
+  it("数羽飼っている方へ: 届出の条文（第 13 条の 2）を、条の位置を指す e-Gov の URL つきで引用する", () => {
+    const g = OFFICIAL_GUIDANCE.find((x) => x.topic === "small_flock")!;
+    const art = g.statements.find((s) => s.sourceTitle.includes("第 13 条の 2"));
+    expect(art).toBeDefined();
+    expect(art!.sourceUrl).toBe("https://laws.e-gov.go.jp/law/326AC1000000166#Mp-At_13_2");
+    expect(art!.text).toContain("都道府県知事にその旨を届け出なければならない");
+  });
+
+  it("埋却と地下水: 1 文目は、主語のある文（文の途中から始めない）", () => {
+    const g = OFFICIAL_GUIDANCE.find((x) => x.topic === "burial")!;
+    expect(g.statements[0]!.text.startsWith("患畜又は疑似患畜の死体は")).toBe(true);
   });
 
   it("全 sourceUrl のホストは、国の 4 つだけ（§2【決定】）", () => {

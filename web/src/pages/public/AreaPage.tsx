@@ -41,7 +41,8 @@ export default function AreaPage() {
   const computed = useMemo<Computed>(() => {
     if (geoFailed) return { kind: "geo_failed" };
     if (geo === null) return { kind: "geo_loading" };
-    const entry = geo.index[muniCode];
+    // constructor、toString など、オブジェクトが元から持つ名前は市町村ではない
+    const entry = Object.hasOwn(geo.index, muniCode) ? geo.index[muniCode] : undefined;
     if (!entry) return { kind: "not_found" }; // 区のコード（政令市の区）や未知のコード。「発生なし」に見せない
     if (d.currentCases === null) return { kind: "cases_loading", name: entry.name };
     try {
@@ -61,7 +62,7 @@ export default function AreaPage() {
     }
   }, [geo, geoFailed, muniCode, d.currentCases, d.wildBirds, d.current, d.failedPrefCodes, nowMinute]);
 
-  const known = geo !== null && geo.index[muniCode] !== undefined;
+  const known = geo !== null && Object.hasOwn(geo.index, muniCode);
   const past = usePast({
     town: known ? muniCode : null,
     history: d.history,

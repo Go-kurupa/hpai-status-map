@@ -8,7 +8,7 @@ import PublicPage, { PublicView } from "./PublicPage";
 
 // 「鶏を飼っていない方へ」（§11）。AI は答えない。公式の文を、出典と確認日つきで固定して示す。
 
-const MEDICAL_ADVICE = /受診|治療|医師に|病院へ|保健所/u;
+const MEDICAL_ADVICE = /受診|治療|(?<!獣)医師に|病院へ|保健所/u;
 
 function show(node = <PublicPage />) {
   return render(<MemoryRouter>{node}</MemoryRouter>);
