@@ -23,3 +23,8 @@ export function useRecordStore(): RecordStore {
   if (!v) throw new Error("RecordStoreProvider の中で使ってください");
   return v;
 }
+
+/** Provider がなくても投げない版。端末内の地点の Provider が、会員の農場を「あれば」読むために使う（再現には記録の口がない） */
+export function useOptionalRecordStore(): RecordStore | null {
+  return useContext(RecordStoreContext);
+}

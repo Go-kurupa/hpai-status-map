@@ -4,6 +4,7 @@ import { lazy, Suspense, useState } from "react";
 import { Outlet, type RouteObject } from "react-router";
 import { DataSourceProvider, RecordStoreProvider } from "./data/context";
 import { createDataSource } from "./data/source";
+import { SpotProvider } from "./data/spotContext";
 import { createFirestoreRecordStore } from "./pages/auth/firestoreRecordStore";
 import { AppShell } from "./ui/AppShell";
 
@@ -39,11 +40,13 @@ function Root() {
   return (
     <DataSourceProvider value={dataSource}>
       <RecordStoreProvider value={recordStore}>
-        <AppShell>
-          <Suspense fallback={<p role="status">読み込んでいます</p>}>
-            <Outlet />
-          </Suspense>
-        </AppShell>
+        <SpotProvider>
+          <AppShell>
+            <Suspense fallback={<p role="status">読み込んでいます</p>}>
+              <Outlet />
+            </Suspense>
+          </AppShell>
+        </SpotProvider>
       </RecordStoreProvider>
     </DataSourceProvider>
   );

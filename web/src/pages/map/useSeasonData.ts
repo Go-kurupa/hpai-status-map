@@ -15,6 +15,10 @@ export interface SeasonData {
   select(season: Season): void;
   view: SeasonView;
   bars: Array<{ season: Season; label: string; count: number | null }>;
+  /** 今季の事例そのもの（読めていなければ null）。選んだシーズンに関わらず今季。自分の町の 1 文はこれで計算する */
+  currentCases: Case[] | null;
+  /** 過去の記録（読めていなければ null） */
+  history: HistoryCase[] | null;
   /** 今季の野鳥。過去のシーズンを選んでも同じ配列を返す（層の filter で隠す。source を替えない） */
   wildBirds: WildBird[];
   /** 見回りで確認できていない県（結果が届く前は 47 県すべて） */
@@ -99,6 +103,8 @@ export function useSeasonData(): SeasonData {
     select: setPicked,
     view,
     bars,
+    currentCases: cases,
+    history,
     wildBirds: birds,
     failedPrefCodes: summary.failedPrefCodes,
     watchLoaded: watch !== null,

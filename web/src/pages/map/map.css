@@ -8,14 +8,14 @@
 }
 .map-box {
   /* 画面の幅いっぱい。横にはみ出さない */
+  --map-h: clamp(360px, 65vh, 640px);
+  position: relative;
   min-width: 0;
   margin: 0 0 8px;
 }
 .map-canvas {
   width: 100%;
-  height: 65vh;
-  min-height: 360px;
-  max-height: 640px;
+  height: var(--map-h);
   border: 2px solid var(--fg);
   background: var(--soft);
 }
@@ -229,4 +229,140 @@
   min-height: var(--tap);
   border-bottom: 1px solid var(--line);
   font-weight: 700;
+}
+
+/* 自分の町の 1 文（§15）。色は今季の段階だけ。過去の行は色を持たない */
+.town-banner {
+  margin: 0 0 12px;
+}
+.town-name {
+  margin: 0 0 4px;
+}
+.town-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.town-now,
+.town-now-wait {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-left-width: 10px;
+}
+.town-now-wait {
+  border-left-color: var(--muted);
+  background: var(--soft);
+}
+.town-now[data-tone="lv1"] {
+  border-color: var(--lv1);
+}
+.town-now[data-tone="lv2"] {
+  border-color: var(--lv2);
+}
+.town-now[data-tone="lv3"] {
+  border-color: var(--lv3);
+}
+.town-now[data-tone="lv4"] {
+  border-color: var(--lv4);
+}
+.town-main {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.town-details {
+  margin: 6px 0 0;
+  padding-left: 1.2em;
+  font-size: 0.95rem;
+}
+.town-past {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border: 2px dashed var(--line);
+}
+.town-past p {
+  margin: 0 0 4px;
+}
+.town-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.town-area-link {
+  margin: 0 0 8px;
+}
+.past-details summary {
+  min-height: var(--tap);
+  padding: 10px 0;
+  cursor: pointer;
+  font-weight: 700;
+}
+.past-list {
+  margin: 0 0 4px;
+  padding-left: 1.2em;
+  font-size: 0.95rem;
+}
+.town-picker {
+  margin: 0 0 8px;
+}
+.town-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.town-chooser .field {
+  display: block;
+  margin: 0 0 8px;
+}
+.town-chooser .field > span {
+  display: block;
+  font-weight: 700;
+}
+.town-chooser select {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 8px;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.spot-picker {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+}
+.spot-picker h2 {
+  font-size: 1.05rem;
+}
+
+/* 場所を合わせる十字。地図の中央（地図の高さの半分）。さわれない */
+.crosshair {
+  position: absolute;
+  top: calc(var(--map-h) / 2);
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  pointer-events: none;
+}
+.crosshair::before,
+.crosshair::after {
+  content: "";
+  position: absolute;
+  background: var(--fg);
+  outline: 2px solid var(--surface);
+}
+.crosshair::before {
+  top: 21px;
+  left: 0;
+  width: 44px;
+  height: 2px;
+}
+.crosshair::after {
+  top: 0;
+  left: 21px;
+  width: 2px;
+  height: 44px;
 }
