@@ -132,6 +132,24 @@ export function dateInQuote(d: ReadDate, quote: string): boolean {
   return hit && (d.time === null || timeInQuote(d.time, quote));
 }
 
+/**
+ * 「本日」「同日」で日を指し、年月日が引用のどこにも書かれていない。
+ * その日付は、呼び出し側が文書から取り出した発表日で決める（引用の中では決まらない）。
+ */
+export function isRelativeDayQuote(quote: string): boolean {
+  const nq = prep(quote);
+  return /本日|同日/u.test(nq) && dateCandidates(nq).length === 0;
+}
+
+/** 「本日」だけの引用で、日付の値が発表日（IsoDate）と同じ。値に年があれば年も、時刻は引用で照合する。 */
+export function relativeDateInQuote(d: ReadDate, quote: string, announcedOn: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(announcedOn);
+  if (!m || !isRelativeDayQuote(quote)) return false;
+  return (
+    d.month === Number(m[2]) && d.day === Number(m[3]) && (d.year === null || d.year === Number(m[1])) && (d.time === null || timeInQuote(d.time, quote))
+  );
+}
+
 // ── 半径 ──
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 

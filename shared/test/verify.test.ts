@@ -442,3 +442,68 @@ describe("verifyRead: 市町村名の書き方", () => {
     expect(r2.normalized).toMatchObject({ muniCode: "33100", muniName: "岡山市" });
   });
 });
+
+// 裁定（I-04 懸念 1、2）: 県の発表で引用に県名がない、確定の文が「本日」だけ。実物の岡山の確定の文の形を写した小さな文字列。
+describe("verifyRead: 取得元の県と文書の発表日（省略可の引数）", () => {
+  const head = "令和7年12月20日";
+  const mq = "12月19日、津山市において高病原性鳥インフルエンザが疑われた事例について";
+  const kq = "本日９時に国において高病原性鳥インフルエンザの疑似患畜と確定されました。";
+  const text = `${head}\n${mq}は、遺伝子検査を実施した結果、${kq}`;
+  const read = withRead({
+    kindQuote: kq,
+    prefecture: q("岡山県", mq),
+    municipality: q("津山市", mq),
+    primaryDate: date(2025, 12, 20, "09:00"),
+    primaryDateQuote: kq,
+    ...bare,
+  });
+  const go = (r: ReadResult, opts?: { sourcePrefCode?: string | null; announcedOn?: string | null }) =>
+    verifyRead(r, { text, hasTextLayer: true, season: 2025 }, geo, null, opts);
+
+  it("引数がなければ、県名も日付もない引用は不合格（今までどおり）", () => {
+    const r = go(read);
+    expect(r.pass).toBe(false);
+    expect(issueOf(r, "prefecture", "value_in_quote")?.mandatory).toBe(true);
+    expect(issueOf(r, "primaryDate", "value_in_quote")?.mandatory).toBe(true);
+    expect(go(read, { sourcePrefCode: null, announcedOn: null }).pass).toBe(false);
+  });
+  it("取得元の県が読みの県と一致すれば都道府県は合格、一致しなければ不合格", () => {
+    const only = withRead({ ...read, primaryDate: date(2025, 12, 20, "09:00") });
+    const ok = go(only, { sourcePrefCode: "33", announcedOn: "2025-12-20" });
+    expect(ok.pass).toBe(true);
+    expect(ok.normalized).toMatchObject({ prefCode: "33", muniCode: "33203", primaryStamp: { date: "2025-12-20", time: "09:00" } });
+    const other = go(only, { sourcePrefCode: "31", announcedOn: "2025-12-20" });
+    expect(other.pass).toBe(false);
+    expect(issueOf(other, "prefecture", "value_in_quote")?.mandatory).toBe(true);
+  });
+  it("県の取得元でも、市町村は引用に必要（取得元の県は市町村を救わない）", () => {
+    const r = go(withRead({ ...read, municipality: q("鏡野町", mq) }), { sourcePrefCode: "33", announcedOn: "2025-12-20" });
+    expect(r.pass).toBe(false);
+    expect(issueOf(r, "municipality", "value_in_quote")?.mandatory).toBe(true);
+  });
+  it("「本日」で年月日のない引用は、発表日と同じ日なら合格。発表日が違うと不合格", () => {
+    expect(go(read, { sourcePrefCode: "33", announcedOn: "2025-12-20" }).pass).toBe(true);
+    const wrongDay = go(read, { sourcePrefCode: "33", announcedOn: "2025-12-22" });
+    expect(wrongDay.pass).toBe(false);
+    expect(issueOf(wrongDay, "primaryDate", "value_in_quote")?.mandatory).toBe(true);
+  });
+  it("時刻は引用で照合する（本日10時と読むと不合格）、「本日」がなければ発表日で救わない", () => {
+    const o = { sourcePrefCode: "33", announcedOn: "2025-12-20" };
+    expect(go(withRead({ ...read, primaryDate: date(2025, 12, 20, "10:00") }), o).pass).toBe(false);
+    const noToday = "９時に国において高病原性鳥インフルエンザの疑似患畜と確定されました。";
+    const t2 = `${head}\n${mq}は、${noToday}`;
+    const r2 = verifyRead(withRead({ ...read, kindQuote: noToday, primaryDateQuote: noToday }), { text: t2, hasTextLayer: true, season: 2025 }, geo, null, o);
+    expect(r2.pass).toBe(false);
+  });
+  it("引用に年月日があるときは、「本日」があっても発表日で救わない", () => {
+    const explicit = "12月19日に簡易検査で陽性、本日９時に国において疑似患畜と確定されました。";
+    const t3 = `${head}\n${mq}は、${explicit}`;
+    const r = verifyRead(withRead({ ...read, kindQuote: explicit, primaryDateQuote: explicit }), { text: t3, hasTextLayer: true, season: 2025 }, geo, null, {
+      sourcePrefCode: "33", announcedOn: "2025-12-20",
+    });
+    expect(r.pass).toBe(false);
+  });
+  it("detail に引用を入れない", () => {
+    for (const i of go(read).issues) expect(i.detail).not.toContain("本日");
+  });
+});

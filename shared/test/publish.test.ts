@@ -84,6 +84,14 @@ describe("decidePublication: 確認中", () => {
     });
     expect(decide({ read: read("negated"), verify: failedVerify("kind", "stage_word") })).toMatchObject({ action: "review_private" });
   });
+  it("主が否定で二重読みと食い違うとき、鳥インフルの語が文書にあれば公開の確認中、なければ review_private（§9.6）", () => {
+    const c: CompareReport = { match: false, mismatches: ["kind"] };
+    expect(decide({ read: read("negated"), compare: c })).toEqual({ action: "review_public", reasons: ["compare:kind"] });
+    expect(decide({ read: read("negated"), compare: c, docText: QUIET })).toEqual({ action: "review_private", reasons: ["compare:kind"] });
+    // 一致していて検証だけ落ちた否定、野鳥の食い違いは今までどおり review_private
+    expect(decide({ read: read("negated"), verify: failedVerify("kind", "stage_word") })).toMatchObject({ action: "review_private" });
+    expect(decide({ read: read("wild_bird"), compare: c })).toMatchObject({ action: "review_private" });
+  });
   it("verify か compare が無いときは一致していない側に倒す", () => {
     expect(decide({ verify: null })).toMatchObject({ action: "review_public" });
     expect(decide({ compare: null })).toMatchObject({ action: "review_public" });

@@ -66,6 +66,11 @@ export function decidePublication(input: {
   if (!input.autoPublishEnabled) reasons.push("auto_publish_off");
 
   const unique = [...new Set(reasons)];
-  if (read.kind === "wild_bird" || read.kind === "negated") return { action: "review_private", reasons: unique };
+  if (read.kind === "wild_bird") return { action: "review_private", reasons: unique };
+  if (read.kind === "negated") {
+    // 否定は公開しない。ただし二重読みが食い違うときは、疑いを否定と誤読して隠さないよう、鳥インフルの語があれば公開の確認中にする（§9.6）
+    const disputed = compare !== null && !compare.match && hasHpaiWord(input.docText);
+    return disputed ? { action: "review_public", reasons: unique } : { action: "review_private", reasons: unique };
+  }
   return review(unique);
 }

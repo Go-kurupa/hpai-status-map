@@ -15,6 +15,7 @@ import {
   prefNoInQuote,
   quoteInNormalized,
   radiusInQuote,
+  relativeDateInQuote,
   valueInQuote,
 } from "./quote";
 import type { DocumentKind, NormalizedRead, Quoted, ReadDate, ReadResult, VerifyCheck, VerifyIssue, VerifyReport } from "./types";
@@ -114,6 +115,12 @@ export function verifyRead(
   doc: { text: string; hasTextLayer: boolean; season: number },
   geo: GeoStore,
   previous: Case | null,
+  /**
+   * 呼び出し側が渡す、プログラムが取り出した情報（どちらも省略可）。
+   * sourcePrefCode: 取得元の県（sources.json の prefCode。国の発表のように複数県なら渡さない）。引用に県名がなくても、読みの県と一致すれば都道府県は合格。
+   * announcedOn: 文書の発表日。引用が「本日」「同日」だけで年月日がないとき、日付の値がこの日と同じなら合格（時刻は引用で照合する）。
+   */
+  opts: { sourcePrefCode?: PrefCode | null; announcedOn?: IsoDate | null } = {},
 ): VerifyReport {
   if (!doc.hasTextLayer) {
     return {
@@ -157,7 +164,7 @@ export function verifyRead(
   }
 
   // ── 都道府県、市町村（必須） ──
-  const prefCode = checkPrefecture(read.prefecture, inDoc, mandatoryFail);
+  const prefCode = checkPrefecture(read.prefecture, inDoc, mandatoryFail, opts.sourcePrefCode ?? null, issues);
   const muni = checkMunicipality(read.municipality, prefCode, geo, inDoc, mandatoryFail);
   out.prefCode = prefCode;
   out.muniCode = muni?.code ?? null;
@@ -175,7 +182,7 @@ export function verifyRead(
     mandatoryFail("primaryDate", "quote_exists", "missing_quote");
   } else if (!inDoc(read.primaryDateQuote)) {
     mandatoryFail("primaryDate", "quote_exists", "quote_not_in_document");
-  } else if (!dateInQuote(d, read.primaryDateQuote)) {
+  } else if (!dateInQuote(d, read.primaryDateQuote) && !(opts.announcedOn && relativeDateInQuote(d, read.primaryDateQuote, opts.announcedOn))) {
     mandatoryFail("primaryDate", "value_in_quote", "date_not_in_quote");
   } else {
     const r = resolveReadDate(d, doc.season);
@@ -295,12 +302,19 @@ function checkKind(read: ReadResult, inDoc: InDoc, fail: Fail): boolean {
 }
 
 /** 都道府県。引用が本文にあり、値が引用にあり、都道府県の名前であること。 */
-function checkPrefecture(q: Quoted<string>, inDoc: InDoc, fail: Fail): PrefCode | null {
+function checkPrefecture(q: Quoted<string>, inDoc: InDoc, fail: Fail, sourcePrefCode: PrefCode | null, issues: VerifyIssue[]): PrefCode | null {
   if (q.value === null) return failNull(fail, "prefecture", "value_in_quote", "missing_value");
-  if (q.quote === null) return failNull(fail, "prefecture", "quote_exists", "missing_quote");
-  if (!inDoc(q.quote)) return failNull(fail, "prefecture", "quote_exists", "quote_not_in_document");
-  if (!valueInQuote(q.value, q.quote)) return failNull(fail, "prefecture", "value_in_quote", "value_not_in_quote");
+  if (q.quote !== null && !inDoc(q.quote)) return failNull(fail, "prefecture", "quote_exists", "quote_not_in_document");
   const code = prefCodeOfName(q.value);
+  const inQuote = q.quote !== null && valueInQuote(q.value, q.quote);
+  if (!inQuote) {
+    // 引用に県名がない: 取得元の県（プログラムの情報）と読みの県が一致するときだけ合格。国の発表（取得元の県なし）では引用に県名が要る
+    if (code === null || sourcePrefCode === null || code !== sourcePrefCode) {
+      return failNull(fail, "prefecture", "value_in_quote", q.quote === null ? "missing_quote" : "value_not_in_quote");
+    }
+    issues.push({ field: "prefecture", check: "value_in_quote", mandatory: false, detail: "prefecture_from_source" });
+    return code;
+  }
   if (code === null) return failNull(fail, "prefecture", "muni_exists", "unknown_prefecture");
   return code;
 }
