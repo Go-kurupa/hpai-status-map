@@ -1,5 +1,6 @@
 // 会員の領域（M）の試験が使う見本。本番のコードは import しない（shared の exports は src だけ）。
-import type { Farm, House, MeshCode, NotifySettings } from "../../src/types";
+import { latLngToMesh3, mesh3Center } from "../../src/mesh";
+import type { Case, Farm, House, MeshCode, NotifySettings } from "../../src/types";
 import { boxAround, makeGeo, type FakeGeoStore } from "../fixtures/geo";
 
 /**
@@ -57,4 +58,61 @@ export function farmFixture(uid: string, over: Partial<Farm> = {}): Farm {
 
 export function houseFixture(over: Partial<House> = {}): House {
   return { name: "1 号舎", birdType: "採卵鶏", flockSize: 100, empty: false, ...over };
+}
+
+// ── 通知（M-02）の試験が使う見本 ──
+
+/** 農場のメッシュ。IN_A は町 A の箱の内、FAR_B は A から数百 km 離れた所（町 B と隣り合うが A とは遠い）、IN_D は町 D の箱の内。 */
+export const IN_A: MeshCode = MESH_FIXTURE;
+export const FAR_B: MeshCode = latLngToMesh3(34.9, 133.0);
+export const IN_D: MeshCode = latLngToMesh3(30.005, 130.005);
+
+/** 町 A（33101）で確定した事例。上書きできる。 */
+export function caseFixture(over: Partial<Case> = {}): Case {
+  return {
+    id: "33101-2026-11-05-1",
+    season: 2026,
+    nationalNo: null,
+    prefNo: null,
+    prefCode: "33",
+    muniCode: GEO_A,
+    muniName: "町A",
+    birdUse: null,
+    housing: null,
+    headCount: null,
+    stages: { confirmed: { date: "2026-11-05", time: null } },
+    radiiKm: [],
+    prefEstimates: { shipment: null, movement: null, surveillance: null },
+    negation: "none",
+    negatedAt: null,
+    confirmState: "auto",
+    sourceUrls: ["https://example.test/pref/1.html"],
+    updatedAt: "2026-11-05T12:00:00+09:00",
+    ...over,
+  };
+}
+
+/** 農場に id を足したもの（planCaseNotices に渡す形）。 */
+export function farmWithId(id: string, uid: string, over: Partial<Farm> = {}): Farm & { id: string } {
+  return { id, ...farmFixture(uid, over) };
+}
+
+const EARTH_RADIUS_KM = 6371.0088; // turf と同じ半径
+
+/**
+ * メッシュの中心から真東へ km の所に西の辺がある箱（中心は箱の外）。
+ * 中心から子午線までの測地線の距離 d は sin(d/R) = cos(緯度)·sin(Δ経度) なので、そこから Δ経度を逆算する。
+ */
+export function boxEastOfMesh(mesh: MeshCode, km: number, widthDeg = 0.05, halfHeightDeg = 0.05): GeoJSON.Polygon {
+  const { lat, lng } = mesh3Center(mesh);
+  const dLng = (Math.asin(Math.sin(km / EARTH_RADIUS_KM) / Math.cos((lat * Math.PI) / 180)) * 180) / Math.PI;
+  const west = lng + dLng;
+  const ring: Array<[number, number]> = [
+    [west, lat - halfHeightDeg],
+    [west + widthDeg, lat - halfHeightDeg],
+    [west + widthDeg, lat + halfHeightDeg],
+    [west, lat + halfHeightDeg],
+    [west, lat - halfHeightDeg],
+  ];
+  return { type: "Polygon", coordinates: [ring] };
 }
