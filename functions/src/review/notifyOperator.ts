@@ -28,6 +28,7 @@ const LABELS: Array<{ key: string; label: string }> = [
   { key: "alert:watch_failing", label: "見回りが止まっている県" },
   { key: "alert:agent_run_failed", label: "エージェントの実行の失敗" },
   { key: "alert:mail_failing", label: "メール配信の失敗" },
+  { key: "alert:mortality_capped", label: "基準の知らせの上限" },
 ];
 
 const keyOf = (i: ReviewItem): string => (i.kind === "alert" ? `alert:${i.alert}` : i.kind);

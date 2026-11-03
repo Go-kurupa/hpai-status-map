@@ -59,6 +59,7 @@ export const ALERT_TEXT: Readonly<Record<Extract<ReviewItem, { kind: "alert" }>[
   watch_failing: "24 時間以上読めていません",
   agent_run_failed: "入口を直すエージェントの実行に失敗しました",
   mail_failing: "メールを送れていません。アプリパスワードと 1 日の上限を確かめてください",
+  mortality_capped: "死亡率の基準の知らせが、1 農場の 1 日の上限で止まった農場があります。偽の記録か、実際に多くの鶏舎で基準に当たっている可能性があります",
 };
 
 /** 項目の種類ごとに許す操作（1 項目 2 つまで）。サーバーの検査と画面のボタンが同じ表を使う。 */

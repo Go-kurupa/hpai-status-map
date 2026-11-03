@@ -100,7 +100,11 @@ export async function markSent(ref: DocumentReference, sentAt: string): Promise<
  * 認証、上限、一時的な制限、通信の失敗が出たら、残りは送らず queued のまま残し（M-13 の送り直しが拾う）、noteMailStop（連打しない）。
  * 記録の書き込みの失敗は件数をログに残し、呼び出し側の処理は止めない。
  */
-export async function dispatchNotices(deps: NotifyDeps, notices: readonly Notice[]): Promise<{ mailStopped: boolean }> {
+export async function dispatchNotices(
+  deps: NotifyDeps,
+  notices: readonly Notice[],
+  gate?: () => Promise<boolean>,
+): Promise<{ mailStopped: boolean }> {
   let mailStopped = false;
   let errors = 0;
   const gates = new Map<string, Promise<Gate>>();
@@ -139,6 +143,32 @@ export async function dispatchNotices(deps: NotifyDeps, notices: readonly Notice
     } catch (e) {
       errors += 1;
       console.error("[notify] 記録の書き込みに失敗しました", { code: codeOf(e) });
+    }
+  }
+
+  // 送る前の関門（基準の知らせの 1 日の上限）。記録を先に作ってから呼ぶので、止めても、落ちても、記録が残る。
+  // true なら送る。false なら capped にして送らない。投げたら failed にして送らない（次の送り直しが拾う）。
+  if (gate && toSend.length > 0) {
+    let allowed = false;
+    let gateFailed = false;
+    try {
+      allowed = await gate();
+    } catch (e) {
+      gateFailed = true;
+      errors += 1;
+      console.error("[notify] 送る前の確認に失敗しました", { code: codeOf(e) });
+    }
+    if (!allowed) {
+      for (const { ref } of toSend) {
+        try {
+          await ref.update({ state: gateFailed ? "failed" : "capped" });
+        } catch (e) {
+          errors += 1;
+          console.error("[notify] 記録の書き込みに失敗しました", { code: codeOf(e) });
+        }
+      }
+      if (errors > 0) console.error("[notify] 記録に失敗した知らせがあります", { count: errors });
+      return { mailStopped };
     }
   }
 

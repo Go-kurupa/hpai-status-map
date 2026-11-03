@@ -159,7 +159,7 @@ export type ReviewItem = { id: string; createdAt: IsoDateTime; resolvedAt: IsoDa
   | { kind: "entrance_proposal"; prefCode: PrefCode; oldUrl: string | null; proposedUrl: string; sourceKind: SourceKind; rationale: string }
   | {
       kind: "alert";
-      alert: "case_stalled" | "negation_candidate" | "national_missing" | "app_only_confirmed" | "watch_failing" | "agent_run_failed" | "mail_failing";
+      alert: "case_stalled" | "negation_candidate" | "national_missing" | "app_only_confirmed" | "watch_failing" | "agent_run_failed" | "mail_failing" | "mortality_capped";
       prefCode: PrefCode | null;
       caseId: string | null;
       message: string;
