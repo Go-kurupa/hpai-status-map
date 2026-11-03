@@ -180,16 +180,11 @@ describe("firebase.json", () => {
     expect(readJson(".firebaserc").projects.default).toBe("demo-hpai");
   });
 
-  it("ルールは全拒否で、索引は空", () => {
-    for (const file of ["firestore.rules", "storage.rules"]) {
-      const text = fs.readFileSync(path.join(ROOT, file), "utf8");
-      expect(text, file).toMatch(/allow read, write: if false;/);
-      expect(text.match(/allow /g), file).toHaveLength(1);
-      expect(text, file).not.toMatch(/if true/);
-    }
-    const indexes = readJson("firestore.indexes.json");
-    expect(indexes.indexes).toEqual([]);
-    expect(indexes.fieldOverrides ?? []).toEqual([]);
+  it("Storage のルールは全拒否（Firestore のルールと索引は F-05 の試験が覆う）", () => {
+    const text = fs.readFileSync(path.join(ROOT, "storage.rules"), "utf8");
+    expect(text).toMatch(/allow read, write: if false;/);
+    expect(text.match(/allow /g)).toHaveLength(1);
+    expect(text).not.toMatch(/if true/);
   });
 });
 

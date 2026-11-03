@@ -174,6 +174,30 @@ describe("書き込み: 農場", () => {
     await assertFails(deleteDoc(doc(alice(), "farms/f1")));
   });
 
+  it("他の農場（f2）の checks の作成、houses・deaths・checks の更新と削除が落ちる", async () => {
+    const db = alice();
+    await assertFails(setDoc(doc(db, "farms/f2/checks/new"), { kind: "disinfection", date: "2026-11-04", itemId: "i" }));
+    await assertFails(updateDoc(doc(db, "farms/f2/houses/h1"), { name: "x" }));
+    await assertFails(updateDoc(doc(db, "farms/f2/deaths/2026-11-03_h1"), { deaths: 9 }));
+    await assertFails(updateDoc(doc(db, "farms/f2/checks/c1"), { itemId: "x" }));
+    await assertFails(deleteDoc(doc(db, "farms/f2/houses/h1")));
+    await assertFails(deleteDoc(doc(db, "farms/f2/deaths/2026-11-03_h1")));
+    await assertFails(deleteDoc(doc(db, "farms/f2/checks/c1")));
+    // 未ログインと operator も同じ
+    await assertFails(deleteDoc(doc(anon(), "farms/f1/houses/h1")));
+    await assertFails(updateDoc(doc(operator(), "farms/f1/deaths/2026-11-03_h1"), { deaths: 9 }));
+  });
+
+  it("自分の農場の houses・deaths・checks は更新も削除もできる", async () => {
+    const db = alice();
+    await assertSucceeds(updateDoc(doc(db, "farms/f1/houses/h1"), { flockSize: 50 }));
+    await assertSucceeds(updateDoc(doc(db, "farms/f1/deaths/2026-11-03_h1"), { deaths: 2 }));
+    await assertSucceeds(updateDoc(doc(db, "farms/f1/checks/c1"), { itemId: "i9" }));
+    await assertSucceeds(deleteDoc(doc(db, "farms/f1/houses/h1")));
+    await assertSucceeds(deleteDoc(doc(db, "farms/f1/deaths/2026-11-03_h1")));
+    await assertSucceeds(deleteDoc(doc(db, "farms/f1/checks/c1")));
+  });
+
   it("hasOnly: Farm にないキーを持てない", async () => {
     await assertFails(updateDoc(doc(alice(), "farms/f1"), { extra: 1 }));
     await assertFails(setDoc(doc(memberOnly(), "farms/f3"), farm("carol", { extra: 1 })));
