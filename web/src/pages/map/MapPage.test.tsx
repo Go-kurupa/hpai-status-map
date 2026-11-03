@@ -16,6 +16,7 @@ import { SPOT_KEY, TOWN_KEY } from "../../data/spot";
 import { SpotProvider } from "../../data/spotContext";
 import type { DataSource, RecordStore } from "../../data/types";
 import type { MapViewProps } from "./MapView";
+import { TEXT } from "./texts";
 
 // 市町村の形の読み込みは fetch を使うので、jsdom では実データを fs から読む偽に替える
 vi.mock("../../geo/loadGeo", () => {
@@ -154,7 +155,7 @@ describe("MapPage", () => {
     r.deliverCases([]);
     r.deliverWatch(okWatch().map((w) => (w.prefCode === "33" ? { ...w, ok: false, failingSince: "2026-11-04T01:00:00+09:00" } : w)));
     expect(lastProps().failedPrefCodes).toEqual(["33"]);
-    expect(document.body.textContent).toMatch(/確認できていない県.*岡山県/);
+    expect(screen.getByTestId("watch-line").textContent).toContain("47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）");
     expect(document.body.textContent).not.toMatch(/発生なし/);
     // いちばん目立つ今季の件数は「確認できた範囲では 0 件（1 県は確認できていません）」
     expect(screen.getByRole("button", { name: /今季/ }).textContent).toContain("確認できた範囲では 0 件（1 県は確認できていません）");
@@ -386,6 +387,168 @@ describe("MapPage: 自分の町の 1 文", () => {
     r.deliverCases([tsuyamaCase()]);
     r.deliverWatch(okWatch());
     await screen.findByText("隣町で発生しました");
+    expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
+  });
+});
+
+// ── W-06: 確認状況と一覧 ──
+const failed = (codes: string[]): WatchStatus[] =>
+  okWatch().map((w) => (codes.includes(w.prefCode) ? { ...w, ok: false, failingSince: "2026-11-04T01:00:00+09:00" } : w));
+const bannerText = () => document.querySelector(".town-banner")?.textContent ?? "";
+
+describe("MapPage: 確認状況", () => {
+  it("見回りの結果が届く前は、件数の文ではなく『まだ読めていません』。届いたら 47 県の文", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    expect(screen.getByTestId("watch-line").textContent).toContain("まだ読めていません");
+    expect(screen.getByTestId("watch-line").textContent).not.toMatch(/件を確認/);
+    r.deliverWatch(okWatch());
+    expect(screen.getByTestId("watch-line").textContent).toContain("47 都道府県のうち 47 件を確認、0 件は確認できていません");
+  });
+
+  it("上の時刻は checkedAt の最大（8:30）で、now（9:00）ではない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverWatch(okWatch());
+    expect(document.querySelector(".as-of")?.textContent).toBe("11 月 4 日 8:30 時点");
+  });
+
+  it("過去のシーズンを選ぶと、今の見回りの行は出さない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(["33"]));
+    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    expect(screen.queryByTestId("watch-line")).toBeNull();
+  });
+
+  it("凡例は 疑い、確定、野鳥の検査中、野鳥の確定、確認できていない県", async () => {
+    show(rig());
+    await screen.findByTestId("map");
+    const items = within(screen.getByRole("list", { name: "地図の見方" })).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual(["疑い", "確定", "野鳥の検査中", "野鳥の確定", "確認できていない県"]);
+  });
+});
+
+describe("MapPage: 自分の町の県が未確認（W-06 追加の範囲 1）", () => {
+  it("事例が届いていて④でも、町の県（岡山県）の見回りが失敗なら『この県は確認できていません』。全国の動きだけにしない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(["33"]));
+    await waitFor(() => expect(bannerText()).toContain(TEXT.prefUnwatched));
+    expect(bannerText()).not.toContain(TEXT.national);
+    expect(tones()).not.toContain("lv4");
+    expect(bannerText()).toContain(FIXED_TEXT.riskAnywhere);
+  });
+
+  it("見回りの結果が未着のときも同じ（結果が届くまで、確認できた扱いにしない）", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    await waitFor(() => expect(bannerText()).toContain(TEXT.prefUnwatched));
+    expect(bannerText()).not.toContain(TEXT.national);
+  });
+
+  it("隣町で発生（②）でも、町の県が未確認なら詳細に添える。段階の文と色は変えない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([tsuyamaCase()]);
+    r.deliverWatch(failed(["33"]));
+    await screen.findByText("隣町で発生しました");
+    expect(bannerText()).toContain(TEXT.prefUnwatched);
+    expect(tones()).toContain("lv2");
+  });
+
+  it("別の県（東京都）だけが未確認なら、町の 1 文には足さない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(["13"]));
+    await screen.findByText(TEXT.national);
+    expect(bannerText()).not.toContain(TEXT.prefUnwatched);
+  });
+});
+
+describe("MapPage: 索引にない市町村の地点（W-06 追加の範囲 2）", () => {
+  it("過去の行を『発生はありません』にせず、読めなかった扱い。1 文も町を選び直す趣旨", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: latLngToMesh3(35.07, 134.0), muniCode: "99999", frequentMuniCodes: [] }));
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([tsuyamaCase()]);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(screen.getByText(TEXT.pastFailed)).toBeTruthy());
+    expect(document.body.textContent).not.toContain("発生はありません");
+    expect(screen.getByText(TEXT.unknownTown)).toBeTruthy();
+    expect(tones()).not.toContain("lv4");
+  });
+});
+
+describe("MapPage: 一覧", () => {
+  const listBtn = () => screen.getByRole("button", { name: /一覧/ });
+
+  it("閉じると 1 行。押すと aria-expanded true。昨季を選ぶと 24 行で、出典は maff.go.jp", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    expect(listBtn().getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    fireEvent.click(listBtn());
+    expect(listBtn().getAttribute("aria-expanded")).toBe("true");
+    const rows = within(screen.getByRole("list", { name: "発生の一覧" })).getAllByRole("listitem");
+    expect(rows).toHaveLength(24);
+    const hosts = rows.map((li) => new URL(li.querySelector("a")!.getAttribute("href")!).hostname);
+    expect(hosts.every((h) => h.endsWith("maff.go.jp"))).toBe(true);
+    // 3 つの注記
+    for (const t of ["疑いは、県の発表を見つけられた県だけ出ます", "環境省の野鳥監視重点区域は", "監視強化区域は"]) {
+      expect(document.body.textContent).toContain(t);
+    }
+  });
+
+  it("今季の一覧には、数に入れていない確認中の事例も県名と『確認中』で出る。今季の棒の件数には入らない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([
+      tsuyamaCase(),
+      tsuyamaCase({ id: "rev-1", prefCode: "31", muniCode: null, muniName: null, headCount: null, stages: {}, confirmState: "reviewing", sourceUrls: ["https://example.invalid/r"] }),
+    ]);
+    r.deliverWatch(okWatch());
+    fireEvent.click(listBtn());
+    const items = within(await screen.findByRole("list", { name: "発生の一覧" })).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items.map((li) => li.textContent).join("|")).toMatch(/鳥取県　確認中/);
+    expect(screen.getByRole("button", { name: /今季/ }).textContent).toContain("1 件");
+  });
+
+  it("今季の事例が届く前の一覧は『まだ読めていません』。0 件にしない", async () => {
+    show(rig());
+    await screen.findByTestId("map");
+    expect(listBtn().textContent).toContain("まだ読めていません");
+    expect(listBtn().textContent).not.toMatch(/0 件/);
+  });
+
+  it("画面の全文に、禁じた語がない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([tsuyamaCase()]);
+    r.deliverWatch(failed(["33", "13"]));
+    fireEvent.click(listBtn());
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
   });
 });

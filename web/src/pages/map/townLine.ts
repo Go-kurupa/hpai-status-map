@@ -10,6 +10,7 @@ import type {
   IsoDateTime,
   LevelResult,
   MuniCode,
+  PrefCode,
   Season,
   WildBird,
 } from "@hpai/shared/types";
@@ -17,7 +18,7 @@ import { FIXED_TEXT } from "@hpai/shared/wording";
 import { SURVEILLANCE_NOTE, TEXT } from "./texts";
 
 export interface TownLine {
-  /** 今季の段階の色。lv3 は「登録した町」、none は町が未選択か読めなかったとき */
+  /** 今季の段階の色。lv3 は「登録した町」、none は町が未選択か読めなかったとき、または町の県が見回りで確認できていない④（withWatchState） */
   tone: "lv1" | "lv2" | "lv3" | "lv4" | "none";
   main: string;
   details: string[];
@@ -112,6 +113,17 @@ export function areaLine(status: AreaStatus): TownLine {
   return { tone: "lv4", main: TEXT.national, details: [...birds, ...tail] };
 }
 
+/**
+ * 自分の町の県が見回りで確認できていないとき、1 文にそれを加える（同期。見回りの結果が変わるたびに計算し直さない）。
+ * ④は「全国の動き」だけにせず、県が確認できていないことを主文にして色も段階の色にしない。
+ * ①②③は段階の文と色を保ち、先頭の詳細に足す。町が未選択か読めなかったとき（色なし）は足さない。
+ */
+export function withWatchState(line: TownLine, townPref: PrefCode | null, failedPrefCodes: readonly PrefCode[]): TownLine {
+  if (townPref === null || line.tone === "none" || !failedPrefCodes.includes(townPref)) return line;
+  if (line.tone === "lv4") return { tone: "none", main: TEXT.prefUnwatched, details: [...line.details] };
+  return { ...line, details: [TEXT.prefUnwatched, ...line.details] };
+}
+
 export interface ResolveInput {
   spot: FarmPoint | null;
   town: MuniCode | null;
@@ -141,6 +153,8 @@ export async function resolveTown(i: ResolveInput): Promise<ResolvedTown> {
 
   if (i.spot) {
     const { spot } = i;
+    // 知らない市町村コードの地点は、隣がなく②が出ないまま④に倒れる。町だけの場合と同じく先に断る
+    if (!i.geo.index[spot.muniCode]) return { line: { tone: "none", main: TEXT.unknownTown, details: [] }, nearMuniCodes: [] };
     await i.geo.ensurePrefs(prefsToLoad(cases, birds)); // 距離の前に必ず（契約 3.2）
     const result = computeLevel(spot, cases, i.season, i.geo);
     const line = levelLine(result, cases);

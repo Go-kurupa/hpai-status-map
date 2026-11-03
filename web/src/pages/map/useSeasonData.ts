@@ -1,11 +1,11 @@
 // 地図の画面が使うデータ。DataSource（購読）と過去の記録を読み、選んだシーズンの SeasonView にする。
 // 「まだ読めていない」を 0 件にしない（null のまま持つ）。見回りの結果が届く前は、47 県すべて確認できていない扱い。
 import { currentSeason } from "@hpai/shared/season";
-import { summarizeWatch } from "@hpai/shared/level";
 import type { Case, HistoryCase, IsoDateTime, PrefCode, Season, WatchStatus, WildBird } from "@hpai/shared/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDataSource } from "../../data/context";
 import { buildSeasonView, listSeasonBars, type SeasonView } from "./seasonView";
+import { watchLine, type WatchLineResult } from "./watchLine";
 
 const MINUTE_MS = 60_000;
 
@@ -21,6 +21,10 @@ export interface SeasonData {
   history: HistoryCase[] | null;
   /** 今季の野鳥。過去のシーズンを選んでも同じ配列を返す（層の filter で隠す。source を替えない） */
   wildBirds: WildBird[];
+  /** 一覧の元になる事例。今季は届いたもの全部（確認中と否定の直後も一覧には出す）、過去は数えた事例。読めていなければ null */
+  listCases: Case[] | null;
+  /** 確認状況の 1 行（結果が届く前は 47 県すべて確認できていない扱い） */
+  watch: WatchLineResult;
   /** 見回りで確認できていない県（結果が届く前は 47 県すべて） */
   failedPrefCodes: PrefCode[];
   /** 見回りの結果を受け取れている */
@@ -88,14 +92,11 @@ export function useSeasonData(): SeasonData {
   const bars = useMemo(() => listSeasonBars({ current, currentCases: cases, history }), [current, cases, history]);
 
   // minute は再計算の合図（now が変わるので、依存に入れる）
-  const summary = useMemo(() => summarizeWatch(watch ?? [], now), [watch, minute]); // eslint-disable-line react-hooks/exhaustive-deps
-  const asOf = useMemo(() => {
-    const times = (watch ?? [])
-      .filter((w) => w.ok && w.checkedAt !== null)
-      .map((w) => w.checkedAt as string)
-      .filter((t) => !Number.isNaN(Date.parse(t)));
-    return times.length === 0 ? null : times.reduce((a, b) => (Date.parse(a) >= Date.parse(b) ? a : b));
-  }, [watch]);
+  const line = useMemo(() => watchLine(watch ?? [], now), [watch, minute]); // eslint-disable-line react-hooks/exhaustive-deps
+  const listCases = useMemo<Case[] | null>(() => {
+    if (!view.loaded) return null;
+    return view.isCurrent ? (cases ?? []).filter((c) => c.season === view.season) : [...view.cases];
+  }, [view, cases]);
 
   return {
     current,
@@ -106,9 +107,11 @@ export function useSeasonData(): SeasonData {
     currentCases: cases,
     history,
     wildBirds: birds,
-    failedPrefCodes: summary.failedPrefCodes,
+    listCases,
+    watch: line,
+    failedPrefCodes: line.failedPrefCodes,
     watchLoaded: watch !== null,
-    asOf,
+    asOf: line.asOf,
     historyFailed,
     retryHistory,
   };

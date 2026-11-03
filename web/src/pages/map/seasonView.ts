@@ -63,7 +63,7 @@ function isSuspectedOnly(c: Case): boolean {
 }
 
 /** 月の棒に入れる日。確定の日、なければ疑いの日、なければ最初の段階の日 */
-function caseDate(c: Case): IsoDate | null {
+export function caseDate(c: Case): IsoDate | null {
   const s = c.stages;
   if (s.confirmed) return s.confirmed.date;
   if (s.suspected) return s.suspected.date;

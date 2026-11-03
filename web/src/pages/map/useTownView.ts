@@ -4,10 +4,10 @@ import { loadWebGeoStore } from "../../geo/loadGeo";
 import type { GeoStore } from "@hpai/shared/geo";
 import { toJstIso } from "@hpai/shared/dates";
 import { describePast } from "@hpai/shared/past";
-import type { Case, FarmPoint, HistoryCase, MuniCode, Season, WildBird } from "@hpai/shared/types";
+import type { Case, FarmPoint, HistoryCase, MuniCode, PrefCode, Season, WildBird } from "@hpai/shared/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PastState } from "./TownBanner";
-import { resolveTown, type TownLine } from "./townLine";
+import { resolveTown, withWatchState, type TownLine } from "./townLine";
 
 export function useGeoStore(): { geo: GeoStore | null; failed: boolean } {
   const [state, setState] = useState<{ geo: GeoStore | null; failed: boolean }>({ geo: null, failed: false });
@@ -43,6 +43,8 @@ export interface TownViewInput {
   season: Season;
   geo: GeoStore | null;
   now: Date;
+  /** 見回りで確認できていない県（結果が届く前は 47 県すべて）。自分の町の県がここにあれば、1 文にそれを加える */
+  unwatchedPrefCodes?: readonly PrefCode[];
 }
 
 /** 1 文。入力（地点、町）が変わった直後は古い結果を出さず、読み込み中にする */
@@ -70,7 +72,15 @@ export function useTownLine(i: TownViewInput): { line: TownLine | null; failed: 
   }, [key, spot, town, cases, birds, season, geo]);
 
   const fresh = res !== null && res.key === key ? res : null;
-  return { line: fresh?.line ?? null, failed: fresh !== null && fresh.line === null, nearMuniCodes: fresh?.near ?? [] };
+  const townCode = spot?.muniCode ?? town;
+  const townPref = townCode === null ? null : (geo?.index[townCode]?.prefCode ?? townCode.slice(0, 2));
+  const unwatched = i.unwatchedPrefCodes;
+  const freshLine = fresh?.line ?? null;
+  const line = useMemo(
+    () => (freshLine !== null && unwatched !== undefined ? withWatchState(freshLine, townPref, unwatched) : freshLine),
+    [freshLine, townPref, unwatched],
+  );
+  return { line, failed: fresh !== null && fresh.line === null, nearMuniCodes: fresh?.near ?? [] };
 }
 
 /** 過去の 1 文。読めていない間は読み込み中、読めなかったら失敗（「発生はありません」にしない） */
@@ -87,6 +97,12 @@ export function usePast(i: {
     if (town === null) return { status: "idle" };
     if (historyFailed || geoFailed) return { status: "failed" };
     if (history === null || geo === null) return { status: "loading" };
-    return { status: "ready", summary: describePast(town, history, geo, current) };
+    // 索引にない町は隣がなく、過去の行が「発生はありません」に倒れる。「ない」と読ませず、読めなかった扱いにする
+    if (!geo.index[town]) return { status: "failed" };
+    try {
+      return { status: "ready", summary: describePast(town, history, geo, current) };
+    } catch {
+      return { status: "failed" }; // 壊れた記録でページを落とさない。「発生なし」にも見せない
+    }
   }, [town, history, historyFailed, geo, geoFailed, current]);
 }

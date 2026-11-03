@@ -366,3 +366,57 @@
   width: 2px;
   height: 44px;
 }
+
+/* 発生の一覧（W-06）。閉じると 1 行、押して開ける */
+.case-list {
+  margin: 0 0 12px;
+}
+.case-list-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 2px solid var(--fg);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.case-list-body {
+  padding: 8px 12px;
+  border: 2px solid var(--fg);
+  border-top: 0;
+}
+.case-list-sub {
+  margin: 12px 0 4px;
+  font-size: 1rem;
+}
+.case-rows,
+.case-notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.case-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.case-source {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  margin-left: 8px;
+}
+.case-notes {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.case-notes li {
+  margin: 0 0 4px;
+}

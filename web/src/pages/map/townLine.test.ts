@@ -8,7 +8,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import adjacencyJson from "../../../../data/geo/adjacency.json";
 import indexJson from "../../../../data/geo/muni-index.json";
-import { areaLine, levelLine, resolveTown, resolveTownLine, type TownLine } from "./townLine";
+import { areaLine, levelLine, resolveTown, resolveTownLine, withWatchState, type TownLine } from "./townLine";
 import { SURVEILLANCE_NOTE, TEXT } from "./texts";
 
 const SEASON = 2026;
@@ -278,6 +278,14 @@ describe("resolveTownLine", () => {
     expect(line.main).toBe(TEXT.unknownTown);
   });
 
+  it("索引にない市町村コードの地点は、④にせず『読めませんでした』の趣旨（色なし）。県を読みにも行かない", async () => {
+    const { geo, loaded } = realGeo();
+    const lost: FarmPoint = { meshCode: spot.meshCode, muniCode: "99999", frequentMuniCodes: [] };
+    const line = await resolveTownLine({ ...base, spot: lost, town: null, cases: [tottori], geo });
+    expect(line).toEqual({ tone: "none", main: TEXT.unknownTown, details: [] });
+    expect(loaded).toEqual([]);
+  });
+
   it("今季でない事例では計算しない（常に今季の事例だけ）", async () => {
     const { geo } = realGeo();
     const old = mkCase({ id: "old", season: 2025 });
@@ -319,5 +327,46 @@ describe("resolveTownLine", () => {
     const line = await resolveTownLine({ ...base, birds: [bird], spot, town: null, cases: [], geo });
     expect(line.tone).toBe("lv4");
     expect(line.details).toContain("津山市で野鳥の高病原性の確定（12 月 6 日）");
+  });
+});
+
+// ── 自分の町の県が未確認（W-06 追加の範囲 1）。④の「全国の動き」だけで済ませない ──
+describe("withWatchState（自分の町の県が未確認のとき）", () => {
+  const lv4: TownLine = { tone: "lv4", main: TEXT.national, details: [FIXED_TEXT.riskAnywhere] };
+  const lv1: TownLine = { tone: "lv1", main: TEXT.zone, details: ["津山市で確定（11 月 2 日）"] };
+
+  it("④で県が未確認: main が『この県は確認できていません』になり、色は段階ではなくなる。riskAnywhere は残る", () => {
+    const l = withWatchState(lv4, "33", ["33"]);
+    expect(l.main).toBe(TEXT.prefUnwatched);
+    expect(l.main).toContain("この県は");
+    expect(l.main).toContain("確認できていません");
+    expect(l.main).not.toBe(TEXT.national);
+    expect(l.tone).toBe("none");
+    expect(l.details).toContain(FIXED_TEXT.riskAnywhere);
+  });
+
+  it("①②③で県が未確認: 段階の文と色は保ち、先頭の詳細に『この県は確認できていません』を足す", () => {
+    const l = withWatchState(lv1, "33", ["33", "13"]);
+    expect(l.main).toBe(TEXT.zone);
+    expect(l.tone).toBe("lv1");
+    expect(l.details).toEqual([TEXT.prefUnwatched, "津山市で確定（11 月 2 日）"]);
+  });
+
+  it("県が確認できているときは、そのまま（同じ参照）", () => {
+    expect(withWatchState(lv4, "33", ["13"])).toBe(lv4);
+    expect(withWatchState(lv4, "33", [])).toBe(lv4);
+  });
+
+  it("町が未選択、読めなかったとき（色なし）は足さない。県が分からなくても足さない", () => {
+    const none: TownLine = { tone: "none", main: TEXT.noTown, details: [] };
+    expect(withWatchState(none, "33", ["33"])).toBe(none);
+    expect(withWatchState(lv4, null, ["33"])).toBe(lv4);
+  });
+
+  it("禁止語がなく、元の line を書き換えない", () => {
+    const before = JSON.stringify(lv1);
+    const l = withWatchState(lv1, "33", ["33"]);
+    expect(findForbiddenPhrases(textOf(l))).toEqual([]);
+    expect(JSON.stringify(lv1)).toBe(before);
   });
 });

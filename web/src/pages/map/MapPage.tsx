@@ -1,11 +1,14 @@
 import { PREFS } from "@hpai/shared/pref";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import type { MuniCode } from "@hpai/shared/types";
-import { lazy, Suspense, useCallback, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { useDataSource } from "../../data/context";
 import { useSpotState } from "../../data/spotContext";
 import { AsOf } from "../../ui/AsOf";
 import type { MapViewProps } from "./MapView";
+import { CaseListSheet } from "./CaseListSheet";
+import { Legend } from "./Legend";
+import { listRows, wildBirdRows } from "./listRows";
 import { MapLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import type { PickTarget } from "./pickSpot";
@@ -15,6 +18,7 @@ import { TEXT } from "./texts";
 import { TownBanner } from "./TownBanner";
 import { TownPicker } from "./TownPicker";
 import { useGeoStore, usePast, useTownLine } from "./useTownView";
+import { WatchLine } from "./WatchLine";
 import { useSeasonData } from "./useSeasonData";
 import "./map.css";
 
@@ -42,8 +46,13 @@ export default function MapPage() {
     season: d.current,
     geo,
     now: ds.now(),
+    unwatchedPrefCodes: d.failedPrefCodes, // 自分の町の県が未確認なら、1 文にそれを加える（④だけで済ませない）
   });
   const past = usePast({ town, history: d.history, historyFailed: d.historyFailed, geo, geoFailed, current: d.current });
+  const now = ds.now();
+  const nowMinute = Math.floor(now.getTime() / 60_000); // 否定した事例が 8 日目に消えるのを、開いたままでも進める
+  const rows = useMemo(() => (d.listCases === null ? [] : listRows(d.listCases, new Date(nowMinute * 60_000))), [d.listCases, nowMinute]);
+  const birdRows = useMemo(() => wildBirdRows(d.wildBirds), [d.wildBirds]);
   const townName = town && geo ? (geo.index[town]?.name ?? null) : null;
 
   // 地図の見る場所、町を選ぶ画面、十字
@@ -164,28 +173,7 @@ export default function MapPage() {
         onClear={spotState.clearDeviceSpot}
       />
 
-      <ul className="map-legend" aria-label="地図の見方">
-        <li>
-          <span className={`swatch swatch-solid${view.isCurrent ? "" : " is-past"}`} aria-hidden="true" />
-          確定
-        </li>
-        <li>
-          <span className={`swatch swatch-hatch${view.isCurrent ? "" : " is-past"}`} aria-hidden="true" />
-          疑い
-        </li>
-        <li>
-          <span className="swatch swatch-unwatched" aria-hidden="true" />
-          確認できていない県
-        </li>
-        <li>
-          <span className="swatch swatch-ring" aria-hidden="true" />
-          野鳥の検査中
-        </li>
-        <li>
-          <span className="swatch swatch-square" aria-hidden="true" />
-          野鳥の高病原性の確定
-        </li>
-      </ul>
+      <Legend isCurrent={view.isCurrent} />
       <p className="map-note">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
 
       {view.isCurrent && !view.loaded ? (
@@ -206,19 +194,12 @@ export default function MapPage() {
           ) : null}
         </p>
       ) : null}
-      {view.isCurrent && !d.watchLoaded ? (
-        <p className="map-status" role="status">
-          見回りの結果をまだ読めていません。斜線の県は確認できていません。
-        </p>
-      ) : null}
-      {view.isCurrent && d.watchLoaded && d.failedPrefCodes.length > 0 ? (
-        <p className="map-status" role="status">
-          {noneConfirmed ? "どの県も確認できていません（地図の斜線）。" : `確認できていない県（地図の斜線）: ${names(d.failedPrefCodes)}。`}
-        </p>
-      ) : null}
+      {view.isCurrent ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
       {view.reviewingPrefCodes.length > 0 ? (
         <p className="map-status">確認中の発表がある県: {names(view.reviewingPrefCodes)}。件数にはまだ入れていません。</p>
       ) : null}
+
+      <CaseListSheet rows={rows} birds={view.isCurrent ? birdRows : null} loaded={d.listCases !== null} />
 
       <SeasonBar bars={bars} selected={d.selected} onSelect={d.select} />
 
