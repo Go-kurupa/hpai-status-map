@@ -159,6 +159,11 @@ export function matchCase(
       const first = firstDateOf(c.stages);
       return first !== null && Math.abs(diffDays(incoming.date, first)) <= SAME_CASE_DAYS;
     });
+    // 否定が確定した事例は数えられない。別の農場の疑いを吸収すると地図に出ず見逃すので、
+    // 数えられる候補があればそちらだけで決め、否定済みしか残らなければ迷いとして確認に回す（N が一致する場合は上で same 済み）。
+    const counted = candidates.filter((c) => c.negation !== "negated");
+    if (counted.length > 0) candidates = counted;
+    else if (candidates.length > 0) return { kind: "ambiguous", candidateIds: candidates.map((c) => c.id) };
   } else {
     candidates = candidates.filter((c) => {
       if (c.season !== season) return false;
@@ -243,14 +248,21 @@ export function applyRead(existing: Case | null, read: NormalizedRead, sourceUrl
     surveillance: read.estimates.surveillance ?? prevEstimates.surveillance,
   };
 
-  // 否定: 確定があれば候補も人の否定も退ける（確定を見逃さない）。なければ人が確定した否定（negated）は読み取りで下げない。否定の発表は candidate。
+  // 否定: 今回の読み取りが確定を持ち込んだとき（既存に確定がなかった）は、候補も人の否定も退ける（確定を見逃さない）。
+  // それ以外で人が確定した否定（negated）は動かさない（運営者の判断を黙って取り消さない）。否定の発表は candidate。確定済みなら候補にしない。
   let negation = prev?.negation ?? "none";
   let negatedAt = prev?.negatedAt ?? null;
-  if (stages.confirmed !== undefined) {
+  const bringsConfirmed = incomingStages.confirmed !== undefined && prev?.stages.confirmed === undefined;
+  if (bringsConfirmed) {
     negation = "none";
     negatedAt = null;
-  } else if (negation !== "negated" && read.kind === "negated") {
-    negation = "candidate";
+  } else if (negation !== "negated") {
+    if (stages.confirmed !== undefined) {
+      negation = "none";
+      negatedAt = null;
+    } else if (read.kind === "negated") {
+      negation = "candidate";
+    }
   }
 
   // 確かさは下がらない（reviewing < auto < national < operator）

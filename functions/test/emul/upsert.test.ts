@@ -95,6 +95,7 @@ describe("upsertCase", () => {
   it("id が空、または / を含めば reject", async () => {
     await expect(upsertCase(real({ id: "" }))).rejects.toThrow();
     await expect(upsertCase(real({ id: "a/b" }))).rejects.toThrow();
+    for (const id of [".", "..", "__name__"]) await expect(upsertCase(real({ id }))).rejects.toThrow();
   });
 });
 
@@ -114,5 +115,6 @@ describe("deleteReviewingCase", () => {
   it("documentId が空、または / を含めば reject", async () => {
     await expect(deleteReviewingCase("")).rejects.toThrow();
     await expect(deleteReviewingCase("a/b")).rejects.toThrow();
+    await expect(deleteReviewingCase("..")).rejects.toThrow();
   });
 });

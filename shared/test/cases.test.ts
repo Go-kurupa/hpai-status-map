@@ -255,6 +255,21 @@ describe("matchCase", () => {
       const old = mk("33203-2024-12-20-1", { season: 2024, stages: { confirmed: st("2024-12-20") } });
       expect(matchCase(inc({ date: "2026-01-10", stage: "shipment_lifted" }), [old])).toEqual({ kind: "new" });
     });
+    it("否定済みの事例は別の農場の疑いを吸収しない: 数えられる候補があればそちら", () => {
+      const negated = mk("33203-2025-12-19-1", { negation: "negated", stages: { suspected: st("2025-12-19") } });
+      const live = mk("33203-2025-12-21-1", { stages: { suspected: st("2025-12-21") } });
+      expect(matchCase(inc({ date: "2025-12-22", stage: "suspected" }), [negated, live])).toEqual({ kind: "same", caseId: live.id });
+    });
+    it("否定済みの事例しか候補がなければ same にせず ambiguous（確認に回す）。8 日以上離れれば new", () => {
+      const negated = mk("33203-2025-12-19-1", { negation: "negated", stages: { suspected: st("2025-12-19") } });
+      expect(matchCase(inc({ date: "2025-12-23", stage: "suspected" }), [negated])).toEqual({ kind: "ambiguous", candidateIds: [negated.id] });
+      expect(matchCase(inc({ date: "2025-12-23", stage: "confirmed" }), [negated])).toEqual({ kind: "ambiguous", candidateIds: [negated.id] });
+      expect(matchCase(inc({ date: "2025-12-27", stage: "suspected" }), [negated])).toEqual({ kind: "new" });
+    });
+    it("否定済みの事例でも N が一致すれば same", () => {
+      const negated = mk("33203-2025-12-19-1", { nationalNo: 8, negation: "negated", stages: { suspected: st("2025-12-19") } });
+      expect(matchCase(inc({ date: "2025-12-23", nationalNo: 8, stage: "confirmed" }), [negated])).toEqual({ kind: "same", caseId: negated.id });
+    });
     it("否定が確定した事例は後の段階の候補にしない", () => {
       const c = mk("33203-2025-12-20-1", { negation: "negated", stages: { suspected: st("2025-12-20") } });
       expect(matchCase(inc({ date: "2026-01-10", stage: "shipment_lifted" }), [c])).toEqual({ kind: "new" });
@@ -466,6 +481,18 @@ describe("applyRead", () => {
       const c = applyRead(existing, nr({ primaryStage: "confirmed", primaryStamp: st("2025-12-20") }), URL2, "national", NOW);
       expect(c.negation).toBe("none");
       expect(c.negatedAt).toBeNull();
+    });
+    it("確定済みで運営者が negated にした事例は、進捗や再読み取りで none に戻さない", () => {
+      const existing = mk("a", { negation: "negated", negatedAt: "2025-12-21T10:00:00+09:00", confirmState: "operator", stages: { confirmed: st("2025-12-20") } });
+      for (const read of [nr({ kind: "progress", primaryStage: "culling_done", primaryStamp: st("2025-12-21") }), nr({ primaryStage: "confirmed", primaryStamp: st("2025-12-20", "09:00") }), nr({ kind: "negated" })]) {
+        const c = applyRead(existing, read, URL2, "auto", NOW);
+        expect(c.negation).toBe("negated");
+        expect(c.negatedAt).toBe("2025-12-21T10:00:00+09:00");
+      }
+    });
+    it("確定済みの事例に否定の文書が来ても candidate にしない", () => {
+      const existing = mk("a", { stages: { confirmed: st("2025-12-20") } });
+      expect(applyRead(existing, nr({ kind: "negated" }), URL2, "auto", NOW).negation).toBe("none");
     });
     it("negated の事例に否定の文書を読み直しても negated のまま", () => {
       const existing = mk("a", { negation: "negated", negatedAt: "2025-12-21T10:00:00+09:00", stages: { suspected: st("2025-12-19") } });

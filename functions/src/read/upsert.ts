@@ -5,7 +5,8 @@ import { db } from "../admin";
 const REVIEWING_PREFIX = "rev-";
 
 function assertDocId(id: string, what: string): void {
-  if (id === "" || id.includes("/")) throw new RangeError(`${what}が不正です`);
+  // Firestore の文書 id に使えないもの: 空、/、"."、".."、__x__ の形（予約）
+  if (id === "" || id.includes("/") || id === "." || id === ".." || /^__.*__$/.test(id)) throw new RangeError(`${what}が不正です`);
 }
 
 /** 確認中の事例が、決められた欄（id、season、prefCode、sourceUrls、confirmState、updatedAt）以外に値を持っていれば、その欄の名前を返す。 */
