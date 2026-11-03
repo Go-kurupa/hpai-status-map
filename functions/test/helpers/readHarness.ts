@@ -136,6 +136,7 @@ export interface SeedDoc {
   hasTextLayer?: boolean;
   readState?: DocumentRecord["readState"];
   fetchedAt?: string;
+  announcedOn?: string | null;
 }
 
 export async function seedDoc(d: SeedDoc): Promise<DocumentRecord> {
@@ -162,6 +163,7 @@ export async function seedDoc(d: SeedDoc): Promise<DocumentRecord> {
     compare: null,
     caseId: null,
     error: null,
+    ...(d.announcedOn === undefined ? {} : { announcedOn: d.announcedOn }),
   };
   await db.doc(`documents/${d.id}`).set(rec);
   return rec;

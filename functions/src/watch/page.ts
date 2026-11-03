@@ -7,7 +7,7 @@ import { PREF_DOMAINS, isPrefDomainHost } from "@hpai/shared/pref";
 import { addedLines, isDateOnlyChange, linkKey, newLinks, pageLines, sameSite, type PageLink } from "@hpai/shared/read/pageDiff";
 import { hasOutbreakWords } from "@hpai/shared/read/publish";
 import { hasHpaiWord, normalizeForMatch } from "@hpai/shared/text";
-import type { IsoDateTime, Source } from "@hpai/shared/types";
+import type { IsoDate, IsoDateTime, Source } from "@hpai/shared/types";
 import { bucket } from "../admin";
 import { enqueueReview, reviewDocumentId } from "../review/queue";
 import { FAILED, type CheckResult, type Handlers, type WatchDeps } from "./deps";
@@ -121,7 +121,7 @@ const lastSegment = (url: string): string => {
 export async function processLink(
   link: PageLink,
   ctx: LinkCtx,
-  opts: { follow: boolean; requireWord?: boolean },
+  opts: { follow: boolean; requireWord?: boolean; announcedOn?: IsoDate },
 ): Promise<{ result: LinkResult; why?: string; follow: { url: string; title: string; lines: string[]; links: PageLink[] } | null }> {
   const { source, deps } = ctx;
   const o = await deps.fetch(link.href, { allowUrl: ctx.allow });
@@ -142,6 +142,7 @@ export async function processLink(
       prefCode: source.prefCode,
       fetchedAt: o.fetchedAt,
       readState: "pending",
+      ...(opts.announcedOn === undefined ? {} : { announcedOn: opts.announcedOn }),
     });
     return { result: "done", follow: null };
   }
@@ -161,6 +162,7 @@ export async function processLink(
       prefCode: source.prefCode,
       fetchedAt: o.fetchedAt,
       readState: "pending",
+      ...(opts.announcedOn === undefined ? {} : { announcedOn: opts.announcedOn }),
     });
   }
   const follow = opts.follow && hasHpaiWord(link.text) ? { url: link.href, title: page.title, lines: bodyLines(page, link.href), links: page.links } : null;

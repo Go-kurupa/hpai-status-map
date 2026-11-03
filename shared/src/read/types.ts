@@ -1,5 +1,5 @@
 // 読み取りの型（I-03）。型だけを置く。読み取りの型はここだけで、I-01〜I-08、X-07、X-14 が読む。
-import type { Case, CaseStage, IsoDateTime, MuniCode, PrefCode, SourceKind, StageDates, StageStamp, WildBird, WildBirdTest } from "../types";
+import type { Case, CaseStage, IsoDate, IsoDateTime, MuniCode, PrefCode, SourceKind, StageDates, StageStamp, WildBird, WildBirdTest } from "../types";
 
 export type DocumentKind =
   | "suspected"
@@ -147,6 +147,8 @@ export interface DocumentRecord {
   verify: VerifyReport | null;
   compare: CompareReport | null;
   caseId: string | null;
+  /** 文書の発表日（取得したとき、確かな書き方から取り出す）。取り出せなければ null、古い文書では無い。verifyRead の announcedOn に渡す。 */
+  announcedOn?: IsoDate | null;
   error: string | null; // `refusal:<category>`、`format_error`、`max_tokens`、`api_error`
   /** 載せる／確認中／破棄を決めた理由（`municipality:value_in_quote`、`both_read:drill`、`budget_stop` など。引用を含めない）。I-05 が書く。省略可（見回りが作るときは無い）。 */
   reasons?: string[];

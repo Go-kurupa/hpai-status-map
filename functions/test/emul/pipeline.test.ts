@@ -314,7 +314,23 @@ describe("県名の扱い（sourcePrefCode）", () => {
     expect((await getDoc("documents/d1"))?.reasons).toContain("prefecture:value_in_quote");
   });
 
-  it("引用が「本日」だけで年月日がないときは、発表日をまだ渡していないので確認中に回る（安全な側）", async () => {
+  it("引用が「本日」だけで年月日がないとき、文書に発表日（announcedOn）があり引用の日付と同じなら載せる", async () => {
+    await setSettings({ autoPublishEnabled: true });
+    const sentence = "本日、岡山県津山市の養鶏場において、遺伝子検査を実施した結果、疑似患畜と確認しました。";
+    const s: Scenario = { kind: "confirmed", stage: "confirmed", pref: "岡山県", muni: "津山市", month: 12, day: 22, sentence };
+    await seedDoc({ id: "d1", title: TITLE, text: bodyOf(TITLE, sentence), announcedOn: "2025-12-22" });
+    expect(await run("d1", agreeing(s).client)).toMatchObject({ readState: "published" });
+  });
+
+  it("発表日が引用の日付と違えば、「本日」だけの引用は確認中に回る", async () => {
+    await setSettings({ autoPublishEnabled: true });
+    const sentence = "本日、岡山県津山市の養鶏場において、遺伝子検査を実施した結果、疑似患畜と確認しました。";
+    const s: Scenario = { kind: "confirmed", stage: "confirmed", pref: "岡山県", muni: "津山市", month: 12, day: 22, sentence };
+    await seedDoc({ id: "d1", title: TITLE, text: bodyOf(TITLE, sentence), announcedOn: "2025-12-21" });
+    expect(await run("d1", agreeing(s).client)).toMatchObject({ readState: "review_public" });
+  });
+
+  it("引用が「本日」だけで年月日がないときは、発表日が取れていなければ確認中に回る（安全な側）", async () => {
     await setSettings({ autoPublishEnabled: true });
     const sentence = "本日、岡山県津山市の養鶏場において、遺伝子検査を実施した結果、疑似患畜と確認しました。";
     const s: Scenario = { kind: "confirmed", stage: "confirmed", pref: "岡山県", muni: "津山市", month: 12, day: 22, sentence };

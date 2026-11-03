@@ -1,6 +1,8 @@
 // 取得した文書を、原本（Storage の raw/）と記録（Firestore の documents）に残す（I-01。I-02、I-12、I-18 も使う）。
 import type { DocumentKind, DocumentRecord, ReadState } from "@hpai/shared/read/types";
-import type { IsoDateTime, PrefCode, Source } from "@hpai/shared/types";
+import { jstDateOf } from "@hpai/shared/dates";
+import { extractAnnouncedOn } from "@hpai/shared/read/announcedOn";
+import type { IsoDate, IsoDateTime, PrefCode, Source } from "@hpai/shared/types";
 import { bucket, db } from "../admin";
 import { sha256Hex } from "./extract";
 
@@ -20,6 +22,16 @@ export interface StoreDocumentInput {
   kind?: DocumentKind | null;
   /** 国の定型文から事例を作った（足した）ときの事例 id。 */
   caseId?: string | null;
+  /** 発表日。渡さなければ本文から取り出す（RSS の日付など、確かなものがあれば呼び手が渡す）。取得の日より後なら使わない。 */
+  announcedOn?: IsoDate | null;
+}
+
+/** 発表日を決める。渡された日付を優先し、なければ本文から。取得の日より後（日本時間）の日付は信用せず null。 */
+export function announcedOnOf(input: Pick<StoreDocumentInput, "announcedOn" | "textForRead" | "source" | "fetchedAt">): IsoDate | null {
+  const d = input.announcedOn !== undefined ? input.announcedOn : extractAnnouncedOn(input.textForRead, { maff: input.source.kind.startsWith("maff") });
+  if (d === null) return null;
+  const fetched = Date.parse(input.fetchedAt);
+  return Number.isFinite(fetched) && d > jstDateOf(new Date(fetched)) ? null : d;
 }
 
 /** documents/{sha256(url) 先頭 24 桁}_{指紋 先頭 12 桁}。同じ URL でも本文が変われば別の文書になる。 */
@@ -63,6 +75,7 @@ export async function storeDocument(input: StoreDocumentInput): Promise<{ create
     verify: null,
     compare: null,
     caseId: input.caseId ?? null,
+    announcedOn: announcedOnOf(input),
     error: null,
   };
   try {

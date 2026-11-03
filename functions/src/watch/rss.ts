@@ -2,8 +2,9 @@
 // 最初の確認は基準だけ（過去の項目を読み取りに渡さない）。別のサイトのリンクは取得しない。
 import { logger } from "firebase-functions";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
+import { jstDateOf } from "@hpai/shared/dates";
 import { hasHpaiWord } from "@hpai/shared/text";
-import type { Source } from "@hpai/shared/types";
+import type { IsoDate, Source } from "@hpai/shared/types";
 import { FAILED, type CheckResult, type Handlers, type WatchDeps } from "./deps";
 import { decodeBody, fingerprint } from "./extract";
 import { MAX_LINK_TRIES, MAX_NEW_LINKS_PER_CHECK, allowPrefEntrance, allowPrefLink, loadJson, processLink, queueUnreachable, saveJson } from "./page";
@@ -15,6 +16,8 @@ export interface FeedItem {
   title: string;
   link: string | null;
   description: string;
+  /** 項目の発表日（日本時間）。pubDate、dc:date、Atom の published（なければ updated）。読めなければ項目に持たない。 */
+  publishedOn?: IsoDate;
 }
 
 const parser = new XMLParser({ ignoreAttributes: false, removeNSPrefix: true, isArray: (name) => name === "item" || name === "entry" });
@@ -66,7 +69,8 @@ export function parseFeed(xml: string): FeedItem[] {
     const title = textOf(n.title);
     const link = linkOf(n.link);
     const description = textOf(n.description) || textOf(n.summary) || textOf(n.encoded) || textOf(n.content);
-    return { id: textOf(n.guid) || textOf(n.id) || link || title, title, link, description };
+    const at = Date.parse(textOf(n.pubDate) || textOf(n.date) || textOf(n.published) || textOf(n.updated));
+    return { id: textOf(n.guid) || textOf(n.id) || link || title, title, link, description, ...(Number.isFinite(at) ? { publishedOn: jstDateOf(new Date(at)) } : {}) };
   });
 }
 
@@ -123,7 +127,7 @@ export async function checkRss(source: Source, deps: WatchDeps): Promise<CheckRe
     let done = false;
     let unreachable = false; // 取れないまま項目の文で代える（運営者の箱にも入れる）
     if (linkUrl !== null && allowLink(linkUrl)) {
-      const r = await processLink({ href: linkUrl.href, text: item.title }, { source, deps, allow: allowLink }, { follow: false, requireWord: false });
+      const r = await processLink({ href: linkUrl.href, text: item.title }, { source, deps, allow: allowLink }, { follow: false, requireWord: false, announcedOn: item.publishedOn });
       if (r.result === "done") {
         done = true;
       } else {
@@ -152,6 +156,7 @@ export async function checkRss(source: Source, deps: WatchDeps): Promise<CheckRe
         prefCode: source.prefCode,
         fetchedAt: o.fetchedAt,
         readState: "pending",
+        ...(item.publishedOn === undefined ? {} : { announcedOn: item.publishedOn }),
       });
       if (unreachable) await queueUnreachable({ source, deps, allow: allowLink }, { url: link ?? source.url, title: item.title, documentId: stored.id });
     }
