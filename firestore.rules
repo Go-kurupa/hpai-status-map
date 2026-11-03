@@ -1,7 +1,109 @@
 rules_version = '2';
-// 全拒否。F-05 で必要な許可を足す。
+// 契約 4.2。既定は全拒否。サーバー（Admin SDK）はルールを通らない。
+// 役割は custom claim（member、operator）。operator でも farms は読めない。
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isMemberClaim() {
+      return signedIn() && request.auth.token.get('member', false) == true;
+    }
+    function isOperatorClaim() {
+      return signedIn() && request.auth.token.get('operator', false) == true;
+    }
+
+    // 農場の会員か（既存の農場の memberUids）
+    function isFarmMember(farmId) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/farms/$(farmId)).data.memberUids;
+    }
+
+    // 公開（全員が読め、誰も書けない）
+    match /cases/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /wildBirds/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /watchStatus/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 限定の読み取り（書き込みは誰も不可）
+    match /caseDrafts/{id} {
+      allow read: if isMemberClaim();
+      allow write: if false;
+    }
+    match /reviewQueue/{id} {
+      allow read: if isOperatorClaim();
+      allow write: if false;
+    }
+
+    // 農場。memberUids と unsubscribedUids はサーバーの管理に近いので会員でも変えられない
+    match /farms/{farmId} {
+      function farmShapeOk() {
+        return request.resource.data.keys().hasOnly([
+            'name', 'memberUids', 'unsubscribedUids', 'meshCode', 'muniCode', 'prefCode',
+            'frequentMuniCodes', 'production', 'housing', 'kahoContact', 'notify',
+            'selfCheckDue', 'updatedAt'
+          ])
+          && request.resource.data.meshCode is string
+          && request.resource.data.meshCode.matches('^[0-9]{8}$');
+      }
+
+      allow read: if signedIn() && request.auth.uid in resource.data.memberUids;
+      allow create: if isMemberClaim()
+        && farmShapeOk()
+        && request.resource.data.memberUids == [request.auth.uid]
+        && request.resource.data.unsubscribedUids == [];
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.memberUids
+        && farmShapeOk()
+        && request.resource.data.memberUids == resource.data.memberUids
+        && request.resource.data.unsubscribedUids == resource.data.unsubscribedUids;
+      allow delete: if false;
+
+      match /houses/{houseId} {
+        function houseOk() {
+          return request.resource.data.keys().hasOnly(['name', 'birdType', 'flockSize', 'empty'])
+            && request.resource.data.flockSize is int
+            && request.resource.data.flockSize >= 0;
+        }
+        allow read: if isFarmMember(farmId);
+        allow create, update: if isFarmMember(farmId) && houseOk();
+        allow delete: if isFarmMember(farmId);
+      }
+
+      match /deaths/{deathId} {
+        function deathOk() {
+          return request.resource.data.keys().hasOnly(['date', 'houseId', 'deaths', 'flockSizeAt', 'exclusion'])
+            && request.resource.data.deaths is int
+            && request.resource.data.deaths >= 0
+            && request.resource.data.flockSizeAt is int
+            && request.resource.data.flockSizeAt >= 0;
+        }
+        allow read: if isFarmMember(farmId);
+        allow create, update: if isFarmMember(farmId) && deathOk();
+        allow delete: if isFarmMember(farmId);
+      }
+
+      match /checks/{checkId} {
+        function checkOk() {
+          return request.resource.data.keys().hasOnly(['kind', 'date', 'itemId', 'month', 'answers']);
+        }
+        allow read: if isFarmMember(farmId);
+        allow create, update: if isFarmMember(farmId) && checkOk();
+        allow delete: if isFarmMember(farmId);
+      }
+    }
+
+    // sources、documents、invites（_attempts を含む）、sentNotices、usage、書かれていない集合は
+    // 下の全拒否に落ちる
     match /{document=**} {
       allow read, write: if false;
     }
