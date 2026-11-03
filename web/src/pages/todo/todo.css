@@ -1,0 +1,50 @@
+/* やること画面。平面の単色だけ。押せるものは 48px 以上（theme.css の --tap） */
+.todo-page {
+  max-width: 40rem;
+}
+.todo-reminder {
+  margin: 0 0 16px;
+  padding: 12px var(--gutter) 12px calc(var(--gutter) + 1.2em);
+  border: 2px solid var(--fg);
+}
+.todo-reminder li + li {
+  margin-top: 4px;
+}
+.todo-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.todo-items > li {
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.todo-items > li:first-child {
+  border-top: 0;
+}
+.todo-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.lift-region {
+  margin: 0 0 16px;
+  padding: 12px var(--gutter);
+  border: 2px solid var(--lv1);
+}
+.lift-block + .lift-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.lift-dates {
+  margin: 0 0 0.8em;
+}
+.lift-dates dt {
+  font-weight: 700;
+}
+.lift-dates dd {
+  margin: 0 0 4px;
+}
+.done-row {
+  margin-top: 4px;
+}
