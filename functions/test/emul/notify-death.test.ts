@@ -17,6 +17,10 @@ const idOf = (r: DeathRecord) => `${r.date}_${r.houseId}`;
 async function put(r: DeathRecord): Promise<void> {
   await db.doc(`farms/f1/deaths/${idOf(r)}`).set(r);
 }
+/** 農場の鶏舎（実在する鶏舎の記録だけが対象）。 */
+async function house(id: string): Promise<void> {
+  await db.doc(`farms/f1/houses/${id}`).set({ name: id, birdType: "採卵鶏", flockSize: 1000, empty: false });
+}
 /** 当日の前の n 日を毎日 deaths 羽（1000 羽）。 */
 async function seedPast(houseId: string, n: number, today = TODAY, deaths = 1): Promise<void> {
   for (let i = 1; i <= n; i++) await put(rec(addDays(today, -i), houseId, deaths));
@@ -24,6 +28,7 @@ async function seedPast(houseId: string, n: number, today = TODAY, deaths = 1): 
 const authErr = Object.assign(new Error("Invalid login"), { code: "EAUTH", responseCode: 535 });
 
 async function hit(houseId = "h1", today = TODAY, deaths = 5): Promise<DeathRecord> {
+  await house(houseId);
   await seedPast(houseId, 21, today);
   const r = rec(today, houseId, deaths);
   await put(r);
@@ -37,7 +42,7 @@ describe("handleDeathWrite", () => {
     const r = await hit();
     await handleDeathWrite(deps, "f1", idOf(r), r);
     expect(mail.sent.map((m) => m.to).sort()).toEqual(["u1@example.test", "u2@example.test"]);
-    expect(mail.sent[0]!.subject).toBe("【死亡数】11月5日の死亡率が基準に当たりました");
+    expect(mail.sent[0]!.subject).toBe("【死亡数】11月5日の死亡率が基準に当たる可能性があります");
     expect(mail.sent[0]!.text).toContain("https://app.example.test/record/deaths");
     const docs = await sentNoticeDocs();
     expect(docs[`f1__u1__${idOf(r)}__mortality_hit`]).toMatchObject({ state: "sent", timing: "immediate", subjectId: idOf(r) });
@@ -111,7 +116,7 @@ describe("handleDeathWrite", () => {
     const yesterday = await hit("h2", addDays(TODAY, -1));
     await handleDeathWrite(deps, "f1", idOf(yesterday), yesterday);
     expect(mail.sent).toHaveLength(1);
-    expect(mail.sent[0]!.subject).toBe("【死亡数】11月4日の死亡率が基準に当たりました");
+    expect(mail.sent[0]!.subject).toBe("【死亡数】11月4日の死亡率が基準に当たる可能性があります");
   });
 
   it("配信を止めた会員には届かない。notify の設定は見ない", async () => {
@@ -133,6 +138,38 @@ describe("handleDeathWrite", () => {
     await handleDeathWrite(deps, "f1", "forged-id", r);
     await handleDeathWrite(deps, "nofarm", idOf(r), r);
     expect(mail.calls).toEqual([]);
+  });
+
+  it("農場の鶏舎にない houseId の記録、未来の日付の記録では送らない", async () => {
+    await seedFarm("f1", "u1");
+    const { deps, mail } = makeDeps();
+    // 鶏舎の文書を作らない（偽の記録）
+    await seedPast("ghost", 21);
+    const fake = rec(TODAY, "ghost", 5);
+    await put(fake);
+    await handleDeathWrite(deps, "f1", idOf(fake), fake);
+    // 未来の日付
+    const tomorrow = addDays(TODAY, 1);
+    await house("hf");
+    await seedPast("hf", 21, tomorrow);
+    const future = rec(tomorrow, "hf", 5);
+    await put(future);
+    await handleDeathWrite(deps, "f1", idOf(future), future);
+    expect(mail.calls).toEqual([]);
+    expect(await sentNoticeDocs()).toEqual({});
+  });
+
+  it("1 農場の 1 日の基準の知らせは 3 件まで（4 つ目の鶏舎では送らない）。同じ記録の直しは数えない", async () => {
+    await seedFarm("f1", "u1");
+    const { deps, mail } = makeDeps();
+    const recs: DeathRecord[] = [];
+    for (const h of ["h1", "h2", "h3", "h4"]) recs.push(await hit(h));
+    for (const r of recs) await handleDeathWrite(deps, "f1", idOf(r), r);
+    expect(mail.sent).toHaveLength(3);
+    expect(new Set(Object.keys(await sentNoticeDocs())).size).toBe(3);
+    // 3 件目までの鶏舎の記録を直した書き込みは、これまでどおり（新しく送らない）
+    await handleDeathWrite(deps, "f1", idOf(recs[0]!), { ...recs[0]!, deaths: 6 });
+    expect(mail.sent).toHaveLength(3);
   });
 
   it("認証のエラーでは failed に残り、mail_failing が入る。ログに宛先を出さない", async () => {

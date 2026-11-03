@@ -348,7 +348,7 @@ describe("runMorningDigest: 組み立て直し", () => {
     await runRetryFailed(deps, fakeGeo());
     expect(mail.sent).toHaveLength(1);
     expect(mail.sent[0]!.subject).toBe("【朝のまとめ】2 件");
-    expect(mail.sent[0]!.text).toContain("【死亡数】11月5日の死亡率が基準に当たりました");
+    expect(mail.sent[0]!.text).toContain("【死亡数】11月5日の死亡率が基準に当たる可能性があります");
     expect(mail.sent[0]!.text).toContain("【自己点検】11月7日が期限です");
     const docs = await sentNoticeDocs();
     expect(docs[idOf("f1", "u1", "2026-11-05_h1", "mortality_hit")]).toMatchObject({ state: "sent" });
@@ -460,6 +460,64 @@ describe("runRetryFailed", () => {
     };
     await runRetryFailed({ ...deps, mailer }, fakeGeo());
     expect(await reviewQueueIds()).toEqual(["alert-mail_failing-2026-11-05"]);
+  });
+});
+
+describe("送り直しの上限（古さ 14 日、回数 5 回）", () => {
+  const daysAgo = (d: number) => jst(new Date(NOW.getTime() - d * 86_400_000));
+
+  it("14 日より古い failed と queued は、疑い、確定、基準の知らせでも送らず、読まない印（abandoned）にする。13 日前は送る", async () => {
+    await seedFour();
+    const c1 = suspected({ id: "c1" });
+    const c2 = suspected({ id: "c2" });
+    await seedCase(c1);
+    await seedCase(c2);
+    await db.doc("farms/f1").update({ memberUids: ["u1", "u2"] });
+    await seedNotice("f1", "u1", "c1", "suspected", "failed", "immediate", daysAgo(15));
+    await seedNotice("f1", "u1", "2026-10-21_h1", "mortality_hit", "failed", "immediate", daysAgo(15));
+    await seedNotice("f1", "u1", "c2", "suspected", "failed", "immediate", daysAgo(13));
+    await seedNotice("f2", "u2", "c1", "suspected", "queued", "morning", daysAgo(15));
+    const { deps, mail } = makeDeps();
+    await runMorningDigest(deps, fakeGeo());
+    expect(mail.sent).toHaveLength(1);
+    expect(mail.sent[0]!.to).toBe("u1@example.test");
+    expect(mail.sent[0]!.subject).toContain("【疑い】");
+    const docs = await sentNoticeDocs();
+    expect(docs[idOf("f1", "u1", "c1", "suspected")]).toMatchObject({ state: "abandoned" });
+    expect(docs[idOf("f1", "u1", "2026-10-21_h1", "mortality_hit")]).toMatchObject({ state: "abandoned" });
+    expect(docs[idOf("f2", "u2", "c1", "suspected")]).toMatchObject({ state: "abandoned" });
+    expect(docs[idOf("f1", "u1", "c2", "suspected")]).toMatchObject({ state: "sent" });
+    // 二度と読まない
+    await runRetryFailed(deps, fakeGeo());
+    expect(mail.sent).toHaveLength(1);
+  });
+
+  it("宛先を取れない会員の送り直しは 5 回まで。5 回目の失敗で abandoned になり、以後は読まない", async () => {
+    await seedFour();
+    await seedCase(suspected({ id: "c1" }));
+    const key = idOf("f1", "u1", "c1", "suspected");
+    await seedNotice("f1", "u1", "c1", "suspected", "failed", "immediate");
+    const { deps } = makeDeps({ emailOf: async () => null });
+    for (let i = 1; i <= 4; i++) {
+      await runRetryFailed(deps, fakeGeo());
+      expect((await sentNoticeDocs())[key]).toMatchObject({ state: "failed", retries: i });
+    }
+    await runRetryFailed(deps, fakeGeo());
+    expect((await sentNoticeDocs())[key]).toMatchObject({ state: "abandoned", retries: 5 });
+    const emailCalls: string[] = [];
+    await runRetryFailed({ ...deps, emailOf: async (u) => (emailCalls.push(u), null) }, fakeGeo());
+    expect(emailCalls).toEqual([]); // もう読まない
+  });
+
+  it("認証、上限のエラーでは回数を数えない（停止は記録のせいではない）", async () => {
+    await seedFour();
+    await seedCase(suspected({ id: "c1" }));
+    const key = idOf("f1", "u1", "c1", "suspected");
+    await seedNotice("f1", "u1", "c1", "suspected", "failed", "immediate");
+    const { deps } = makeDeps({ fail: () => authErr });
+    for (let i = 0; i < 6; i++) await runRetryFailed(deps, fakeGeo());
+    expect((await sentNoticeDocs())[key]).toMatchObject({ state: "failed" });
+    expect((await sentNoticeDocs())[key]!.retries ?? 0).toBe(0);
   });
 });
 

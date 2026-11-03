@@ -182,7 +182,7 @@ describe("renderNotice: 野鳥、期限、死亡率", () => {
   it("件名", () => {
     expect(subjectOf(wild())).toBe("【野鳥】津山市で野鳥の高病原性鳥インフルエンザが確定しました");
     expect(subjectOf(due())).toBe("【自己点検】11月5日が期限です");
-    expect(subjectOf(hit())).toBe("【死亡数】11月5日の死亡率が基準に当たりました");
+    expect(subjectOf(hit())).toBe("【死亡数】11月5日の死亡率が基準に当たる可能性があります");
   });
 
   it.each(THREE)("%s: 県の連絡が正です、くわしく、配信停止があり、禁止語がない", (_e, n) => {

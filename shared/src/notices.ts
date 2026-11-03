@@ -24,9 +24,12 @@ export interface SentNotice {
   subjectId: string; // caseId、wildBirdId、"YYYY-MM"、deathRecordId
   event: NoticeEvent;
   timing: NoticeTiming;
-  state: "queued" | "sent" | "failed";
+  /** abandoned: 送り直しを諦めた（14 日より古い、または 5 回失敗）。読まず、同じ知らせを作り直さない印として残す。 */
+  state: "queued" | "sent" | "failed" | "abandoned";
   queuedAt: IsoDateTime;
   sentAt: IsoDateTime | null;
+  /** 送り直しで失敗した回数（記録のせいの失敗だけ。認証、上限の停止は数えない）。なければ 0。 */
+  retries?: number;
 }
 
 export interface Notice {
@@ -342,7 +345,7 @@ export function subjectOf(n: Notice): string {
     case "self_check_due":
       return n.facts.date === null ? "【自己点検】期限が近づいています" : `【自己点検】${formatJaDate(n.facts.date)}が期限です`;
     case "mortality_hit":
-      return n.facts.date === null ? "【死亡数】死亡率が基準に当たりました" : `【死亡数】${formatJaDate(n.facts.date)}の死亡率が基準に当たりました`;
+      return n.facts.date === null ? "【死亡数】死亡率が基準に当たる可能性があります" : `【死亡数】${formatJaDate(n.facts.date)}の死亡率が基準に当たる可能性があります`;
     default:
       return unsupported(n.event);
   }

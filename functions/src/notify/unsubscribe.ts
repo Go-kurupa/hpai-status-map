@@ -1,5 +1,5 @@
-// 配信停止のリンク（M-13、設計書 §12）。メールの `${appUrl}/unsubscribe?farm=&uid=&sig=` を GET で開くと、その会員とその農場だけ止まる。
-// 署名は HMAC（定数時間で比べる）。返す HTML は固定で、受け取った値を埋め込まない。止めても画面の表示は止まらない（索引 Q10）。
+// 配信停止のリンク（M-13、設計書 §12）。メールの `${appUrl}/unsubscribe?farm=&uid=&sig=` を GET で開くと確認の画面が出て、ボタン（POST）で、その会員とその農場だけ止まる。
+// 署名は HMAC（定数時間で比べる。GET でも POST でも確かめる）。署名が合わないときの HTML は固定。確認の画面は、署名が合った値だけをエスケープして hidden 欄に入れる。止めても画面の表示は止まらない（索引 Q10）。
 // 戻すのは resumeMail（本人だけ）。
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/v2/https";
@@ -24,6 +24,9 @@ function page(title: string, lines: readonly string[]): string {
   ].join("\n");
 }
 
+/** HTML の属性値に入れる文字列のエスケープ。 */
+const esc = (v: string): string => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
 const STOPPED_HTML = page("配信を止めました", [
   "この農場あてのメールを止めました。発生の知らせ、野鳥の知らせ、朝のまとめが届かなくなります。",
   "基準に当たった知らせと期限の知らせも止まります。画面の表示は止まりません。",
@@ -34,7 +37,26 @@ const NO_FARM_HTML = page("この農場は見つかりません", ["この農場
 const NOT_MEMBER_HTML = page("この農場の会員ではありません", ["この農場の会員ではないため、この農場あてのメールは届きません。"]);
 const BAD_LINK_HTML = page("このリンクは使えません", ["メールの配信停止のリンクを、そのまま開き直してください。"]);
 const ERROR_HTML = page("止められませんでした", ["しばらくしてから、もう一度開いてください。"]);
-const METHOD_HTML = page("このリンクは開くだけで使えます", ["メールの配信停止のリンクを開いてください。"]);
+const METHOD_HTML = page("このリンクは使えません", ["メールの配信停止のリンクを開いてください。"]);
+
+/**
+ * メールのリンクを GET で開いたときの確認の画面（何も変えない）。メールの検査ソフトの先読みで止まらないよう、止めるのはボタンの POST。
+ * 署名を確かめた後の値だけを hidden 欄に入れる（エスケープする）。署名が違えば 403 で、値を埋め込まない。
+ */
+export async function handleUnsubscribeConfirm(query: Record<string, string>, key: string): Promise<{ status: number; html: string }> {
+  const { farm, uid, sig } = query;
+  if (typeof farm !== "string" || typeof uid !== "string" || typeof sig !== "string" || !verifyUnsubscribe(farm, uid, sig, key)) {
+    return { status: 403, html: BAD_LINK_HTML };
+  }
+  return {
+    status: 200,
+    html: page("配信を止めますか", [
+      "この農場あてのメール（発生の知らせ、野鳥の知らせ、朝のまとめ）が届かなくなります。基準に当たった知らせと期限の知らせも止まります。画面の表示は止まりません。",
+      `<form method="post" action="/unsubscribe"><input type="hidden" name="farm" value="${esc(farm)}"><input type="hidden" name="uid" value="${esc(uid)}"><input type="hidden" name="sig" value="${esc(sig)}"><button type="submit">配信を止める</button></form>`,
+      "止めたくないときは、このページを閉じてください。",
+    ]),
+  };
+}
 
 /** 要求の query から文字列の値だけを取る（配列、入れ子、数は捨てる）。 */
 export function queryOf(raw: unknown): Record<string, string> {
@@ -68,7 +90,23 @@ export async function handleUnsubscribe(firestore: Firestore, query: Record<stri
   return { status: 200, html: STOPPED_HTML };
 }
 
-/** メールのリンクを開く GET。HEAD では何もしない。 */
+/**
+ * 経路。GET は確認の画面だけ（何も変えない）、POST は body の署名を確かめて止める（query は見ない）。HEAD は何もしない（html は空）。
+ */
+export async function routeUnsubscribe(
+  firestore: Firestore,
+  method: string,
+  query: Record<string, string>,
+  body: Record<string, string>,
+  key: string,
+): Promise<{ status: number; html: string }> {
+  if (method === "HEAD") return { status: 200, html: "" };
+  if (method === "GET") return handleUnsubscribeConfirm(query, key);
+  if (method === "POST") return handleUnsubscribe(firestore, body, key);
+  return { status: 405, html: METHOD_HTML };
+}
+
+/** メールのリンク（GET: 確認の画面）と、ボタン（POST: 停止）。 */
 export const unsubscribe = onRequest(
   { invoker: "public", timeoutSeconds: 60, memory: "256MiB", secrets: [UNSUBSCRIBE_SECRET] },
   async (req, res) => {
@@ -78,18 +116,11 @@ export const unsubscribe = onRequest(
       "Referrer-Policy": "no-referrer",
       "X-Robots-Tag": "noindex",
       "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'",
     });
-    if (req.method === "HEAD") {
-      res.status(200).end();
-      return;
-    }
-    if (req.method !== "GET") {
-      res.status(405).set("Allow", "GET, HEAD").send(METHOD_HTML);
-      return;
-    }
     try {
-      const r = await handleUnsubscribe(db, queryOf(req.query), UNSUBSCRIBE_SECRET.value());
+      const r = await routeUnsubscribe(db, req.method, queryOf(req.query), queryOf(req.body), UNSUBSCRIBE_SECRET.value());
+      if (r.status === 405) res.set("Allow", "GET, HEAD, POST");
       res.status(r.status).send(r.html);
     } catch (e) {
       console.error("[unsubscribe] 止められませんでした", { code: codeOf(e) });

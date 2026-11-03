@@ -5,7 +5,7 @@ import { db } from "../../src/admin";
 import { handleCaseWrite } from "../../src/notify/onCaseWritten";
 import { handleDeathWrite } from "../../src/notify/onDeathWritten";
 import { handleResumeMail } from "../../src/notify/resumeMail";
-import { handleUnsubscribe, queryOf } from "../../src/notify/unsubscribe";
+import { handleUnsubscribe, handleUnsubscribeConfirm, queryOf, routeUnsubscribe } from "../../src/notify/unsubscribe";
 import { signUnsubscribe } from "../../src/notify/unsubscribeSig";
 import { caseFixture, fakeGeo, GEO_A, IN_A } from "../../../shared/test/helpers/mFixtures";
 import { assertEmulator, clearFirestore, makeDeps, seedFarm, sentNoticeDocs } from "./mHelpers";
@@ -77,12 +77,57 @@ describe("handleUnsubscribe", () => {
     const { deps, mail } = makeDeps();
     await handleCaseWrite(deps, null, caseFixture(), fakeGeo());
     const today = "2026-11-05";
+    await db.doc("farms/f1/houses/h1").set({ name: "h1", birdType: "採卵鶏", flockSize: 1000, empty: false });
     for (let i = 1; i <= 21; i++) await db.doc(`farms/f1/deaths/${addDays(today, -i)}_h1`).set({ date: addDays(today, -i), houseId: "h1", deaths: 1, flockSizeAt: 1000, exclusion: null });
     const r = { date: today, houseId: "h1", deaths: 5, flockSizeAt: 1000, exclusion: null };
     await db.doc(`farms/f1/deaths/${today}_h1`).set(r);
     await handleDeathWrite(deps, "f1", `${today}_h1`, r);
     expect(mail.calls).toEqual([]);
     expect(await sentNoticeDocs()).toEqual({});
+  });
+});
+
+describe("配信停止の確認の画面（GET）と停止（POST）", () => {
+  it("確認の画面は何も変えず、ボタンの POST で止まる。署名が違えば 403", async () => {
+    await seedFarm("f1", "u1");
+    const confirm = await handleUnsubscribeConfirm(q("f1", "u1"), KEY);
+    expect(confirm.status).toBe(200);
+    expect(confirm.html).toContain("配信を止めますか");
+    expect(confirm.html).toMatch(/<form method="post" action="\/unsubscribe">/);
+    expect(confirm.html).toContain('name="sig"');
+    expect(await stoppedOf("f1")).toEqual([]);
+    const bad = await handleUnsubscribeConfirm(q("f1", "u1", "bad"), KEY);
+    expect(bad.status).toBe(403);
+    expect(bad.html).not.toContain("<form");
+  });
+
+  it("確認の画面の hidden 欄は HTML エスケープする（署名が合う値でも）", async () => {
+    const evilFarm = 'a"><b>';
+    const res = await handleUnsubscribeConfirm({ farm: evilFarm, uid: "u1", sig: signUnsubscribe(evilFarm, "u1", KEY) }, KEY);
+    expect(res.status).toBe(200);
+    expect(res.html).not.toContain(evilFarm);
+    expect(res.html).toContain("&quot;&gt;&lt;b&gt;");
+  });
+
+  it("経路: GET では農場が変わらない（メール検査ソフトの先読み）。POST で止まる。署名違いの POST は 403。HEAD は何もしない", async () => {
+    await seedFarm("f1", "u1");
+    const sig = signUnsubscribe("f1", "u1", KEY);
+    const get = await routeUnsubscribe(db, "GET", { farm: "f1", uid: "u1", sig }, {}, KEY);
+    expect(get.status).toBe(200);
+    expect(get.html).toContain("配信を止めますか");
+    expect(await stoppedOf("f1")).toEqual([]);
+    expect((await routeUnsubscribe(db, "HEAD", { farm: "f1", uid: "u1", sig }, {}, KEY)).html).toBe("");
+    expect(await stoppedOf("f1")).toEqual([]);
+
+    expect((await routeUnsubscribe(db, "POST", {}, { farm: "f1", uid: "u1", sig: "bad" }, KEY)).status).toBe(403);
+    expect((await routeUnsubscribe(db, "POST", { farm: "f1", uid: "u1", sig }, {}, KEY)).status).toBe(403); // query だけでは止めない
+    expect(await stoppedOf("f1")).toEqual([]);
+
+    const post = await routeUnsubscribe(db, "POST", {}, { farm: "f1", uid: "u1", sig }, KEY);
+    expect(post.status).toBe(200);
+    expect(post.html).toContain("基準に当たった知らせと期限の知らせも止まります。画面の表示は止まりません");
+    expect(await stoppedOf("f1")).toEqual(["u1"]);
+    expect((await routeUnsubscribe(db, "PUT", {}, { farm: "f1", uid: "u1", sig }, KEY)).status).toBe(405);
   });
 });
 

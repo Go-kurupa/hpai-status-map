@@ -10,6 +10,10 @@ import { createRebuildContext, isSelfCheckAnswered, loadSubjects, rebuildNotice,
 
 /** 送ってから「すぐ」の知らせを拾うまでの待ち（分）。onCaseWritten が送っている間に拾わない。 */
 const STALE_IMMEDIATE_MINUTES = 10;
+/** この日数より古い記録は送らない（認証が長く止まった後に、古い疑い、確定、基準の知らせを一斉に送らない）。 */
+export const MAX_RETRY_AGE_DAYS = 14;
+/** 記録のせいで失敗した回数がこれに達したら諦める。 */
+export const MAX_RETRIES = 5;
 /** 1 回の実行で使う時間（ミリ秒）。540 秒で打ち切られる前に止める（残りは次の実行が拾う）。 */
 const BUDGET_MS = 480_000;
 
@@ -66,8 +70,19 @@ async function tryUpdate(label: string, op: () => Promise<unknown>): Promise<boo
   }
 }
 
-const markFailed = (rec: QueueRec): Promise<boolean> =>
-  rec.data.state === "failed" ? Promise.resolve(true) : tryUpdate("failed", () => rec.ref.update({ state: "failed" }));
+/** failed にする。count なら失敗の回数を 1 つ増やし、MAX_RETRIES に達したら abandoned にする（以後は読まない）。 */
+function markFailed(rec: QueueRec, count = false): Promise<boolean> {
+  if (!count) return rec.data.state === "failed" ? Promise.resolve(true) : tryUpdate("failed", () => rec.ref.update({ state: "failed" }));
+  const retries = (rec.data.retries ?? 0) + 1;
+  const state = retries >= MAX_RETRIES ? "abandoned" : "failed";
+  return tryUpdate(state, () => rec.ref.update({ state, retries }));
+}
+
+/** queuedAt が MAX_RETRY_AGE_DAYS より前か。読めない時刻は古いとしない。 */
+function isTooOld(rec: QueueRec, now: Date): boolean {
+  const t = Date.parse(rec.data.queuedAt);
+  return Number.isFinite(t) && now.getTime() - t > MAX_RETRY_AGE_DAYS * 86_400_000;
+}
 
 /**
  * 記録を Notice に組み立て直し、会員（農場と uid の組）ごとに 1 通で送る。1 件ならその知らせの文面、2 件以上なら朝のまとめ。
@@ -77,11 +92,28 @@ const markFailed = (rec: QueueRec): Promise<boolean> =>
  *   残りの queued も failed にして次の送り直しに回す。failed への更新が投げても noteMailStop は呼ぶ。
  * - 宛先の不備はその会員だけの失敗（failed）で、残りには送り続ける。
  */
-export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, recs: readonly QueueRec[], opts: { failRestOnStop: boolean }): Promise<DeliverResult> {
+export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: readonly QueueRec[], opts: { failRestOnStop: boolean }): Promise<DeliverResult> {
+  let recs: readonly QueueRec[] = allRecs;
   const result: DeliverResult = { sent: 0, failed: 0, dropped: 0, skipped: 0, mailStopped: false };
   const startedAt = Date.now();
   const ctx = createRebuildContext(deps.db, geo, jstDateOf(deps.now()));
-  await loadSubjects(ctx, recs);
+
+  // 古い記録は送らない（abandoned にして、以後読まない。記録を残すので同じ知らせを作り直さない）
+  const now = deps.now();
+  const fresh: QueueRec[] = [];
+  for (const rec of recs) {
+    if (isTooOld(rec, now)) {
+      if (await tryUpdate("abandoned", () => rec.ref.update({ state: "abandoned" }))) result.dropped += 1;
+    } else fresh.push(rec);
+  }
+  recs = fresh;
+
+  // 県の読み込みの失敗で全体を止めない（県を要しない期限、基準の知らせは送れる。県を要する記録は組み立てで飛ばす）
+  try {
+    await loadSubjects(ctx, recs);
+  } catch (e) {
+    console.error("[notify] 県の形を読み込めませんでした", { code: codeOf(e) });
+  }
 
   // 1) 組み立て直す。記録 1 件の失敗は、その記録だけ飛ばす（全体を止めない）
   const groups = new Map<string, { notices: Notice[]; recs: QueueRec[] }>();
@@ -92,7 +124,7 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, recs: reado
       if (r.kind === "drop") {
         if (await tryUpdate("delete", () => rec.ref.delete())) result.dropped += 1;
       } else if (r.kind === "fail") {
-        if (await markFailed(rec)) result.failed += 1;
+        if (await markFailed(rec, true)) result.failed += 1;
       } else if (r.kind === "skip") {
         result.skipped += 1;
       } else {
@@ -141,7 +173,7 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, recs: reado
 
       const email = await emailOf(group.recs[0]!.data.uid);
       if (email === null || email === "") {
-        for (const r of recsNow) if (await markFailed(r)) result.failed += 1;
+        for (const r of recsNow) if (await markFailed(r, true)) result.failed += 1;
         continue;
       }
 
@@ -169,7 +201,7 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, recs: reado
       }
 
       try {
-        for (const r of recsNow) if (await markFailed(r)) result.failed += 1;
+        for (const r of recsNow) if (await markFailed(r, stop === null)) result.failed += 1; // 停止は記録のせいではないので数えない
       } finally {
         if (stop !== null) {
           result.mailStopped = true;
