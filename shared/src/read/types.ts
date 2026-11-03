@@ -126,7 +126,7 @@ export interface CompareReport {
 export type PublishDecision =
   | { action: "publish"; negationCandidate: boolean }
   | { action: "review_public" | "review_private"; reasons: string[] }
-  | { action: "discard" };
+  | { action: "discard"; reasons?: string[] }; // reasons は破棄の理由（`both_read:<kind>`、発生を示す語があれば `outbreak_words_present`）。DocumentRecord に残せる
 
 export interface DocumentRecord {
   // documents/{sha256(url) 先頭 24 桁}_{指紋 先頭 12 桁}

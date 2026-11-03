@@ -88,9 +88,23 @@ describe("decidePublication: 確認中", () => {
     const c: CompareReport = { match: false, mismatches: ["kind"] };
     expect(decide({ read: read("negated"), compare: c })).toEqual({ action: "review_public", reasons: ["compare:kind"] });
     expect(decide({ read: read("negated"), compare: c, docText: QUIET })).toEqual({ action: "review_private", reasons: ["compare:kind"] });
-    // 一致していて検証だけ落ちた否定、野鳥の食い違いは今までどおり review_private
+    // 一致していて検証だけ落ちた否定は今までどおり review_private
     expect(decide({ read: read("negated"), verify: failedVerify("kind", "stage_word") })).toMatchObject({ action: "review_private" });
-    expect(decide({ read: read("wild_bird"), compare: c })).toMatchObject({ action: "review_private" });
+  });
+  it("否定で二重読みが無い（compare が null）ときも、鳥インフルの語があれば公開の確認中", () => {
+    expect(decide({ read: read("negated"), compare: null })).toEqual({ action: "review_public", reasons: ["compare_missing"] });
+    expect(decide({ read: read("negated"), compare: null, docText: QUIET })).toMatchObject({ action: "review_private" });
+  });
+  it("野鳥で種類が食い違い（または二重読みなし）、発生を示す語と農場の語があれば公開の確認中", () => {
+    const farm = "高病原性鳥インフルエンザの疑似患畜の確認について\n野鳥ではなく養鶏場の農場で確認しました。";
+    const kindMismatch: CompareReport = { match: false, mismatches: ["kind"] };
+    expect(decide({ read: read("wild_bird"), compare: kindMismatch, docText: farm })).toEqual({ action: "review_public", reasons: ["compare:kind"] });
+    expect(decide({ read: read("wild_bird"), compare: null, docText: farm })).toMatchObject({ action: "review_public" });
+    // 農場の語がない野鳥の文書、日付や市町村だけの食い違い、検証だけの不合格は review_private
+    const birdOnly = "野鳥における高病原性鳥インフルエンザの疑似患畜の確認について";
+    expect(decide({ read: read("wild_bird"), compare: kindMismatch, docText: birdOnly })).toMatchObject({ action: "review_private" });
+    expect(decide({ read: read("wild_bird"), compare: { match: false, mismatches: ["wildBirds"] }, docText: farm })).toMatchObject({ action: "review_private" });
+    expect(decide({ read: read("wild_bird"), verify: failedVerify("wildBirds", "quote_exists"), docText: farm })).toMatchObject({ action: "review_private" });
   });
   it("verify か compare が無いときは一致していない側に倒す", () => {
     expect(decide({ verify: null })).toMatchObject({ action: "review_public" });
@@ -119,7 +133,8 @@ describe("decidePublication: 読めなかった、文字層がない", () => {
 
 describe("decidePublication: 対象外の種類", () => {
   it.each(["drill", "notice", "irrelevant", "other_pref"] as const)("%s は両者一致で discard", (kind) => {
-    expect(decide({ read: read(kind) })).toEqual({ action: "discard" });
+    expect(decide({ read: read(kind) })).toEqual({ action: "discard", reasons: [`both_read:${kind}`, "outbreak_words_present"] });
+    expect(decide({ read: read(kind), docText: QUIET })).toEqual({ action: "discard", reasons: [`both_read:${kind}`] });
   });
   it("試験の前（自動で載せる設定が切れ）は review_private、auto_publish_off", () => {
     expect(decide({ read: read("drill"), autoPublishEnabled: false })).toEqual({ action: "review_private", reasons: ["auto_publish_off"] });
@@ -128,7 +143,7 @@ describe("decidePublication: 対象外の種類", () => {
     const c: CompareReport = { match: false, mismatches: ["kind"] };
     expect(decide({ read: read("irrelevant"), compare: c })).toEqual({ action: "review_public", reasons: ["compare:kind"] });
     expect(decide({ read: read("irrelevant"), compare: c, docText: QUIET })).toEqual({ action: "review_private", reasons: ["compare:kind"] });
-    expect(decide({ read: read("irrelevant"), compare: null })).not.toEqual({ action: "discard" });
+    expect(decide({ read: read("irrelevant"), compare: null })).not.toMatchObject({ action: "discard" });
   });
 });
 

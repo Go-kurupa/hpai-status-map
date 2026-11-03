@@ -19,6 +19,13 @@ const geo = makeGeo([
   { code: "07203", name: "郡山市" },
   { code: "04213", name: "栗原市" },
   { code: "31201", name: "鳥取市" },
+  { code: "34100", name: "広島市" },
+  { code: "01234", name: "北広島市" },
+  { code: "29203", name: "大和郡山市" },
+  { code: "07213", name: "伊達市" },
+  { code: "01236", name: "伊達市" },
+  { code: "26100", name: "京都市" },
+  { code: "13101", name: "千代田区" },
 ]);
 
 const q = <T,>(value: T | null, quote: string | null) => ({ value, quote });
@@ -505,5 +512,63 @@ describe("verifyRead: 取得元の県と文書の発表日（省略可の引数�
   });
   it("detail に引用を入れない", () => {
     for (const i of go(read).issues) expect(i.detail).not.toContain("本日");
+  });
+});
+
+// レビュー（Important 1、2）: 取得元の県の救済は引用にどの都道府県名もないときだけ。地名は部分一致にしない。
+describe("verifyRead: 取得元の県の救済の範囲と、地名の部分一致", () => {
+  const sentence = (prefix: string, muni: string) =>
+    `令和7年12月20日午前9時、${prefix}${muni}の養鶏場で、高病原性鳥インフルエンザの疑似患畜を確認しました。`;
+  const go = (s: string, patch: Partial<ReadResult>, opts?: { sourcePrefCode?: string | null }) =>
+    verifyRead(oneSentence(s, patch), { text: s, hasTextLayer: true, season: 2025 }, geo, null, opts);
+
+  it("引用が別の県名を明記していれば、取得元の県が読みの県と一致しても救わない（福島の取得元、北海道伊達市）", () => {
+    const s = sentence("北海道", "伊達市");
+    const r = go(s, { prefecture: q("福島県", s), municipality: q("伊達市", s) }, { sourcePrefCode: "07" });
+    expect(r.pass).toBe(false);
+    expect(issueOf(r, "prefecture", "value_in_quote")?.mandatory).toBe(true);
+    expect(r.normalized?.prefCode).toBeNull();
+  });
+  it("引用にどの県名もなければ、取得元の県の一致で救う", () => {
+    const s = sentence("", "津山市");
+    const r = go(s, { prefecture: q("岡山県", s), municipality: q("津山市", s) }, { sourcePrefCode: "33" });
+    expect(r.pass).toBe(true);
+    expect(r.normalized?.prefCode).toBe("33");
+  });
+  it("引用が null の都道府県は、取得元の県の一致で救う。不一致や取得元なしは不合格", () => {
+    const s = sentence("", "津山市");
+    const read = { prefecture: q("岡山県", null), municipality: q("津山市", s) };
+    expect(go(s, read, { sourcePrefCode: "33" }).pass).toBe(true);
+    expect(go(s, read, { sourcePrefCode: "31" }).pass).toBe(false);
+    expect(go(s, read).pass).toBe(false);
+  });
+  it("市町村: 広島市は北広島市の一部でも、郡山市は大和郡山市の一部でも不合格", () => {
+    const s1 = sentence("広島県", "北広島市");
+    const r1 = go(s1, { prefecture: q("広島県", s1), municipality: q("広島市", s1) });
+    expect(r1.pass).toBe(false);
+    expect(issueOf(r1, "municipality", "value_in_quote")?.mandatory).toBe(true);
+    const s2 = sentence("福島県", "大和郡山市");
+    const r2 = go(s2, { prefecture: q("福島県", s2), municipality: q("郡山市", s2) });
+    expect(r2.pass).toBe(false);
+    expect(issueOf(r2, "municipality", "value_in_quote")?.mandatory).toBe(true);
+  });
+  it("市町村: 長い名前の一部でない出現が別にあれば合格、区や郡つきの書き方も合格", () => {
+    const s = `令和7年12月20日午前9時、広島県広島市と北広島市の養鶏場で、高病原性鳥インフルエンザの疑似患畜を確認しました。`;
+    const r = go(s, { prefecture: q("広島県", s), municipality: q("広島市", s) });
+    expect(r.pass).toBe(true);
+    expect(r.normalized?.muniCode).toBe("34100");
+    const s2 = sentence("岡山県", "岡山市北区");
+    expect(go(s2, { municipality: q("岡山市北区", s2) }).pass).toBe(true);
+  });
+  it("都道府県: 京都は東京都の一部でも通らない。正式名なら合格", () => {
+    const s = sentence("東京都", "千代田区");
+    const bad = go(s, { prefecture: q("京都", s), municipality: q("千代田区", s) });
+    expect(bad.pass).toBe(false);
+    expect(bad.normalized?.prefCode).toBeNull();
+    const s2 = sentence("京都府", "京都市");
+    const ok = go(s2, { prefecture: q("京都府", s2), municipality: q("京都市", s2) });
+    expect(ok.pass).toBe(true);
+    expect(ok.normalized?.prefCode).toBe("26");
+    expect(go(s2, { prefecture: q("京都", s2), municipality: q("京都市", s2) }).pass).toBe(true); // 値は短くても、引用に正式名がある
   });
 });

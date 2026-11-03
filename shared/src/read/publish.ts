@@ -42,7 +42,10 @@ export function decidePublication(input: {
 
   // 3 対象外の種類を両者が同じに読んだ
   if (NON_TARGET_KINDS.has(read.kind) && compare?.match) {
-    return input.autoPublishEnabled ? { action: "discard" } : { action: "review_private", reasons: ["auto_publish_off"] };
+    // 破棄の理由（両者が同じに読んだ kind）を残す。発生を示す語があるものは印を付け、運営者が後で探せるようにする
+    return input.autoPublishEnabled
+      ? { action: "discard", reasons: [`both_read:${read.kind}`, ...(outbreak ? ["outbreak_words_present"] : [])] }
+      : { action: "review_private", reasons: ["auto_publish_off"] };
   }
 
   // 4 自動で載せる
@@ -66,11 +69,16 @@ export function decidePublication(input: {
   if (!input.autoPublishEnabled) reasons.push("auto_publish_off");
 
   const unique = [...new Set(reasons)];
-  if (read.kind === "wild_bird") return { action: "review_private", reasons: unique };
+  // 否定と野鳥は、原則として公開しない。ただし家きんの発生を隠さないよう（§9.6）、次の場合は公開の確認中にする。
+  // - 否定: 二重読みが食い違うか無いとき、文書に鳥インフルの語があれば（疑いを否定と誤読して隠さない）
+  // - 野鳥: 二重読みが無いか種類が食い違い（一方が発生）、発生を示す語と農場の語が文書にあれば
   if (read.kind === "negated") {
-    // 否定は公開しない。ただし二重読みが食い違うときは、疑いを否定と誤読して隠さないよう、鳥インフルの語があれば公開の確認中にする（§9.6）
-    const disputed = compare !== null && !compare.match && hasHpaiWord(input.docText);
-    return disputed ? { action: "review_public", reasons: unique } : { action: "review_private", reasons: unique };
+    const unconfirmed = compare === null || !compare.match;
+    return unconfirmed && hasHpaiWord(input.docText) ? { action: "review_public", reasons: unique } : { action: "review_private", reasons: unique };
+  }
+  if (read.kind === "wild_bird") {
+    const kindDisputed = compare === null || compare.mismatches.includes("kind");
+    return kindDisputed && outbreak ? { action: "review_public", reasons: unique } : { action: "review_private", reasons: unique };
   }
   return review(unique);
 }

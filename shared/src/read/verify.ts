@@ -4,7 +4,7 @@
 // issues の detail は決まった語だけで、引用や値の文を入れない。
 import { findMuniByName, type GeoStore } from "../geo";
 import { addDays } from "../dates";
-import { prefCodeOfName } from "../pref";
+import { PREFS, prefCodeOfName } from "../pref";
 import { normalizeForMatch } from "../text";
 import type { Case, CaseStage, IsoDate, PrefCode, StageStamp, WildBirdTest } from "../types";
 import { muniCoreName } from "./names";
@@ -88,6 +88,49 @@ function wildTestWordOk(test: WildBirdTest, quote: string): boolean {
   if (test === "screening_positive") return /簡易|陽性/u.test(nq);
   const stripped = nq.replace(new RegExp(`${NEGATION_PHRASE}|H5/H7以外`, "gu"), "");
   return /高病原性|H5|HPAI|確定/u.test(stripped) && !nq.includes("陰性");
+}
+
+const PREF_FORMAL_BY_CODE: ReadonlyMap<PrefCode, string> = new Map(PREFS.map((p) => [p.code, normalizeForMatch(p.name)]));
+
+/** 引用に、その都道府県の正式名（東京都、京都府のように都道府県の字まで）がある。短縮名の部分一致（京都←東京都）は数えない。 */
+function prefNameInQuote(code: PrefCode, quote: string): boolean {
+  return normalizeForMatch(quote).includes(PREF_FORMAL_BY_CODE.get(code) ?? "\u0000");
+}
+
+/** 引用に、いずれかの都道府県の正式名がある。 */
+function anyPrefNameInQuote(quote: string): boolean {
+  const nq = normalizeForMatch(quote);
+  return PREFS.some((p) => nq.includes(PREF_FORMAL_BY_CODE.get(p.code)!));
+}
+
+// 全国の市町村名のうち、ある名前を部分に含む、より長い名前（広島市←北広島市、郡山市←大和郡山市）。geo ごとに覚える。
+const LONGER_NAMES = new WeakMap<object, Map<string, string[]>>();
+function longerNames(core: string, geo: GeoStore): string[] {
+  let cache = LONGER_NAMES.get(geo.index);
+  if (!cache) LONGER_NAMES.set(geo.index, (cache = new Map()));
+  let hit = cache.get(core);
+  if (!hit) {
+    const all = new Set(Object.values(geo.index).map((e) => normalizeForMatch(e.name)));
+    hit = [...all].filter((n) => n.length > core.length && n.includes(core));
+    cache.set(core, hit);
+  }
+  return hit;
+}
+
+/** 市町村名（郡、区を除いたもの）が引用にあり、その出現の少なくとも 1 つが、より長い市町村名の一部でない。 */
+function muniInQuote(core: string, quote: string, geo: GeoStore): boolean {
+  const nq = normalizeForMatch(quote);
+  const nc = normalizeForMatch(core);
+  if (nc.length === 0) return false;
+  const longer = longerNames(nc, geo);
+  for (let i = nq.indexOf(nc); i >= 0; i = nq.indexOf(nc, i + 1)) {
+    const embedded = longer.some((l) => {
+      for (let k = l.indexOf(nc); k >= 0; k = l.indexOf(nc, k + 1)) if (nq.startsWith(l, i - k) && i - k >= 0) return true;
+      return false;
+    });
+    if (!embedded) return true;
+  }
+  return false;
 }
 
 const emptyNormalized = (kind: DocumentKind): NormalizedRead => ({
@@ -301,21 +344,22 @@ function checkKind(read: ReadResult, inDoc: InDoc, fail: Fail): boolean {
   return true;
 }
 
-/** 都道府県。引用が本文にあり、値が引用にあり、都道府県の名前であること。 */
+/**
+ * 都道府県。引用が本文にあり、値が都道府県の名前で、引用にその正式名があること。
+ * 引用に都道府県名が 1 つもない（または引用がない）ときだけ、取得元の県（プログラムの情報）と読みの県の一致で合格にする。
+ * 引用に別の県名があれば救わない。国の発表（取得元の県なし）では引用に県名が要る。
+ */
 function checkPrefecture(q: Quoted<string>, inDoc: InDoc, fail: Fail, sourcePrefCode: PrefCode | null, issues: VerifyIssue[]): PrefCode | null {
   if (q.value === null) return failNull(fail, "prefecture", "value_in_quote", "missing_value");
   if (q.quote !== null && !inDoc(q.quote)) return failNull(fail, "prefecture", "quote_exists", "quote_not_in_document");
   const code = prefCodeOfName(q.value);
-  const inQuote = q.quote !== null && valueInQuote(q.value, q.quote);
-  if (!inQuote) {
-    // 引用に県名がない: 取得元の県（プログラムの情報）と読みの県が一致するときだけ合格。国の発表（取得元の県なし）では引用に県名が要る
-    if (code === null || sourcePrefCode === null || code !== sourcePrefCode) {
-      return failNull(fail, "prefecture", "value_in_quote", q.quote === null ? "missing_quote" : "value_not_in_quote");
-    }
-    issues.push({ field: "prefecture", check: "value_in_quote", mandatory: false, detail: "prefecture_from_source" });
-    return code;
-  }
   if (code === null) return failNull(fail, "prefecture", "muni_exists", "unknown_prefecture");
+  if (q.quote !== null && prefNameInQuote(code, q.quote)) return code;
+  if (q.quote !== null && anyPrefNameInQuote(q.quote)) return failNull(fail, "prefecture", "value_in_quote", "value_not_in_quote");
+  if (sourcePrefCode === null || code !== sourcePrefCode) {
+    return failNull(fail, "prefecture", "value_in_quote", q.quote === null ? "missing_quote" : "value_not_in_quote");
+  }
+  issues.push({ field: "prefecture", check: "value_in_quote", mandatory: false, detail: "prefecture_from_source" });
   return code;
 }
 
@@ -330,8 +374,8 @@ function checkMunicipality(
   if (q.value === null) return failNull(fail, "municipality", "value_in_quote", "missing_value");
   if (q.quote === null) return failNull(fail, "municipality", "quote_exists", "missing_quote");
   if (!inDoc(q.quote)) return failNull(fail, "municipality", "quote_exists", "quote_not_in_document");
-  if (!valueInQuote(q.value, q.quote)) return failNull(fail, "municipality", "value_in_quote", "value_not_in_quote");
   const core = muniCoreName(q.value);
+  if (!muniInQuote(core, q.quote, geo)) return failNull(fail, "municipality", "value_in_quote", "value_not_in_quote");
   if (prefCodeOfName(core) !== null) return failNull(fail, "municipality", "muni_exists", "prefecture_name_in_municipality");
   if (prefCode === null) return null; // 都道府県の不合格が既に出ている
   const code = findMuniByName(prefCode, core, geo);
@@ -404,8 +448,8 @@ function verifyWildBirds(
     const resolved = resolveReadDate(row.date, season);
     if (ok && !resolved) ok = must("year_completion", "out_of_season_or_invalid");
     const prefCode = prefCodeOfName(row.prefecture);
-    if (!valueInQuote(row.prefecture, row.quote)) ok = must("value_in_quote", "value_not_in_quote");
-    else if (prefCode === null) ok = must("muni_exists", "unknown_prefecture");
+    if (prefCode === null) ok = must("muni_exists", "unknown_prefecture");
+    else if (!prefNameInQuote(prefCode, row.quote)) ok = must("value_in_quote", "value_not_in_quote");
     if (!wildTestWordOk(row.test, row.quote)) ok = must("stage_word", "test_word_not_in_quote");
     if (!ok || !resolved || prefCode === null) return;
 
@@ -414,7 +458,7 @@ function verifyWildBirds(
     if (row.municipality !== null) {
       const core = muniCoreName(row.municipality);
       muniName = core;
-      if (!valueInQuote(core, row.quote)) optional("value_in_quote", "muni_value_not_in_quote");
+      if (!muniInQuote(core, row.quote, geo)) optional("value_in_quote", "muni_value_not_in_quote");
       else {
         muniCode = findMuniByName(prefCode, core, geo);
         if (muniCode === null) optional("muni_exists", "muni_not_in_prefecture");
