@@ -66,15 +66,23 @@ describe("feedItemHit: 語で絞る", () => {
 
 describe("parseFeed: 発表日（publishedOn）", () => {
   const one = (extra: string) => `<rss xmlns:dc="http://purl.org/dc/elements/1.1/"><channel><item><title>t</title><link>https://x.jp/1</link>${extra}</item></channel></rss>`;
-  it("pubDate（RFC 822）、dc:date、Atom の published と updated を日本時間の日付にする", () => {
+  const atom = (extra: string) => `<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>t</title><link href="https://x.jp/1"/><id>1</id>${extra}</entry></feed>`;
+  it("RSS の pubDate と Atom の published だけを日本時間の日付にする", () => {
     expect(parseFeed(one("<pubDate>Sat, 20 Dec 2025 01:00:00 +0900</pubDate>"))[0]!.publishedOn).toBe("2025-12-20");
     expect(parseFeed(one("<pubDate>Fri, 19 Dec 2025 23:00:00 GMT</pubDate>"))[0]!.publishedOn).toBe("2025-12-20");
-    expect(parseFeed(one("<dc:date>2025-12-20T09:00:00+09:00</dc:date>"))[0]!.publishedOn).toBe("2025-12-20");
-    const atom = `<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>t</title><link href="https://x.jp/1"/><id>1</id><published>2025-12-19T15:30:00Z</published><updated>2025-12-25T00:00:00Z</updated></entry></feed>`;
-    expect(parseFeed(atom)[0]!.publishedOn).toBe("2025-12-20"); // 更新日ではなく公開日を使う
+    expect(parseFeed(atom("<published>2025-12-19T15:30:00Z</published><updated>2025-12-25T00:00:00Z</updated>"))[0]!.publishedOn).toBe("2025-12-20");
+  });
+  it("日本時間の 15 時以降を、ゾーンなしで書いても 1 日ずらさない", () => {
+    expect(parseFeed(one("<pubDate>Sat, 20 Dec 2025 16:00:00</pubDate>"))[0]!.publishedOn).toBe("2025-12-20");
+    expect(parseFeed(atom("<published>2025-12-20T16:00:00</published>"))[0]!.publishedOn).toBe("2025-12-20");
+  });
+  it("updated だけの Atom、dc:date だけの RSS は発表日にしない（更新日かもしれない）", () => {
+    expect("publishedOn" in parseFeed(atom("<updated>2025-12-20T09:00:00+09:00</updated>"))[0]!).toBe(false);
+    expect("publishedOn" in parseFeed(one("<dc:date>2025-12-20T09:00:00+09:00</dc:date>"))[0]!).toBe(false);
   });
   it("日付がない、読めないときは項目に publishedOn を持たせない", () => {
     expect("publishedOn" in parseFeed(one(""))[0]!).toBe(false);
     expect("publishedOn" in parseFeed(one("<pubDate>いつか</pubDate>"))[0]!).toBe(false);
+    expect("publishedOn" in parseFeed(atom("<published>2025/12/20</published>"))[0]!).toBe(false);
   });
 });

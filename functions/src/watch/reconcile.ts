@@ -393,6 +393,7 @@ async function compareWithNational(
     if (m !== null) nationalNos.add(Number(m[1]));
   }
   let cases = await readCases(season);
+  let index: Awaited<ReturnType<typeof loadIndex>> | null = null;
 
   // 国にあって作品にない確定を、国の情報で載せる（事例はすぐ載せる。取りこぼしの警告は猶予の後）
   for (const no of missingNationalNos(nationalNos, cases, season)) {
@@ -420,15 +421,19 @@ async function compareWithNational(
       await enqueue(confirmedMissingItem(f, `${describeConfirmed(f)}が作品にありませんが、事例にできませんでした（${REASON_LABEL[r.reason ?? ""] ?? "理由不明"}）。事例を確かめて載せてください。`, null));
     } else {
       report.appliedConfirmed.push(no);
-      if (hit.appliedAt === undefined) {
-        hit.appliedAt = nowIso;
-        changed = true;
+      // 載せたことを 1 件ごとに保存する（後の件が例外で落ちても、取りこぼしの警告の元を失わない）
+      if (hit.appliedAt === undefined) hit.appliedAt = nowIso;
+      index ??= await loadIndex();
+      if (index.processed[f.url] !== undefined) {
+        // 見回りが処理済みの印を付けたのに事例がなかった（データの欠落）。猶予なしで知らせる
+        if (await enqueue(confirmedMissingItem(f, `${describeConfirmed(f)}は見回りが処理済みの印を付けていましたが、作品に事例がありませんでした。国の情報で確定として載せ直しました。データの欠落がないか確かめてください。`, r.caseId))) hit.settled = true;
       }
+      await saveFacts(file);
+      changed = false;
     }
   }
 
   // 載せた確定の取りこぼしの警告。見回りが先に載せていれば（national-index.json に印がある）出さない。猶予は初めて見てから 4 時間
-  let index: Awaited<ReturnType<typeof loadIndex>> | null = null;
   for (const [url, e] of Object.entries(entries)) {
     const f = e.fact;
     if (e.appliedAt === undefined || e.settled === true || f === null || f.type !== "confirmed") continue;

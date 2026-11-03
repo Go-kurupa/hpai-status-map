@@ -43,9 +43,21 @@ describe("storeDocument: announcedOn", () => {
     const { id } = await storeDocument(input({ text: "本日、津山市の農場で疑似患畜を確認しました" }));
     expect((await read(id)).announcedOn).toBeNull();
   });
-  it("呼び手が渡した発表日（RSS の日付など）を優先する", async () => {
+  it("呼び手が渡した発表日（RSS の日付）は、本文にラベルつきの日付がなければ使う。同じ日付ならそのまま", async () => {
+    const a = await storeDocument(input({ text: "本日、津山市の農場で", announcedOn: "2025-12-21" }));
+    expect((await read(a.id)).announcedOn).toBe("2025-12-21");
+    const b = await storeDocument(input({ text: "掲載日：令和7年12月20日", announcedOn: "2025-12-20", fingerprint: "b".repeat(64) }));
+    expect((await read(b.id)).announcedOn).toBe("2025-12-20");
+  });
+  it("渡された日付と本文のラベルつきの日付が食い違えば null（確認中に倒す）", async () => {
     const { id } = await storeDocument(input({ text: "掲載日：令和7年12月20日", announcedOn: "2025-12-21" }));
-    expect((await read(id)).announcedOn).toBe("2025-12-21");
+    expect((await read(id)).announcedOn).toBeNull();
+  });
+  it("本文に公開日と別の更新日が併記されていれば、公開日を採る。更新日だけなら null", async () => {
+    const a = await storeDocument(input({ text: "公開日：令和7年12月20日\n最終更新日：令和7年12月22日" }));
+    expect((await read(a.id)).announcedOn).toBe("2025-12-20");
+    const b = await storeDocument(input({ text: "最終更新日：令和7年12月20日", fingerprint: "b".repeat(64) }));
+    expect((await read(b.id)).announcedOn).toBeNull();
   });
   it("取得の日より後の発表日は信用せず null", async () => {
     const { id } = await storeDocument(input({ text: "掲載日：令和7年12月25日" }));

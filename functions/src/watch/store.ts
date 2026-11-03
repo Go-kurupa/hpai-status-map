@@ -22,13 +22,19 @@ export interface StoreDocumentInput {
   kind?: DocumentKind | null;
   /** 国の定型文から事例を作った（足した）ときの事例 id。 */
   caseId?: string | null;
-  /** 発表日。渡さなければ本文から取り出す（RSS の日付など、確かなものがあれば呼び手が渡す）。取得の日より後なら使わない。 */
+  /** 呼び手が持つ発表日（RSS の pubDate など）。本文のラベルつきの日付と食い違えば使わない（announcedOnOf）。 */
   announcedOn?: IsoDate | null;
 }
 
-/** 発表日を決める。渡された日付を優先し、なければ本文から。取得の日より後（日本時間）の日付は信用せず null。 */
+/**
+ * 発表日を決める。本文のラベルつきの日付（掲載日、公開日など）と、呼び手が渡した日付（RSS の pubDate など）の両方が取れて食い違えば null（確認中に倒す）。
+ * 片方だけならそれを使う。取得の日より後（日本時間）の日付は信用せず null。
+ */
 export function announcedOnOf(input: Pick<StoreDocumentInput, "announcedOn" | "textForRead" | "source" | "fetchedAt">): IsoDate | null {
-  const d = input.announcedOn !== undefined ? input.announcedOn : extractAnnouncedOn(input.textForRead, { maff: input.source.kind.startsWith("maff") });
+  const labeled = extractAnnouncedOn(input.textForRead, { maff: input.source.kind.startsWith("maff") });
+  const given = input.announcedOn ?? null;
+  if (labeled !== null && given !== null && labeled !== given) return null;
+  const d = labeled ?? given;
   if (d === null) return null;
   const fetched = Date.parse(input.fetchedAt);
   return Number.isFinite(fetched) && d > jstDateOf(new Date(fetched)) ? null : d;

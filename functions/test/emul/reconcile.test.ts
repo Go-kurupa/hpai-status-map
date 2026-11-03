@@ -189,6 +189,36 @@ describe("国にあって作品にない確定", () => {
     expect(await casesNow()).toHaveLength(1);
   });
 
+  it("見回りが処理済みの印を付けたのに事例がない異常は、静かに直さず猶予なしで警告する（載せ直しは行う）", async () => {
+    await bucket().file("state/maff/national-index.json").save(JSON.stringify({ processed: { [item.url]: "2025-12-21T12:30:00+09:00" } }), { contentType: "application/json", resumable: false });
+    const h = harness({ pages: pagesWith([item]) });
+    await runReconcile(h.deps);
+    expect(await casesNow()).toHaveLength(1);
+    const alerts = await alertsOf("national_missing");
+    expect(alerts).toHaveLength(1);
+    expect((alerts[0] as { message: string }).message).toContain("処理済みの印");
+    h.setNow(new Date(NOW.getTime() + 10 * 3_600_000));
+    await runReconcile(h.deps);
+    expect(await alertsOf("national_missing")).toHaveLength(1);
+  });
+
+  it("2 件目の追加が例外で落ちても、1 件目に載せた印（appliedAt）は保存され、猶予の後に警告が出る", async () => {
+    const second = confirmedItem("251221", 9, "令和7年12月21日", { muni: "新見市" });
+    const h = harness({ pages: pagesWith([item, second]) });
+    // 2 回目の市町村の検索で落とす
+    let reads = 0;
+    const flaky = Object.create(geo, { index: { get: () => { reads += 1; if (reads === 2) throw new Error("geo exploded"); return geo.index; } } }) as WatchDeps["geo"];
+    await expect(runReconcile({ ...h.deps, geo: flaky })).rejects.toBeInstanceOf(AggregateError);
+    const saved = JSON.parse((await bucket().file("state/maff/national-facts.json").download())[0].toString("utf8")) as { entries: Record<string, { appliedAt?: string }> };
+    expect(saved.entries[item.url]!.appliedAt).toBeDefined();
+    expect((await casesNow()).map((c) => c.nationalNo)).toEqual([8]);
+
+    h.setNow(new Date(NOW.getTime() + 4 * 3_600_000));
+    await runReconcile(h.deps);
+    const ids = (await alertsOf("national_missing")).map((a) => a.id);
+    expect(ids).toContain(reviewAlertId("national_missing", "confirmed-2025-8"));
+  });
+
   it("取得は農林水産省の外へ出ない（allowUrl を渡す）。見る一覧は 4 つ。2 回目は本文を取り直さない", async () => {
     const h = harness({ pages: pagesWith([item]) });
     await runReconcile(h.deps);

@@ -2,7 +2,7 @@
 // 最初の確認は基準だけ（過去の項目を読み取りに渡さない）。別のサイトのリンクは取得しない。
 import { logger } from "firebase-functions";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
-import { jstDateOf } from "@hpai/shared/dates";
+import { parseIso8601Date, parseRfc822Date } from "@hpai/shared/read/announcedOn";
 import { hasHpaiWord } from "@hpai/shared/text";
 import type { IsoDate, Source } from "@hpai/shared/types";
 import { FAILED, type CheckResult, type Handlers, type WatchDeps } from "./deps";
@@ -16,7 +16,7 @@ export interface FeedItem {
   title: string;
   link: string | null;
   description: string;
-  /** 項目の発表日（日本時間）。pubDate、dc:date、Atom の published（なければ updated）。読めなければ項目に持たない。 */
+  /** 項目の発表日（日本時間）。RSS の pubDate と Atom の published だけ。なければ、読めなければ項目に持たない。 */
   publishedOn?: IsoDate;
 }
 
@@ -69,8 +69,9 @@ export function parseFeed(xml: string): FeedItem[] {
     const title = textOf(n.title);
     const link = linkOf(n.link);
     const description = textOf(n.description) || textOf(n.summary) || textOf(n.encoded) || textOf(n.content);
-    const at = Date.parse(textOf(n.pubDate) || textOf(n.date) || textOf(n.published) || textOf(n.updated));
-    return { id: textOf(n.guid) || textOf(n.id) || link || title, title, link, description, ...(Number.isFinite(at) ? { publishedOn: jstDateOf(new Date(at)) } : {}) };
+    // 発表日は RSS の pubDate と Atom の published だけ（updated と dc:date は更新日かもしれないので使わない）。決まった書き方だけを厳密に読む
+    const publishedOn = parseRfc822Date(textOf(n.pubDate)) ?? parseIso8601Date(textOf(n.published));
+    return { id: textOf(n.guid) || textOf(n.id) || link || title, title, link, description, ...(publishedOn === null ? {} : { publishedOn }) };
   });
 }
 
