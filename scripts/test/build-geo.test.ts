@@ -4,7 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { distanceToMuniKm, isAdjacent } from "../../shared/src/geo";
-import { latLngToMesh3 } from "../../shared/src/mesh";
+import { MESH_MARGIN_KM } from "../../shared/src/level";
+import { latLngToMesh3, mesh3Center } from "../../shared/src/mesh";
 import { PREFS } from "../../shared/src/pref";
 import { countFeatures } from "../build-geo";
 import { DESIGNATED_CITIES } from "../lib/designated-cities";
@@ -15,6 +16,11 @@ const GEO = path.join(ROOT, "data", "geo");
 const readJson = <T>(rel: string): T => JSON.parse(fs.readFileSync(path.join(GEO, rel), "utf8")) as T;
 
 type Index = Record<string, { code: string; name: string; prefCode: string; center: [number, number]; bbox: number[] }>;
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lng2 - lng1) / 2) ** 2;
+  return 2 * 6371.0088 * Math.asin(Math.sqrt(a));
+}
 const index = readJson<Index>("muni-index.json");
 const adjacency = readJson<Record<string, string[]>>("adjacency.json");
 
@@ -114,9 +120,35 @@ describe("data/geo の形のファイル", () => {
     expect(info.license).toBe("CC BY 4.0");
     expect(info.sourceUrl).toContain("nlftp.mlit.go.jp");
     expect(info.simplify.japan).toContain("1.5%");
-    expect(info.simplify.pref).toContain("interval=30");
+    expect(info.simplify.pref).toContain("dp interval=30");
     expect(info.counts.droppedFeatures).toBe(141);
     expect(info.sizesBytes["japan.topo.json"]).toBe(fs.statSync(path.join(GEO, "japan.topo.json")).size);
+  });
+
+  it("簡略化のずれ: MESH_MARGIN_KM が、メッシュの半対角＋簡略化の最大のずれ＋元の形の量子化の誤差を覆う（§19）", () => {
+    const e = readJson<any>("build-info.json").simplifyError;
+    expect(e.munisLost).toBe(0);
+    // 実測で、大きな面（幅 100m 以上）の境界は 30m（interval）に再量子化の誤差が乗った値までしかずれない。
+    // 100m 以上ずれるなら、大きな面が丸ごと消えている（1km 超えが出た mapshaper の既定の重み付き Visvalingam のとき）
+    expect(e.maxForwardM).toBeGreaterThan(0);
+    expect(e.maxForwardM).toBeLessThan(60);
+    expect(e.maxBackwardM).toBeLessThan(60);
+    // 半対角は南ほど長い（経度の幅が緯度で縮む比が小さくなる）。農場がある最南端（波照間島 24.05°N）より南の北緯 24.0 度で測る
+    const southMesh = latLngToMesh3(24.0, 123.8);
+    const c = mesh3Center(southMesh);
+    const halfDiagM = haversineKm(c.lat, c.lng, c.lat + 1 / 240, c.lng + 1 / 160) * 1000;
+    expect(halfDiagM).toBeGreaterThan(780);
+    expect(halfDiagM).toBeLessThan(790);
+    const needM = halfDiagM + e.maxForwardM + e.referenceQuantizationErrorM;
+    expect(needM).toBeLessThanOrEqual(MESH_MARGIN_KM * 1000);
+  });
+
+  it("消えた面の記録: 市町村の残りから 1km 以上離れて消えた小さな面の数が build-info にある（距離が大きく出る市町村がある）", () => {
+    const e = readJson<any>("build-info.json").simplifyError;
+    expect(e.parts.before).toBe(e.parts.after + e.parts.vanished);
+    expect(e.small.count).toBeGreaterThan(0);
+    expect(e.small.farFrom1km).toBeGreaterThanOrEqual(e.small.farFrom10km);
+    expect(e.small.farFrom100m).toBeGreaterThanOrEqual(e.small.farFrom1km);
   });
 
   it("2021 年版の形（N03-21_210101）が data/ と web/public/ にない", () => {

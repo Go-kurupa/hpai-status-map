@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { Topology } from "topojson-specification";
 import { buildAdjacency, buildMuniIndex, buildPrefAnchors, eachExpression } from "./lib/geo-build";
+import { measureSimplifyError } from "./lib/simplify-error";
 
 const require = createRequire(import.meta.url);
 const mapshaper = require("mapshaper") as { runCommands(argv: string[]): Promise<void> };
@@ -24,7 +25,9 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 /** 簡略化の値（利用者の点検と W-02 の受け入れで直す。直したら docs/data-sources.md の値も合わせる）。 */
 export const SIMPLIFY = {
   japan: { percentage: "1.5%", options: "keep-shapes", quantization: 10_000 },
-  pref: { interval: 30, options: "keep-shapes", quantization: 100_000 },
+  // dp（Douglas-Peucker）は、元の点から簡略化した線までの距離が interval を超えない。mapshaper の既定の重み付き Visvalingam は
+  // 面積で点を消すので、細長い入り江や小さな島で数 km ずれた（F-06 のレビュー）。
+  pref: { method: "dp", interval: 30, options: "keep-shapes", quantization: 100_000 },
   work: { quantization: 1_000_000 },
 } as const;
 
@@ -36,6 +39,7 @@ export const N03_RELEASE = {
   license: "CC BY 4.0",
 } as const;
 
+const KM_PER_DEG = (6371.0088 * Math.PI) / 180;
 const DROPPED_NAME = "所属未定地";
 
 /** 入力の地物の数と、除く地物（所属未定地）の数。1 行 1 地物の GeoJSON を流し読みする。 */
@@ -122,7 +126,7 @@ export async function buildGeo(opts: BuildOptions): Promise<Record<string, unkno
     "C 中間",
     [
       "-i", full,
-      "-simplify", `interval=${SIMPLIFY.pref.interval}`, SIMPLIFY.pref.options,
+      "-simplify", SIMPLIFY.pref.method, `interval=${SIMPLIFY.pref.interval}`, SIMPLIFY.pref.options,
       "-o", mid, "format=topojson", `quantization=${SIMPLIFY.work.quantization}`,
     ],
     log,
@@ -149,6 +153,17 @@ export async function buildGeo(opts: BuildOptions): Promise<Record<string, unkno
     );
   }
 
+  // 簡略化の前（束ねた直後の形）と後（県ごとの形。距離の計算に使うもの）の食い違いを測る
+  const prefTopos = prefCodes.map((p) => readJson<Topology>(path.join(outDir, "pref", `${p}.topo.json`)));
+  const simplifyError = measureSimplifyError(topo, prefTopos);
+  log(
+    `簡略化のずれ（大きな面の前→後の最大）${simplifyError.maxForwardM.toFixed(1)}m（${simplifyError.maxForwardAt.name}）、後→前 ${simplifyError.maxBackwardM.toFixed(1)}m、` +
+      `消えた面 ${simplifyError.parts.vanished}/${simplifyError.parts.before}（うち 1km 以上離れた小さな面 ${simplifyError.small.farFrom1km}）`,
+  );
+  // 比べる元（束ねた直後の形）自体が量子化されている。半歩ぶんの誤差（m）。緯度 24 度の経度の縮みで小さめに取らない（大きく見積もる側で、cos を 1 とする）
+  const sc = topo.transform?.scale ?? [0, 0];
+  const referenceQuantizationErrorM = Math.hypot(((sc[0] ?? 0) / 2) * KM_PER_DEG * 1000, ((sc[1] ?? 0) / 2) * KM_PER_DEG * 1000);
+
   writeJson(path.join(outDir, "adjacency.json"), adjacency);
   writeJson(path.join(outDir, "muni-index.json"), index);
   writeJson(path.join(outDir, "pref-anchors.json"), anchors);
@@ -168,7 +183,7 @@ export async function buildGeo(opts: BuildOptions): Promise<Record<string, unkno
     simplify: {
       work: `-dissolve c（quantization=${SIMPLIFY.work.quantization}）。隣り合いはこの形から`,
       japan: `-simplify ${SIMPLIFY.japan.percentage} ${SIMPLIFY.japan.options} -clean（quantization=${SIMPLIFY.japan.quantization}）`,
-      pref: `-simplify interval=${SIMPLIFY.pref.interval} ${SIMPLIFY.pref.options}（quantization=${SIMPLIFY.pref.quantization}）`,
+      pref: `-simplify ${SIMPLIFY.pref.method} interval=${SIMPLIFY.pref.interval} ${SIMPLIFY.pref.options}（quantization=${SIMPLIFY.pref.quantization}）`,
     },
     counts: {
       inputFeatures: counts.total,
@@ -185,6 +200,12 @@ export async function buildGeo(opts: BuildOptions): Promise<Record<string, unkno
       prefTotal: Object.values(prefSizes).reduce((a, b) => a + b, 0),
       prefLargest: Math.max(...Object.values(prefSizes)),
       pref: prefSizes,
+    },
+    simplifyError: {
+      method:
+        "市町村ごとに、簡略化の前（束ねた直後の形）の大きな面（幅 100m 以上。幅 = 2 * 面積 / 外周）の外側の輪の頂点から、県ごとの形の同じ市町村の輪郭までの最短距離（前→後）の最大。幅 100m 未満の小さな面は small に分ける（簡略化で消えるため）。scripts/lib/simplify-error.ts",
+      referenceQuantizationErrorM,
+      ...simplifyError,
     },
     isolated,
   };
