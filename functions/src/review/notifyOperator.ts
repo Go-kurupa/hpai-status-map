@@ -43,23 +43,28 @@ function tally(items: readonly ReviewItem[]): Array<{ label: string; count: numb
 }
 
 /**
- * 前回の知らせの後に増えた未解決の項目があれば、1 通送る。なければ何もしない。
- * 送れたときだけ lastNotifiedAt を進める（失敗したら進めず、例外を投げる。次の回に同じ項目を知らせる）。
- * 同じ項目を 2 度知らせない: 前回より後に作られた項目だけを数える。
+ * 知らせていない未解決の項目があれば、1 通送る。なければ何もしない。
+ * 「知らせた」は項目の id で覚える（usage/operatorNotice.notifiedIds）。時刻の比較にしない: createdAt は長い処理の最初の時刻で入ることがあり、
+ * 通知の後に作られた項目が前回の時刻より前に見えて、永久に知らせない取りこぼしになる。
+ * 送れたときだけ記録を進める（失敗したら進めず、例外を投げる。次の回に同じ項目を知らせる）。
+ * 古い形式（lastNotifiedAt だけ）の記録は、その時刻までに作られた項目を知らせ済みとして読む。
  */
 export async function notifyOperator(deps: NotifyDeps): Promise<{ sent: boolean; count: number }> {
   const noticeRef = db.doc(NOTICE_PATH);
-  const last = ((await noticeRef.get()).data() as { lastNotifiedAt?: unknown } | undefined)?.lastNotifiedAt;
+  const notice = (await noticeRef.get()).data() as { lastNotifiedAt?: unknown; notifiedIds?: unknown } | undefined;
+  const ids = Array.isArray(notice?.notifiedIds) ? new Set((notice.notifiedIds as unknown[]).filter((x): x is string => typeof x === "string")) : null;
+  const last = notice?.lastNotifiedAt;
   const lastMs = typeof last === "string" && Number.isFinite(Date.parse(last)) ? Date.parse(last) : null;
   const now = deps.now();
 
   const snap = await db.collection("reviewQueue").where("resolvedAt", "==", null).get();
-  const fresh = snap.docs
-    .map((d) => d.data() as ReviewItem)
-    .filter((i) => {
-      const created = Date.parse(i.createdAt);
-      return lastMs === null || !Number.isFinite(created) || created > lastMs; // 読めない時刻は新しいものとして知らせる
-    });
+  const open = snap.docs.map((d) => d.data() as ReviewItem);
+  const notified = (i: ReviewItem): boolean => {
+    if (ids !== null) return ids.has(i.id);
+    const created = Date.parse(i.createdAt);
+    return lastMs !== null && Number.isFinite(created) && created <= lastMs; // 古い形式。読めない時刻は新しいものとして知らせる
+  };
+  const fresh = open.filter((i) => !notified(i));
   if (fresh.length === 0) return { sent: false, count: 0 };
 
   const rows = tally(fresh);
@@ -73,6 +78,8 @@ export async function notifyOperator(deps: NotifyDeps): Promise<{ sent: boolean;
   ].join("\n");
 
   await deps.send(deps.to, { subject: `運営者の確認が ${fresh.length} 件あります`, text });
-  await noticeRef.set({ lastNotifiedAt: toJstIso(now) }, { merge: true });
+  // 知らせ済みは、いま未解決のものだけ残す（解決した項目の id は外す）
+  const keep = open.filter((i) => notified(i) || fresh.includes(i)).map((i) => i.id);
+  await noticeRef.set({ lastNotifiedAt: toJstIso(now), notifiedIds: keep }, { merge: true });
   return { sent: true, count: fresh.length };
 }

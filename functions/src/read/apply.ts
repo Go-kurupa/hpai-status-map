@@ -54,8 +54,8 @@ function documentItem(doc: ApplyDoc, normalized: NormalizedRead | null, reasons:
   };
 }
 
-/** 確認中にする。review_public は県が分かり、取得元の県と食い違わないときだけ公開の rev- を作る。 */
-function reviewPlan(
+/** 確認中にする。review_public は県が分かり、取得元の県と食い違わないときだけ公開の rev- を作る（国との突き合わせの reading の取り残しも使う）。 */
+export function reviewPlan(
   doc: ApplyDoc,
   normalized: NormalizedRead | null,
   action: "review_public" | "review_private",

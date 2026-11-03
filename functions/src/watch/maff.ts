@@ -23,12 +23,12 @@ export const allowMaff = (u: URL): boolean => u.protocol === "https:" && u.hostn
 
 const INDEX_PATH = "state/maff/national-index.json";
 
-interface NationalIndex {
+export interface NationalIndex {
   /** 発表の URL → 処理した時刻。事例と文書を残せたものだけに印をつける。 */
   processed: Record<string, IsoDateTime>;
 }
 
-async function loadIndex(): Promise<NationalIndex> {
+export async function loadIndex(): Promise<NationalIndex> {
   const file = bucket().file(INDEX_PATH);
   const [exists] = await file.exists();
   if (!exists) return { processed: {} };

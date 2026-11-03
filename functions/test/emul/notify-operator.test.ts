@@ -120,12 +120,42 @@ describe("notifyOperator", () => {
     expect(await lastNotifiedAt()).toBe("2026-11-05T12:30:00+09:00");
   });
 
-  it("送信に失敗したら lastNotifiedAt を進めず、例外を投げる。直った次の回に同じ項目を知らせる", async () => {
+  it("前回の通知の時刻より前の createdAt で、後から箱に入った項目（同時起動の取りこぼし窓）も、次のメールに載る", async () => {
+    await enqueueReview(doc("d1"), at(0));
+    await notifyOperator(harness(() => at(10)).deps);
+    await enqueueReview(doc("late"), at(5)); // 長い処理の最初の now で、通知の後に箱へ入った
+    const h = harness(() => at(30));
+    expect(await notifyOperator(h.deps)).toEqual({ sent: true, count: 1 });
+    expect(h.sent[0]!.subject).toBe("運営者の確認が 1 件あります");
+    expect(await notifyOperator(harness(() => at(40)).deps)).toEqual({ sent: false, count: 0 });
+  });
+
+  it("通知済みの id は未解決のものだけ残す（解決した項目は外す）。解決して同じ id が戻ることはない", async () => {
+    await enqueueReview(doc("d1"), at(0));
+    await enqueueReview(doc("d2"), at(0));
+    await notifyOperator(harness(() => at(10)).deps);
+    expect(((await db.doc("usage/operatorNotice").get()).data() as { notifiedIds: string[] }).notifiedIds.sort()).toEqual(["doc-d1", "doc-d2"]);
+    await db.doc("reviewQueue/doc-d1").update({ resolvedAt: "2026-11-05T12:20:00+09:00" });
+    await enqueueReview(doc("d3"), at(25));
+    await notifyOperator(harness(() => at(30)).deps);
+    expect(((await db.doc("usage/operatorNotice").get()).data() as { notifiedIds: string[] }).notifiedIds.sort()).toEqual(["doc-d2", "doc-d3"]);
+  });
+
+  it("古い形式（lastNotifiedAt だけ）の記録でも、その時刻までの項目は知らせ済みとして扱う", async () => {
+    await enqueueReview(doc("old"), at(0));
+    await enqueueReview(doc("new"), at(20));
+    await db.doc("usage/operatorNotice").set({ lastNotifiedAt: "2026-11-05T12:10:00+09:00" });
+    const h = harness(() => at(30));
+    expect((await notifyOperator(h.deps)).count).toBe(1);
+  });
+
+  it("送信に失敗したら lastNotifiedAt も notifiedIds も進めず、例外を投げる。直った次の回に同じ項目を知らせる", async () => {
     await enqueueReview(doc("d1"), at(0));
     let broken = true;
     const { sent, deps } = harness(() => at(10), () => (broken ? new Error("smtp down") : null));
     await expect(notifyOperator(deps)).rejects.toThrow("smtp down");
     expect(await lastNotifiedAt()).toBeNull();
+    expect((await db.doc("usage/operatorNotice").get()).exists).toBe(false);
     expect(sent).toHaveLength(0);
 
     broken = false;

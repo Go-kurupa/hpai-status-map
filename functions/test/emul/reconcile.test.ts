@@ -150,22 +150,43 @@ const alertsOf = async (name: string) => (await queue()).filter((i) => i.kind ==
 describe("国にあって作品にない確定", () => {
   const item = confirmedItem("251220", 8, "令和7年12月20日");
 
-  it("国の情報で確定として載せ、national_missing を 1 件入れる。2 回目は何も増やさない", async () => {
+  it("事例はすぐ国の情報で確定として載せ、取りこぼしの警告 national_missing は 4 時間の猶予の後に 1 件だけ入れる", async () => {
     const h = harness({ pages: pagesWith([item]) });
     const r = await runReconcile(h.deps);
 
     const cases = await casesNow();
     expect(cases).toHaveLength(1);
     expect(cases[0]).toMatchObject({ nationalNo: 8, muniCode: "33203", confirmState: "national", headCount: 430000, birdUse: "採卵鶏", stages: { confirmed: { date: "2025-12-20", time: null } } });
+    expect(r).toMatchObject({ compared: true, appliedConfirmed: [8] });
+    expect(await alertsOf("national_missing")).toHaveLength(0); // 猶予の間は警告しない
+
+    h.setNow(new Date(NOW.getTime() + 4 * 3_600_000 - 1000)); // 3 時間 59 分 59 秒後
+    await runReconcile(h.deps);
+    expect(await alertsOf("national_missing")).toHaveLength(0);
+
+    h.setNow(new Date(NOW.getTime() + 4 * 3_600_000));
+    await runReconcile(h.deps);
     const alerts = await alertsOf("national_missing");
     expect(alerts).toHaveLength(1);
     expect(alerts[0]!.id).toBe(reviewAlertId("national_missing", "confirmed-2025-8"));
     expect(alerts[0]).toMatchObject({ prefCode: "33", caseId: "33203-2025-12-20-1", resolvedAt: null });
-    expect(r).toMatchObject({ compared: true, appliedConfirmed: [8] });
 
+    h.setNow(new Date(NOW.getTime() + 10 * 3_600_000));
     await runReconcile(h.deps);
     expect(await casesNow()).toHaveLength(1);
     expect(await alertsOf("national_missing")).toHaveLength(1);
+  });
+
+  it("猶予の間に見回りが同じ発表を先に処理していれば（national-index.json に印）、警告しない", async () => {
+    const h = harness({ pages: pagesWith([item]) });
+    await runReconcile(h.deps);
+    await bucket().file("state/maff/national-index.json").save(JSON.stringify({ processed: { [item.url]: "2025-12-21T12:30:00+09:00" } }), { contentType: "application/json", resumable: false });
+    h.setNow(new Date(NOW.getTime() + 5 * 3_600_000));
+    await runReconcile(h.deps);
+    h.setNow(new Date(NOW.getTime() + 11 * 3_600_000));
+    await runReconcile(h.deps);
+    expect(await alertsOf("national_missing")).toHaveLength(0);
+    expect(await casesNow()).toHaveLength(1);
   });
 
   it("取得は農林水産省の外へ出ない（allowUrl を渡す）。見る一覧は 4 つ。2 回目は本文を取り直さない", async () => {
@@ -260,21 +281,57 @@ describe("作品にあって国にない確定", () => {
     expect(await alertsOf("app_only_confirmed")).toHaveLength(0);
   });
 
-  it("本文を読めない発表があるときは、国にない確定を比べない（番号が分からないため）", async () => {
+  it("読めない確定の発表は運営者に 1 回警告し、比較は続ける（読めた分と、題に番号があればその番号は国にあるとみなす）。毎回取り直さない", async () => {
     await seedCase(pref());
     const broken = { url: `${BASE}251230.html`, title: titleConfirmed(30), body: html(titleConfirmed(30), ["本日、家きん農場において確認されました。"]) };
-    const r = await runReconcile(harness({ pages: pagesWith([broken]) }).deps);
+    const h = harness({ pages: pagesWith([unrelated, broken]) });
+    const r = await runReconcile(h.deps);
     expect(r.compared).toBe(true);
-    expect(r.comparedAppOnly).toBe(false);
+    expect(r.comparedAppOnly).toBe(true); // 黙って止まらない
+    expect(await alertsOf("app_only_confirmed")).toHaveLength(1); // 読めた分の比較は続く
+    const warned = (await alertsOf("national_missing")).filter((a) => (a as { message: string }).message.includes("国の発表を読めない"));
+    expect(warned).toHaveLength(1);
+    expect((warned[0] as { message: string }).message).toContain(broken.url);
+
+    const before = h.calls.filter((u) => u === broken.url).length;
+    await runReconcile(h.deps);
+    expect(h.calls.filter((u) => u === broken.url).length).toBe(before);
+    expect((await alertsOf("national_missing")).filter((a) => (a as { message: string }).message.includes("国の発表を読めない"))).toHaveLength(1);
+  });
+
+  it("読めない確定の発表の題に番号があれば、その番号の事例は国にない確定にならない", async () => {
+    await seedCase(aCase({ nationalNo: 30 }));
+    const broken = { url: `${BASE}251230.html`, title: titleConfirmed(30), body: html(titleConfirmed(30), ["本日、家きん農場において確認されました。"]) };
+    await runReconcile(harness({ pages: pagesWith([broken]) }).deps);
     expect(await alertsOf("app_only_confirmed")).toHaveLength(0);
   });
 
-  it("読めない解除の発表があっても、国にない確定の比較は続ける（解除は番号の集合に入らない）", async () => {
+  it("本文を取れない確定の発表は、取れるまでの間（3 回未満）は国にない確定を比べず、3 回失敗したら読めないものとして警告して比較を再開する", async () => {
+    await seedCase(pref());
+    const gone = { url: `${BASE}251230.html`, title: titleConfirmed(30), body: "" };
+    const pages = pagesWith([unrelated, gone]);
+    delete pages[gone.url];
+    const h = harness({ pages });
+    expect((await runReconcile(h.deps)).comparedAppOnly).toBe(false);
+    expect((await runReconcile(h.deps)).comparedAppOnly).toBe(false);
+    expect((await alertsOf("national_missing")).length).toBe(0);
+    const r = await runReconcile(h.deps);
+    expect(r.comparedAppOnly).toBe(true);
+    expect((await alertsOf("national_missing")).filter((a) => (a as { message: string }).message.includes("国の発表を読めない"))).toHaveLength(1);
+    expect(await alertsOf("app_only_confirmed")).toHaveLength(1);
+  });
+
+  it("読めない解除の発表があっても、国にない確定の比較は続ける。解除の発表も 1 回警告して取り直さない", async () => {
     await seedCase(pref());
     const brokenLift = { url: `${BASE}260110.html`, title: titleLift(30), body: html(titleLift(30), ["解除しました。"]) };
-    const r = await runReconcile(harness({ pages: pagesWith([unrelated, brokenLift]) }).deps);
+    const h = harness({ pages: pagesWith([unrelated, brokenLift]) });
+    const r = await runReconcile(h.deps);
     expect(r.comparedAppOnly).toBe(true);
     expect(await alertsOf("app_only_confirmed")).toHaveLength(1);
+    expect((await alertsOf("national_missing")).filter((a) => (a as { message: string }).message.includes("解除"))).toHaveLength(1);
+    const before = h.calls.filter((u) => u === brokenLift.url).length;
+    await runReconcile(h.deps);
+    expect(h.calls.filter((u) => u === brokenLift.url).length).toBe(before);
   });
 
   it("本文の取得が上限を超える回は残りを次の回に回し、その回は国にない確定を比べない", async () => {
@@ -322,6 +379,30 @@ describe("解除の再適用", () => {
     expect(byId["33203-2025-12-21-1"]!.stages.movement_lifted).toEqual({ date: "2026-01-13", time: null });
     expect(byId["33203-2025-12-20-1"]!.stages.movement_lifted).toBeUndefined();
     expect(byId["33203-2025-12-20-1"]!.negation).toBe("negated");
+  });
+
+  it("前季に同じ番号・同じ市町村の事例があっても、今季に事例がない解除は前季に付けず national_missing にする", async () => {
+    await seedCase(aCase({ id: "33203-2024-12-20-1", season: 2024, nationalNo: 8, confirmState: "national", stages: { confirmed: { date: "2024-12-20", time: null } } }));
+    await runReconcile(harness({ pages: pagesWith([liftItem("260113", 8, "令和8年1月13日")]) }).deps);
+    const prev = (await casesNow()).find((c) => c.season === 2024)!;
+    expect(prev.stages.movement_lifted).toBeUndefined();
+    const alerts = await alertsOf("national_missing");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]!.id).toBe(reviewAlertId("national_missing", "33-8-2026-01-13"));
+  });
+
+  it("同じ番号でも県か市町村が違う今季の事例には当てない", async () => {
+    await seedCase(aCase({ id: "13101-2025-12-20-1", nationalNo: 8, prefCode: "13", muniCode: "13101", muniName: "千代田区", confirmState: "national", stages: { confirmed: { date: "2025-12-20", time: null } } }));
+    await runReconcile(harness({ pages: pagesWith([liftItem("260113", 8, "令和8年1月13日")]) }).deps);
+    expect((await casesNow())[0]!.stages.movement_lifted).toBeUndefined();
+    expect(await alertsOf("national_missing")).toHaveLength(1);
+  });
+
+  it("否定の発表がある（candidate）事例には自動で解除を足さない", async () => {
+    await seedCase(aCase({ nationalNo: 8, negation: "candidate", confirmState: "national", stages: { confirmed: { date: "2025-12-20", time: null } } }));
+    await runReconcile(harness({ pages: pagesWith([liftItem("260113", 8, "令和8年1月13日")]) }).deps);
+    expect((await casesNow())[0]!.stages.movement_lifted).toBeUndefined();
+    expect((await casesNow())[0]!.negation).toBe("candidate");
   });
 
   it("否定された事例には自動で解除を足さない", async () => {
@@ -438,8 +519,9 @@ describe("reading の取り残し", () => {
   });
   const readState = async (id: string) => ((await db.doc(`documents/${id}`).get()).data() as DocumentRecord).readState;
 
-  it("30 分以上 reading の文書は review_private で箱に入れ、文書も review_private にする。29 分は何もしない", async () => {
-    await db.doc("documents/d1").set(rec("d1"));
+  it("30 分以上 reading の文書は、発生を示す語がなければ review_private で箱に入れ、公開の確認中は作らない。29 分は何もしない", async () => {
+    await db.doc("documents/d1").set(rec("d1", { title: "岡山県の鳥インフルエンザ対策の周知について" }));
+    await bucket().file("raw/d1.txt").save("防疫対策の周知です。", { resumable: false });
     await db.doc("documents/d2").set(rec("d2", { readState: "pending" }));
     await db.doc("documents/d3").set(rec("d3", { readState: "published" }));
     const real = Date.now();
@@ -457,10 +539,36 @@ describe("reading の取り残し", () => {
     expect(await readState("d3")).toBe("published");
     const items = (await queue()).filter((i) => i.kind === "document");
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ id: "doc-d1", documentId: "d1", reasons: ["reading_stalled"], hasOutbreakWords: true, resolvedAt: null });
+    expect(items[0]).toMatchObject({ id: "doc-d1", documentId: "d1", reasons: ["reading_stalled"], hasOutbreakWords: false, resolvedAt: null });
+    expect(await casesNow()).toEqual([]);
 
     await runReconcile(h.deps); // 2 回目は増えない
     expect((await queue()).filter((i) => i.kind === "document")).toHaveLength(1);
+  });
+
+  it("題だけでなく本文に発生を示す語があっても、公開の確認中（rev-）を作り review_public にする", async () => {
+    await db.doc("documents/d1").set(rec("d1", { title: "お知らせ" }));
+    await bucket().file("raw/d1.txt").save("岡山県津山市の養鶏場で、簡易検査で陽性を確認しました。高病原性鳥インフルエンザの疑いがあります。", { resumable: false });
+    const real = Date.now();
+    const h = harness({ pages: {}, now: new Date(real + 31 * 60_000) });
+    await runReconcile(h.deps);
+    expect(await readState("d1")).toBe("review_public");
+    const cases = await casesNow();
+    expect(cases).toHaveLength(1);
+    expect(cases[0]).toMatchObject({ id: "rev-d1", confirmState: "reviewing", prefCode: "33", muniCode: null });
+    const items = (await queue()).filter((i) => i.kind === "document");
+    expect(items[0]).toMatchObject({ id: "doc-d1", reasons: ["reading_stalled"], hasOutbreakWords: true });
+    await runReconcile(h.deps);
+    expect(await casesNow()).toHaveLength(1);
+  });
+
+  it("発生を示す語があっても県が分からない文書は、公開せず review_private にする（理由に pref_unknown）", async () => {
+    await db.doc("documents/d1").set(rec("d1", { prefCode: null, title: "高病原性鳥インフルエンザの疑似患畜の確認について" }));
+    const real = Date.now();
+    await runReconcile(harness({ pages: {}, now: new Date(real + 31 * 60_000) }).deps);
+    expect(await readState("d1")).toBe("review_private");
+    expect(await casesNow()).toEqual([]);
+    expect((await db.doc("documents/d1").get()).data()!.reasons).toContain("pref_unknown");
   });
 });
 
@@ -480,6 +588,7 @@ describe("reconcileAndNotify: 最後に運営者へ 1 通", () => {
 
   it("この回に増えた項目を 1 通にまとめて知らせる。2 回目は新しい項目がなければ送らない", async () => {
     const s = send();
+    await seedCase(aCase({ id: "s1", nationalNo: null, stages: { suspected: { date: "2026-01-12", time: null } } })); // case_stalled が 1 件入る
     const h = harness({ pages: pagesWith([confirmedItem("251220", 8, "令和7年12月20日")]) });
     const notify = { send: s.send, to: "operator@example.com", appUrl: "http://127.0.0.1:5174", now: h.deps.now };
     await reconcileAndNotify(h.deps, notify);
@@ -493,11 +602,12 @@ describe("reconcileAndNotify: 最後に運営者へ 1 通", () => {
   it("メールが失敗したら例外を投げ、lastNotifiedAt を進めない。箱に入れたものは残る", async () => {
     const s = send();
     s.setFail(true);
+    await seedCase(aCase({ id: "s1", nationalNo: null, stages: { suspected: { date: "2026-01-12", time: null } } }));
     const h = harness({ pages: pagesWith([confirmedItem("251220", 8, "令和7年12月20日")]) });
     const notify = { send: s.send, to: "operator@example.com", appUrl: "http://127.0.0.1:5174", now: h.deps.now };
     await expect(reconcileAndNotify(h.deps, notify)).rejects.toThrow("smtp down");
     expect((await db.doc("usage/operatorNotice").get()).exists).toBe(false);
-    expect(await alertsOf("national_missing")).toHaveLength(1);
+    expect(await alertsOf("case_stalled")).toHaveLength(1);
     s.setFail(false);
     await reconcileAndNotify(h.deps, notify);
     expect(s.sent).toHaveLength(1);

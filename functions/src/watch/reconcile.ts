@@ -4,8 +4,10 @@
 // 直さない原則: 否定された事例と国の確定の食い違いは自動で直さず、運営者の確認に回す。事例は消さない。
 import { logger } from "firebase-functions";
 import { displayStage, isStalledSuspect } from "@hpai/shared/cases";
-import { diffDays } from "@hpai/shared/dates";
+import { diffDays, toJstIso } from "@hpai/shared/dates";
+import { PREFS } from "@hpai/shared/pref";
 import { filterMaffItems, maffPressUrl } from "@hpai/shared/read/maff";
+import { hasOutbreakWords } from "@hpai/shared/read/publish";
 import {
   appOnlyConfirmed,
   liftGaps,
@@ -16,52 +18,85 @@ import {
   type NationalFact,
   type NationalLiftFact,
 } from "@hpai/shared/read/reconcile";
-import { hasOutbreakWords } from "@hpai/shared/read/publish";
 import type { DocumentRecord } from "@hpai/shared/read/types";
 import { currentSeason, seasonOf } from "@hpai/shared/season";
 import { normalizeForMatch } from "@hpai/shared/text";
-import type { Case, PrefCode, Source, WatchStatus } from "@hpai/shared/types";
-import { PREFS } from "@hpai/shared/pref";
+import type { Case, IsoDateTime, PrefCode, Source, WatchStatus } from "@hpai/shared/types";
 import { bucket, db } from "../admin";
+import { reviewPlan } from "../read/apply";
+import { upsertCaseIn } from "../read/upsert";
 import { notifyOperator, type NotifyDeps } from "../review/notifyOperator";
-import { enqueueReview, reviewAlertId, reviewDocumentId, type NewReviewItem } from "../review/queue";
+import { enqueueReview, reviewAlertId, type NewReviewItem } from "../review/queue";
 import type { WatchDeps } from "./deps";
-import { decodeBody, extractHtml } from "./extract";
-import { allowMaff, applyNationalConfirmed, applyNationalLift } from "./maff";
+import { decodeBody, extractHtml, sha256Hex } from "./extract";
+import { allowMaff, applyNationalConfirmed, applyNationalLift, loadIndex } from "./maff";
 import { missingItemOf } from "./record";
 import { watchFailingItem } from "./status";
 
 /** 1 回の実行で本文を取得する上限（初回は国の発表が 70 本近い。残りは次の回に回し、その回は国にない確定を比べない）。 */
 export const MAX_FACT_FETCHES = 80;
+/** 本文を取れない発表を、読めないものとして扱うまでの失敗の回数。 */
+export const MAX_FETCH_FAILURES = 3;
 /** 見回り全体が止まったとみなす、確認の古さ。 */
 export const STALE_CHECK_MS = 24 * 60 * 60 * 1000;
 /** reading のまま取り残された文書とみなす時間（読み取りの上限は 540 秒）。 */
 export const READING_STUCK_MS = 30 * 60 * 1000;
+/**
+ * 国の確定を作品に載せてから、取りこぼしの警告を出すまでの猶予。国の入口の見回りは 3 時間に 1 回なので、その間隔 + 余裕 1 時間。
+ * 見回りが先に載せる順番の競合で、余計な警告とメールを出さない。事例はすぐ載せる（表示は遅らせない）。
+ */
+export const MISSING_GRACE_MS = 4 * 60 * 60 * 1000;
 
 const FACTS_PATH = "state/maff/national-facts.json";
 
 // ── 控えた国の事実（Storage の state/maff/national-facts.json） ──
-// 発表の URL → 本文から読んだ事実。national-index.json（見回りが書く）とは別のファイルにする
+// 発表の URL → 本文から読んだ事実と、この関数での扱い。national-index.json（見回りが書く）とは別のファイルにする
 // （見回りが index を保存し直すときに消されない。この関数だけが書く）。
 
-interface FactsFile {
-  facts: Record<string, NationalFact>;
+interface Entry {
+  type: "confirmed" | "movement_lifted";
+  title: string;
+  /** 初めて見た時刻。 */
+  seenAt: IsoDateTime;
+  /** 読んだ事実。読めなかった発表は null（確認済みの印。毎回取り直さない）。 */
+  fact: NationalFact | null;
+  /** 読めない発表を運営者の箱に入れた。 */
+  warned?: boolean;
+  /** 作品になかったので、この関数が載せた時刻。 */
+  appliedAt?: IsoDateTime;
+  /** 取りこぼしの警告の判断が済んだ（出した、または見回りが先に載せていた）。 */
+  settled?: boolean;
 }
 
-async function loadFacts(): Promise<Record<string, NationalFact>> {
+interface FactsFile {
+  entries: Record<string, Entry>;
+  /** 本文を取れなかった回数（URL ごと）。 */
+  failures: Record<string, number>;
+}
+
+async function loadFacts(): Promise<FactsFile> {
   const file = bucket().file(FACTS_PATH);
   const [exists] = await file.exists();
-  if (!exists) return {};
+  if (!exists) return { entries: {}, failures: {} };
   try {
-    const parsed = JSON.parse((await file.download())[0].toString("utf8")) as Partial<FactsFile>;
-    return typeof parsed.facts === "object" && parsed.facts !== null ? parsed.facts : {};
+    const parsed = JSON.parse((await file.download())[0].toString("utf8")) as Partial<FactsFile> & { facts?: Record<string, NationalFact> };
+    if (typeof parsed.entries === "object" && parsed.entries !== null) {
+      return { entries: parsed.entries, failures: typeof parsed.failures === "object" && parsed.failures !== null ? parsed.failures : {} };
+    }
+    // 最初の形式（事実だけ）。猶予は済んだものとして読む
+    if (typeof parsed.facts === "object" && parsed.facts !== null) {
+      const entries: Record<string, Entry> = {};
+      for (const [url, fact] of Object.entries(parsed.facts)) entries[url] = { type: fact.type, title: fact.title, seenAt: "1970-01-01T09:00:00+09:00", fact, settled: true };
+      return { entries, failures: {} };
+    }
+    return { entries: {}, failures: {} };
   } catch {
-    return {}; // 壊れていたら読み直す（本文をもう一度取るだけ）
+    return { entries: {}, failures: {} }; // 壊れていたら読み直す（本文をもう一度取るだけ）
   }
 }
 
-async function saveFacts(facts: Record<string, NationalFact>): Promise<void> {
-  await bucket().file(FACTS_PATH).save(JSON.stringify({ facts } satisfies FactsFile), { contentType: "application/json", resumable: false });
+async function saveFacts(f: FactsFile): Promise<void> {
+  await bucket().file(FACTS_PATH).save(JSON.stringify(f), { contentType: "application/json", resumable: false });
 }
 
 // ── 国の一覧の取得 ──
@@ -73,6 +108,11 @@ interface Listing {
 }
 
 const errMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+/** ログに出すのは種類だけ（送信の例外の文言に宛先が入ることがある）。 */
+const errCode = (e: unknown): string => {
+  const c = (e as { code?: unknown; responseCode?: unknown } | null) ?? {};
+  return String(c.code ?? c.responseCode ?? (e instanceof Error ? e.name : "unknown"));
+};
 
 /** 報道発表の個別のページへのリンクか（一覧の index.html は除く）。 */
 const isPressArticle = (href: string): boolean => {
@@ -120,10 +160,12 @@ function startsNear(c: Case, date: string): boolean {
   return dates.length > 0 && Math.abs(diffDays(dates.sort()[0]!, date)) <= 7;
 }
 
-const describeConfirmed = (f: Extract<NationalFact, { type: "confirmed" }>): string => `国の発表（${f.date}、${f.muniName}、国内${f.nationalNo}例目）`;
+type ConfirmedFact = Extract<NationalFact, { type: "confirmed" }>;
+
+const describeConfirmed = (f: ConfirmedFact): string => `国の発表（${f.date}、${f.muniName}、国内${f.nationalNo}例目）`;
 
 /** 国の確定が作品にない（national_missing）。id は季節と番号で 1 件だけ。 */
-function confirmedMissingItem(f: Extract<NationalFact, { type: "confirmed" }>, message: string, caseId: string | null): NewReviewItem {
+function confirmedMissingItem(f: ConfirmedFact, message: string, caseId: string | null): NewReviewItem {
   return {
     id: reviewAlertId("national_missing", `confirmed-${seasonOf(f.date)}-${f.nationalNo}`),
     kind: "alert",
@@ -131,6 +173,19 @@ function confirmedMissingItem(f: Extract<NationalFact, { type: "confirmed" }>, m
     prefCode: f.prefCode,
     caseId,
     message: `${message} ${f.url}`,
+  };
+}
+
+/** 読めない国の発表（national_missing）。URL ごとに 1 件。 */
+function unreadableItem(url: string, e: Entry): NewReviewItem {
+  const what = e.type === "confirmed" ? "国にない確定の比較に番号が使えません" : "移動制限の解除を事例に反映できません";
+  return {
+    id: reviewAlertId("national_missing", `unreadable-${sha256Hex(url).slice(0, 16)}`),
+    kind: "alert",
+    alert: "national_missing",
+    prefCode: null,
+    caseId: null,
+    message: `国の発表を読めないため、${what}（${e.title}）。内容を確かめ、必要なら事例を直してください。この発表は取り直しません。 ${url}`,
   };
 }
 
@@ -175,18 +230,13 @@ export function stalledWatchItem(s: WatchStatus, now: Date): NewReviewItem {
   };
 }
 
-/** reading の取り残しの箱の項目。 */
-function stuckReadingItem(rec: DocumentRecord): NewReviewItem {
-  return {
-    id: reviewDocumentId(rec.id),
-    kind: "document",
-    documentId: rec.id,
-    url: rec.url,
-    prefCode: rec.prefCode,
-    title: rec.title,
-    reasons: ["reading_stalled"],
-    hasOutbreakWords: hasOutbreakWords(rec.title),
-  };
+/** 文書の本文（raw/{id}.txt）。読めなければ空。 */
+async function bodyOf(id: string): Promise<string> {
+  try {
+    return (await bucket().file(`raw/${id}.txt`).download())[0].toString("utf8");
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -199,12 +249,15 @@ export async function runReconcile(deps: WatchDeps): Promise<ReconcileReport> {
   const errors: unknown[] = [];
   const report: ReconcileReport = { compared: false, comparedAppOnly: false, factsFetched: 0, appliedConfirmed: [], reappliedLifts: [], queued: 0, stuckReading: [] };
 
-  const enqueue = async (item: NewReviewItem): Promise<void> => {
+  /** 箱に入れる。入れられた（すでにあった場合を含む）なら true、失敗したら false。 */
+  const enqueue = async (item: NewReviewItem): Promise<boolean> => {
     try {
       if (await enqueueReview(item, now)) report.queued += 1;
+      return true;
     } catch (e) {
       errors.push(e);
       logger.error("運営者の箱に入れられませんでした", { id: item.id, message: errMessage(e) });
+      return false;
     }
   };
   const step = async (name: string, fn: () => Promise<void>): Promise<void> => {
@@ -251,17 +304,23 @@ export async function runReconcile(deps: WatchDeps): Promise<ReconcileReport> {
   });
 
   // 4. reading のまま取り残された文書（540 秒の打ち切りなどで、retry:false のため誰も拾わない）
+  //    題か本文に発生を示す語があれば公開の確認中（review_public）、なければ review_private（設計書 §9.6。発生を隠さない）
   await step("reading の取り残し", async () => {
     const snap = await db.collection("documents").where("readState", "==", "reading").get();
     for (const d of snap.docs) {
       if (now.getTime() - d.updateTime.toDate().getTime() < READING_STUCK_MS) continue;
       const rec = d.data() as DocumentRecord;
+      const outbreak = hasOutbreakWords(`${rec.title}\n${await bodyOf(rec.id)}`);
+      const plan = reviewPlan(rec, null, outbreak ? "review_public" : "review_private", ["reading_stalled"], now);
       // 箱に入れてから文書の状態を変える（逆だと、箱に入れる前に失敗したとき、文書が誰にも見られなくなる）
-      await enqueue(stuckReadingItem(rec));
+      let queued = true;
+      for (const item of plan.reviews) queued = (await enqueue(item)) && queued;
+      if (!queued) continue;
       const moved = await db.runTransaction(async (tx) => {
         const cur = await tx.get(d.ref);
         if (cur.data()?.readState !== "reading" || now.getTime() - cur.updateTime!.toDate().getTime() < READING_STUCK_MS) return false;
-        tx.update(d.ref, { readState: "review_private", error: "reading_stalled", reasons: ["reading_stalled"] });
+        for (const c of plan.cases) upsertCaseIn(tx, c);
+        tx.update(d.ref, { readState: plan.readState, error: "reading_stalled", reasons: plan.reasons });
         return true;
       });
       if (moved) report.stuckReading.push(rec.id);
@@ -277,51 +336,71 @@ async function compareWithNational(
   season: number,
   now: Date,
   report: ReconcileReport,
-  enqueue: (item: NewReviewItem) => Promise<void>,
+  enqueue: (item: NewReviewItem) => Promise<boolean>,
 ): Promise<void> {
   const listing = await fetchLists(deps);
   if (!listing.ok) return;
   report.compared = true;
+  const nowIso = toJstIso(now);
 
-  // 本文を読んだことのない発表だけ取得して、事実を控える
-  const facts = await loadFacts();
+  // 本文を読んだことのない発表だけ取得して、事実を控える。読めない発表は確認済みの印を付け、毎回取り直さない
+  const file = await loadFacts();
+  const entries = file.entries;
   let complete = true;
   let changed = false;
   for (const item of listing.items) {
-    if (facts[item.url] !== undefined) continue;
+    if (entries[item.url] !== undefined) continue;
     if (report.factsFetched >= MAX_FACT_FETCHES) {
       complete = false;
       break;
     }
     report.factsFetched += 1;
     const o = await deps.fetch(item.url, { allowUrl: allowMaff });
-    // 番号の集合を狂わせるのは確定の発表だけ（解除は番号の集合に入らない）。解除の発表が読めなくても、国にない確定の比較は続ける
-    if (o.kind !== "ok") {
-      if (item.type === "confirmed") complete = false;
-      logger.warn("国の発表の本文を取得できません", { url: item.url, kind: o.kind });
-      continue;
+    let fact: NationalFact | null = null;
+    if (o.kind === "ok") {
+      fact = parseNationalFact(item, extractHtml(decodeBody(o.body, o.contentType), o.finalUrl).text);
+      if (fact === null) logger.warn("国の発表の定型文を読めません", { url: item.url });
+    } else {
+      const n = (file.failures[item.url] ?? 0) + 1;
+      file.failures[item.url] = n;
+      changed = true;
+      logger.warn("国の発表の本文を取得できません", { url: item.url, kind: o.kind, failures: n });
+      if (n < MAX_FETCH_FAILURES) {
+        if (item.type === "confirmed") complete = false; // 番号の集合が欠けるので、今回は国にない確定を比べない（次の回に取り直す）
+        continue;
+      }
     }
-    const fact = parseNationalFact(item, extractHtml(decodeBody(o.body, o.contentType), o.finalUrl).text);
-    if (fact === null) {
-      if (item.type === "confirmed") complete = false; // 読めない確定の発表。番号が分からないので、国にない確定の比較は今回しない（見回りが文書にして人に回す）
-      logger.warn("国の発表の定型文を読めません", { url: item.url });
-      continue;
-    }
-    facts[item.url] = fact;
+    entries[item.url] = { type: item.type, title: item.title, seenAt: nowIso, fact };
     changed = true;
   }
-  if (changed) await saveFacts(facts);
 
-  const all = Object.values(facts);
-  const nationalNos = nationalConfirmedNos(all, season);
+  // 読めない発表は運営者に 1 回知らせる（警告が箱に入るまで毎回試す）。読めた分の比較は続ける
+  for (const [url, e] of Object.entries(entries)) {
+    if (e.fact !== null || e.warned === true) continue;
+    if (await enqueue(unreadableItem(url, e))) {
+      e.warned = true;
+      changed = true;
+    }
+  }
+  if (changed) await saveFacts(file);
+
+  const readable = Object.values(entries).flatMap((e) => (e.fact === null ? [] : [e.fact]));
+  const nationalNos = nationalConfirmedNos(readable, season);
+  // 読めない確定の発表でも、題に番号があればその番号は国にある（国にない確定の誤りを減らす）
+  for (const e of Object.values(entries)) {
+    if (e.fact !== null || e.type !== "confirmed") continue;
+    const m = /国内(\d+)例目/.exec(normalizeForMatch(e.title));
+    if (m !== null) nationalNos.add(Number(m[1]));
+  }
   let cases = await readCases(season);
 
-  // 国にあって作品にない確定を、国の情報で載せる
+  // 国にあって作品にない確定を、国の情報で載せる（事例はすぐ載せる。取りこぼしの警告は猶予の後）
   for (const no of missingNationalNos(nationalNos, cases, season)) {
-    const f = all.find((x): x is Extract<NationalFact, { type: "confirmed" }> => x.type === "confirmed" && x.nationalNo === no && seasonOf(x.date) === season);
-    if (f === undefined) continue;
+    const hit = Object.values(entries).find((e) => e.fact?.type === "confirmed" && e.fact.nationalNo === no && seasonOf(e.fact.date) === season);
+    const f = hit?.fact as ConfirmedFact | undefined;
+    if (hit === undefined || f === undefined) continue;
     const wantName = normalizeForMatch(f.muniName);
-    // 否定された（または否定の発表がある）事例と食い違うときは、自動で直さない
+    // 否定された（または否定の発表がある）事例と食い違うときは、自動で直さない（人の判断が要るので猶予なしで知らせる）
     const conflicting = cases.find(
       (c) =>
         c.confirmState !== "reviewing" &&
@@ -341,23 +420,51 @@ async function compareWithNational(
       await enqueue(confirmedMissingItem(f, `${describeConfirmed(f)}が作品にありませんが、事例にできませんでした（${REASON_LABEL[r.reason ?? ""] ?? "理由不明"}）。事例を確かめて載せてください。`, null));
     } else {
       report.appliedConfirmed.push(no);
-      await enqueue(confirmedMissingItem(f, `${describeConfirmed(f)}が作品にありませんでした。国の情報で確定として載せました。内容を確かめてください。`, r.caseId));
+      if (hit.appliedAt === undefined) {
+        hit.appliedAt = nowIso;
+        changed = true;
+      }
     }
   }
 
-  // 解除も同様: 事例ができる前に来た解除と、取りこぼした解除を、事例が揃ってから当て直す
+  // 載せた確定の取りこぼしの警告。見回りが先に載せていれば（national-index.json に印がある）出さない。猶予は初めて見てから 4 時間
+  let index: Awaited<ReturnType<typeof loadIndex>> | null = null;
+  for (const [url, e] of Object.entries(entries)) {
+    const f = e.fact;
+    if (e.appliedAt === undefined || e.settled === true || f === null || f.type !== "confirmed") continue;
+    if (now.getTime() - Date.parse(e.seenAt) < MISSING_GRACE_MS) continue;
+    index ??= await loadIndex();
+    if (index.processed[url] === undefined) {
+      const caseId = cases.find((c) => c.nationalNo === f.nationalNo && c.season === season)?.id ?? null;
+      if (!(await enqueue(confirmedMissingItem(f, `${describeConfirmed(f)}が作品にありませんでした。見回りが4時間以上取りこぼしたため、国の情報で確定として載せています。内容を確かめてください。`, caseId)))) continue;
+    }
+    e.settled = true;
+    changed = true;
+  }
+  if (changed) await saveFacts(file);
+
+  // 解除も同様: 事例ができる前に来た解除と、取りこぼした解除を、事例が揃ってから当て直す。
+  // 当てるのは今季・同じ県・同じ市町村の事例だけ（前季の同じ番号の事例に付けない）。否定された（または否定の発表がある）事例は自動で直さない
   cases = await readCases(season);
-  const lifts = all.filter((x): x is NationalLiftFact => x.type === "movement_lifted");
+  const lifts = readable.filter((x): x is NationalLiftFact => x.type === "movement_lifted");
   for (const gap of liftGaps(lifts, cases, season)) {
-    // 複数の事例の解除（国内3例目、4例目など）は、否定された（または否定の発表がある）事例を除いて当てる。自動では直さない
-    const held = new Set(cases.filter((c) => c.season === season && c.nationalNo !== null && c.negation !== "none").map((c) => c.nationalNo as number));
-    const kept = gap.nationalNos.filter((no) => !held.has(no));
-    if (kept.length === 0) continue;
-    const lift: NationalLiftFact = { ...gap, nationalNos: kept };
-    const r = await applyNationalLift({ lift, url: lift.url }, deps);
-    report.reappliedLifts.push(lift.url);
-    if (r.missing.length > 0) {
-      await enqueue(missingItemOf({ url: lift.url, prefCode: lift.prefCode, muniName: lift.muniName, nationalNos: r.missing, date: lift.date }));
+    const wantName = normalizeForMatch(gap.muniName);
+    const kept: number[] = [];
+    const absent: number[] = [];
+    for (const no of gap.nationalNos) {
+      const mine = cases.find(
+        (c) => c.nationalNo === no && c.confirmState !== "reviewing" && c.prefCode === gap.prefCode && normalizeForMatch(c.muniName ?? "") === wantName,
+      );
+      if (mine === undefined) absent.push(no);
+      else if (mine.negation === "none") kept.push(no);
+    }
+    if (kept.length > 0) {
+      const r = await applyNationalLift({ lift: { ...gap, nationalNos: kept }, url: gap.url }, deps);
+      report.reappliedLifts.push(gap.url);
+      absent.push(...r.missing);
+    }
+    if (absent.length > 0) {
+      await enqueue(missingItemOf({ url: gap.url, prefCode: gap.prefCode, muniName: gap.muniName, nationalNos: absent, date: gap.date }));
     }
   }
 
@@ -394,7 +501,7 @@ export async function reconcileAndNotify(deps: WatchDeps, notify: NotifyDeps): P
     await notifyOperator(notify);
   } catch (e) {
     errors.push(e);
-    logger.error("運営者へのメールを送れませんでした", { message: errMessage(e) });
+    logger.error("運営者へのメールを送れませんでした", { code: errCode(e) });
   }
   if (errors.length > 0) throw errors.length === 1 ? errors[0] : new AggregateError(errors, "突き合わせとメールの両方が失敗しました");
   return report!;
