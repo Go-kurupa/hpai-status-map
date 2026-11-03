@@ -1,6 +1,9 @@
 // 取得した本文の取り出し。HTML は本文とリンクだけにする（取り決め 3.7）。
+import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 import iconv from "iconv-lite";
+import { extractText, getDocumentProxy } from "unpdf";
+import { normalizeForMatch } from "@hpai/shared/text";
 
 const SNIFF_BYTES = 4096;
 
@@ -69,4 +72,36 @@ export function extractHtml(html: string, baseUrl: string): { title: string; tex
     .join("\n");
 
   return { title, text, links: [...links].map(([href, linkText]) => ({ href, text: linkText })) };
+}
+
+// ── PDF の文字層と指紋（I-01。X-07、X-14 も使う） ──
+
+/** 1 ページ平均この字数（空白を除く）に満たない PDF は文字層なしとみなす。 */
+const MIN_CHARS_PER_PAGE = 30;
+
+export function sha256Hex(data: Buffer | string): string {
+  return createHash("sha256").update(data).digest("hex");
+}
+
+/** 正規化した本文の SHA-256。全角と半角、空白、改行の違いでは変わらない。文字層のない PDF は呼び手が sha256Hex(body)。 */
+export function fingerprint(text: string): string {
+  return sha256Hex(normalizeForMatch(text));
+}
+
+/** 空白を除いた字数の 1 ページ平均が 30 字以上か。 */
+export function hasTextLayerOf(text: string, pages: number): boolean {
+  if (pages <= 0) return false;
+  return [...text.replace(/\s+/gu, "")].length / pages >= MIN_CHARS_PER_PAGE;
+}
+
+/** PDF の文字層を取り出す。読めない PDF は throw せず空を返す。 */
+export async function extractPdfText(body: Buffer): Promise<{ text: string; pages: number; hasTextLayer: boolean }> {
+  try {
+    const pdf = await getDocumentProxy(new Uint8Array(body));
+    const { totalPages, text } = await extractText(pdf, { mergePages: false });
+    const joined = text.join("\n");
+    return { text: joined, pages: totalPages, hasTextLayer: hasTextLayerOf(joined, totalPages) };
+  } catch {
+    return { text: "", pages: 0, hasTextLayer: false };
+  }
 }
