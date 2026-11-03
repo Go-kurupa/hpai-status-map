@@ -1,0 +1,906 @@
+{
+  "id": "2025-12",
+  "title": "2025 年 12 月の 4 事例（米子市、姫路市、津山市、亀岡市）",
+  "defaultSpot": {
+    "meshCode": "52344160",
+    "muniCode": "33622",
+    "frequentMuniCodes": []
+  },
+  "events": [
+    {
+      "order": 1,
+      "date": "2025-12-02",
+      "time": null,
+      "caseAfter": {
+        "id": "replay-6",
+        "season": 2025,
+        "nationalNo": 6,
+        "prefNo": null,
+        "prefCode": "31",
+        "muniCode": "31202",
+        "muniName": "米子市",
+        "birdUse": "肉用鶏",
+        "housing": "平飼い",
+        "headCount": 75000,
+        "stages": {
+          "confirmed": {
+            "date": "2025-12-02",
+            "time": null
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.maff.go.jp/j/press/syouan/douei/251201.html"
+        ],
+        "updatedAt": "2025-12-02T23:59:59+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251201.html",
+      "backstageId": null
+    },
+    {
+      "order": 2,
+      "date": "2025-12-16",
+      "time": null,
+      "caseAfter": {
+        "id": "replay-7",
+        "season": 2025,
+        "nationalNo": 7,
+        "prefNo": null,
+        "prefCode": "28",
+        "muniCode": "28201",
+        "muniName": "姫路市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 240000,
+        "stages": {
+          "confirmed": {
+            "date": "2025-12-16",
+            "time": null
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.maff.go.jp/j/press/syouan/douei/251216.html"
+        ],
+        "updatedAt": "2025-12-16T23:59:59+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251216.html",
+      "backstageId": null
+    },
+    {
+      "order": 3,
+      "date": "2025-12-19",
+      "time": null,
+      "caseAfter": {
+        "id": "replay-8",
+        "season": 2025,
+        "nationalNo": 8,
+        "prefNo": null,
+        "prefCode": "33",
+        "muniCode": "33203",
+        "muniName": "津山市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 430000,
+        "stages": {
+          "suspected": {
+            "date": "2025-12-19",
+            "time": null
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf"
+        ],
+        "updatedAt": "2025-12-19T23:59:59+09:00"
+      },
+      "noticePreview": {
+        "level": 1,
+        "text": "津山市で疑いの発表がありました。県の連絡が正です"
+      },
+      "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
+      "backstageId": null
+    },
+    {
+      "order": 4,
+      "date": "2025-12-20",
+      "time": "09:00",
+      "caseAfter": {
+        "id": "replay-8",
+        "season": 2025,
+        "nationalNo": 8,
+        "prefNo": null,
+        "prefCode": "33",
+        "muniCode": "33203",
+        "muniName": "津山市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 430000,
+        "stages": {
+          "suspected": {
+            "date": "2025-12-19",
+            "time": null
+          },
+          "confirmed": {
+            "date": "2025-12-20",
+            "time": "09:00"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf"
+        ],
+        "updatedAt": "2025-12-20T09:00:00+09:00"
+      },
+      "noticePreview": {
+        "level": 1,
+        "text": "津山市で確定の発表がありました。県の連絡が正です"
+      },
+      "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf",
+      "backstageId": null
+    },
+    {
+      "order": 5,
+      "date": "2025-12-24",
+      "time": null,
+      "caseAfter": {
+        "id": "replay-9",
+        "season": 2025,
+        "nationalNo": 9,
+        "prefNo": null,
+        "prefCode": "26",
+        "muniCode": "26206",
+        "muniName": "亀岡市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 280000,
+        "stages": {
+          "confirmed": {
+            "date": "2025-12-24",
+            "time": null
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.maff.go.jp/j/press/syouan/douei/251224.html"
+        ],
+        "updatedAt": "2025-12-24T23:59:59+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251224.html",
+      "backstageId": null
+    },
+    {
+      "order": 6,
+      "date": "2025-12-28",
+      "time": "00:00",
+      "caseAfter": {
+        "id": "replay-6",
+        "season": 2025,
+        "nationalNo": 6,
+        "prefNo": null,
+        "prefCode": "31",
+        "muniCode": "31202",
+        "muniName": "米子市",
+        "birdUse": "肉用鶏",
+        "housing": "平飼い",
+        "headCount": 75000,
+        "stages": {
+          "confirmed": {
+            "date": "2025-12-02",
+            "time": null
+          },
+          "control_done": {
+            "date": "2025-12-06",
+            "time": null
+          },
+          "shipment_lifted": {
+            "date": "2025-12-17",
+            "time": null
+          },
+          "movement_lifted": {
+            "date": "2025-12-28",
+            "time": "00:00"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.maff.go.jp/j/press/syouan/douei/251201.html",
+          "https://www.maff.go.jp/j/press/syouan/douei/251228.html"
+        ],
+        "updatedAt": "2025-12-28T00:00:00+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251228.html",
+      "backstageId": null
+    },
+    {
+      "order": 7,
+      "date": "2025-12-30",
+      "time": "15:10",
+      "caseAfter": {
+        "id": "replay-8",
+        "season": 2025,
+        "nationalNo": 8,
+        "prefNo": null,
+        "prefCode": "33",
+        "muniCode": "33203",
+        "muniName": "津山市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 430000,
+        "stages": {
+          "suspected": {
+            "date": "2025-12-19",
+            "time": null
+          },
+          "confirmed": {
+            "date": "2025-12-20",
+            "time": "09:00"
+          },
+          "control_done": {
+            "date": "2025-12-30",
+            "time": "15:10"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": "2026-01-10",
+          "movement": "2026-01-21",
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf",
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970459_misc.pdf"
+        ],
+        "updatedAt": "2025-12-30T15:10:00+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970459_misc.pdf",
+      "backstageId": null
+    },
+    {
+      "order": 8,
+      "date": "2026-01-10",
+      "time": "15:00",
+      "caseAfter": {
+        "id": "replay-8",
+        "season": 2025,
+        "nationalNo": 8,
+        "prefNo": null,
+        "prefCode": "33",
+        "muniCode": "33203",
+        "muniName": "津山市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 430000,
+        "stages": {
+          "suspected": {
+            "date": "2025-12-19",
+            "time": null
+          },
+          "confirmed": {
+            "date": "2025-12-20",
+            "time": "09:00"
+          },
+          "control_done": {
+            "date": "2025-12-30",
+            "time": "15:10"
+          },
+          "shipment_lifted": {
+            "date": "2026-01-10",
+            "time": "15:00"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": "2026-01-10",
+          "movement": "2026-01-21",
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf",
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970459_misc.pdf",
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970460_misc.pdf"
+        ],
+        "updatedAt": "2026-01-10T15:00:00+09:00"
+      },
+      "noticePreview": {
+        "level": 1,
+        "text": "津山市で搬出制限の解除の発表がありました。県の連絡が正です"
+      },
+      "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970460_misc.pdf",
+      "backstageId": null
+    },
+    {
+      "order": 9,
+      "date": "2026-01-12",
+      "time": "00:00",
+      "caseAfter": {
+        "id": "replay-7",
+        "season": 2025,
+        "nationalNo": 7,
+        "prefNo": null,
+        "prefCode": "28",
+        "muniCode": "28201",
+        "muniName": "姫路市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 240000,
+        "stages": {
+          "confirmed": {
+            "date": "2025-12-16",
+            "time": null
+          },
+          "control_done": {
+            "date": "2025-12-21",
+            "time": null
+          },
+          "shipment_lifted": {
+            "date": "2026-01-01",
+            "time": null
+          },
+          "movement_lifted": {
+            "date": "2026-01-12",
+            "time": "00:00"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.maff.go.jp/j/press/syouan/douei/251216.html",
+          "https://www.maff.go.jp/j/press/syouan/douei/260112.html"
+        ],
+        "updatedAt": "2026-01-12T00:00:00+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/260112.html",
+      "backstageId": null
+    },
+    {
+      "order": 10,
+      "date": "2026-01-21",
+      "time": "00:00",
+      "caseAfter": {
+        "id": "replay-8",
+        "season": 2025,
+        "nationalNo": 8,
+        "prefNo": null,
+        "prefCode": "33",
+        "muniCode": "33203",
+        "muniName": "津山市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 430000,
+        "stages": {
+          "suspected": {
+            "date": "2025-12-19",
+            "time": null
+          },
+          "confirmed": {
+            "date": "2025-12-20",
+            "time": "09:00"
+          },
+          "control_done": {
+            "date": "2025-12-30",
+            "time": "15:10"
+          },
+          "shipment_lifted": {
+            "date": "2026-01-10",
+            "time": "15:00"
+          },
+          "movement_lifted": {
+            "date": "2026-01-21",
+            "time": "00:00"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": "2026-01-10",
+          "movement": "2026-01-21",
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf",
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970459_misc.pdf",
+          "https://www.pref.okayama.jp/uploaded/life/1030744_9970460_misc.pdf",
+          "https://www.maff.go.jp/j/press/syouan/douei/260121_1.html"
+        ],
+        "updatedAt": "2026-01-21T00:00:00+09:00"
+      },
+      "noticePreview": {
+        "level": 2,
+        "text": "津山市で移動制限の解除の発表がありました。県の連絡が正です"
+      },
+      "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/260121_1.html",
+      "backstageId": null
+    },
+    {
+      "order": 11,
+      "date": "2026-01-21",
+      "time": "09:00",
+      "caseAfter": {
+        "id": "replay-9",
+        "season": 2025,
+        "nationalNo": 9,
+        "prefNo": null,
+        "prefCode": "26",
+        "muniCode": "26206",
+        "muniName": "亀岡市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 280000,
+        "stages": {
+          "confirmed": {
+            "date": "2025-12-24",
+            "time": null
+          },
+          "control_done": {
+            "date": "2025-12-30",
+            "time": null
+          },
+          "shipment_lifted": {
+            "date": "2026-01-10",
+            "time": null
+          },
+          "movement_lifted": {
+            "date": "2026-01-21",
+            "time": "09:00"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.maff.go.jp/j/press/syouan/douei/251224.html",
+          "https://www.maff.go.jp/j/press/syouan/douei/260121.html"
+        ],
+        "updatedAt": "2026-01-21T09:00:00+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/260121.html",
+      "backstageId": null
+    }
+  ],
+  "wildBirds": [],
+  "watchStatus": [
+    {
+      "prefCode": "01",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "02",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "03",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "04",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "05",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "06",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "07",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "08",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "09",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "10",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "11",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "12",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "13",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "14",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "15",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "16",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "17",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "18",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "19",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "20",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "21",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "22",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "23",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": false,
+      "lastOkAt": null,
+      "failingSince": null
+    },
+    {
+      "prefCode": "24",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "25",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "26",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "27",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "28",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "29",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "30",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "31",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "32",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "33",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "34",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "35",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "36",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "37",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "38",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "39",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "40",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "41",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "42",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "43",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "44",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "45",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "46",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    },
+    {
+      "prefCode": "47",
+      "checkedAt": "2025-12-20T09:00:00+09:00",
+      "ok": true,
+      "lastOkAt": "2025-12-20T09:00:00+09:00",
+      "failingSince": null
+    }
+  ]
+}
