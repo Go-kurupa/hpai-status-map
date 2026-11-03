@@ -40,7 +40,7 @@ describe("parseFeed", () => {
     const xml = `<rss><channel><item><title>t</title><link>https://x.jp/1</link></item><item><title>題だけ</title></item></channel></rss>`;
     expect(parseFeed(xml).map((i) => i.id)).toEqual(["https://x.jp/1", "題だけ"]);
   });
-  it("item が 0 件の正しい RSS は空", () => {
+  it("item が 0 件の正しい RSS は、解釈としては空の配列（それを成功とするかは checkRss が基準と比べて決める）", () => {
     expect(parseFeed(`<rss><channel><title>t</title></channel></rss>`)).toEqual([]);
   });
   it("壊れた XML は throw する（失敗に数える）", () => {

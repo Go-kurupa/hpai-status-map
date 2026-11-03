@@ -6,7 +6,7 @@ import { hasHpaiWord } from "@hpai/shared/text";
 import type { Source } from "@hpai/shared/types";
 import { FAILED, type CheckResult, type Handlers, type WatchDeps } from "./deps";
 import { decodeBody, fingerprint } from "./extract";
-import { MAX_LINK_TRIES, MAX_NEW_LINKS_PER_CHECK, allowPrefEntrance, allowPrefLink, loadJson, processLink, saveJson } from "./page";
+import { MAX_LINK_TRIES, MAX_NEW_LINKS_PER_CHECK, allowPrefEntrance, allowPrefLink, loadJson, processLink, queueUnreachable, saveJson } from "./page";
 import { storeDocument } from "./store";
 
 export interface FeedItem {
@@ -102,6 +102,9 @@ export async function checkRss(source: Source, deps: WatchDeps): Promise<CheckRe
     return result;
   }
 
+  // 200 でも、基準に項目があったのに 0 項目なら空や別物のフィード。失敗にして基準（seen）を上書きしない
+  if (items.length === 0 && state.seen.length > 0) return FAILED;
+
   const seen = new Set(state.seen);
   const hits = items.filter((i) => !seen.has(i.id) && feedItemHit(i));
   const take = hits.slice(0, MAX_NEW_LINKS_PER_CHECK);
@@ -118,24 +121,26 @@ export async function checkRss(source: Source, deps: WatchDeps): Promise<CheckRe
       linkUrl = null;
     }
     let done = false;
+    let unreachable = false; // 取れないまま項目の文で代える（運営者の箱にも入れる）
     if (linkUrl !== null && allowLink(linkUrl)) {
       const r = await processLink({ href: linkUrl.href, text: item.title }, { source, deps, allow: allowLink }, { follow: false, requireWord: false });
       if (r.result === "done") {
         done = true;
       } else {
         const n = (state.tries[item.id] ?? 0) + 1;
-        if (n < MAX_LINK_TRIES) {
+        if (r.result === "retry" && n < MAX_LINK_TRIES) {
           tries[item.id] = n;
           pending.add(item.id); // 取り直す
           continue;
         }
-        logger.warn("RSS の項目のリンクを取れないので、項目の文を文書にします", { sourceId: source.id, url: link });
+        unreachable = true; // 拒否（robots_denied、not_allowed）は再試行せず、取れない回数が上限でも諦める
+        logger.warn("RSS の項目のリンクを取れないので、項目の文を文書にして運営者の箱に入れます", { sourceId: source.id, url: link, why: r.why });
       }
     }
     if (!done) {
       // 別のサイトや、リンクのない項目、取れなかった項目: 項目の題と説明を文書にする（別のサイトは取得しない）
       const text = `${item.title}\n${item.description}`.trim();
-      await storeDocument({
+      const stored = await storeDocument({
         source,
         url: link ?? source.url,
         title: item.title,
@@ -148,6 +153,7 @@ export async function checkRss(source: Source, deps: WatchDeps): Promise<CheckRe
         fetchedAt: o.fetchedAt,
         readState: "pending",
       });
+      if (unreachable) await queueUnreachable({ source, deps, allow: allowLink }, { url: link ?? source.url, title: item.title, documentId: stored.id });
     }
   }
 

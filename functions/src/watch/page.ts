@@ -5,9 +5,11 @@ import { logger } from "firebase-functions";
 import { toJstIso } from "@hpai/shared/dates";
 import { PREF_DOMAINS, isPrefDomainHost } from "@hpai/shared/pref";
 import { addedLines, isDateOnlyChange, linkKey, newLinks, pageLines, sameSite, type PageLink } from "@hpai/shared/read/pageDiff";
+import { hasOutbreakWords } from "@hpai/shared/read/publish";
 import { hasHpaiWord, normalizeForMatch } from "@hpai/shared/text";
 import type { IsoDateTime, Source } from "@hpai/shared/types";
 import { bucket } from "../admin";
+import { enqueueReview, reviewDocumentId } from "../review/queue";
 import { FAILED, type CheckResult, type Handlers, type WatchDeps } from "./deps";
 import { decodeBody, extractHtml, extractPdfText, fingerprint, sha256Hex } from "./extract";
 import { storeDocument } from "./store";
@@ -92,7 +94,8 @@ const loadState = (sourceId: string): Promise<PageState | null> => loadJson<Page
 
 // ── リンク 1 本の処理 ──
 
-export type LinkResult = "done" | "retry";
+/** done は取り込めた。retry は取れなかった（次回やり直す）。denied は robots.txt や取得先の制限で拒否された（再試行しても直らない）。 */
+export type LinkResult = "done" | "retry" | "denied";
 
 export interface LinkCtx {
   source: Source;
@@ -119,10 +122,11 @@ export async function processLink(
   link: PageLink,
   ctx: LinkCtx,
   opts: { follow: boolean; requireWord?: boolean },
-): Promise<{ result: LinkResult; follow: { url: string; title: string; lines: string[]; links: PageLink[] } | null }> {
+): Promise<{ result: LinkResult; why?: string; follow: { url: string; title: string; lines: string[]; links: PageLink[] } | null }> {
   const { source, deps } = ctx;
   const o = await deps.fetch(link.href, { allowUrl: ctx.allow });
-  if (o.kind !== "ok") return { result: "retry", follow: null };
+  if (o.kind === "robots_denied" || o.kind === "not_allowed") return { result: "denied", why: o.kind, follow: null };
+  if (o.kind !== "ok") return { result: "retry", why: o.kind === "http_error" ? `http_${o.status}` : o.kind, follow: null };
 
   if (isPdf(o.contentType, o.body)) {
     const ex = await extractPdfText(o.body);
@@ -164,6 +168,47 @@ export async function processLink(
 }
 
 /**
+ * 取れないまま諦めるリンクを、黙って捨てずに運営者の箱へ入れる（発生の PDF が県の一時的な 503 で消えないように）。
+ * documentId の文書は呼び手が残したもの（ページは review_private の文書、RSS は項目の文の文書）。
+ */
+export async function queueUnreachable(ctx: LinkCtx, link: { url: string; title: string; documentId: string }): Promise<void> {
+  await enqueueReview(
+    {
+      id: reviewDocumentId(link.documentId),
+      kind: "document",
+      documentId: link.documentId,
+      url: link.url,
+      prefCode: ctx.source.prefCode,
+      title: link.title,
+      reasons: ["link_unreachable"],
+      hasOutbreakWords: hasOutbreakWords(link.title),
+    },
+    ctx.deps.now(),
+  );
+}
+
+/** ページのリンクを諦める。リンクの題と URL だけの文書（review_private。読み取りに回さない）を残し、箱に入れる。 */
+async function giveUpLink(ctx: LinkCtx, link: PageLink, why: string): Promise<void> {
+  const title = link.text || lastSegment(link.href);
+  const body = `${title}\n（このリンクは取得できませんでした: ${why}）\n${link.href}`;
+  const stored = await storeDocument({
+    source: ctx.source,
+    url: link.href,
+    title,
+    contentType: "html",
+    body: Buffer.from(body),
+    fingerprint: fingerprint(body),
+    textForRead: body,
+    hasTextLayer: true,
+    prefCode: ctx.source.prefCode,
+    fetchedAt: toJstIso(ctx.deps.now()),
+    readState: "review_private",
+  });
+  await queueUnreachable(ctx, { url: link.href, title, documentId: stored.id });
+  logger.warn("リンクを取れないまま諦めました。運営者の箱に入れました", { sourceId: ctx.source.id, url: link.href, why });
+}
+
+/**
  * 差分に使う本文の行。同じサイトのリンクの文だけの行は除く（新しいリンクは別に取るので、リンクの追加がページ自体の文書にならない）。
  * 別のサイトへのリンクの行は残す（取得しないので、行として残さないと更新に気づけない）。
  */
@@ -201,9 +246,9 @@ async function scanLinks(
       continue;
     }
     const n = (tries[key] ?? 0) + 1;
-    if (n >= MAX_LINK_TRIES) {
-      left.delete(key); // 諦める
-      logger.warn("リンクを取れないまま諦めました", { sourceId: ctx.source.id, url: link.href });
+    if (r.result === "denied" || n >= MAX_LINK_TRIES) {
+      await giveUpLink(ctx, link, r.why ?? "retry_exhausted"); // 拒否は再試行しても直らない。取れない回数が上限なら諦める。どちらも箱に入れる
+      left.delete(key);
     } else {
       nextTries[key] = n;
     }
@@ -233,6 +278,8 @@ async function checkFollowed(f: FollowedState, ctx: LinkCtx): Promise<FollowedSt
   const page = extractHtml(decodeBody(o.body, o.contentType), o.finalUrl);
   const lines = bodyLines(page, f.url);
   const titleHasWord = hasHpaiWord(page.title);
+  // 基準にリンクや行があったのに今回 0 件なら、空や別物のページ（メンテナンスなど）。基準を上書きせず、次回また確認する
+  if ((f.links.length > 0 && page.links.length === 0) || (f.lines.length > 0 && lines.length === 0)) return f;
 
   const added = addedLines(f.lines, lines);
   if (added.length > 0 && !isDateOnlyChange(added) && (titleHasWord || hasHpaiWord(added.join("\n")))) {
@@ -290,6 +337,8 @@ export async function checkPrefPage(source: Source, deps: WatchDeps): Promise<Ch
   // 課のトップ（題に語がない）は平時に語が出ないのが正常なので、語の消失では失敗にしない。基準は壊さない。
   if (state.titleHasWord && !hasWord) return FAILED;
   if (!sameHostAndPath(o.finalUrl, state.finalUrl)) return FAILED;
+  // 200 でも空や別物（題に語のない課のトップ、報道発表の一覧、メンテナンス表示）: 基準にリンクや行があったのに今回 0 件なら失敗。基準を上書きしない
+  if ((state.links.length > 0 && page.links.length === 0) || (state.lines.length > 0 && lines.length === 0)) return FAILED;
 
   // 足された行 → ページ自体を文書に（日付だけの更新と、題に語がなく足された行にも語がないものは作らない。報道発表の一覧は作らない）
   const added = addedLines(state.lines, lines);

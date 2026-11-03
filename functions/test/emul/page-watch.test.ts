@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { DocumentRecord } from "@hpai/shared/read/types";
+import type { DocumentRecord, ReviewItem } from "@hpai/shared/read/types";
 import { bucket, db } from "../../src/admin";
 import { sha256Hex } from "../../src/watch/extract";
 import { MAX_NEW_LINKS_PER_CHECK, allowPrefEntrance, allowPrefLink, checkPrefPage, type PageState } from "../../src/watch/page";
@@ -20,6 +20,7 @@ beforeEach(async () => {
 
 const docsNow = async () => (await db.collection("documents").get()).docs.map((d) => d.data() as DocumentRecord).sort((a, b) => a.url.localeCompare(b.url));
 const stateOf = async (id = "src1"): Promise<PageState> => JSON.parse((await bucket().file(`state/pages/${id}.json`).download())[0].toString("utf8")) as PageState;
+const queueNow = async () => (await db.collection("reviewQueue").get()).docs.map((d) => d.data() as ReviewItem);
 const text = async (id: string) => (await bucket().file(`raw/${id}.txt`).download())[0].toString("utf8");
 
 const URL1 = `${BASE}/page/816850.html`;
@@ -209,14 +210,40 @@ describe("新しいリンク", () => {
     await checkPrefPage(prefSource(), deps);
     expect(await docsNow()).toHaveLength(21);
   });
-  it("取れなかったリンクは次回やり直し、3 回目で諦める（毎回取りに行かない）", async () => {
+  it("取れなかったリンクは次回やり直し、3 回目で諦めるときは、黙って捨てずに運営者の箱へ入れる（文書 review_private ＋ 箱の doc-<id>）", async () => {
     const a = `${BASE}/uploaded/a.pdf`;
     const { deps, f } = fake({ [URL1]: ok(html(T_WORD, ["a"]), URL1) });
     await checkPrefPage(prefSource(), deps);
-    f.pages[URL1] = ok(html(T_WORD, ["a"], [[a, "第1報"]]), URL1); // a は 404
-    for (let i = 0; i < 5; i++) expect((await checkPrefPage(prefSource(), deps)).ok).toBe(true); // リンクの失敗は入口の失敗に数えない
-    expect(f.calls.filter((u) => u === a)).toHaveLength(3);
-    expect(await docsNow()).toEqual([]);
+    f.pages[URL1] = ok(html(T_WORD, ["a"], [[a, "第1報"]]), URL1);
+    f.pages[a] = { kind: "http_error", status: 503 };
+    for (let i = 0; i < 2; i++) {
+      expect((await checkPrefPage(prefSource(), deps)).ok).toBe(true); // リンクの失敗は入口の失敗に数えない
+      expect(await queueNow()).toEqual([]); // 諦める前は箱に入れない
+    }
+    expect((await checkPrefPage(prefSource(), deps)).ok).toBe(true);
+    for (let i = 0; i < 3; i++) await checkPrefPage(prefSource(), deps);
+    expect(f.calls.filter((u) => u === a)).toHaveLength(3); // 諦めた後は取りに行かない
+    const docs = await docsNow();
+    expect(docs.filter((d) => d.contentType === "pdf")).toEqual([]);
+    const gave = docs.filter((d) => d.url === a);
+    expect(gave).toHaveLength(1);
+    expect(gave[0]).toMatchObject({ readState: "review_private", prefCode: "33", title: "第1報" });
+    const q = await queueNow();
+    expect(q).toHaveLength(1);
+    expect(q[0]).toMatchObject({ id: `doc-${gave[0]!.id}`, kind: "document", documentId: gave[0]!.id, url: a, prefCode: "33", reasons: ["link_unreachable"], resolvedAt: null });
+  });
+  it("robots_denied、not_allowed は再試行せず、すぐ運営者の箱へ入れる", async () => {
+    const a = `${BASE}/uploaded/a.pdf`;
+    const b = `${BASE}/uploaded/b.pdf`;
+    const { deps, f } = fake({ [URL1]: ok(html(T_WORD, ["a"]), URL1) });
+    await checkPrefPage(prefSource(), deps);
+    f.pages[URL1] = ok(html(T_WORD, ["a"], [[a, "第1報"], [b, "第2報"]]), URL1);
+    f.pages[a] = { kind: "robots_denied" };
+    f.pages[b] = { kind: "not_allowed", url: b };
+    await checkPrefPage(prefSource(), deps);
+    await checkPrefPage(prefSource(), deps);
+    expect(f.calls.filter((u) => u === a || u === b)).toHaveLength(2);
+    expect((await queueNow()).map((q) => q.kind === "document" && q.url).sort()).toEqual([a, b]);
   });
 });
 
@@ -343,5 +370,52 @@ describeFixture("岡山の実物の控え（816850 と 1013219）", [path.join(F
     await checkPrefPage(prefSource({ url: topUrl }), deps);
     await checkPrefPage(prefSource({ url: topUrl }), deps);
     expect((await docsNow()).filter((d) => d.contentType === "pdf")).toHaveLength(24);
+  });
+});
+
+
+describe("200 でも空や別物のページは、基準にリンクや行があったのに今回 0 件なら失敗にして基準を上書きしない", () => {
+  const LIST = `${BASE}/press/`;
+  const TOP = `${BASE}/soshiki/77/`;
+  const empty = (url: string) => ok(html("ただいまメンテナンス中", []), url);
+
+  it("報道発表の一覧（pref_press_list）と課のトップ（題に語がない）", async () => {
+    for (const [kind, url] of [["pref_press_list", LIST], ["pref_fixed", TOP]] as const) {
+      const { deps, f } = fake({ [url]: ok(html("報道発表", ["本文の行"], [[`${BASE}/press/1.html`, "展覧会"]]), url) });
+      const src = prefSource({ id: `s-${kind}`, kind, url });
+      await checkPrefPage(src, deps);
+      const before = await stateOf(src.id);
+      f.pages[url] = empty(url);
+      expect((await checkPrefPage(src, deps)).ok).toBe(false);
+      expect(await stateOf(src.id)).toEqual(before);
+      f.pages[url] = ok(html("報道発表", ["本文の行"], [[`${BASE}/press/1.html`, "展覧会"]]), url);
+      expect((await checkPrefPage(src, deps)).ok).toBe(true);
+    }
+  });
+  it("基準がもともと 0 件のページは、今までどおり成功", async () => {
+    const { deps } = fake({ [LIST]: empty(LIST) });
+    const src = prefSource({ kind: "pref_press_list", url: LIST });
+    expect((await checkPrefPage(src, deps)).ok).toBe(true);
+    expect((await checkPrefPage(src, deps)).ok).toBe(true);
+  });
+  it("追いかけているページが空で返っても、そのページの基準を上書きしない（入口の失敗には数えない）", async () => {
+    const CASE = `${BASE}/page/1013219.html`;
+    const P1 = `${BASE}/uploaded/attachment/1.pdf`;
+    const caseOk = ok(html("高病原性鳥インフルエンザの発生について", ["津山市の事例"], [[P1, "第1報"]]), CASE);
+    const { deps, f } = fake({ [URL1]: ok(html("畜産課", ["家畜の伝染病"]), URL1), [CASE]: caseOk, [P1]: pdf(P1) });
+    await checkPrefPage(prefSource(), deps);
+    f.pages[URL1] = ok(html("畜産課", ["家畜の伝染病"], [[CASE, "高病原性鳥インフルエンザの発生について（津山市）"]]), URL1);
+    await checkPrefPage(prefSource(), deps);
+    const before = (await stateOf()).followed;
+    expect(before).toHaveLength(1);
+    f.pages[CASE] = empty(CASE);
+    expect((await checkPrefPage(prefSource(), deps)).ok).toBe(true);
+    expect((await stateOf()).followed).toEqual(before);
+    const n = (await docsNow()).length;
+    f.pages[CASE] = caseOk; // 戻っても全部が新しいリンクにならない
+    f.calls.length = 0;
+    await checkPrefPage(prefSource(), deps);
+    expect(f.calls).not.toContain(P1);
+    expect((await docsNow()).length).toBe(n);
   });
 });
