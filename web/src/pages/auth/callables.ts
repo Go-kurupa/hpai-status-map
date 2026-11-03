@@ -1,4 +1,5 @@
 // 会員の画面から呼ぶ Cloud Functions（onCall）。lazy の chunk だけが import する。
+import type { NeighborAudience, NeighborDraftResult } from "@hpai/shared/drafts";
 import { httpsCallable } from "firebase/functions";
 import { getFirebase } from "../../firebase";
 
@@ -22,5 +23,17 @@ export async function deleteFarmDataCall(farmId: string, confirmName: string): P
 export async function createFarmInviteCall(farmId: string): Promise<{ code: string; url: string }> {
   const { functions } = await getFirebase();
   const res = await httpsCallable<{ farmId: string }, { code: string; url: string }>(functions, "createFarmInvite")({ farmId });
+  return res.data;
+}
+
+/** 近隣への説明文を下書きする。本人が入力した文と宛先の種類だけが Claude に渡る（会員だけ） */
+export async function draftNeighborExplainerCall(measures: string, audience: NeighborAudience): Promise<NeighborDraftResult> {
+  const { functions } = await getFirebase();
+  const res = await httpsCallable<{ measures: string; audience: NeighborAudience }, NeighborDraftResult>(
+    functions,
+    "draftNeighborExplainer",
+    // 既定は 70 秒。サーバーは Claude に最長 90 秒待つので、その後の雛形の返しまで待つ（途中で諦めると、サーバーだけ課金されて作り直しになる）
+    { timeout: 130_000 },
+  )({ measures, audience });
   return res.data;
 }

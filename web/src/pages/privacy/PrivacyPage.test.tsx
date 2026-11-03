@@ -88,13 +88,24 @@ describe("PRIVACY_NOTICE（文の正）", () => {
     expect(section).toContain(phrase);
   });
 
-  it("Claude に渡すものは、声かけ文の下書きの公開の事実だけと書き、実装のない近隣への説明文は書かない", () => {
+  it("Claude に渡すものを 2 つ書く: 声かけ文は公開の事実だけを自動で、近隣への説明文は本人が操作したときに入力した文を", () => {
     const place = PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs.join("\n");
     for (const w of ["声かけ文", "自動", "都道府県、市町村、日付、段階", "会員の農場名、位置、記録は渡しません"]) {
       expect(place, w).toContain(w);
     }
-    const all = PRIVACY_NOTICE.flatMap((s) => s.paragraphs).join("\n");
-    expect(all).not.toContain("近隣");
+    // 近隣への説明文（M-19）は実装した。本人が操作したときに、入力した文だけを渡す
+    const neighbor = PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs.find((p) => p.includes("近隣への説明文"));
+    expect(neighbor).toBeDefined();
+    for (const w of ["本人が操作したときに", "入力した文を Claude に渡します", "農場名、位置、記録、国の文は渡しません", "保存せず、ログにも残しません"]) {
+      expect(neighbor, w).toContain(w);
+    }
+    // 近隣への説明文は自動では渡さない（自動と書いたのは声かけ文の段落だけ）
+    expect(neighbor).not.toContain("自動");
+  });
+
+  it("近隣への説明文の入力は、画面にも出る", () => {
+    renderPage();
+    expect(pageText()).toContain("近隣への説明文の下書きでは、本人が操作したときに、入力した文を Claude に渡します");
   });
 
   it("選んだ町の保存の説明が、画面にも出る", () => {

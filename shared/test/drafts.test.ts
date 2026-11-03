@@ -1,7 +1,19 @@
 // M-18: 声かけ文の雛形と検査。説明文（M-19）の検査も同じ部品を通す。
 import { describe, expect, it } from "vitest";
 import type { Case } from "../src/types";
-import { checkNeighborText, checkWorkerMessage, dateNumbers, draftFactsOf, workerMessageTemplate } from "../src/drafts";
+import {
+  checkNeighborText,
+  checkWorkerMessage,
+  dateNumbers,
+  draftFactsOf,
+  NEIGHBOR_TOPICS,
+  neighborAllowedNumbers,
+  neighborOfficialPart,
+  neighborTemplate,
+  ownOutbreakNoticeTemplate,
+  workerMessageTemplate,
+} from "../src/drafts";
+import { OFFICIAL_GUIDANCE, type OfficialGuidance } from "../src/guidance/official";
 import { findForbiddenPhrases } from "../src/wording";
 
 const F = { muniName: "津山市", date: "2025-12-19", allowedNumbers: dateNumbers("2025-12-19") };
@@ -183,5 +195,70 @@ describe("draftFactsOf（下書きを作ってよい事例か）", () => {
   it("国の過去の資料（national）と運営者の確定（operator）は対象", () => {
     expect(draftFactsOf(mkCase({ confirmState: "national" }))).not.toBeNull();
     expect(draftFactsOf(mkCase({ confirmState: "operator" }))).not.toBeNull();
+  });
+});
+
+describe("近隣への説明文（M-19）の雛形と公式の部分", () => {
+  it("話題は approach、human_infection、food、burial、rumor の順", () => {
+    expect([...NEIGHBOR_TOPICS]).toEqual(["approach", "human_infection", "food", "burial", "rumor"]);
+  });
+
+  it("公式の部分は OFFICIAL_GUIDANCE の文を一字も変えずに、話題の順に並べる", () => {
+    const part = neighborOfficialPart();
+    const expected = NEIGHBOR_TOPICS.flatMap((t) => OFFICIAL_GUIDANCE.find((g) => g.topic === t)!.statements);
+    expect(part.map(({ text, sourceTitle, sourceUrl, checkedOn }) => ({ text, sourceTitle, sourceUrl, checkedOn }))).toEqual(expected);
+    // 死んだ鳥と数羽飼っている方は入れない
+    const excluded = ["dead_bird", "small_flock"].flatMap((t) => OFFICIAL_GUIDANCE.find((g) => g.topic === t)!.statements.map((x) => x.text));
+    for (const t of excluded) expect(part.map((x) => x.text)).not.toContain(t);
+  });
+
+  it("見出しが付く", () => {
+    expect(neighborOfficialPart()[0]!.heading).toBe("農場に近づかないでください");
+  });
+
+  it("人への感染は公式の文のまま（差し替えた公式の文が先頭に来る）", () => {
+    const fake: OfficialGuidance[] = [
+      {
+        topic: "human_infection",
+        heading: "人への感染",
+        statements: [{ text: "公式の文", sourceTitle: "題", sourceUrl: "https://example.test/a", checkedOn: "2026-11-04" }],
+      },
+    ];
+    expect(neighborOfficialPart(fake)[0]).toMatchObject({ text: "公式の文", sourceTitle: "題", sourceUrl: "https://example.test/a", checkedOn: "2026-11-04" });
+  });
+
+  it("許す数字は入力の数字だけ（全角の数字も同じ数字。重複は 1 つ）", () => {
+    expect(neighborAllowedNumbers("防鳥ネットは２重。見回りは 1 日3回、2回目は夕方")).toEqual(["2", "1", "3"]);
+    expect(neighborAllowedNumbers("数字はありません")).toEqual([]);
+  });
+
+  it("農場の雛形は入力の文をそのまま入れ、検査に通る（全角の数字でも）", () => {
+    const measures = "入口で長靴を履き替え、消毒しています。\n防鳥ネットは２重にしています。";
+    for (const a of ["meeting", "circular"] as const) {
+      const t = neighborTemplate(`  ${measures}  `, a);
+      expect(t).toContain(measures);
+      expect(checkNeighborText(t, neighborAllowedNumbers(measures))).toEqual({ ok: true, failures: [] });
+    }
+  });
+
+  it("回覧の雛形にだけ問い合わせ先の空欄がある", () => {
+    expect(neighborTemplate("消毒しています。", "circular")).toContain("問い合わせ先: （　");
+    expect(neighborTemplate("消毒しています。", "meeting")).not.toContain("問い合わせ先");
+  });
+
+  it("入力の文が煽る語を含めば、雛形も検査に落ちる（落ちた理由は呼び手が入力の問題として示す）", () => {
+    expect(checkNeighborText(neighborTemplate("安心してください。", "meeting"), []).failures).toContain("forbidden:安心");
+  });
+
+  it("発生時の雛形: 日付と疑い・確認の空欄、問い合わせ先の空欄、農場に近づかない。数字がなく、検査に通る", () => {
+    const t = ownOutbreakNoticeTemplate();
+    expect(t).toMatch(/（　+月　+日）/u);
+    expect(t).toContain("【疑い／発生の確認】");
+    expect(t).toMatch(/問い合わせ先: （　+）/u);
+    expect(t).toContain("農場には、近づかないでください");
+    expect(t).not.toContain("周りの道"); // 近所の方が暮らす道まで避けるよう頼まない
+    expect(t).not.toMatch(/\d/u);
+    expect(checkNeighborText(t, [])).toEqual({ ok: true, failures: [] });
+    expect(findForbiddenPhrases(t)).toEqual([]);
   });
 });

@@ -1,0 +1,38 @@
+/* 近隣への説明文。平面の単色だけ（陰影・ぼかしなし）。色は ui/theme.css の変数。 */
+.explainer-page {
+  max-width: 40rem;
+}
+.explainer-page section {
+  margin: 0 0 28px;
+}
+.explainer-text {
+  width: 100%;
+  min-height: 8rem;
+  padding: 8px 12px;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  line-height: 1.6;
+}
+.explainer-send-notice {
+  margin: 0;
+  padding: 8px 12px;
+  border: 2px solid var(--fg);
+  background: var(--soft);
+  font-weight: 700;
+}
+.explainer-quote {
+  margin: 8px 0;
+  padding: 4px 12px;
+  border-left: 4px solid var(--line);
+}
+.explainer-checklist {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.explainer-checklist li {
+  margin: 0 0 12px;
+}

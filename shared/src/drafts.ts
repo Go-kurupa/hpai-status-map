@@ -1,5 +1,6 @@
 // 声かけ文の雛形と検査（M-18、設計書 §7）。説明文（M-19）の検査も同じ部品を使う。純粋関数だけ。
 // 検査はすべて normalizeForMatch の後。語は ASCII ではなく日本語なので、正規化した語どうしで探す。
+import { OFFICIAL_GUIDANCE, type GuidanceTopic, type OfficialGuidance } from "./guidance/official";
 import { formatJaDate } from "./jaDate";
 import { normalizeForMatch } from "./text";
 import type { Case, IsoDate } from "./types";
@@ -91,4 +92,77 @@ export function checkWorkerMessage(text: string, f: { muniName: string; date: Is
 export function checkNeighborText(text: string, allowedNumbers: readonly string[]): CheckResult {
   const failures = commonFailures(normalizeForMatch(text), allowedNumbers);
   return { ok: failures.length === 0, failures };
+}
+
+// ---- 近隣への説明文（M-19、設計書 §11）。農場の対策の部分だけを Claude が下書きし、公式の部分は公式の文のまま。 ----
+
+export type NeighborAudience = "meeting" | "circular";
+
+/** 説明文に載せる公式の話題と順番。死んだ鳥と数羽飼っている方は、近隣への説明の話題ではないので入れない。 */
+export const NEIGHBOR_TOPICS = ["approach", "human_infection", "food", "burial", "rumor"] as const satisfies readonly GuidanceTopic[];
+
+export interface NeighborOfficialStatement {
+  text: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  checkedOn: IsoDate;
+  /** 話題の見出し（OFFICIAL_GUIDANCE の heading）。画面でまとまりを示すためだけに付ける */
+  heading: string;
+}
+
+export interface NeighborDraftResult {
+  /** 農場の対策の部分。Claude か雛形 */
+  farmPart: string;
+  /** OFFICIAL_GUIDANCE の文そのまま。Claude を通さない */
+  officialPart: NeighborOfficialStatement[];
+  source: "claude" | "template";
+  /** 雛形に戻した理由、入力の文の問題の符号。入力の文そのものは入れない */
+  failures: string[];
+}
+
+/** 公式の部分。NEIGHBOR_TOPICS の順に、文を一字も変えずに並べる。 */
+export function neighborOfficialPart(guidance: readonly OfficialGuidance[] = OFFICIAL_GUIDANCE): NeighborOfficialStatement[] {
+  const out: NeighborOfficialStatement[] = [];
+  for (const topic of NEIGHBOR_TOPICS) {
+    const g = guidance.find((x) => x.topic === topic);
+    if (!g) continue;
+    for (const s of g.statements) {
+      out.push({ text: s.text, sourceTitle: s.sourceTitle, sourceUrl: s.sourceUrl, checkedOn: s.checkedOn, heading: g.heading });
+    }
+  }
+  return out;
+}
+
+/** 入力の文に書いてある数字だけが、農場の対策の部分に書いてよい数字。検査と同じ正規化の後で数える（全角の数字も同じ数字）。 */
+export function neighborAllowedNumbers(measures: string): string[] {
+  return [...new Set(normalizeForMatch(measures).match(/\d+/gu) ?? [])];
+}
+
+/** 農場の対策の部分の雛形。本人が入れた文をそのまま入れる。 */
+export function neighborTemplate(measures: string, audience: NeighborAudience): string {
+  const m = measures.trim();
+  const head = "当農場では、鳥インフルエンザを持ち込まない、広げないために、次のことに取り組んでいます。";
+  return audience === "meeting"
+    ? `${head}\n${m}\nご不明な点は、この場でお尋ねください。`
+    : `${head}\n${m}\nご不明な点は、下記までご連絡ください。\n問い合わせ先: （　　　　　　　　）`;
+}
+
+/**
+ * 自分の農場で発生したときの、近隣への知らせの雛形。Claude を呼ばない固定の文。
+ * 日付、疑いか確認か、問い合わせ先は空欄で、本人が埋める。数字は書かない。
+ */
+export function ownOutbreakNoticeTemplate(): string {
+  return [
+    "近隣の皆さまへ",
+    "",
+    "（　　月　　日）、当農場の鶏について、鳥インフルエンザの【疑い／発生の確認】がありました。現在、家畜保健衛生所や県の指示に従って、防疫の作業を進めています。",
+    "",
+    "皆さまにお願いがあります。",
+    "・農場には、近づかないでください。見に来ること、写真や動画を撮ること、敷地に入ることは、ご遠慮ください。人や車がウイルスを運んでしまうおそれがあり、防疫の作業の妨げにもなります。",
+    "・根拠のない噂が広がらないよう、ご協力をお願いします。",
+    "",
+    "今後のことは、わかり次第お知らせします。",
+    "",
+    "問い合わせ先: （　　　　　　　　）",
+  ].join("\n");
 }
