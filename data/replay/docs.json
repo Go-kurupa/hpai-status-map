@@ -1,0 +1,151 @@
+{
+  "docs": [
+    {
+      "id": "tsuyama-suspected",
+      "title": "第２回岡山県高病原性鳥インフルエンザ対策本部会議資料（令和7年12月19日）",
+      "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
+      "contentType": "pdf",
+      "sourcePrefCode": "33",
+      "announcedOn": "2025-12-19",
+      "eventOrder": 4,
+      "expect": {
+        "kind": "suspected",
+        "muniCode": "33203",
+        "primaryStage": "suspected",
+        "primaryDate": "2025-12-19"
+      }
+    },
+    {
+      "id": "tsuyama-confirmed",
+      "title": "高病原性鳥インフルエンザが疑われる事例に係る遺伝子検査の結果及び今後の対応について（令和7年12月20日）",
+      "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf",
+      "contentType": "pdf",
+      "sourcePrefCode": "33",
+      "announcedOn": "2025-12-20",
+      "eventOrder": 5,
+      "expect": {
+        "kind": "confirmed",
+        "muniCode": "33203",
+        "primaryStage": "confirmed",
+        "primaryDate": "2025-12-20"
+      }
+    },
+    {
+      "id": "tsuyama-progress",
+      "title": "高病原性鳥インフルエンザの疑似患畜に係る防疫措置状況（第２報、令和7年12月20日15時現在）",
+      "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970441_misc.pdf",
+      "contentType": "pdf",
+      "sourcePrefCode": "33",
+      "announcedOn": "2025-12-20",
+      "eventOrder": null,
+      "expect": {
+        "kind": "progress",
+        "muniCode": "33203",
+        "primaryStage": null,
+        "primaryDate": null
+      }
+    },
+    {
+      "id": "tsuyama-control-done",
+      "title": "高病原性鳥インフルエンザに係る防疫措置状況 （特報、発生農場の防疫措置完了）",
+      "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970459_misc.pdf",
+      "contentType": "pdf",
+      "sourcePrefCode": "33",
+      "announcedOn": "2025-12-30",
+      "eventOrder": 8,
+      "expect": {
+        "kind": "control_done",
+        "muniCode": "33203",
+        "primaryStage": "control_done",
+        "primaryDate": "2025-12-30"
+      }
+    },
+    {
+      "id": "tsuyama-shipment-lifted",
+      "title": "高病原性鳥インフルエンザ発生に係る搬出制限区域を解除しました（令和８年１月10日15時）",
+      "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970460_misc.pdf",
+      "contentType": "pdf",
+      "sourcePrefCode": "33",
+      "announcedOn": "2026-01-10",
+      "eventOrder": 11,
+      "expect": {
+        "kind": "zone_lifted",
+        "muniCode": "33203",
+        "primaryStage": "shipment_lifted",
+        "primaryDate": "2026-01-10"
+      }
+    },
+    {
+      "id": "tsuyama-movement-lifted",
+      "title": "岡山県津山市で発生した高病原性鳥インフルエンザ（国内8例目）に係る移動制限の解除について",
+      "url": "https://www.maff.go.jp/j/press/syouan/douei/260121_1.html",
+      "contentType": "html",
+      "sourcePrefCode": null,
+      "announcedOn": "2026-01-21",
+      "eventOrder": 13,
+      "expect": {
+        "kind": "zone_lifted",
+        "muniCode": "33203",
+        "primaryStage": "movement_lifted",
+        "primaryDate": "2026-01-21"
+      }
+    },
+    {
+      "id": "yonago-confirmed",
+      "title": "鳥取県における高病原性鳥インフルエンザの疑似患畜の確認（国内6例目）及び「農林水産省鳥インフルエンザ防疫対策本部」の持ち回り開催について",
+      "url": "https://www.maff.go.jp/j/press/syouan/douei/251201.html",
+      "contentType": "html",
+      "sourcePrefCode": null,
+      "announcedOn": "2025-12-02",
+      "eventOrder": 1,
+      "expect": {
+        "kind": "confirmed",
+        "muniCode": "31202",
+        "primaryStage": "confirmed",
+        "primaryDate": "2025-12-02"
+      }
+    },
+    {
+      "id": "himeji-confirmed",
+      "title": "兵庫県における高病原性鳥インフルエンザの疑似患畜の確認（国内7例目）及び「農林水産省鳥インフルエンザ防疫対策本部」の持ち回り開催について",
+      "url": "https://www.maff.go.jp/j/press/syouan/douei/251216.html",
+      "contentType": "html",
+      "sourcePrefCode": null,
+      "announcedOn": "2025-12-16",
+      "eventOrder": 2,
+      "expect": {
+        "kind": "confirmed",
+        "muniCode": "28201",
+        "primaryStage": "confirmed",
+        "primaryDate": "2025-12-16"
+      }
+    },
+    {
+      "id": "kameoka-confirmed",
+      "title": "京都府における高病原性鳥インフルエンザの疑似患畜の確認（国内9例目）及び「農林水産省鳥インフルエンザ防疫対策本部」の持ち回り開催について",
+      "url": "https://www.maff.go.jp/j/press/syouan/douei/251224.html",
+      "contentType": "html",
+      "sourcePrefCode": null,
+      "announcedOn": "2025-12-24",
+      "eventOrder": 6,
+      "expect": {
+        "kind": "confirmed",
+        "muniCode": "26206",
+        "primaryStage": "confirmed",
+        "primaryDate": "2025-12-24"
+      }
+    },
+    {
+      "id": "himeji-city-page",
+      "title": "姫路市で発生した鳥インフルエンザに関する情報",
+      "url": "https://www.city.himeji.lg.jp/kurashi/0000019291.html",
+      "contentType": "html",
+      "sourcePrefCode": null,
+      "announcedOn": null,
+      "eventOrder": null,
+      "expect": {
+        "muniCode": "28201"
+      }
+    }
+  ]
+}

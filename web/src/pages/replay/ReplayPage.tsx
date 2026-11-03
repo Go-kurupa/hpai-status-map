@@ -3,6 +3,7 @@
 import { eventStage, type ReplayScenario } from "@hpai/shared/replay";
 import type { FarmPoint } from "@hpai/shared/types";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Link } from "react-router";
 import { fetchHistory } from "../../data/history";
 import { loadSpot } from "../../data/spot";
 import MapPage from "../map/MapPage";
@@ -92,6 +93,9 @@ function ReplayControls({
   return (
     <div className="replay-controls">
       <h1 className="replay-heading">去年の再現（2025 年シーズンの発生状況）</h1>
+      <p className="replay-hint">
+        <Link to="/replay/backstage">舞台裏（AI が読んだ結果と、プログラムの検査）を見る</Link>
+      </p>
       <div role="group" aria-label="見る場所" className="replay-switch">
         <button type="button" className="btn" aria-pressed={view === "zone"} onClick={() => onView("zone")}>
           もし区域の近くの農場なら

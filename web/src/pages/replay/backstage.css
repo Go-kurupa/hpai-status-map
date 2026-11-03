@@ -1,0 +1,42 @@
+/* 舞台裏の画面。平面の単色だけ（陰影・ぼかしは使わない） */
+.backstage-title {
+  font-size: 1.3rem;
+  margin: 0 0 4px;
+}
+.backstage-section {
+  margin: 0 0 16px;
+}
+.backstage-section > h2 {
+  font-size: 1.15rem;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 4px;
+  margin: 16px 0 8px;
+}
+.backstage-entry {
+  border: 1px solid var(--line);
+  padding: 8px var(--gutter);
+  margin: 0 0 8px;
+}
+.backstage-entry h3 {
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+.backstage-entry table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+  display: block;
+  overflow-x: auto;
+}
+.backstage-entry th,
+.backstage-entry td {
+  border: 1px solid var(--line);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.backstage-unmeasured {
+  border: 2px dashed var(--muted);
+  padding: 8px var(--gutter);
+  margin: 0 0 8px;
+}
