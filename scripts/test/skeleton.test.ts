@@ -44,10 +44,10 @@ describe("ルートの設定", () => {
     const { scripts } = readJson("package.json");
     expect(scripts.test).toBe("vitest run --project shared --project functions --project web --project scripts");
     expect(scripts["test:rules"]).toBe(
-      'firebase emulators:exec --only firestore,auth --project demo-hpai "vitest run --project rules"',
+      'flock /tmp/hpai-emulators.lock firebase emulators:exec --only firestore,auth --project demo-hpai "vitest run --project rules"',
     );
     expect(scripts["test:emul"]).toBe(
-      'firebase emulators:exec --only firestore,auth,storage --project demo-hpai "vitest run --project functions-emul"',
+      'flock /tmp/hpai-emulators.lock firebase emulators:exec --only firestore,auth,storage --project demo-hpai "vitest run --project functions-emul"',
     );
     expect(scripts.typecheck).toContain("typecheck");
     const build: string = scripts.build;
