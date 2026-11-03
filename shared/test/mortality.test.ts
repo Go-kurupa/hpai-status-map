@@ -181,7 +181,7 @@ describe("computeMortality: 判定", () => {
     expect(r.todayRate).toBeGreaterThanOrEqual(2 * 0.001 - 1e-12);
   });
 
-  it("索引 Q1: 日別の率の平均（羽数の違う鶏舎の取り違え）", () => {
+  it("索引 Q1: 日別の率の平均にする（羽数が途中で変わると、合計÷羽数日の読みとは判定が分かれる）", () => {
     const days: MortalityDay[] = [day(0, 15, 500)];
     for (let i = 1; i <= 10; i++) days.push(day(-i, 10, 1000));
     for (let i = 11; i <= 20; i++) days.push(day(-i, 10, 500));
@@ -205,7 +205,7 @@ describe("computeMortality: 判定", () => {
     expect(r.hit).toBe(false);
   });
 
-  it("羽数が日によって違っても、当日の率は当日の羽数で出す", () => {
+  it("当日の率は、当日の死亡数÷当日の羽数で出す", () => {
     const r = evaluated(computeMortality(series(0, 5, 500), TODAY));
     expect(r.todayRate).toBeCloseTo(0.01, 12);
   });
@@ -277,6 +277,64 @@ describe("computeMortality: 入力の誤り（黙って当たらない扱いに�
     days.push(day(-21, 1, 1000));
     days[6] = day(-6, Number.NaN, 1000, "equipment");
     expect(computeMortality(days, TODAY).status).toBe("evaluated");
+  });
+
+  it("当日が知らない除外の種類（\"foo\"）なら、500 羽でも today_excluded にせず invalid_input", () => {
+    const days = series(1, 1);
+    days[0] = { date: TODAY, deaths: 5, flockSize: 500, exclusion: "foo" as unknown as ExclusionKind };
+    expect(computeMortality(days, TODAY)).toEqual({ status: "invalid_input", dates: [TODAY] });
+  });
+
+  it.each<[string, unknown]>([
+    ["空文字", ""],
+    ["undefined", undefined],
+    ["知らない語", "foo"],
+    ["文字列のオブジェクト", { kind: "equipment" }],
+  ])("窓の中の除外の種類が %s なら、黙って平均から抜かず invalid_input", (_name, value) => {
+    const days = series(1, 1);
+    days[5] = { date: addDays(TODAY, -5), deaths: 1, flockSize: 1000, exclusion: value as ExclusionKind };
+    expect(computeMortality(days, TODAY)).toEqual({ status: "invalid_input", dates: [addDays(TODAY, -5)] });
+  });
+
+  it("当日の除外の種類が undefined でも invalid_input", () => {
+    const days = series(1, 1);
+    days[0] = { date: TODAY, deaths: 1, flockSize: 1000, exclusion: undefined as unknown as ExclusionKind };
+    expect(computeMortality(days, TODAY)).toEqual({ status: "invalid_input", dates: [TODAY] });
+  });
+
+  it("除外が文字列のまま保存された記録は、toMortalityDays を通しても invalid_input", () => {
+    const records: DeathRecord[] = [];
+    for (let i = 20; i >= 0; i--) {
+      records.push({ date: addDays(TODAY, -i), houseId: "h1", deaths: 1, flockSizeAt: 1000, exclusion: null });
+    }
+    const broken = records[10] as DeathRecord;
+    records[10] = { ...broken, exclusion: "equipment" as unknown as DeathRecord["exclusion"] };
+    expect(computeMortality(toMortalityDays(records), TODAY)).toEqual({
+      status: "invalid_input",
+      dates: [broken.date],
+    });
+  });
+
+  it("6 種類の除外はすべて通る（invalid にならない）", () => {
+    for (const kind of ["disease", "equipment", "temperature", "disaster", "empty", "other"] as const) {
+      const days = series(1, 1);
+      days.push(day(-21, 1));
+      days[5] = day(-5, 1, 1000, kind);
+      expect(computeMortality(days, TODAY).status).toBe("evaluated");
+    }
+  });
+
+  it("当日のつもりの記録が不正な形だけなら、no_record でなく invalid_input", () => {
+    const days = [{ date: "2026/01/31", deaths: 500, flockSize: 1000, exclusion: null }];
+    expect(computeMortality(days, TODAY)).toEqual({ status: "invalid_input", dates: ["2026/01/31"] });
+  });
+
+  it("不正な形の日付は、当日の除外より先に返す", () => {
+    const days = [
+      { date: TODAY, deaths: 1, flockSize: 1000, exclusion: "equipment" as ExclusionKind },
+      { date: "20260130", deaths: 1, flockSize: 1000, exclusion: null },
+    ];
+    expect(computeMortality(days, TODAY)).toEqual({ status: "invalid_input", dates: ["20260130"] });
   });
 
   it("同じ日が 2 件あれば invalid_input（どちらを使うか決めない）", () => {

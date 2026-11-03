@@ -8,7 +8,20 @@ const WINDOW_DAYS = 21;
 /** 浮動小数点の誤差。ちょうど 2 倍の例（過去 19 羽、当日 40 羽）を当たりにする。 */
 const EPSILON = 1e-12;
 
-/** 1 つの鶏舎の 1 日分。複数の鶏舎を混ぜて渡さない（同じ日が 2 件あれば invalid_input）。 */
+/** 除外の種類の集合。これ以外（"foo"、""、undefined）は黙って飛ばさず invalid_input にする。 */
+const EXCLUSION_KINDS: ReadonlySet<unknown> = new Set<ExclusionKind>([
+  "disease",
+  "equipment",
+  "temperature",
+  "disaster",
+  "empty",
+  "other",
+]);
+
+/**
+ * 1 つの鶏舎の 1 日分。呼ぶ側が houseId で分けてから渡す（鶏舎を混ぜて同じ日が 2 件あれば invalid_input）。
+ * 型を外れた実行時の値（除外の種類が 6 つ以外、日付の形が違うなど）は invalid_input になる。
+ */
 export interface MortalityDay {
   date: IsoDate;
   deaths: number;
@@ -20,7 +33,9 @@ export type MortalityResult =
   | { status: "insufficient"; validDays: number; needed: 21 }
   | { status: "today_excluded"; kind: ExclusionKind }
   | { status: "no_record" }
-  | { status: "invalid_input"; dates: IsoDate[] } // NaN、負の数、小数、羽数を超える値の日
+  // 計算に使えない入力の日。NaN、負の数、小数、羽数を超える値、羽数そのものの誤り、同じ日が 2 件、
+  // 除外の種類が 6 つ以外、日付の形が違う（その場合は入力の文字列がそのまま入る）。黙って当たらない扱いにしない
+  | { status: "invalid_input"; dates: IsoDate[] }
   | {
       status: "evaluated";
       todayRate: number;
@@ -40,6 +55,10 @@ function isIsoDate(value: unknown): value is IsoDate {
   } catch {
     return false;
   }
+}
+
+function isExclusionOk(value: unknown): boolean {
+  return value === null || EXCLUSION_KINDS.has(value);
 }
 
 function isCount(value: unknown): value is number {
@@ -72,10 +91,14 @@ export function computeMortality(days: readonly MortalityDay[], today: IsoDate):
     else byDate.set(d.date, [d]);
   }
 
+  // 形の不正な日付は、どの日の記録か分からない。当日のつもりかもしれないので、先に返す
+  if (malformedDates.length > 0) return { status: "invalid_input", dates: malformedDates };
+
   const todayRecords = byDate.get(today);
   const todayDay = todayRecords?.[0];
   if (!todayRecords || !todayDay) return { status: "no_record" };
   if (todayRecords.length > 1) return { status: "invalid_input", dates: [today] };
+  if (!isExclusionOk(todayDay.exclusion)) return { status: "invalid_input", dates: [today] };
   if (todayDay.exclusion !== null) return { status: "today_excluded", kind: todayDay.exclusion };
   if (isValidDay(todayDay) && todayDay.flockSize === 0) return { status: "today_excluded", kind: "empty" };
 
@@ -89,6 +112,10 @@ export function computeMortality(days: readonly MortalityDay[], today: IsoDate):
       invalidDates.push(date);
       continue;
     }
+    if (!isExclusionOk(d.exclusion)) {
+      invalidDates.push(date); // 知らない種類を除外として黙って飛ばさない
+      continue;
+    }
     if (d.exclusion !== null) continue; // 特段の事情の日。値は計算に使わない
     if (!isValidDay(d)) {
       invalidDates.push(date); // 羽数 0 の判定より先に検証する（NaN を空舎として黙って飛ばさない）
@@ -99,8 +126,7 @@ export function computeMortality(days: readonly MortalityDay[], today: IsoDate):
     if (window.length === WINDOW_DAYS) break;
   }
 
-  const invalid = [...invalidDates, ...malformedDates];
-  if (invalid.length > 0) return { status: "invalid_input", dates: invalid };
+  if (invalidDates.length > 0) return { status: "invalid_input", dates: invalidDates };
   if (window.length < WINDOW_DAYS) return { status: "insufficient", validDays: window.length, needed: WINDOW_DAYS };
 
   const rates = window.map((d) => d.deaths / d.flockSize);
@@ -118,14 +144,18 @@ export function computeMortality(days: readonly MortalityDay[], today: IsoDate):
   return { status: "evaluated", todayRate, averageRate, hit, windowDates, skippedMissingDates };
 }
 
-/** 記録から計算の入力へ。flockSizeAt と除外の種類を写し、日付順（古い順）にする。入力は書き換えない。 */
+/**
+ * 記録から計算の入力へ。flockSizeAt と除外の種類を写し、日付順（古い順）にする。入力は書き換えない。
+ * 除外が null でなく kind も読めない記録（文字列のまま保存されたなど）は、null に直さず undefined のまま
+ * 渡し、computeMortality が invalid_input にする。鶏舎で分けるのは呼ぶ側。
+ */
 export function toMortalityDays(records: readonly DeathRecord[]): MortalityDay[] {
   return records
     .map((r) => ({
       date: r.date,
       deaths: r.deaths,
       flockSize: r.flockSizeAt,
-      exclusion: r.exclusion?.kind ?? null,
+      exclusion: r.exclusion === null ? null : (r.exclusion?.kind as ExclusionKind),
     }))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
