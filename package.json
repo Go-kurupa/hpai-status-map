@@ -8,8 +8,8 @@
   "workspaces": ["shared", "web", "functions", "evals", "scripts"],
   "scripts": {
     "test": "vitest run --project shared --project functions --project web --project scripts",
-    "test:rules": "firebase emulators:exec --only firestore,auth --project demo-hpai \"vitest run --project rules\"",
-    "test:emul": "firebase emulators:exec --only firestore,auth,storage --project demo-hpai \"vitest run --project functions-emul\"",
+    "test:rules": "flock /tmp/hpai-emulators.lock firebase emulators:exec --only firestore,auth --project demo-hpai \"vitest run --project rules\"",
+    "test:emul": "flock /tmp/hpai-emulators.lock firebase emulators:exec --only firestore,auth,storage --project demo-hpai \"vitest run --project functions-emul\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "tsx scripts/copy-web-data.ts && npm run build -w web && npm run bundle -w functions"
   },
