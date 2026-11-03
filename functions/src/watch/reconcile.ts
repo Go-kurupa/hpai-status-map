@@ -1,0 +1,401 @@
+// 国との突き合わせ（I-18、設計書 §9.7）。6 時間ごとに、国の報道発表の一覧と作品の事例を比べ、取りこぼしと食い違いを運営者の箱に入れる。
+// 順: 国の一覧を取得 → 本文を読んだことのない発表だけ取得して事実を控える → 欠けた確定を国の情報で載せる → 解除の再適用 → 国にない確定
+//    → 疑いのまま止まった事例 → 見回り全体の停止 → reading の取り残し。メールは reconcileAndNotify が最後に送る。
+// 直さない原則: 否定された事例と国の確定の食い違いは自動で直さず、運営者の確認に回す。事例は消さない。
+import { logger } from "firebase-functions";
+import { displayStage, isStalledSuspect } from "@hpai/shared/cases";
+import { diffDays } from "@hpai/shared/dates";
+import { filterMaffItems, maffPressUrl } from "@hpai/shared/read/maff";
+import {
+  appOnlyConfirmed,
+  liftGaps,
+  missingNationalNos,
+  nationalConfirmedNos,
+  nationalListUrls,
+  parseNationalFact,
+  type NationalFact,
+  type NationalLiftFact,
+} from "@hpai/shared/read/reconcile";
+import { hasOutbreakWords } from "@hpai/shared/read/publish";
+import type { DocumentRecord } from "@hpai/shared/read/types";
+import { currentSeason, seasonOf } from "@hpai/shared/season";
+import { normalizeForMatch } from "@hpai/shared/text";
+import type { Case, PrefCode, Source, WatchStatus } from "@hpai/shared/types";
+import { PREFS } from "@hpai/shared/pref";
+import { bucket, db } from "../admin";
+import { notifyOperator, type NotifyDeps } from "../review/notifyOperator";
+import { enqueueReview, reviewAlertId, reviewDocumentId, type NewReviewItem } from "../review/queue";
+import type { WatchDeps } from "./deps";
+import { decodeBody, extractHtml } from "./extract";
+import { allowMaff, applyNationalConfirmed, applyNationalLift } from "./maff";
+import { missingItemOf } from "./record";
+import { watchFailingItem } from "./status";
+
+/** 1 回の実行で本文を取得する上限（初回は国の発表が 70 本近い。残りは次の回に回し、その回は国にない確定を比べない）。 */
+export const MAX_FACT_FETCHES = 80;
+/** 見回り全体が止まったとみなす、確認の古さ。 */
+export const STALE_CHECK_MS = 24 * 60 * 60 * 1000;
+/** reading のまま取り残された文書とみなす時間（読み取りの上限は 540 秒）。 */
+export const READING_STUCK_MS = 30 * 60 * 1000;
+
+const FACTS_PATH = "state/maff/national-facts.json";
+
+// ── 控えた国の事実（Storage の state/maff/national-facts.json） ──
+// 発表の URL → 本文から読んだ事実。national-index.json（見回りが書く）とは別のファイルにする
+// （見回りが index を保存し直すときに消されない。この関数だけが書く）。
+
+interface FactsFile {
+  facts: Record<string, NationalFact>;
+}
+
+async function loadFacts(): Promise<Record<string, NationalFact>> {
+  const file = bucket().file(FACTS_PATH);
+  const [exists] = await file.exists();
+  if (!exists) return {};
+  try {
+    const parsed = JSON.parse((await file.download())[0].toString("utf8")) as Partial<FactsFile>;
+    return typeof parsed.facts === "object" && parsed.facts !== null ? parsed.facts : {};
+  } catch {
+    return {}; // 壊れていたら読み直す（本文をもう一度取るだけ）
+  }
+}
+
+async function saveFacts(facts: Record<string, NationalFact>): Promise<void> {
+  await bucket().file(FACTS_PATH).save(JSON.stringify({ facts } satisfies FactsFile), { contentType: "application/json", resumable: false });
+}
+
+// ── 国の一覧の取得 ──
+
+interface Listing {
+  /** 全部の一覧を取得できた（1 つでも失敗したら false。その回は比べない）。 */
+  ok: boolean;
+  items: ReturnType<typeof filterMaffItems>;
+}
+
+const errMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+/** 報道発表の個別のページへのリンクか（一覧の index.html は除く）。 */
+const isPressArticle = (href: string): boolean => {
+  const url = maffPressUrl(href);
+  return url !== null && !new URL(url).pathname.endsWith("/index.html");
+};
+
+async function fetchLists(deps: WatchDeps): Promise<Listing> {
+  const items: Listing["items"] = [];
+  const seen = new Set<string>();
+  for (const url of nationalListUrls(deps.now())) {
+    const o = await deps.fetch(url, { allowUrl: allowMaff });
+    if (o.kind !== "ok") {
+      logger.warn("国の一覧を取得できないので、今回は比べません", { url, kind: o.kind });
+      return { ok: false, items: [] };
+    }
+    const page = extractHtml(decodeBody(o.body, o.contentType), o.finalUrl);
+    // 200 でも発表のリンクが 1 本もなければ「発表なし」ではなく別物のページ（メンテナンスなど）。比べると全部が「国にない」になる
+    if (!page.links.some((l) => isPressArticle(l.href))) {
+      logger.warn("国の一覧が想定と違うので、今回は比べません", { url });
+      return { ok: false, items: [] };
+    }
+    for (const item of filterMaffItems(page.links)) {
+      if (seen.has(item.url)) continue;
+      seen.add(item.url);
+      items.push(item);
+    }
+  }
+  return { ok: true, items };
+}
+
+// ── 比べる ──
+
+const readCases = async (season: number): Promise<Case[]> => (await db.collection("cases").where("season", "==", season).get()).docs.map((d) => d.data() as Case);
+
+const REASON_LABEL: Record<string, string> = {
+  muni_not_found: "市町村を地図の区画から見つけられません",
+  ambiguous_case: "同じ事例の候補を決められません",
+  number_conflict: "同じ番号の事例が別の市町村にあります",
+};
+
+/** 事例の最初の日付が、日付から 7 日以内か（matchCase と同じ幅）。 */
+function startsNear(c: Case, date: string): boolean {
+  const dates = Object.values(c.stages).map((x) => x.date);
+  return dates.length > 0 && Math.abs(diffDays(dates.sort()[0]!, date)) <= 7;
+}
+
+const describeConfirmed = (f: Extract<NationalFact, { type: "confirmed" }>): string => `国の発表（${f.date}、${f.muniName}、国内${f.nationalNo}例目）`;
+
+/** 国の確定が作品にない（national_missing）。id は季節と番号で 1 件だけ。 */
+function confirmedMissingItem(f: Extract<NationalFact, { type: "confirmed" }>, message: string, caseId: string | null): NewReviewItem {
+  return {
+    id: reviewAlertId("national_missing", `confirmed-${seasonOf(f.date)}-${f.nationalNo}`),
+    kind: "alert",
+    alert: "national_missing",
+    prefCode: f.prefCode,
+    caseId,
+    message: `${message} ${f.url}`,
+  };
+}
+
+export interface ReconcileReport {
+  /** 国の一覧を全部取得できて、比べた。 */
+  compared: boolean;
+  /** 国にない確定を比べた（本文の控えが揃っていた）。 */
+  comparedAppOnly: boolean;
+  factsFetched: number;
+  appliedConfirmed: number[];
+  reappliedLifts: string[];
+  queued: number;
+  stuckReading: string[];
+}
+
+/** 見回り全体が止まったか。確認の時刻が読めない、24 時間より古い、未来、のどれか。 */
+export function isWatchStale(s: Pick<WatchStatus, "checkedAt">, now: Date): boolean {
+  if (s.checkedAt === null) return true;
+  const t = Date.parse(s.checkedAt);
+  return !Number.isFinite(t) || t > now.getTime() || now.getTime() - t > STALE_CHECK_MS;
+}
+
+/**
+ * 見回り全体の停止の知らせ。id は I-02 の watchFailingItem に合わせる（同じ失敗の期間は 1 件だけ）。
+ * 失敗の最初の時刻が分かれば（failingSince）そのまま、なければ最後の確認の時刻（checkedAt、lastOkAt）から。
+ * どれもなければ（見回りが一度も動いていない）県ごとに固定の id。now は id に使わない（6 時間ごとに増えない）。
+ */
+export function stalledWatchItem(s: WatchStatus, now: Date): NewReviewItem {
+  const since = s.failingSince ?? s.checkedAt ?? s.lastOkAt;
+  if (since !== null) {
+    const item = watchFailingItem({ ...s, ok: false, failingSince: since }, now);
+    if (item !== null) return item;
+  }
+  const name = PREFS.find((p) => p.code === s.prefCode)?.name ?? s.prefCode;
+  return {
+    id: reviewAlertId("watch_failing", `${s.prefCode}-none`),
+    kind: "alert",
+    alert: "watch_failing",
+    prefCode: s.prefCode,
+    caseId: null,
+    message: `${name}の見回りの記録がありません。見回りが一度も動いていない可能性があります。入口の設定と見回りの動作を確かめてください。`,
+  };
+}
+
+/** reading の取り残しの箱の項目。 */
+function stuckReadingItem(rec: DocumentRecord): NewReviewItem {
+  return {
+    id: reviewDocumentId(rec.id),
+    kind: "document",
+    documentId: rec.id,
+    url: rec.url,
+    prefCode: rec.prefCode,
+    title: rec.title,
+    reasons: ["reading_stalled"],
+    hasOutbreakWords: hasOutbreakWords(rec.title),
+  };
+}
+
+/**
+ * 突き合わせの本体。途中の段が失敗しても残りは続け、最後にまとめて throw する（失敗を黙って捨てない）。
+ * 国の一覧が 1 つでも取得できなければ、国との比較は全部飛ばす（疑いのまま止まった事例、見回りの停止、reading の取り残しは行う）。
+ */
+export async function runReconcile(deps: WatchDeps): Promise<ReconcileReport> {
+  const now = deps.now();
+  const season = currentSeason(now);
+  const errors: unknown[] = [];
+  const report: ReconcileReport = { compared: false, comparedAppOnly: false, factsFetched: 0, appliedConfirmed: [], reappliedLifts: [], queued: 0, stuckReading: [] };
+
+  const enqueue = async (item: NewReviewItem): Promise<void> => {
+    try {
+      if (await enqueueReview(item, now)) report.queued += 1;
+    } catch (e) {
+      errors.push(e);
+      logger.error("運営者の箱に入れられませんでした", { id: item.id, message: errMessage(e) });
+    }
+  };
+  const step = async (name: string, fn: () => Promise<void>): Promise<void> => {
+    try {
+      await fn();
+    } catch (e) {
+      errors.push(e);
+      logger.error("突き合わせの段が失敗しました", { step: name, message: errMessage(e) });
+    }
+  };
+
+  // 1. 国との比較
+  await step("国との比較", () => compareWithNational(deps, season, now, report, enqueue));
+
+  // 2. 疑いのまま止まった事例（3 日。事例は消さない）
+  await step("止まった事例", async () => {
+    for (const c of await readCases(season)) {
+      if (c.confirmState === "reviewing" || !isStalledSuspect(c, now)) continue;
+      const days = displayStage(c, now).stalledDays;
+      await enqueue({
+        id: reviewAlertId("case_stalled", c.id),
+        kind: "alert",
+        alert: "case_stalled",
+        prefCode: c.prefCode,
+        caseId: c.id,
+        message: `${c.muniName ?? c.prefCode}の疑い（${c.stages.suspected?.date ?? "日付不明"}）から${days ?? 3}日以上、確定などの続報がありません。県の発表を確かめてください。事例は消していません。`,
+      });
+    }
+  });
+
+  // 3. 見回り全体の停止（watchTick が動かず、県の確認が 24 時間より古い）
+  await step("見回りの停止", async () => {
+    const [sources, statuses] = await Promise.all([
+      db.collection("sources").get().then((s) => s.docs.map((d) => d.data() as Source)),
+      db.collection("watchStatus").get().then((s) => s.docs.map((d) => d.data() as WatchStatus)),
+    ]);
+    const byPref = new Map(statuses.map((s) => [s.prefCode, s]));
+    // 有効な入口が 1 つもない県は、見回りの失敗ではない（I-02 の recordTick と同じ扱い）
+    const watched = new Set(sources.filter((s) => s.enabled && s.prefCode !== null).map((s) => s.prefCode as PrefCode));
+    for (const prefCode of [...watched].sort()) {
+      const s: WatchStatus = byPref.get(prefCode) ?? { prefCode, checkedAt: null, ok: false, lastOkAt: null, failingSince: null };
+      if (isWatchStale(s, now)) await enqueue(stalledWatchItem(s, now));
+    }
+  });
+
+  // 4. reading のまま取り残された文書（540 秒の打ち切りなどで、retry:false のため誰も拾わない）
+  await step("reading の取り残し", async () => {
+    const snap = await db.collection("documents").where("readState", "==", "reading").get();
+    for (const d of snap.docs) {
+      if (now.getTime() - d.updateTime.toDate().getTime() < READING_STUCK_MS) continue;
+      const rec = d.data() as DocumentRecord;
+      // 箱に入れてから文書の状態を変える（逆だと、箱に入れる前に失敗したとき、文書が誰にも見られなくなる）
+      await enqueue(stuckReadingItem(rec));
+      const moved = await db.runTransaction(async (tx) => {
+        const cur = await tx.get(d.ref);
+        if (cur.data()?.readState !== "reading" || now.getTime() - cur.updateTime!.toDate().getTime() < READING_STUCK_MS) return false;
+        tx.update(d.ref, { readState: "review_private", error: "reading_stalled", reasons: ["reading_stalled"] });
+        return true;
+      });
+      if (moved) report.stuckReading.push(rec.id);
+    }
+  });
+
+  if (errors.length > 0) throw new AggregateError(errors, "国との突き合わせに失敗した段があります");
+  return report;
+}
+
+async function compareWithNational(
+  deps: WatchDeps,
+  season: number,
+  now: Date,
+  report: ReconcileReport,
+  enqueue: (item: NewReviewItem) => Promise<void>,
+): Promise<void> {
+  const listing = await fetchLists(deps);
+  if (!listing.ok) return;
+  report.compared = true;
+
+  // 本文を読んだことのない発表だけ取得して、事実を控える
+  const facts = await loadFacts();
+  let complete = true;
+  let changed = false;
+  for (const item of listing.items) {
+    if (facts[item.url] !== undefined) continue;
+    if (report.factsFetched >= MAX_FACT_FETCHES) {
+      complete = false;
+      break;
+    }
+    report.factsFetched += 1;
+    const o = await deps.fetch(item.url, { allowUrl: allowMaff });
+    // 番号の集合を狂わせるのは確定の発表だけ（解除は番号の集合に入らない）。解除の発表が読めなくても、国にない確定の比較は続ける
+    if (o.kind !== "ok") {
+      if (item.type === "confirmed") complete = false;
+      logger.warn("国の発表の本文を取得できません", { url: item.url, kind: o.kind });
+      continue;
+    }
+    const fact = parseNationalFact(item, extractHtml(decodeBody(o.body, o.contentType), o.finalUrl).text);
+    if (fact === null) {
+      if (item.type === "confirmed") complete = false; // 読めない確定の発表。番号が分からないので、国にない確定の比較は今回しない（見回りが文書にして人に回す）
+      logger.warn("国の発表の定型文を読めません", { url: item.url });
+      continue;
+    }
+    facts[item.url] = fact;
+    changed = true;
+  }
+  if (changed) await saveFacts(facts);
+
+  const all = Object.values(facts);
+  const nationalNos = nationalConfirmedNos(all, season);
+  let cases = await readCases(season);
+
+  // 国にあって作品にない確定を、国の情報で載せる
+  for (const no of missingNationalNos(nationalNos, cases, season)) {
+    const f = all.find((x): x is Extract<NationalFact, { type: "confirmed" }> => x.type === "confirmed" && x.nationalNo === no && seasonOf(x.date) === season);
+    if (f === undefined) continue;
+    const wantName = normalizeForMatch(f.muniName);
+    // 否定された（または否定の発表がある）事例と食い違うときは、自動で直さない
+    const conflicting = cases.find(
+      (c) =>
+        c.confirmState !== "reviewing" &&
+        c.prefCode === f.prefCode &&
+        c.negation !== "none" &&
+        (c.nationalNo === no || (normalizeForMatch(c.muniName ?? "") === wantName && startsNear(c, f.date))),
+    );
+    if (conflicting !== undefined) {
+      await enqueue(confirmedMissingItem(f, `${describeConfirmed(f)}は確定ですが、作品では否定された（または否定の発表がある）ままの事例があります。自動では直していません。どちらが正しいか確かめてください。`, conflicting.id));
+      continue;
+    }
+    const r = await applyNationalConfirmed(
+      { parsed: { prefCode: f.prefCode, muniName: f.muniName, nationalNo: f.nationalNo, date: f.date }, farm: { headCount: f.headCount, birdUse: f.birdUse }, url: f.url },
+      deps,
+    );
+    if (r.outcome === "review") {
+      await enqueue(confirmedMissingItem(f, `${describeConfirmed(f)}が作品にありませんが、事例にできませんでした（${REASON_LABEL[r.reason ?? ""] ?? "理由不明"}）。事例を確かめて載せてください。`, null));
+    } else {
+      report.appliedConfirmed.push(no);
+      await enqueue(confirmedMissingItem(f, `${describeConfirmed(f)}が作品にありませんでした。国の情報で確定として載せました。内容を確かめてください。`, r.caseId));
+    }
+  }
+
+  // 解除も同様: 事例ができる前に来た解除と、取りこぼした解除を、事例が揃ってから当て直す
+  cases = await readCases(season);
+  const lifts = all.filter((x): x is NationalLiftFact => x.type === "movement_lifted");
+  for (const gap of liftGaps(lifts, cases, season)) {
+    // 複数の事例の解除（国内3例目、4例目など）は、否定された（または否定の発表がある）事例を除いて当てる。自動では直さない
+    const held = new Set(cases.filter((c) => c.season === season && c.nationalNo !== null && c.negation !== "none").map((c) => c.nationalNo as number));
+    const kept = gap.nationalNos.filter((no) => !held.has(no));
+    if (kept.length === 0) continue;
+    const lift: NationalLiftFact = { ...gap, nationalNos: kept };
+    const r = await applyNationalLift({ lift, url: lift.url }, deps);
+    report.reappliedLifts.push(lift.url);
+    if (r.missing.length > 0) {
+      await enqueue(missingItemOf({ url: lift.url, prefCode: lift.prefCode, muniName: lift.muniName, nationalNos: r.missing, date: lift.date }));
+    }
+  }
+
+  // 作品にあって国にない確定（48 時間）。本文を全部読めたときだけ。事例は消さない
+  if (!complete) return;
+  report.comparedAppOnly = true;
+  cases = await readCases(season); // 上で番号が付いた事例を、国にない確定に数えない
+  for (const c of appOnlyConfirmed(cases, nationalNos, season, now)) {
+    const at = c.stages.confirmed;
+    await enqueue({
+      id: reviewAlertId("app_only_confirmed", c.id),
+      kind: "alert",
+      alert: "app_only_confirmed",
+      prefCode: c.prefCode,
+      caseId: c.id,
+      message: `${c.muniName ?? c.prefCode}の確定（${at?.date ?? "日付不明"}）は、国の報道発表の一覧に見当たりません（48 時間以上）。表示は保っています。県と国の発表を確かめてください。`,
+    });
+  }
+}
+
+/**
+ * 突き合わせの後に、運営者へ 1 通知らせる。突き合わせが失敗しても、箱に入れたものは知らせる。
+ * どちらかが失敗したら、両方を投げる（メールの失敗で箱の入れ漏れを、箱の失敗でメールを、隠さない）。
+ */
+export async function reconcileAndNotify(deps: WatchDeps, notify: NotifyDeps): Promise<ReconcileReport> {
+  const errors: unknown[] = [];
+  let report: ReconcileReport | null = null;
+  try {
+    report = await runReconcile(deps);
+  } catch (e) {
+    errors.push(e);
+  }
+  try {
+    await notifyOperator(notify);
+  } catch (e) {
+    errors.push(e);
+    logger.error("運営者へのメールを送れませんでした", { message: errMessage(e) });
+  }
+  if (errors.length > 0) throw errors.length === 1 ? errors[0] : new AggregateError(errors, "突き合わせとメールの両方が失敗しました");
+  return report!;
+}
