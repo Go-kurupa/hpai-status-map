@@ -53,9 +53,9 @@ describe("renderNotice: 共通", () => {
   it("農場の名前を本文に入れない（Notice が持たない）", () => {
     expect(Object.keys(notice({ event: "confirmed" }))).not.toContain("name");
   });
-  it("3 つの出来事（野鳥、期限、死亡率）は M-13 が足すまで例外", () => {
+  it("3 つの出来事（野鳥、期限、死亡率）の文面は M-13（notices-more.test.ts）で確かめる", () => {
     for (const event of ["wild_bird_confirmed", "self_check_due", "mortality_hit"] as const) {
-      expect(() => renderNotice(notice({ event }), CTX)).toThrow();
+      expect(() => renderNotice(notice({ event, level: null, relationKind: null }), CTX)).not.toThrow();
     }
   });
   it("appUrl の末尾の / は重ねない", () => {
@@ -191,7 +191,7 @@ describe("renderMorningDigest", () => {
   it("空なら例外（何もない日は送らない）", () => {
     expect(() => renderMorningDigest([], CTX)).toThrow(RangeError);
   });
-  it("3 つの出来事は M-13 が足すまで例外", () => {
-    expect(() => renderMorningDigest([notice({ event: "wild_bird_confirmed" })], CTX)).toThrow();
+  it("野鳥の知らせも朝のまとめに入れられる（M-13）", () => {
+    expect(() => renderMorningDigest([notice({ event: "wild_bird_confirmed", level: null, relationKind: null })], CTX)).not.toThrow();
   });
 });

@@ -78,13 +78,13 @@ async function readGate(db: Firestore, farmId: string): Promise<Gate> {
   }
 }
 
-const codeOf = (e: unknown): string => {
+export const codeOf = (e: unknown): string => {
   const c = typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined;
   return typeof c === "string" || typeof c === "number" ? String(c).slice(0, 40) : "unknown";
 };
 
 /** 送れたことを記録する。1 回だけやり直す（記録が queued のまま残ると、送り直しで二重に送りうる）。 */
-async function markSent(ref: DocumentReference, sentAt: string): Promise<void> {
+export async function markSent(ref: DocumentReference, sentAt: string): Promise<void> {
   try {
     await ref.update({ state: "sent", sentAt });
   } catch {

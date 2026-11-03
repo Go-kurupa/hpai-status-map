@@ -33,6 +33,37 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
   );
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // 配信を止めているか。確かめられなければ null（止めている表示は出さず、設定の画面は使える）
+  const [stopped, setStopped] = useState<boolean | null>(null);
+  const [resume, setResume] = useState<"idle" | "busy" | "failed" | "done">("idle");
+
+  useEffect(() => {
+    let off = false;
+    store.isMailStopped().then(
+      (v) => {
+        if (!off) setStopped(v);
+      },
+      () => {
+        if (!off) setStopped(null);
+      },
+    );
+    return () => {
+      off = true;
+    };
+  }, [store]);
+
+  async function resumeMail() {
+    if (resume === "busy") return;
+    setResume("busy");
+    try {
+      const { resumeMailCall } = await import("./resumeMailCall");
+      await resumeMailCall(farm.id);
+      setStopped(false);
+      setResume("done");
+    } catch {
+      setResume("failed");
+    }
+  }
 
   async function saveWith(patch: Partial<Farm>) {
     if (busy) return;
@@ -69,9 +100,34 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
     <div className="settings-page">
       <h1>知らせの設定</h1>
 
+      {stopped === true ? (
+        <section>
+          <h2>配信を止めています</h2>
+          <p className="settings-note">
+            メールのリンクで、この農場あてのメールを止めています。発生の知らせ、野鳥の知らせ、朝のまとめが届きません。基準に当たった知らせと期限の知らせも止まっています。画面の表示は止まっていません。
+          </p>
+          <Button variant="primary" disabled={resume === "busy"} onClick={() => void resumeMail()}>
+            配信を再開する
+          </Button>
+          {resume === "failed" ? (
+            <p className="settings-error" role="alert">
+              戻せませんでした。通信を確かめて、もう一度試してください。
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+      {resume === "done" ? (
+        <p className="settings-saved" role="status">
+          配信を再開しました
+        </p>
+      ) : null}
+
       <section>
         <h2>メールで知らせる</h2>
         <p className="settings-note">発生の知らせは、疑いも「疑い」と書いてメールで届きます。県の連絡が正です。</p>
+        <p className="settings-note">
+          野鳥の高病原性鳥インフルエンザが確定したときは、近くなら朝のまとめに入ります（警告の段階は上がりません）。死亡数が基準に当たったときの知らせは、この設定にかかわらずすぐ届きます。メールの配信停止のリンクで、これらも止まります。
+        </p>
         <div className="settings-form">
           <label className="settings-check">
             <input type="checkbox" checked={notify.level1} onChange={toggle("level1")} />

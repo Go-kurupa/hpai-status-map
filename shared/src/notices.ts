@@ -3,11 +3,13 @@
 // 段階は relationToCase だけで得る（判定を複製しない）。距離を使うので、呼ぶ前に
 // await geo.ensurePrefs(...) を済ませること（未読み込みの県は GeoNotLoadedError。黙って④にしない）。
 // 確認中（reviewing）は距離を見ない。
+import { diffDays } from "./dates";
 import { formatJaDate } from "./jaDate";
-import { relationToCase } from "./level";
+import { relationToCase, wildBirdsNotifiable } from "./level";
+import { MORTALITY_TEXT } from "./mortality";
 import { PREFS } from "./pref";
 import { GeoNotLoadedError, type GeoStore } from "./geo";
-import type { Case, CaseStage, Farm, FarmPoint, IsoDate, IsoDateTime, Level, LevelReasonKind, NotifySettings, PrefCode } from "./types";
+import type { Case, CaseStage, Farm, FarmPoint, IsoDate, IsoDateTime, Level, LevelReasonKind, NotifySettings, PrefCode, WildBird } from "./types";
 import { FIXED_TEXT } from "./wording";
 
 export type NoticeEvent =
@@ -209,6 +211,92 @@ export function planCaseNotices(i: {
   return out;
 }
 
+/** 会員の uid のうち、配信を止めていないもの。欄が配列でない農場（読めない）は null（送らない側に倒す）。 */
+function activeUids(farm: Pick<Farm, "memberUids" | "unsubscribedUids">): string[] | null {
+  if (!Array.isArray(farm.memberUids) || !Array.isArray(farm.unsubscribedUids)) return null;
+  return farm.memberUids.filter((u): u is string => typeof u === "string" && !farm.unsubscribedUids.includes(u));
+}
+
+/**
+ * 野鳥の知らせ（設計書 §6）。高病原性が確定した鳥だけ。地点から市町村の範囲まで 10km 以内の農場の会員へ朝（段階は上げない）。
+ * 配信停止の会員と、朝のまとめを切った農場には出さない。呼ぶ前に await geo.ensurePrefs(...) を済ませること
+ * （県を読む前は GeoNotLoadedError。黙って届かないことにしない）。今季の鳥だけを渡すのは呼ぶ側。
+ */
+export function wildBirdNotices(i: { bird: WildBird; farms: ReadonlyArray<Farm & { id: string }>; geo: GeoStore }): Notice[] {
+  const { bird, farms, geo } = i;
+  if (bird.test !== "hpai_confirmed" || bird.muniCode === null) return [];
+  const facts: Notice["facts"] = { muniName: bird.muniName, prefCode: bird.prefCode, date: bird.date, sourceUrl: safeUrl(bird.sourceUrl) };
+  const out: Notice[] = [];
+  for (const farm of farms) {
+    const uids = activeUids(farm);
+    if (uids === null || uids.length === 0) continue;
+    if ({ ...DEFAULT_NOTIFY, ...(farm.notify ?? {}) }.morningDigest === false) continue;
+    try {
+      if (wildBirdsNotifiable(farmPoint(farm), [bird], geo).length === 0) continue;
+    } catch (e) {
+      if (e instanceof GeoNotLoadedError) throw e;
+      console.error("[notify] 農場の位置が読めないので、この農場だけ飛ばしました", { farmId: farm.id });
+      continue;
+    }
+    for (const uid of uids) {
+      out.push({ farmId: farm.id, uid, subjectId: bird.id, event: "wild_bird_confirmed", timing: "morning", level: null, relationKind: null, facts, isCorrection: false });
+    }
+  }
+  return out;
+}
+
+/** 日付の形（YYYY-MM-DD で実在する日）。 */
+function isIsoDay(v: unknown): v is IsoDate {
+  if (typeof v !== "string") return false;
+  try {
+    diffDays(v, v);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 自己点検の期限の知らせ。期限の「selfCheckRemindDays 日前」から期限の日まで（両端を含む）、記録済みの月を除いて出す。
+ * 二度送らないのは送る側（記録の create）。selfCheckRemindDays が null、欄 selfCheckDue がない、値が日付でない月は出さない。
+ * 配信停止の会員には出さない。朝のまとめの設定は見ない。
+ */
+export function selfCheckDueNotices(farm: Farm & { id: string }, today: IsoDate, answeredMonths: readonly string[]): Notice[] {
+  const days = farm.notify?.selfCheckRemindDays;
+  if (typeof days !== "number" || !Number.isFinite(days) || days < 0) return [];
+  const due = farm.selfCheckDue;
+  if (typeof due !== "object" || due === null || Array.isArray(due)) return [];
+  const uids = activeUids(farm);
+  if (uids === null || uids.length === 0) return [];
+
+  const out: Notice[] = [];
+  for (const [month, date] of Object.entries(due)) {
+    if (!/^\d{4}-\d{2}$/.test(month) || !isIsoDay(date) || answeredMonths.includes(month)) continue;
+    const left = diffDays(date, today);
+    if (left < 0 || left > days) continue;
+    for (const uid of uids) {
+      out.push({
+        farmId: farm.id, uid, subjectId: month, event: "self_check_due", timing: "immediate", level: null, relationKind: null,
+        facts: { muniName: null, prefCode: null, date, sourceUrl: null }, isCorrection: false,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * 死亡率の基準に当たったときの知らせ。同じ農場の会員全員へすぐ。notify の設定は見ず、配信停止の会員だけ除く。
+ * 当たったかの判定は呼ぶ側（computeMortality）。recordId は deaths の文書 id、date は記録の日。
+ */
+export function mortalityNotices(farm: Farm & { id: string }, recordId: string, date: IsoDate): Notice[] {
+  const uids = activeUids(farm);
+  if (uids === null) return [];
+  return uids.map((uid) => ({
+    farmId: farm.id, uid, subjectId: recordId, event: "mortality_hit" as const, timing: "immediate" as const, level: null, relationKind: null,
+    facts: { muniName: null, prefCode: null, date, sourceUrl: null }, isCorrection: false,
+  }));
+}
+
 // ── 文面 ──
 
 export interface RenderCtx {
@@ -231,7 +319,7 @@ function placeOf(n: Notice): string {
 const dateLead = (n: Notice): string => (n.facts.date === null ? "" : `${formatJaDate(n.facts.date)}、`);
 
 function unsupported(event: NoticeEvent): never {
-  throw new RangeError(`この出来事の文面はまだありません（M-13 が足します）: ${event}`);
+  throw new RangeError(`この出来事の文面はありません: ${event}`);
 }
 
 export function subjectOf(n: Notice): string {
@@ -249,6 +337,12 @@ export function subjectOf(n: Notice): string {
       return `【解除】${n.facts.muniName ?? place}の搬出制限が解除されました`;
     case "movement_lifted":
       return `【解除】${n.facts.muniName ?? place}の移動制限が解除されました`;
+    case "wild_bird_confirmed":
+      return `【野鳥】${n.facts.muniName ?? place}で野鳥の高病原性鳥インフルエンザが確定しました`;
+    case "self_check_due":
+      return n.facts.date === null ? "【自己点検】期限が近づいています" : `【自己点検】${formatJaDate(n.facts.date)}が期限です`;
+    case "mortality_hit":
+      return n.facts.date === null ? "【死亡数】死亡率が基準に当たりました" : `【死亡数】${formatJaDate(n.facts.date)}の死亡率が基準に当たりました`;
     default:
       return unsupported(n.event);
   }
@@ -271,6 +365,15 @@ function factsLine(n: Notice): string {
       return `${when}${place}の搬出制限の解除が発表されました。`;
     case "movement_lifted":
       return `${when}${place}の移動制限の解除が発表されました。`;
+    case "wild_bird_confirmed":
+      return `${when}${place}で、野鳥の高病原性鳥インフルエンザの確定が発表されました。登録した地点から約 10km 以内の町です。野鳥の確定では、地図の警告の段階は上がりません。`;
+    case "self_check_due": {
+      const month = /^\d{4}-(\d{2})$/.exec(n.subjectId);
+      const label = month ? `${Number(month[1])}月分の` : "";
+      return n.facts.date === null ? `${label}自己点検の期限が近づいています。` : `${label}自己点検の期限は、${formatJaDate(n.facts.date)}です。`;
+    }
+    case "mortality_hit":
+      return `${when}登録した鶏舎の死亡数が、告示の基準（1 日の死亡率が、対象期間の平均の 2 倍以上）に当たる可能性があります。${MORTALITY_TEXT.hit}。`;
     default:
       return unsupported(n.event);
   }
@@ -292,9 +395,20 @@ function levelSentence(n: Notice): string | null {
   return null;
 }
 
-/** 固定の文（出来事ごと）。 */
-function fixedSentence(n: Notice): string {
+/** 固定の文（出来事ごと）。URL は行の終わりに置く。 */
+function fixedSentence(n: Notice, ctx: RenderCtx): string {
+  const app = trimSlash(ctx.appUrl);
   switch (n.event) {
+    case "wild_bird_confirmed":
+      return "環境省の重点区域と、防疫指針の区域は別のものです。区域に入っているかは、県の連絡で確かめてください。";
+    case "self_check_due":
+      return `自己点検の報告は、県の様式に沿って、ご自身で出します。記録の画面で報告の文を作れます: ${app}/record/self-check`;
+    case "mortality_hit":
+      return [
+        "この知らせは、入力された数字から自動で計算したもので、診断ではありません。迷うときは、家保へ確かめてください。",
+        MORTALITY_TEXT.symptoms + "。",
+        `入力を直しても、このメールは取り消せません。入力に誤りがあるときは、記録の画面で確かめてください: ${app}/record/deaths`,
+      ].join("\n");
     case "suspected":
     case "confirmed":
       return "公表されるのは市町村までです。区域に入っているかは、県の連絡で確かめてください。";
@@ -311,12 +425,13 @@ function fixedSentence(n: Notice): string {
 }
 
 /** 朝のまとめの 1 件分: 見出し、事実、段階の文、出典。 */
-function itemLines(n: Notice): string[] {
+function itemLines(n: Notice, ctx: RenderCtx): string[] {
   const lines = [factsLine(n)];
   const level = levelSentence(n);
   if (level !== null) lines.push(level);
+  if (n.event === "self_check_due" || n.event === "mortality_hit") lines.push(fixedSentence(n, ctx)); // 次にすることが本文にないと伝わらない
   const src = safeUrl(n.facts.sourceUrl);
-  if (src !== null) lines.push(`県の発表: ${src}`);
+  if (src !== null) lines.push(`${n.event === "wild_bird_confirmed" ? "発表" : "県の発表"}: ${src}`);
   return lines;
 }
 
@@ -326,7 +441,6 @@ function footer(ctx: RenderCtx): string[] {
 
 /**
  * 1 件のメール。本文の順: 事実／段階の文／固定の文／出典／県の連絡が正です／くわしく／配信停止。
- * 野鳥、期限、死亡率の文面は M-13 が足すまで例外。
  */
 export function renderNotice(n: Notice, ctx: RenderCtx): { subject: string; text: string } {
   const subject = subjectOf(n);
@@ -334,13 +448,13 @@ export function renderNotice(n: Notice, ctx: RenderCtx): { subject: string; text
   const src = safeUrl(n.facts.sourceUrl);
   const lines = [factsLine(n)];
   if (level !== null) lines.push(level);
-  lines.push(fixedSentence(n));
-  if (src !== null) lines.push("", `県の発表: ${src}`);
+  lines.push(fixedSentence(n, ctx));
+  if (src !== null) lines.push("", `${n.event === "wild_bird_confirmed" ? "発表" : "県の発表"}: ${src}`);
   lines.push("", ...footer(ctx));
   return { subject, text: lines.join("\n") };
 }
 
-const DIGEST_ORDER: Partial<Record<NoticeEvent, number>> = { reviewing: 0, suspected: 0, confirmed: 1, negated: 2, shipment_lifted: 3, movement_lifted: 4 };
+const DIGEST_ORDER: Partial<Record<NoticeEvent, number>> = { reviewing: 0, suspected: 0, confirmed: 1, negated: 2, shipment_lifted: 3, movement_lifted: 4, wild_bird_confirmed: 5, self_check_due: 6, mortality_hit: 0 };
 
 /**
  * 朝のまとめ 1 通。全件の事実を並べ、配信停止は 1 回。同じ事例は 疑い、確定、否定 の順（事例は最初に現れた順）。
@@ -356,7 +470,7 @@ export function renderMorningDigest(list: readonly Notice[], ctx: RenderCtx): { 
     (a, b) => firstSeen.get(a.subjectId)! - firstSeen.get(b.subjectId)! || (DIGEST_ORDER[a.event] ?? 9) - (DIGEST_ORDER[b.event] ?? 9),
   );
   const lines = [`${list.length} 件のお知らせをまとめてお送りします。`, ""];
-  for (const n of ordered) lines.push(`■ ${subjectOf(n)}`, ...itemLines(n), "");
+  for (const n of ordered) lines.push(`■ ${subjectOf(n)}`, ...itemLines(n, ctx), "");
   lines.push(...footer(ctx));
   return { subject: `【朝のまとめ】${list.length} 件`, text: lines.join("\n") };
 }

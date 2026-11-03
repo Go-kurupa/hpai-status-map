@@ -1,6 +1,6 @@
 // 会員の領域（M）の試験が使う見本。本番のコードは import しない（shared の exports は src だけ）。
 import { latLngToMesh3, mesh3Center } from "../../src/mesh";
-import type { Case, Farm, House, MeshCode, NotifySettings } from "../../src/types";
+import type { Case, Farm, House, MeshCode, NotifySettings, WildBird } from "../../src/types";
 import { boxAround, makeGeo, type FakeGeoStore } from "../fixtures/geo";
 
 /**
@@ -115,4 +115,26 @@ export function boxEastOfMesh(mesh: MeshCode, km: number, widthDeg = 0.05, halfH
     [west, lat - halfHeightDeg],
   ];
   return { type: "Polygon", coordinates: [ring] };
+}
+
+// ── 野鳥、期限、死亡率の知らせ（M-13）の試験が使う見本 ──
+
+/** 町 A の箱から北へ約 3km。町 A の野鳥は 10km 以内（FAR_B は遠い）。 */
+export const NEAR_B: MeshCode = latLngToMesh3(mesh3Center(IN_A).lat + 0.05, mesh3Center(IN_A).lng);
+
+/** 町 A で高病原性が確定した野鳥。上書きできる。 */
+export function wildBirdFixture(over: Partial<WildBird> = {}): WildBird {
+  return {
+    id: "wb-2026-1",
+    season: 2026,
+    date: "2026-11-04",
+    prefCode: "33",
+    muniCode: GEO_A,
+    muniName: "町A",
+    species: "オオハクチョウ",
+    test: "hpai_confirmed",
+    focusZone: { from: null, to: null },
+    sourceUrl: "https://example.test/moe/1.html",
+    ...over,
+  };
 }
