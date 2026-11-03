@@ -312,7 +312,7 @@ function checkBearer(header: string | undefined, expected: string): boolean;
 
 ### 3.9 公開の文と API
 
-`OFFICIAL_GUIDANCE` は W-07 が持ち、X の MCP が import する。API は `ApiCases = ApiEnvelope<Case[]>`（X-12）。`notices` に `prefContactIsAuthority`、`riskAnywhere`、`/areas` と `get_area_status` には `areaNoDistance` も必ず含める。
+`OFFICIAL_GUIDANCE` は W-07 が持ち、X の MCP が import する。API は `ApiCases = ApiEnvelope<ApiCase[]>`（X-12。`ApiCase` は公開してよい項目だけの許可リストで、確認中の事例は `updatedAt` が null。正は `shared/src/api.ts`）。`ApiEnvelope` は任意の `watch`（確認状況）を持ち、今季の答えには必ず添える。`notices` に `prefContactIsAuthority`、`riskAnywhere`、`/areas` と `get_area_status` には `areaNoDistance` も必ず含める。
 
 ### 3.10 画面のデータの口【W-01、W-03】
 

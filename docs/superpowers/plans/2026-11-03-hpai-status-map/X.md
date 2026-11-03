@@ -202,7 +202,7 @@ interface BackstageEntry { // shared/src/replay.ts。原文と引用を持たな
 
 ```ts
 interface ApiEnvelope<T> { asOf: IsoDateTime; notices: string[]; sources: string[]; data: T }
-type ApiArea = ApiEnvelope<AreaStatus>;
+type ApiArea = ApiEnvelope<Omit<AreaStatus, "sameMuniCases" | "adjacentCases"> & { sameMuniCases: ApiCase[]; adjacentCases: ApiCase[] }>; // 実装（shared/src/api.ts）に合わせた
 type ApiWatch = ApiEnvelope<WatchSummary & { prefectures: WatchStatus[] }>;
 type ApiWildBirds = ApiEnvelope<WildBird[]>;
 interface ApiDeps { casesBySeason(season: Season, pref: PrefCode | null): Promise<Case[]>; wildBirdsBySeason(season: Season): Promise<WildBird[]>; watchStatuses(): Promise<WatchStatus[]>; history: readonly HistoryCase[]; geo: GeoStore }
