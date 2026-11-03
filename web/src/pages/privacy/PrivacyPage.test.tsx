@@ -31,6 +31,20 @@ const REQUIRED_PHRASES = [
   "地図を表示するときに国土地理院のサーバーへ",
 ];
 
+// レビュー指摘 1 回目で足した文（節ごと）
+const REVIEW_R1_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
+  { heading: "保存場所", phrase: "登録していない方が地図で地点を指定すると" },
+  { heading: "保存場所", phrase: "この端末のブラウザの中に保存し、サーバーには送りません" },
+  { heading: "保存場所", phrase: "ブラウザの設定で消せます" },
+  { heading: "保存場所", phrase: "ログインを完了するために、メールアドレスをこの端末のブラウザにも保存します" },
+  { heading: "目的", phrase: "自己点検、消毒の記録、家畜保健衛生所の連絡先" },
+  { heading: "目的", phrase: "報告文の下書き" },
+  { heading: "消し方", phrase: "同じ農場の会員なら、だれでも農場全体を消せます" },
+  { heading: "消し方", phrase: "ログイン用のアカウント（メールアドレス）はこの操作では消えません" },
+  { heading: "消し方", phrase: "送ったメールの控えは Gmail に残ります" },
+  { heading: "消し方", phrase: "端末の中の保存は、その端末のブラウザの設定で消してください" },
+];
+
 function renderPage(ui = <PrivacyPage />) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
@@ -54,6 +68,11 @@ describe("PRIVACY_NOTICE（文の正）", () => {
   it.each(REQUIRED_PHRASES)("文に『%s』がある", (phrase) => {
     const all = PRIVACY_NOTICE.flatMap((s) => s.paragraphs).join("\n");
     expect(all).toContain(phrase);
+  });
+
+  it.each(REVIEW_R1_PHRASES)("『$heading』の節に『$phrase』がある", ({ heading, phrase }) => {
+    const section = PRIVACY_NOTICE.find((x) => x.heading === heading)!.paragraphs.join("\n");
+    expect(section).toContain(phrase);
   });
 
   it("保存場所の節に Firebase（Firestore、Authentication、asia-northeast1）と Gmail がある", () => {
