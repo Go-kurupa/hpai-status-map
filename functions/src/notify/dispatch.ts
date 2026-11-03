@@ -20,17 +20,24 @@ export interface NotifyDeps {
 
 const ALREADY_EXISTS = 6;
 
+const NETWORK_CODES: ReadonlySet<string> = new Set(["ETIMEDOUT", "ECONNECTION", "ESOCKET", "ECONNRESET", "ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EDNS"]);
+
 /**
- * 送信のエラーが「これ以上送っても同じ」ものか。認証（EAUTH、535）と Gmail の送信上限。
- * 宛先の不備（5.1.1、EENVELOPE など）や通信の失敗は null（その人だけの失敗）。
+ * 送信のエラーが「これ以上送っても同じ」ものか。止める側:
+ * - auth: 認証（EAUTH、535）
+ * - quota: Gmail の送信上限（5.4.5、上限超過の語）と一時的な制限（421、454 の 4.7.0）
+ * - network: 通信の失敗（時間切れ、接続、ソケット、名前解決）
+ * 宛先の不備（5.1.1、EENVELOPE など）は null（その人だけの失敗）。
  * 上限の応答の形は未確認（Gmail の SMTP は 550 5.4.5 "Daily user sending quota exceeded" とされる。M-13 の docs で確かめる）。
  */
-export function isMailStopError(e: unknown): "auth" | "quota" | null {
+export function isMailStopError(e: unknown): "auth" | "quota" | "network" | null {
   if (typeof e !== "object" || e === null) return null;
   const err = e as { code?: unknown; responseCode?: unknown; response?: unknown; message?: unknown };
   if (err.code === "EAUTH" || err.responseCode === 535) return "auth";
+  if (err.responseCode === 421 || err.responseCode === 454) return "quota";
   const text = [err.response, err.message].filter((x): x is string => typeof x === "string").join("\n");
   if (/\b5\.4\.5\b/.test(text) || /(daily\s+)?(user\s+)?sending\s+(quota|limit)s?\s+(has\s+been\s+)?(exceeded|reached)|quota\s+exceeded/i.test(text)) return "quota";
+  if (typeof err.code === "string" && NETWORK_CODES.has(err.code)) return "network";
   return null;
 }
 
@@ -86,11 +93,12 @@ async function markSent(ref: DocumentReference, sentAt: string): Promise<void> {
 }
 
 /**
- * 知らせを順に処理する。
- * 1. 農場の会員と配信停止を確かめる（停止済み、会員でない、農場がない会員は何もしない。読めなければ failed の記録だけ残して送らない）。
- * 2. create() で記録（queued）。すでにあれば何もしない（gRPC コード 6）。
- * 3. immediate は送って sent、失敗は failed。morning は queued のまま。
- * 認証か上限のエラーが出たら、その実行の残りの immediate は送らず failed にして noteMailStop（連打しない）。
+ * 知らせを二段で処理する。
+ * 1 段目: 宛先ごとに農場の会員と配信停止を確かめ（停止済み、会員でない、農場がない会員は何もしない。読めなければ failed の記録だけ残して送らない）、
+ *   create() で記録（queued）を全件作る。すでにあれば何もしない（gRPC コード 6）。途中で関数が打ち切られても、全件が M-13 の送り直しの対象になる。
+ * 2 段目: 今回作った immediate を 1 件ずつ、記録を読み直して queued のときだけ送り、sent か failed にする。morning は queued のまま。
+ * 認証、上限、一時的な制限、通信の失敗が出たら、残りは送らず queued のまま残し（M-13 の送り直しが拾う）、noteMailStop（連打しない）。
+ * 記録の書き込みの失敗は件数をログに残し、呼び出し側の処理は止めない。
  */
 export async function dispatchNotices(deps: NotifyDeps, notices: readonly Notice[]): Promise<{ mailStopped: boolean }> {
   let mailStopped = false;
@@ -102,6 +110,8 @@ export async function dispatchNotices(deps: NotifyDeps, notices: readonly Notice
     return g;
   };
 
+  // 1 段目
+  const toSend: Array<{ n: Notice; ref: DocumentReference }> = [];
   for (const n of notices) {
     try {
       const gate = await gateOf(n.farmId);
@@ -125,12 +135,19 @@ export async function dispatchNotices(deps: NotifyDeps, notices: readonly Notice
         if ((e as { code?: unknown } | null)?.code === ALREADY_EXISTS) continue;
         throw e;
       }
-      if (gate.kind !== "ok" || n.timing !== "immediate") continue;
+      if (gate.kind === "ok" && n.timing === "immediate") toSend.push({ n, ref });
+    } catch (e) {
+      errors += 1;
+      console.error("[notify] 記録の書き込みに失敗しました", { code: codeOf(e) });
+    }
+  }
 
-      if (mailStopped) {
-        await ref.update({ state: "failed" });
-        continue;
-      }
+  // 2 段目
+  for (const { n, ref } of toSend) {
+    try {
+      const cur = (await ref.get()).data() as { state?: unknown } | undefined;
+      if (cur?.state !== "queued") continue; // 他で送られた、または失敗に直された
+
       let email: string | null = null;
       try {
         email = await deps.emailOf(n.uid);
@@ -147,10 +164,11 @@ export async function dispatchNotices(deps: NotifyDeps, notices: readonly Notice
       } catch (e) {
         const stop = isMailStopError(e);
         console.error("[notify] 送信に失敗しました", { code: codeOf(e), stop });
+        if (stop !== null) mailStopped = true; // 更新が失敗しても、止める
         await ref.update({ state: "failed" });
         if (stop !== null) {
-          mailStopped = true;
           await noteMailStop(deps);
+          break; // 残りは queued のまま
         }
         continue;
       }
@@ -158,9 +176,9 @@ export async function dispatchNotices(deps: NotifyDeps, notices: readonly Notice
     } catch (e) {
       errors += 1;
       console.error("[notify] 記録の書き込みに失敗しました", { code: codeOf(e) });
+      if (mailStopped) break;
     }
   }
-  // 記録の失敗は件数だけログに残し、呼び出し側（朝のまとめなど）の処理は止めない。mailStopped の信号も失わない。
-  if (errors > 0) console.error("[notify] 記録に失敗した知らせがあります", { count: errors });
+  if (errors > 0) console.error("[notify] 記録に失敗した知らせがあります", { count: errors }); // 呼び出し側の処理は止めない。mailStopped の信号も失わない
   return { mailStopped };
 }

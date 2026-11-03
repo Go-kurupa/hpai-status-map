@@ -1,7 +1,7 @@
 // M-02: 誰にいつ知らせるかを決める純粋な部分。メールは送らない。
 import { describe, expect, it } from "vitest";
 import { distanceToMuniKm, GeoNotLoadedError } from "../src/geo";
-import { diffCaseEvents, farmPoint, noticeDocId, planCaseNotices, timingFor, type Notice, type NoticeEvent, type SentNotice } from "../src/notices";
+import { diffCaseEvents, eventDateOf, farmPoint, noticeDocId, planCaseNotices, timingFor, type Notice, type NoticeEvent, type SentNotice } from "../src/notices";
 import type { Case, Farm } from "../src/types";
 import { makeGeo } from "./fixtures/geo";
 import { boxEastOfMesh, caseFixture, FAR_B, farmWithId, fakeGeo, GEO_A, GEO_B, GEO_C, GEO_D, IN_A, IN_D } from "./helpers/mFixtures";
@@ -89,6 +89,17 @@ describe("diffCaseEvents", () => {
   });
   it("replay は何も出さない", () => {
     expect(diffCaseEvents(null, caseFixture({ confirmState: "replay" }))).toEqual([]);
+  });
+});
+
+describe("eventDateOf", () => {
+  it("出来事の段階の日付（確認中は updatedAt、否定は negatedAt）。無ければ null", () => {
+    const c = caseFixture({ stages: { suspected: stage("2026-11-04"), confirmed: stage("2026-11-05") }, negation: "negated", negatedAt: "2026-11-06T09:00:00+09:00" });
+    expect(eventDateOf("suspected", c)).toBe("2026-11-04");
+    expect(eventDateOf("confirmed", c)).toBe("2026-11-05");
+    expect(eventDateOf("negated", c)).toBe("2026-11-06");
+    expect(eventDateOf("movement_lifted", c)).toBeNull();
+    expect(eventDateOf("reviewing", caseFixture({ updatedAt: "2026-11-07T01:00:00+09:00" }))).toBe("2026-11-07");
   });
 });
 
@@ -187,11 +198,17 @@ describe("planCaseNotices: 否定（訂正）", () => {
     expect(out.find((n) => n.farmId === "f2")!.isCorrection).toBe(false);
     expect(planCaseNotices({ event: "negated", caseDoc: neg(), farms: farms(), geo: geo(), alreadySent: [sent("f1", "u1", neg().id, "confirmed")] })[0]!.isCorrection).toBe(true);
   });
-  it("記録が queued でも failed でも、あとで届くので訂正にする", () => {
+  it("送れた（sent）記録にだけ当たる。queued や failed は、まだ届いていないので訂正にしない", () => {
     for (const state of ["queued", "failed"] as const) {
       const out = planCaseNotices({ event: "negated", caseDoc: neg(), farms: farms(), geo: geo(), alreadySent: [sent("f2", "u2", neg().id, "suspected", state)] });
-      expect(out.find((n) => n.farmId === "f2")!.isCorrection).toBe(true);
+      expect(out.find((n) => n.farmId === "f2")).toMatchObject({ isCorrection: false, timing: "morning" });
     }
+    const out = planCaseNotices({ event: "negated", caseDoc: neg(), farms: farms(), geo: geo(), alreadySent: [sent("f2", "u2", neg().id, "suspected", "sent")] });
+    expect(out.find((n) => n.farmId === "f2")!.isCorrection).toBe(true);
+  });
+  it("今は ④ で、疑いの記録が queued だけの会員には、訂正も【お知らせ】も出さない（届いていない）", () => {
+    const out = planCaseNotices({ event: "negated", caseDoc: neg(), farms: farms(), geo: geo(), alreadySent: [sent("f4", "u4", neg().id, "suspected", "queued")] });
+    expect(out.find((n) => n.farmId === "f4")).toBeUndefined();
   });
   it("別の事例や別の会員の記録では訂正にならない", () => {
     const out = planCaseNotices({ event: "negated", caseDoc: neg(), farms: farms(), geo: geo(), alreadySent: [sent("f1", "u1", "other-case", "suspected"), sent("f2", "uX", neg().id, "suspected")] });
@@ -289,6 +306,11 @@ describe("planCaseNotices: 設定、配信停止、記録", () => {
   it("確認中以外の事例の市町村が分からないとき（muniCode が null）は ④ として送らない", () => {
     const c = caseFixture({ muniCode: null, muniName: null });
     expect(planCaseNotices({ event: "confirmed", caseDoc: c, farms: farms(), geo: geo(), alreadySent: [] })).toEqual([]);
+  });
+  it("1 つの農場のデータが壊れていても（メッシュが不正）、その農場だけ飛ばして他へは出す。県を読む前の例外は飛ばさない", () => {
+    const fs = farms().map((f) => (f.id === "f2" ? { ...f, meshCode: "abc" } : f));
+    expect(table(run(fs))).toEqual({ f1: "immediate/1", f3: "morning/3" });
+    expect(() => planCaseNotices({ event: "confirmed", caseDoc: caseFixture(), farms: farms(), geo: fakeGeo(), alreadySent: [] })).toThrow(GeoNotLoadedError);
   });
   it("事例の出来事でない出来事は受けない", () => {
     expect(() => planCaseNotices({ event: "wild_bird_confirmed", caseDoc: caseFixture(), farms: farms(), geo: geo(), alreadySent: [] })).toThrow(RangeError);

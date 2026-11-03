@@ -52,10 +52,18 @@ describe("isMailStopError", () => {
     expect(isMailStopError(err({ response: "550-5.4.5 Daily user sending limit exceeded" }))).toBe("quota");
     expect(isMailStopError(err({ message: "Daily sending quota exceeded" }))).toBe("quota");
   });
+  it("Gmail の一時的な制限（421、454 の 4.7.0）は quota", () => {
+    expect(isMailStopError(err({ responseCode: 421, response: "421-4.7.0 Try again later, closing connection." }))).toBe("quota");
+    expect(isMailStopError(err({ responseCode: 454, response: "454 4.7.0 Too many login attempts, please try again later." }))).toBe("quota");
+  });
+  it("通信の失敗（時間切れ、接続、ソケット、名前解決）は network", () => {
+    for (const code of ["ETIMEDOUT", "ECONNECTION", "ESOCKET", "ECONNRESET", "ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EDNS"]) {
+      expect(isMailStopError(err({ code }))).toBe("network");
+    }
+  });
   it("宛先の不備（5.1.1 など）や通信の失敗、普通のエラーは null（その人だけの失敗）", () => {
     expect(isMailStopError(err({ responseCode: 550, response: "550 5.1.1 The email account that you tried to reach does not exist." }))).toBeNull();
     expect(isMailStopError(err({ code: "EENVELOPE", responseCode: 553 }))).toBeNull();
-    expect(isMailStopError(err({ code: "ETIMEDOUT" }))).toBeNull();
     expect(isMailStopError(new Error("boom"))).toBeNull();
     expect(isMailStopError(null)).toBeNull();
     expect(isMailStopError("EAUTH")).toBeNull();

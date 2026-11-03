@@ -19,9 +19,23 @@ export function makeSender(transport: Pick<Transporter, "sendMail">, from: strin
   };
 }
 
+/** SMTP の接続、挨拶、無通信の待ちの上限（ミリ秒）。nodemailer の既定は分単位で、関数の打ち切り（300 秒）まで待ってしまう。 */
+export const SMTP_TIMEOUT_MS = 20_000;
+
+/** Gmail の transport の設定。待ちに短い上限を付ける。 */
+export function gmailTransportOptions(user: string, pass: string) {
+  return {
+    service: "Gmail",
+    auth: { user, pass },
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
+  };
+}
+
 /** Gmail で送る。Secret と設定は呼ばれたときに読む（handler の中でだけ呼ぶこと）。 */
 export const sendMail: SendMail = (to, mail) => {
   const user = GMAIL_USER.value();
-  const transport = createTransport({ service: "Gmail", auth: { user, pass: GMAIL_APP_PASSWORD.value() } });
+  const transport = createTransport(gmailTransportOptions(user, GMAIL_APP_PASSWORD.value()));
   return makeSender(transport, `"${SENDER_NAME}" <${user}>`)(to, mail);
 };

@@ -6,7 +6,7 @@
 import { formatJaDate } from "./jaDate";
 import { relationToCase } from "./level";
 import { PREFS } from "./pref";
-import type { GeoStore } from "./geo";
+import { GeoNotLoadedError, type GeoStore } from "./geo";
 import type { Case, CaseStage, Farm, FarmPoint, IsoDate, IsoDateTime, Level, LevelReasonKind, NotifySettings, PrefCode } from "./types";
 import { FIXED_TEXT } from "./wording";
 
@@ -103,16 +103,21 @@ export function timingFor(event: NoticeEvent, relation: Level): NoticeTiming | n
 
 const prefNameOf = (code: PrefCode | null): string => (code === null ? "" : (PREFS.find((p) => p.code === code)?.name ?? ""));
 
-/** 出来事の段階の日付（確認中は updatedAt、否定は negatedAt）。 */
-function factDate(event: CaseEvent, c: Case): IsoDate | null {
+/** 出来事の段階の日付（確認中は updatedAt、否定は negatedAt）。事例の出来事でない、または日付がなければ null。 */
+export function eventDateOf(event: NoticeEvent, c: Case): IsoDate | null {
   const dayOf = (iso: string | null): IsoDate | null => (iso !== null && /^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10) : null);
   switch (event) {
     case "reviewing":
       return dayOf(c.updatedAt);
     case "negated":
       return dayOf(c.negatedAt);
-    default:
+    case "suspected":
+    case "confirmed":
+    case "shipment_lifted":
+    case "movement_lifted":
       return c.stages[event]?.date ?? null;
+    default:
+      return null;
   }
 }
 
@@ -128,11 +133,11 @@ function relationBasis(event: CaseEvent, c: Case): Case {
 /**
  * 事例の出来事ごとの宛先。配信停止の会員は全出来事で除く。記録（alreadySent）のある知らせは出さない。
  * - 疑い、確定、否定、解除: 段階（relationToCase）と農場の設定で決める。morning は morningDigest でも切る。
- * - 否定で、同じ事例の疑いか確定の記録（状態を問わない。あとで届く）のある会員は、isCorrection:true。
+ * - 否定で、同じ事例の疑いか確定の送れた（sent）記録のある会員は、isCorrection:true。
  *   今は ④ でも、設定を切っていても届く（朝）。受け取っていない会員は isCorrection:false で、設定に従う。
  * - 確認中: 同じ県の農場へすぐ。設定で止めず、段階を持たない。
  * - 搬出制限の解除は、同じ事例の移動制限がもう解除されているなら出さない（移動制限の解除が先に伝わる）。
- * 読めない農場（会員か配信停止の欄が配列でない）は送らない側に倒す。
+ * 読めない農場（会員か配信停止の欄が配列でない）は送らない側に倒す。位置が壊れた農場はその農場だけ飛ばす。
  */
 export function planCaseNotices(i: {
   event: NoticeEvent;
@@ -146,10 +151,12 @@ export function planCaseNotices(i: {
   if (event === "shipment_lifted" && caseDoc.stages.movement_lifted !== undefined) return [];
 
   const recorded = new Set(i.alreadySent.map((s) => noticeDocId(s.farmId, s.uid, s.subjectId, s.event)));
+  // 訂正は、送れた（sent）記録にだけ当たる。queued や failed はまだ届いていない
+  const delivered = new Set(i.alreadySent.filter((s) => s.state === "sent").map((s) => noticeDocId(s.farmId, s.uid, s.subjectId, s.event)));
   const facts: Notice["facts"] = {
     muniName: event === "reviewing" ? null : caseDoc.muniName,
     prefCode: caseDoc.prefCode,
-    date: factDate(event, caseDoc),
+    date: eventDateOf(event, caseDoc),
     sourceUrl: caseDoc.sourceUrls.at(-1) ?? null,
   };
   const basis = relationBasis(event, caseDoc);
@@ -169,13 +176,20 @@ export function planCaseNotices(i: {
       continue;
     }
 
-    const relation = relationToCase(farmPoint(farm), basis, geo);
+    let relation: ReturnType<typeof relationToCase>;
+    try {
+      relation = relationToCase(farmPoint(farm), basis, geo);
+    } catch (e) {
+      if (e instanceof GeoNotLoadedError) throw e; // 県を読む前は④にせず、呼び出し側に知らせる
+      console.error("[notify] 農場の位置が読めないので、この農場だけ飛ばしました", { farmId: farm.id });
+      continue;
+    }
     const notify = { ...DEFAULT_NOTIFY, ...(farm.notify ?? {}) };
     for (const uid of uids) {
       if (recorded.has(noticeDocId(farm.id, uid, caseDoc.id, event))) continue;
       const isCorrection =
         event === "negated" &&
-        (recorded.has(noticeDocId(farm.id, uid, caseDoc.id, "suspected")) || recorded.has(noticeDocId(farm.id, uid, caseDoc.id, "confirmed")));
+        (delivered.has(noticeDocId(farm.id, uid, caseDoc.id, "suspected")) || delivered.has(noticeDocId(farm.id, uid, caseDoc.id, "confirmed")));
       const make = (timing: NoticeTiming): Notice => ({
         farmId: farm.id, uid, subjectId: caseDoc.id, event, timing,
         level: relation.level, relationKind: relation.reason?.kind ?? null, facts, isCorrection,

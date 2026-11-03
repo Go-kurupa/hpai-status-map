@@ -1,7 +1,7 @@
 // メール送信の土台（I-18。以後の所有者は M）。実際には送らない: jsonTransport で組み立てた中身を見る。
 import { createTransport } from "nodemailer";
 import { describe, expect, it, vi } from "vitest";
-import { makeSender } from "../src/notify/send";
+import { gmailTransportOptions, makeSender, SMTP_TIMEOUT_MS } from "../src/notify/send";
 
 describe("makeSender", () => {
   it("差出人、宛先、件名、本文が入る（jsonTransport）", async () => {
@@ -27,5 +27,13 @@ describe("makeSender", () => {
     const spy = { sendMail: async (m: { to: string; subject: string }) => void calls.push(m) };
     await makeSender(spy as never, "a@example.com")("to@example.com", { subject: "一行目\r\nBcc: evil@example.com", text: "t" });
     expect(calls[0]!.subject).not.toMatch(/[\r\n]/);
+  });
+});
+
+describe("gmailTransportOptions", () => {
+  it("接続、挨拶、無通信の待ちに短い上限を付ける（関数の打ち切りまで待たない）", () => {
+    const o = gmailTransportOptions("sender@example.test", "pw");
+    expect(SMTP_TIMEOUT_MS).toBeLessThanOrEqual(20_000);
+    expect(o).toMatchObject({ service: "Gmail", connectionTimeout: SMTP_TIMEOUT_MS, greetingTimeout: SMTP_TIMEOUT_MS, socketTimeout: SMTP_TIMEOUT_MS });
   });
 });

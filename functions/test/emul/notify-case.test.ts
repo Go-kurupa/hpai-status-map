@@ -103,6 +103,49 @@ describe("handleCaseWrite: 疑い", () => {
   });
 });
 
+describe("handleCaseWrite: 今季の新しい出来事だけ", () => {
+  const old = (over: Partial<Case> = {}) => caseFixture({ id: "h2025-3", season: 2025, confirmState: "national", stages: { confirmed: stage("2026-01-10") }, ...over });
+
+  it("前季の事例（h…、national）を書いても、メールも記録も出ない。解除の段階があっても同じ", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    await handleCaseWrite(deps, null, old(), fakeGeo());
+    await handleCaseWrite(deps, null, old({ id: "h2025-4", stages: { confirmed: stage("2026-01-10"), shipment_lifted: stage("2026-01-20"), movement_lifted: stage("2026-02-01") } }), fakeGeo());
+    await handleCaseWrite(deps, old({ id: "h2025-5" }), old({ id: "h2025-5", negation: "negated", negatedAt: "2026-02-01T09:00:00+09:00" }), fakeGeo());
+    expect(mail.calls).toEqual([]);
+    expect(await sentNoticeDocs()).toEqual({});
+  });
+
+  it("シーズンの切れ目: 今季の初日（6/1）からは今季の事例として送る", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps({ now: () => new Date("2026-06-01T03:00:00Z") });
+    await handleCaseWrite(deps, null, caseFixture({ season: 2026, stages: { confirmed: stage("2026-06-01") } }), fakeGeo());
+    expect(mail.sent).toHaveLength(1);
+  });
+
+  it("今季でも、段階の日付が 14 日より前の変化は出さない（14 日前までは出す）", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps(); // 2026-11-05
+    await handleCaseWrite(deps, null, caseFixture({ id: "c-old", stages: { confirmed: stage("2026-10-21") } }), fakeGeo());
+    expect(mail.calls).toEqual([]);
+    expect(await sentNoticeDocs()).toEqual({});
+    await handleCaseWrite(deps, null, caseFixture({ id: "c-edge", stages: { confirmed: stage("2026-10-22") } }), fakeGeo());
+    expect(mail.sent).toHaveLength(1);
+    // 古い事例への遅れた解除も出さない
+    await handleCaseWrite(deps, caseFixture({ id: "c-old" , stages: { confirmed: stage("2026-10-01") } }), caseFixture({ id: "c-old", stages: { confirmed: stage("2026-10-01"), movement_lifted: stage("2026-10-15") } }), fakeGeo());
+    expect(Object.keys(await sentNoticeDocs()).filter((k) => k.includes("c-old"))).toEqual([]);
+  });
+
+  it("出来事ごとに判断する: 古い確定と新しい解除が同時なら、解除だけ出す", async () => {
+    await seedFour();
+    const { deps } = makeDeps();
+    const before = caseFixture({ id: "c-mix", stages: { confirmed: stage("2026-10-01") } });
+    const after = caseFixture({ id: "c-mix", stages: { confirmed: stage("2026-10-01"), movement_lifted: stage("2026-11-04") } });
+    await handleCaseWrite(deps, before, after, fakeGeo());
+    expect(Object.keys(await sentNoticeDocs()).every((k) => k.endsWith("__movement_lifted"))).toBe(true);
+  });
+});
+
 describe("handleCaseWrite: 否定（訂正）", () => {
   it("疑いを受け取った全員へ【訂正】: ① はすぐ、②③ は朝。④ と受け取っていない人には出ない", async () => {
     await seedFour();
@@ -210,7 +253,10 @@ describe("dispatchNotices: 送信", () => {
   it.each([
     ["認証", Object.assign(new Error("Invalid login: 535-5.7.8 u1@example.test"), { code: "EAUTH", responseCode: 535 })],
     ["上限", Object.assign(new Error("550 5.4.5 Daily user sending quota exceeded. u1@example.test"), { responseCode: 550, response: "550 5.4.5 Daily user sending quota exceeded." })],
-  ])("%sのエラーは残りへ送らず failed に残し（連打しない）、mail_failing が 1 日 1 件入り、mailStopped:true", async (_name, stop) => {
+    ["一時的な制限（421 4.7.0）", Object.assign(new Error("421-4.7.0 Try again later u1@example.test"), { responseCode: 421, response: "421-4.7.0 Try again later, closing connection." })],
+    ["通信の時間切れ", Object.assign(new Error("Connection timeout u1@example.test"), { code: "ETIMEDOUT" })],
+    ["接続の失敗", Object.assign(new Error("Connection closed u1@example.test"), { code: "ECONNECTION" })],
+  ])("%sのエラーは残りへ送らず（連打しない）、失敗した 1 件は failed、残りは queued に残し、mail_failing が 1 日 1 件入り、mailStopped:true", async (_name, stop) => {
     await seedImmediate();
     await seedFarm("f2", "u2", { meshCode: FAR_B, muniCode: GEO_B, prefCode: "33" }); // ②（朝）
     const logs = captureLogs();
@@ -225,7 +271,8 @@ describe("dispatchNotices: 送信", () => {
       const docs = await sentNoticeDocs();
       const immediate = notices.filter((n) => n.timing === "immediate");
       expect(immediate).toHaveLength(3);
-      for (const n of immediate) expect(docs[idOf(n.farmId, n.uid, c, "confirmed")]).toMatchObject({ state: "failed", sentAt: null });
+      expect(docs[idOf(immediate[0]!.farmId, immediate[0]!.uid, c, "confirmed")]).toMatchObject({ state: "failed", sentAt: null });
+      for (const n of immediate.slice(1)) expect(docs[idOf(n.farmId, n.uid, c, "confirmed")]).toMatchObject({ state: "queued", timing: "immediate", sentAt: null }); // 送り直し（M-13）が拾う
       expect(docs[idOf("f2", "u2", c, "confirmed")]).toMatchObject({ state: "queued" }); // 朝の分は残す
       expect(await reviewQueueIds()).toEqual(["alert-mail_failing-2026-11-05"]);
       const item = (await db.doc("reviewQueue/alert-mail_failing-2026-11-05").get()).data();
@@ -241,6 +288,41 @@ describe("dispatchNotices: 送信", () => {
     } finally {
       logs.restore();
     }
+  });
+
+  it("二段: 送る前に、宛先の全件を queued で記録する（途中で打ち切られても全件が送り直しの対象になる）", async () => {
+    await seedImmediate();
+    await seedFarm("f2", "u2", { meshCode: FAR_B, muniCode: GEO_B, prefCode: "33" });
+    const c = caseFixture();
+    const notices = await plan(c);
+    expect(notices).toHaveLength(4);
+    let seen: Record<string, FirebaseFirestore.DocumentData> | null = null;
+    const { deps, mail } = makeDeps({
+      mailer: async () => {
+        seen ??= await sentNoticeDocs(); // 最初の送信の時点
+        throw Object.assign(new Error("stop"), { code: "ETIMEDOUT" });
+      },
+    });
+    await dispatchNotices(deps, notices);
+    expect(mail.calls).toEqual([]); // 上の mailer は別物（記録を見るために差し替えた）
+    expect(Object.keys(seen!)).toHaveLength(4);
+    expect(Object.values(seen!).every((d) => d.state === "queued")).toBe(true);
+  });
+
+  it("送る直前に記録を読み直し、queued でなければ（他で sent になっていれば）送らない", async () => {
+    await seedImmediate();
+    const c = caseFixture();
+    const notices = await plan(c); // f1/u1、f1/u1b、f5/u5
+    const calls: string[] = [];
+    const { deps } = makeDeps({
+      mailer: async (to) => {
+        calls.push(to);
+        if (calls.length === 1) await db.doc(`sentNotices/${idOf("f1", "u1b", c, "confirmed")}`).update({ state: "sent", sentAt: "2026-11-05T12:00:01+09:00" });
+      },
+    });
+    await dispatchNotices(deps, notices);
+    expect(calls).toEqual(["u1@example.test", "u5@example.test"]);
+    expect((await sentNoticeDocs())[idOf("f1", "u1b", c, "confirmed")]).toMatchObject({ state: "sent", sentAt: "2026-11-05T12:00:01+09:00" });
   });
 
   it("noteMailStop は JST の今日の id で 1 件だけ入れる（JST の日付で切り替わる）", async () => {
@@ -338,7 +420,7 @@ describeFixture("岡山の 1 事例の控え（通数）", [path.join(FIX, "1013
     const { deps, mail } = makeDeps();
     const geo = fakeGeo();
     for (const [i] of flagged.entries()) {
-      const rev = makeReviewingCase({ documentId: `okayama-${i}`, season: 2025, prefCode: "33", sourceUrl: `https://example.test/pdf/${i}` }, NOW);
+      const rev = makeReviewingCase({ documentId: `okayama-${i}`, season: 2026, prefCode: "33", sourceUrl: `https://example.test/pdf/${i}` }, NOW);
       await handleCaseWrite(deps, null, rev, geo);
     }
     expect(mail.sent).toHaveLength(flagged.length);
