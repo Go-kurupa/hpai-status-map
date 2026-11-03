@@ -146,15 +146,13 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
   const emailOf = (uid: string): Promise<string | null> => {
     let p = emails.get(uid);
     if (!p) {
-      p = deps.emailOf(uid).catch((e: unknown) => {
-        console.error("[notify] 宛先を取れませんでした", { code: codeOf(e) });
-        return null;
-      });
+      p = deps.emailOf(uid); // 取れなければ例外（一時的な障害）。null は退会などの宛先の不備
       emails.set(uid, p);
     }
     return p;
   };
 
+  let transientLookups = 0;
   const list = [...groups.values()];
   for (let i = 0; i < list.length; i += 1) {
     if (Date.now() - startedAt > BUDGET_MS) {
@@ -171,7 +169,18 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
       const notices = group.notices.filter((_, n) => keep[n]);
       if (recsNow.length === 0) continue;
 
-      const email = await emailOf(group.recs[0]!.data.uid);
+      let email: string | null;
+      try {
+        email = await emailOf(group.recs[0]!.data.uid);
+      } catch (e) {
+        // 宛先を取れなかった（Auth の一時的な障害など）。記録のせいではないので、回数に数えず飛ばす。
+        // 朝の queued は、次の朝を待たず毎時の送り直しに回す（failed にする）
+        transientLookups += 1;
+        result.skipped += recsNow.length;
+        console.error("[notify] 宛先を取れませんでした（次の回に送り直します）", { code: codeOf(e) });
+        for (const r of recsNow) await markFailed(r);
+        continue;
+      }
       if (email === null || email === "") {
         for (const r of recsNow) if (await markFailed(r, true)) result.failed += 1;
         continue;
@@ -221,7 +230,7 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
     }
   }
 
-  console.log("[notify] 送信の結果", { ...result, rebuildErrors });
+  console.log("[notify] 送信の結果", { ...result, rebuildErrors, transientLookups });
   return result;
 }
 

@@ -83,6 +83,21 @@ const operatorMember = () => env.authenticatedContext("op", { operator: true, me
 const memberOnly = () => env.authenticatedContext("carol", { member: true }).firestore();
 const anon = () => env.unauthenticatedContext().firestore();
 
+describe("hitCounters（基準の知らせの上限の確保。サーバーだけが書く）", () => {
+  it("自分の農場の会員でも、operator でも、未ログインでも、読めず書けない（既存の全拒否に落ちる）", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "farms/f1/hitCounters/2026-11-05"), { recordIds: ["2026-11-05_h1"] });
+    });
+    for (const db of [alice(), memberOnly(), operator(), operatorMember(), anon()]) {
+      await assertFails(getDoc(doc(db, "farms/f1/hitCounters/2026-11-05")));
+      await assertFails(getDocs(collection(db, "farms/f1/hitCounters")));
+      await assertFails(setDoc(doc(db, "farms/f1/hitCounters/2026-11-06"), { recordIds: [] }));
+      await assertFails(updateDoc(doc(db, "farms/f1/hitCounters/2026-11-05"), { recordIds: [] }));
+      await assertFails(deleteDoc(doc(db, "farms/f1/hitCounters/2026-11-05")));
+    }
+  });
+});
+
 describe("§16 権限: 読めない", () => {
   it("他の農場の農場、鶏舎、死亡数、点検を読めない", async () => {
     const db = alice();

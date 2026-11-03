@@ -509,6 +509,34 @@ describe("送り直しの上限（古さ 14 日、回数 5 回）", () => {
     expect(emailCalls).toEqual([]); // もう読まない
   });
 
+  it("宛先の取得が一時的な障害で投げ続けても、回数に数えず abandoned にならない。直れば送る。ログは件数だけ", async () => {
+    await seedFour();
+    await seedCase(suspected({ id: "c1" }));
+    const key = idOf("f1", "u1", "c1", "suspected");
+    await seedNotice("f1", "u1", "c1", "suspected", "failed", "immediate");
+    await seedNotice("f2", "u2", "c1", "suspected", "queued", "morning");
+    const broken = makeDeps({ emailOf: async () => Promise.reject(Object.assign(new Error("u1@example.test unavailable"), { code: "auth/internal-error" })) });
+    const logs = captureLogs();
+    try {
+      await runMorningDigest(broken.deps, fakeGeo());
+      for (let i = 0; i < 6; i++) await runRetryFailed(broken.deps, fakeGeo());
+      expect(logs.text()).not.toContain("example.test");
+    } finally {
+      logs.restore();
+    }
+    expect(broken.mail.calls).toEqual([]);
+    const docs = await sentNoticeDocs();
+    expect(docs[key]).toMatchObject({ state: "failed" });
+    expect(docs[key]!.retries ?? 0).toBe(0);
+    // 朝の queued は、次の朝を待たず毎時の送り直しに回る（failed、回数は数えない）
+    expect(docs[idOf("f2", "u2", "c1", "suspected")]).toMatchObject({ state: "failed" });
+    expect(docs[idOf("f2", "u2", "c1", "suspected")]!.retries ?? 0).toBe(0);
+
+    const ok = makeDeps();
+    await runRetryFailed(ok.deps, fakeGeo());
+    expect(ok.mail.sent.map((m) => m.to).sort()).toEqual(["u1@example.test", "u2@example.test"]);
+  });
+
   it("認証、上限のエラーでは回数を数えない（停止は記録のせいではない）", async () => {
     await seedFour();
     await seedCase(suspected({ id: "c1" }));

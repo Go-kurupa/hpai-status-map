@@ -12,6 +12,22 @@ import { liveDeps } from "./liveDeps";
 /** 1 農場の、記録の日 1 日あたりの基準の知らせの数（鶏舎の数）。偽の記録や入力の誤りで、共有の Gmail の上限を使い切らせない。 */
 export const MAX_HIT_NOTICES_PER_FARM_DAY = 3;
 
+/**
+ * farms/{farmId}/hitCounters/{日付} に、知らせを出す記録の id を MAX_HIT_NOTICES_PER_FARM_DAY 件まで確保する。
+ * すでに確保した記録、または空きがあれば true。満杯なら false。サーバーだけが書く（ルールは全拒否のまま）。
+ */
+export async function reserveHitSlot(db: NotifyDeps["db"], farmId: string, date: string, recordId: string): Promise<boolean> {
+  const ref = db.collection("farms").doc(farmId).collection("hitCounters").doc(date);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const ids = ((snap.data() as { recordIds?: unknown } | undefined)?.recordIds as string[] | undefined) ?? [];
+    if (ids.includes(recordId)) return true;
+    if (ids.length >= MAX_HIT_NOTICES_PER_FARM_DAY) return false;
+    tx.set(ref, { recordIds: [...ids, recordId] });
+    return true;
+  });
+}
+
 /** 対象期間 21 日（除外の日と記録のない日を飛ばして遡る）のために読む日数。M-07 の最大 120 日。 */
 const LOOKBACK_DAYS = 120;
 
@@ -46,14 +62,10 @@ export async function handleDeathWrite(deps: NotifyDeps, farmId: string, recordI
   const result = computeMortality(toMortalityDays(records), after.date);
   if (result.status !== "evaluated" || !result.hit) return;
 
-  // この農場のこの日の基準の知らせが上限に達していたら、新しい鶏舎では送らない（同じ記録の直しは数えない）。
-  // subjectId は `${date}_${houseId}` なので、日付の前置きで範囲を引く（単独の欄の範囲なので新しい索引は要らない）
-  const sameDay = await deps.db.collection("sentNotices").where("subjectId", ">=", `${after.date}_`).where("subjectId", "<", `${after.date}_\uf8ff`).get();
-  const houses = new Set(
-    sameDay.docs.map((d) => d.data() as { farmId?: string; event?: string; subjectId: string }).filter((n) => n.farmId === farmId && n.event === "mortality_hit").map((n) => n.subjectId),
-  );
-  if (!houses.has(recordId) && houses.size >= MAX_HIT_NOTICES_PER_FARM_DAY) {
-    console.error("[notify] この農場のこの日の基準の知らせが上限に達したので送りません", { count: houses.size });
+  // この農場のこの日（記録の日）の基準の知らせの枠を、トランザクションで確保してから送る。
+  // 同時に何件書かれても MAX_HIT_NOTICES_PER_FARM_DAY 件まで。同じ記録の直しは数えない。
+  if (!(await reserveHitSlot(deps.db, farmId, after.date, recordId))) {
+    console.error("[notify] この農場のこの日の基準の知らせが上限に達したので送りません", { max: MAX_HIT_NOTICES_PER_FARM_DAY });
     return;
   }
 

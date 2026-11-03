@@ -172,6 +172,22 @@ describe("handleDeathWrite", () => {
     expect(mail.sent).toHaveLength(3);
   });
 
+  it("同時に 5 件書かれても 3 通まで（上限はトランザクションで確保してから送る）。確保の記録は farms/{id}/hitCounters/{日付}", async () => {
+    await seedFarm("f1", "u1");
+    const { deps, mail } = makeDeps();
+    const recs: DeathRecord[] = [];
+    for (const h of ["h1", "h2", "h3", "h4", "h5"]) recs.push(await hit(h));
+    await Promise.all(recs.map((r) => handleDeathWrite(deps, "f1", idOf(r), r)));
+    expect(mail.sent).toHaveLength(3);
+    expect(Object.keys(await sentNoticeDocs())).toHaveLength(3);
+    const counter = (await db.doc(`farms/f1/hitCounters/${TODAY}`).get()).data() as { recordIds: string[] };
+    expect(counter.recordIds).toHaveLength(3);
+    // 別の日は別の枠
+    const y = await hit("h1", addDays(TODAY, -1));
+    await handleDeathWrite(deps, "f1", idOf(y), y);
+    expect(mail.sent).toHaveLength(4);
+  });
+
   it("認証のエラーでは failed に残り、mail_failing が入る。ログに宛先を出さない", async () => {
     await seedFarm("f1", "u1", { memberUids: ["u1", "u2"] });
     const logs = captureLogs();
