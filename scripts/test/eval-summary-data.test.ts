@@ -88,6 +88,12 @@ describe("measured-usage.json と docs/cost.md", () => {
     expect(cost).toContain("2,214 円"); // Haiku を足した前季
   });
 
+  it("見積もりの数字が出る行は、すべて行の中に『推定』がある（修正 2 回目のレビュー）", () => {
+    const FIGURE = /2,160|2,214|2,700|2,768|7,560|7,749|2,880|2,900|92\.25|\b90 円|7\.5 円|0\.05125|0\.00125|0\.05 ドル|0\.6 ドル|約 3[23] 事例/;
+    const bad = cost.split("\n").filter((l) => FIGURE.test(l) && !l.includes("推定"));
+    expect(bad).toEqual([]);
+  });
+
   it("禁じた語がない。削減時間は測っていないと言う場合も『削減』『時間短縮』の語を使わない", () => {
     expect(cost).not.toMatch(/削減|時間短縮/);
     expect(findForbiddenPhrases(cost)).toEqual([]);

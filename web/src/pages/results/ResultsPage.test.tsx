@@ -239,9 +239,10 @@ describe("見積もり（推定）と実測の分離、前提の開示（レビ�
     await show({ usage: MEASURED_USAGE, summary: SUMMARY });
     const tables = within(region(/計算/)).getAllByRole("table");
     expect(tables).toHaveLength(2);
-    expect(within(tables[0]!).getByText(/実測の使用量から計算/)).toBeTruthy(); // 題
+    expect(within(tables[0]!).getByText(/実測の 1 文書あたり費用から計算/)).toBeTruthy(); // 題
     expect(within(tables[1]!).getByText("見積もり（推定）。実測ではありません")).toBeTruthy(); // 題
-    expect(tables[0]!.textContent).not.toContain("見積もり（推定）"); // 実測の表に見積もりの行が混ざらない
+    expect(tables[0]!.textContent).not.toContain("主の読み手だけ"); // 実測の表に仮定だけの見積もりの行が混ざらない
+    expect(tables[0]!.textContent).not.toContain("Haiku にも同じ量");
     expect(estimateBox().contains(tables[1]!)).toBe(true);
   });
 
@@ -250,6 +251,17 @@ describe("見積もり（推定）と実測の分離、前提の開示（レビ�
     const tables = within(region(/計算/)).getAllByRole("table");
     for (const row of within(tables[0]!).getAllByRole("row").slice(1)) expect(row.textContent, row.textContent ?? "").toContain("12 文書の仮定を使う");
     expect(tables[0]!.textContent).toContain("実行方式は記録なし");
+  });
+
+  it("円の額が出る行（表の行と段落）は、実測由来の行も含めて、行の中に『推定』がある", async () => {
+    await show({ usage: MEASURED_USAGE, summary: SUMMARY });
+    const calc = region(/計算/);
+    for (const row of Array.from(calc.querySelectorAll("tbody tr"))) {
+      if (/円|\$/.test(row.textContent ?? "")) expect(row.textContent, row.textContent ?? "").toContain("推定");
+    }
+    for (const p of Array.from(calc.querySelectorAll("p")).filter((x) => /円|\$\d/.test(x.textContent ?? "") && !(x.textContent ?? "").includes("運用の上限"))) {
+      expect(p.textContent, p.textContent ?? "").toContain("推定");
+    }
   });
 
   it("何も測っていなくても、見積もりの表は見出し付きで 1 つだけ出る（実測の表は出ない）", async () => {

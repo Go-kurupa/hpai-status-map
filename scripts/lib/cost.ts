@@ -113,7 +113,7 @@ export function buildCostReport({ usage, summary, unreadable = [] }: ReportInput
   const line = (b: (typeof bases)[number]): string => {
     const season = (cases: number) => formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy);
     const cap = monthlyCaseCapacity(b, jpyPerUsd);
-    const prefix = b.measured ? `計算（実測の使用量から。円額は 1 事例 ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う）` : "見積もり（推定。実測ではありません）";
+    const prefix = b.measured ? `計算（実測の使用量から。円額は 1 事例 ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う見積もり（推定））` : "見積もり（推定。実測ではありません）";
     const excl = b.id === "assumed" ? "。別の読み手を除く" : "";
     return (
       `  ${prefix} ${b.label}: 1 文書 $${formatUsd(b.usdPerDocument)} → 前季 ${PREV_SEASON_CASES} 事例 ${season(PREV_SEASON_CASES)}／事例が集中した月（${BUSY_MONTH_CASES} 事例と仮定） ${season(BUSY_MONTH_CASES)}／過去最多 ${PEAK_SEASON_CASES} 事例 ${season(PEAK_SEASON_CASES)}` +

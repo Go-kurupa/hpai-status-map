@@ -201,21 +201,21 @@ function CalcSection({ usage, summary }: { usage: MeasuredUsage; summary: EvalSu
   return (
     <div>
       <p className="replay-hint">
-        1 事例で読む文書は {ASSUMED_DOCS_PER_CASE} 文書と<strong>仮定</strong>しました（測っていません）。1 ドル {jpyPerUsd} 円で換算します。{PRICE_NOTE}
+        1 事例で読む文書は {ASSUMED_DOCS_PER_CASE} 文書と<strong>仮定</strong>しました（測っていません）。見積もり（推定）の換算は 1 ドル {jpyPerUsd} 円です。{PRICE_NOTE}
       </p>
 
       {measured.length > 0 && (
         <div>
           <h3>実測の使用量から計算した費用</h3>
-          <p>1 文書あたりの費用は、測った使用量に単価を掛けた計算で、請求画面の額とは別です。事例の数ごとの円の額は、1 事例 {ASSUMED_DOCS_PER_CASE} 文書の仮定を使った計算です。</p>
-          <CostTable bases={measured} jpyPerUsd={jpyPerUsd} caption="実測の使用量から計算（円の額は仮定の文書数を使う）" />
+          <p>1 文書あたりの費用は、測った使用量に単価を掛けた計算で、請求画面の額とは別です。事例の数ごとの円の額は、1 事例 {ASSUMED_DOCS_PER_CASE} 文書の仮定を使った見積もり（推定）です。</p>
+          <CostTable bases={measured} jpyPerUsd={jpyPerUsd} caption="実測の 1 文書あたり費用から計算。円の額は仮定の文書数を使う見積もり（推定）" />
         </div>
       )}
 
       <div className="backstage-unmeasured">
         <h3>見積もり（推定）。実測ではありません</h3>
         <p>
-          1 文書を入力 {n(t.inputTokens)}・出力 {n(t.outputTokens)} トークンの {ASSUMED_MODEL}（${formatUsd(assumed[0]?.usdPerDocument ?? 0)}）と仮定した数です。測った数ではありません。
+          1 文書を入力 {n(t.inputTokens)}・出力 {n(t.outputTokens)} トークンの {ASSUMED_MODEL}（${formatUsd(assumed[0]?.usdPerDocument ?? 0)}）と仮定した見積もり（推定）の数です。測った数ではありません。
           {assumed.length > 1 && "上の行は別の読み手（Haiku）の費用を含みません。下の行は、Haiku にも同じ量を読ませたと仮定して足した数で、実際の増分は未計測です。"}
         </p>
         <CostTable bases={assumed} jpyPerUsd={jpyPerUsd} caption="見積もり（推定）。実測ではありません" />
@@ -247,7 +247,7 @@ function CostTable({ bases, jpyPerUsd, caption }: { bases: ReturnType<typeof cos
             const cap = monthlyCaseCapacity(b, jpyPerUsd);
             return (
               <tr key={b.id}>
-                <th scope="row">{b.measured ? `${b.label}。円の額は ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う` : b.label}</th>
+                <th scope="row">{b.measured ? `${b.label}。円の額は ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う見積もり（推定）` : b.label}</th>
                 <td>${formatUsd(b.usdPerDocument)}</td>
                 {SCENARIOS.map((c) => (
                   <td key={c.label}>{formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases: c.cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy)}</td>

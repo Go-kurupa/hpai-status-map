@@ -150,7 +150,7 @@ describe("buildCostReport", () => {
     expect(text).toContain("[見積もり（推定）。実測ではありません]");
     const lines = text.split("\n");
     const split = lines.findIndex((l) => l.includes("[見積もり（推定）。実測ではありません]"));
-    for (const l of lines.slice(0, split).filter((x) => x.includes("→ 前季"))) expect(l).toMatch(/^ {2}計算（実測の使用量から。円額は 1 事例 12 文書の仮定を使う）/);
+    for (const l of lines.slice(0, split).filter((x) => x.includes("→ 前季"))) expect(l).toMatch(/^ {2}計算（実測の使用量から。円額は 1 事例 12 文書の仮定を使う見積もり（推定））/);
     for (const l of lines.slice(split + 1).filter((x) => x.includes("→ 前季"))) expect(l).toMatch(/^ {2}見積もり（推定。実測ではありません）/);
   });
 
@@ -164,6 +164,17 @@ describe("buildCostReport", () => {
     expect(text).toContain("通常の API");
     expect(text).toContain("約半分");
     expect(text).toContain("実行方式〔通常の API か Batch か〕は記録なし");
+  });
+
+  it("円の額が出る行は、実測由来の行も含めて、すべて行の中に『推定』がある", () => {
+    for (const usage of [UNMEASURED_USAGE, MEASURED_USAGE]) {
+      for (const summary of [null, SUMMARY]) {
+        const lines = buildCostReport({ usage, summary }).split("\n");
+        const from = lines.findIndex((l) => l.startsWith("■ 1 シーズンの費用"));
+        const bad = lines.filter((l, i) => (/円/.test(l) || (i > from && /\$\d/.test(l))) && !l.includes("推定"));
+        expect(bad).toEqual([]);
+      }
+    }
   });
 
   it("月 3,000 円との比較がある。禁じた語（削減、時間短縮、安全、安心）がない", () => {

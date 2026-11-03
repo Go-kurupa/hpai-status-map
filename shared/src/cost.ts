@@ -117,7 +117,7 @@ export function parseMeasuredUsage(x: unknown): MeasuredUsage | null {
   for (const t of Object.values(x.byModel)) {
     if (!isObj(t) || !isNum(t.inputTokens) || !isNum(t.outputTokens) || !isNum(t.cacheReadTokens) || !isNum(t.cacheWriteTokens)) return null;
   }
-  // 測ったと言いながら中身がない記録は、測っていないものとして扱う（作り話の「0 円」を出さない）
+  // 測ったと言いながら中身がない記録は、null（読み込む側は「読めなかった」として扱い、作り話の「0 円」を出さない）
   if (x.status === "measured" && (x.documents <= 0 || Object.keys(x.byModel).length === 0 || x.measuredAt === null)) return null;
   return x as unknown as MeasuredUsage;
 }
