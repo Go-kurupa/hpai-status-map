@@ -27,7 +27,7 @@ import type {
 export const ZONE_BASE_KM = 10;
 /** メッシュの中心から角まで最大約 0.78km と、形の簡略化の約 30m を覆う誤差（km）。 */
 export const MESH_MARGIN_KM = 0.85;
-/** 確認済みと数える、最後の成功からの時間（§9.7）。 */
+/** 確認済みと数える、直近の確認（ok かつ checkedAt）からの時間（§9.7）。未来の時刻は数えない。 */
 const WATCH_FRESH_MS = 6 * 60 * 60 * 1000;
 
 /** 県の発表の半径のうち最も外側。10km より狭くしない。数でない値は無視する（NaN で①を見逃さない）。 */
@@ -161,7 +161,7 @@ export function wildBirdsNotifiable(p: FarmPoint, birds: readonly WildBird[], ge
   );
 }
 
-/** 47 都道府県のうち、ok で最後の確認から 6 時間以内のものを確認済みと数える。一覧にない県は未確認。 */
+/** 47 都道府県のうち、ok で checkedAt が 6 時間以内（未来は除く）のものを確認済みと数える。一覧にない県は未確認。 */
 export function summarizeWatch(all: readonly WatchStatus[], now: Date): WatchSummary {
   const failedPrefCodes: PrefCode[] = [];
   let okCount = 0;
@@ -172,7 +172,7 @@ export function summarizeWatch(all: readonly WatchStatus[], now: Date): WatchSum
       records.every((w) => {
         if (!w.ok || w.checkedAt === null) return false;
         const age = now.getTime() - Date.parse(w.checkedAt);
-        return Number.isFinite(age) && age <= WATCH_FRESH_MS; // 読めない時刻は NaN で未確認になる
+        return Number.isFinite(age) && age >= 0 && age <= WATCH_FRESH_MS; // 読めない時刻は NaN、未来の時刻は負で、どちらも未確認になる
       });
     if (fresh) okCount++;
     else failedPrefCodes.push(pref.code);

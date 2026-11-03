@@ -617,6 +617,21 @@ describe("summarizeWatch", () => {
     expect(s.failedPrefCodes).toEqual(["03", "04", "05"]);
   });
 
+  it("未来の時刻は確認済みに数えない（時計のずれや壊れた値で確認済みに見せない）", () => {
+    const s = summarizeWatch(
+      all47((c) =>
+        c === "06"
+          ? { checkedAt: "2027-01-10T12:01:00+09:00" } // 1 分先
+          : c === "07"
+            ? { checkedAt: "2027-01-10T12:00:00+09:00" } // ちょうど今は確認済み
+            : {},
+      ),
+      NOW,
+    );
+    expect(s.failedPrefCodes).toEqual(["06"]);
+    expect(s.okCount).toBe(46);
+  });
+
   it("一覧にない県は確認できていない", () => {
     const s = summarizeWatch(all47().filter((x) => x.prefCode !== "47"), NOW);
     expect(s.failedPrefCodes).toEqual(["47"]);
