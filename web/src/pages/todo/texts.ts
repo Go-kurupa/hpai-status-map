@@ -16,8 +16,12 @@ export const TODO_TEXT = {
   liftHeading: "解除の見込み",
   liftUndetermined: "未定です。防疫措置（殺処分と消毒などの作業）が終わると、見込みの日を計算します",
   liftUndeterminedChain: "同じ町と隣の町の発生も含めて、すべての防疫措置が終わってから計算します",
-  liftCalculated: "防疫措置の完了日から数えた見込みです",
-  liftPublished: "県が見込みを発表しています。県の発表のとおりに出しています",
+  /** 計算した日があるときの前提。日付は「早まらず、検査しだいで遅れる日」 */
+  liftEarliest:
+    "計算した日は、防疫指針の条件（完了からの日数と、検査で区域内の全農場が陰性と確かめられること）がそろった場合の、最も早い日です。検査の結果によっては遅れます",
+  liftSourcePref: "県の発表",
+  liftSourceCalculated: "防疫指針の日数から計算",
+  liftEarliestDay: "最も早い日",
   liftChain: "続発があると延びます",
   liftAuthority: "解除は県が決めます。県の連絡が正です",
   liftLifted: "移動制限は解除されました",

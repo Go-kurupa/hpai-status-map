@@ -262,12 +262,14 @@ describe("段階 1 の解除の見込み", () => {
     expect(hasHeading(/確かめておくとよいこと/)).toBe(true);
   });
 
-  it("完了 12/30 なら 1 月 21 日ごろ、1 月 28 日ごろ（見込み）。続発の注意はない", async () => {
+  it("完了 12/30 なら 1月21日、1月28日。『最も早い日』『防疫指針の日数から計算』と検査の前提を添える。続発の注意はない", async () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama({ stages: { confirmed: stage("2025-12-20"), control_done: stage("2025-12-30") } })] }) });
     const region = await screen.findByRole("region", { name: "解除の見込み" });
-    expect(within(region).getByText("1月21日ごろ")).toBeTruthy();
-    expect(within(region).getByText("1月28日ごろ")).toBeTruthy();
-    expect(within(region).getByText("防疫措置の完了日から数えた見込みです")).toBeTruthy();
+    expect(within(region).getByText("1月21日（最も早い日。防疫指針の日数から計算）")).toBeTruthy();
+    expect(within(region).getByText("1月28日（最も早い日。防疫指針の日数から計算）")).toBeTruthy();
+    expect(within(region).getByText(/検査で区域内の全農場が陰性と確かめられること/)).toBeTruthy();
+    expect(within(region).getByText(/検査の結果によっては遅れます/)).toBeTruthy();
+    expect(region.textContent).not.toContain("ごろ");
     expect(within(region).queryByText("続発があると延びます")).toBeNull();
   });
 
@@ -276,16 +278,41 @@ describe("段階 1 の解除の見込み", () => {
     const b = mkCase({ id: "b", muniCode: "33214", muniName: "美作市", stages: { confirmed: stage("2025-12-25"), control_done: stage("2025-12-30") } });
     mount(<TodoPage />, { ds: makeDs({ cases: [a, b] }) });
     const region = await screen.findByRole("region", { name: "解除の見込み" });
-    expect(within(region).getAllByText("1月21日ごろ").length).toBeGreaterThan(0);
+    expect(within(region).getAllByText("1月21日（最も早い日。防疫指針の日数から計算）").length).toBeGreaterThan(0);
     expect(within(region).getAllByText("続発があると延びます").length).toBeGreaterThan(0);
   });
 
-  it("県が見込みを発表していれば、そのまま出す（ごろをつけない）", async () => {
-    const c = inTsuyama({ prefEstimates: { shipment: null, movement: "2026-01-15", surveillance: null } });
+  it("県が移動制限の見込みを発表していれば『県の発表』。同じ枠の監視強化は計算した日と分けて出所を添える", async () => {
+    const c = inTsuyama({
+      stages: { confirmed: stage("2025-12-20"), control_done: stage("2025-12-21") },
+      prefEstimates: { shipment: null, movement: "2026-01-15", surveillance: null },
+    });
     mount(<TodoPage />, { ds: makeDs({ cases: [c] }) });
     const region = await screen.findByRole("region", { name: "解除の見込み" });
-    expect(within(region).getByText("県が見込みを発表しています。県の発表のとおりに出しています")).toBeTruthy();
-    expect(within(region).getByText("1月15日")).toBeTruthy();
+    expect(within(region).getByText("1月15日（県の発表）")).toBeTruthy();
+    expect(within(region).getByText("1月19日（最も早い日。防疫指針の日数から計算）")).toBeTruthy();
+    expect(within(region).queryByText(/県の発表のとおりに出しています/)).toBeNull();
+    expect(region.textContent).not.toContain("ごろ");
+  });
+
+  it("計算した移動制限の日と、県が発表した監視強化の日が混ざっても、日付ごとに出所が分かれる", async () => {
+    const c = inTsuyama({
+      stages: { confirmed: stage("2025-12-20"), control_done: stage("2025-12-21") },
+      prefEstimates: { shipment: null, movement: null, surveillance: "2026-01-20" },
+    });
+    mount(<TodoPage />, { ds: makeDs({ cases: [c] }) });
+    const region = await screen.findByRole("region", { name: "解除の見込み" });
+    expect(within(region).getByText("1月12日（最も早い日。防疫指針の日数から計算）")).toBeTruthy();
+    expect(within(region).getByText("1月20日（県の発表）")).toBeTruthy();
+  });
+
+  it("県の発表だけで計算した日がないときは、検査の前提の文を出さない", async () => {
+    const c = inTsuyama({ prefEstimates: { shipment: null, movement: "2026-01-15", surveillance: "2026-01-20" } });
+    mount(<TodoPage />, { ds: makeDs({ cases: [c] }) });
+    const region = await screen.findByRole("region", { name: "解除の見込み" });
+    expect(within(region).getByText("1月15日（県の発表）")).toBeTruthy();
+    expect(within(region).getByText("1月20日（県の発表）")).toBeTruthy();
+    expect(within(region).queryByText(/最も早い日です/)).toBeNull();
   });
 
   it("搬出制限が解除されていれば『搬出制限は解除されました』", async () => {

@@ -51,6 +51,8 @@ describe("computeLiftEstimate", () => {
       status: "undetermined",
       movement: null,
       surveillance: null,
+      movementSource: null,
+      surveillanceSource: null,
       basisControlDone: null,
       extendedByChain: false,
       shipmentText: "検査の結果を受けて県が解除します",
@@ -63,6 +65,8 @@ describe("computeLiftEstimate", () => {
       status: "calculated",
       movement: "2026-01-21",
       surveillance: "2026-01-28",
+      movementSource: "calculated",
+      surveillanceSource: "calculated",
       basisControlDone: "2025-12-30",
       extendedByChain: false,
       shipmentText: "検査の結果を受けて県が解除します",
@@ -130,16 +134,29 @@ describe("computeLiftEstimate", () => {
       status: "published",
       movement: "2026-01-15",
       surveillance: "2026-01-19",
-      basisControlDone: "2025-12-21", // 監視強化は完了日から計算した
+      movementSource: "pref", // 移動制限は県の発表
+      surveillanceSource: "calculated", // 監視強化は完了日から計算した
+      basisControlDone: "2025-12-21",
       extendedByChain: false,
     });
   });
 
   it("県の発表があっても防疫措置の完了がなければ監視強化は null。県が監視強化も発表していればそれを優先する", () => {
     const only = mkCase({ id: "a", prefEstimates: { shipment: null, movement: "2026-01-15", surveillance: null } });
-    expect(computeLiftEstimate(only, [only], geo)).toMatchObject({ status: "published", movement: "2026-01-15", surveillance: null, basisControlDone: null });
+    expect(computeLiftEstimate(only, [only], geo)).toMatchObject({ status: "published", movement: "2026-01-15", surveillance: null, movementSource: "pref", surveillanceSource: null, basisControlDone: null });
     const both = mkCase({ id: "b", stages: done("2025-12-21"), prefEstimates: { shipment: null, movement: "2026-01-15", surveillance: "2026-01-20" } });
-    expect(computeLiftEstimate(both, [both], geo)).toMatchObject({ surveillance: "2026-01-20", basisControlDone: null });
+    expect(computeLiftEstimate(both, [both], geo)).toMatchObject({ surveillance: "2026-01-20", movementSource: "pref", surveillanceSource: "pref", basisControlDone: null });
+  });
+
+  it("計算した移動制限の日に、県が発表した監視強化の日が混ざっても、出所は日付ごとに分かれる", () => {
+    const a = mkCase({ id: "a", stages: done("2025-12-21"), prefEstimates: { shipment: null, movement: null, surveillance: "2026-01-20" } });
+    expect(computeLiftEstimate(a, [a], geo)).toMatchObject({
+      status: "calculated",
+      movement: "2026-01-12",
+      movementSource: "calculated",
+      surveillance: "2026-01-20",
+      surveillanceSource: "pref",
+    });
   });
 
   it("移動制限が解除された事例は lifted。見込みの日付は出さず、搬出の文は『解除されました』", () => {
@@ -148,6 +165,8 @@ describe("computeLiftEstimate", () => {
       status: "lifted",
       movement: null,
       surveillance: null,
+      movementSource: null,
+      surveillanceSource: null,
       basisControlDone: null,
       extendedByChain: false,
       shipmentText: "搬出制限は解除されました",
