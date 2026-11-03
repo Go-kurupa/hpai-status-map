@@ -57,6 +57,9 @@ describe("許可するホスト", () => {
       "https://www2.pref.fukui.lg.jp/x",
       "https://www.pref.hokkaido.lg.jp/",
       "https://www.pref.ehime.jp/",
+      "https://www.maff.go.jp:443/j/",
+      "http://www.maff.go.jp:80/j/",
+      "https://www.maff.go.jp:80/j/",
     ])
       expect(isProbeHostAllowed(new URL(ok)), ok).toBe(true);
     for (const ng of [
@@ -67,6 +70,9 @@ describe("許可するホスト", () => {
       "https://www.pref.okayama.jp.evil.test/",
       "https://x.pref.okayama.jp/",
       "ftp://www.maff.go.jp/",
+      "https://www.maff.go.jp:8443/",
+      "https://www.maff.go.jp:22/",
+      "http://www.pref.okayama.jp:8080/",
     ])
       expect(isProbeHostAllowed(new URL(ng)), ng).toBe(false);
   });
@@ -192,6 +198,7 @@ describe("probeTargets: 200 以外", () => {
       "https://www.pref.a.lg.jp/2": { kind: "not_allowed", url: "https://x.kintoneapp.com/" },
       "https://www.pref.a.lg.jp/3": { kind: "http_error", status: 404 },
       "https://www.pref.a.lg.jp/4": { kind: "not_modified" },
+      "https://www.pref.a.lg.jp/5": { kind: "http_error", status: 503, code: "robots_unavailable" },
     };
     const rows = await run(
       Object.keys(outcomes).map((u) => target(u, "hpai_fixed")),
@@ -202,7 +209,10 @@ describe("probeTargets: 200 以外", () => {
       ["not_allowed", null],
       ["http_error", 404],
       ["http_error", 304],
+      ["http_error", 503],
     ]);
+    // robots.txt の失敗は errorCode で本体の失敗と区別する
+    expect(rows.map((r) => r.errorCode)).toEqual([null, null, null, null, "robots_unavailable"]);
   });
 
   it("network_error のときだけ handshake を 1 回呼び、tls:true なら tls_error（errorCode は握手の code）", async () => {

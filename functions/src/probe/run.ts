@@ -44,6 +44,7 @@ export interface ProbeDeps {
 /** 許可するホスト: .go.jp、.lg.jp、pref.<名>.jp（先頭の www と数字は可）。 */
 export function isProbeHostAllowed(url: URL): boolean {
   if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+  if (url.port !== "" && url.port !== "80" && url.port !== "443") return false; // 内部のポートへ向けさせない
   const host = url.hostname.toLowerCase();
   return host.endsWith(".go.jp") || host.endsWith(".lg.jp") || /^(www\d*\.)?pref\.[a-z]+\.jp$/.test(host);
 }
@@ -217,7 +218,7 @@ async function probeOne(t: ProbeTarget, fetcher: typeof politeFetch, handshake: 
       case "not_allowed":
         return emptyRow(t, "not_allowed", { ms: Date.now() - started });
       case "http_error":
-        return emptyRow(t, "http_error", { status: outcome.status, ms: Date.now() - started });
+        return emptyRow(t, "http_error", { status: outcome.status, errorCode: outcome.code ?? null, ms: Date.now() - started });
       case "network_error": {
         if (outcome.tls) return emptyRow(t, "tls_error", { errorCode: outcome.code, ms: Date.now() - started });
         // fetch は原因を隠す。握手を 1 度だけ試して TLS の失敗かを分ける。

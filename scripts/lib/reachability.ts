@@ -154,14 +154,24 @@ const USAGE = `使い方:
 
 const reachDir = (root: string) => path.join(root, "data", "private", "reach");
 
-function loadReachRows(root: string): ProbeRow[] {
+/** probe-<YYYYMMDD>.ndjson は 1 回目、probe-<YYYYMMDD>-<n>.ndjson は n 回目。(日付, 回) の数値の順に並べる。 */
+function ndjsonOrder(name: string): [number, number] | null {
+  const m = /^probe-(\d{8})(?:-(\d+))?\.ndjson$/.exec(name);
+  return m ? [Number(m[1]), m[2] ? Number(m[2]) : 1] : null;
+}
+
+/** 古い順に並べた全 NDJSON の行。後の行が新しい。 */
+export function loadReachRows(root: string): ProbeRow[] {
   const dir = reachDir(root);
   if (!fs.existsSync(dir)) return [];
   return fs
     .readdirSync(dir)
-    .filter((f) => /^probe-.*\.ndjson$/.test(f))
-    .sort()
-    .flatMap((f) => parseNdjson(fs.readFileSync(path.join(dir, f), "utf8")));
+    .flatMap((name) => {
+      const order = ndjsonOrder(name);
+      return order ? [{ name, order }] : [];
+    })
+    .sort((a, b) => a.order[0] - b.order[0] || a.order[1] - b.order[1])
+    .flatMap(({ name }) => parseNdjson(fs.readFileSync(path.join(dir, name), "utf8")));
 }
 
 /** 同じ日の 2 回目以降は -2、-3 を付け、前の結果を上書きしない。 */

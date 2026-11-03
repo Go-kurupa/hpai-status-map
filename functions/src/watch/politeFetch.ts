@@ -18,13 +18,15 @@ export type FetchOutcome =
   | { kind: "not_modified" }
   | { kind: "robots_denied" }
   | { kind: "not_allowed"; url: string }
-  | { kind: "http_error"; status: number }
+  | { kind: "http_error"; status: number; code?: string } // code は robots.txt の失敗（robots_unavailable）のときだけ。本体の失敗と区別する
   | { kind: "network_error"; message: string; code: string | null; tls: boolean };
 
 export interface PoliteFetchOptions {
   etag?: string | null;
   lastModified?: string | null;
   timeoutMs?: number;
+  /** 本体を読む上限（バイト）。超えたら中止して network_error（code response_too_large）。既定 8 MiB。robots.txt は 512 KiB。 */
+  maxBytes?: number;
   /** 最初の URL と各リダイレクトの先を、取得する前（robots.txt の取得より先）に判定する。false なら外へ 1 度も要求しない。 */
   allowUrl?: (url: URL) => boolean;
 }
@@ -39,6 +41,8 @@ const MAX_CRAWL_DELAY_MS = 30_000;
 const ROBOTS_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_REDIRECTS = 5;
 const DEFAULT_TIMEOUT_MS = 30_000;
+export const DEFAULT_MAX_BYTES = 8 * 1024 * 1024;
+const ROBOTS_MAX_BYTES = 512 * 1024;
 
 // ── ホストごとの待ち行列 ──
 
@@ -112,11 +116,38 @@ const robotsCache = new Map<string, { at: number; state: RobotsState }>();
 
 type RawResult = { kind: "response"; res: Response; body: Buffer } | { kind: "error"; outcome: FetchOutcome };
 
-async function rawGet(url: URL, headers: Record<string, string>, timeoutMs: number): Promise<RawResult> {
+const tooLarge = (): FetchOutcome => ({ kind: "network_error", message: "response too large", code: "response_too_large", tls: false });
+
+/** 本体を上限まで読む。content-length が上限を超えるなら読まずに止める。 */
+async function readLimited(res: Response, maxBytes: number): Promise<Buffer | null> {
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await res.body?.cancel().catch(() => undefined);
+    return null;
+  }
+  if (!res.body) return Buffer.alloc(0);
+  const reader = res.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(Buffer.from(value.buffer, value.byteOffset, value.byteLength));
+  }
+  return Buffer.concat(chunks, total);
+}
+
+async function rawGet(url: URL, headers: Record<string, string>, timeoutMs: number, maxBytes: number): Promise<RawResult> {
   const signal = AbortSignal.timeout(timeoutMs);
   try {
     const res = await globalThis.fetch(url, { method: "GET", redirect: "manual", headers, signal });
-    const body = Buffer.from(await res.arrayBuffer());
+    const body = await readLimited(res, maxBytes);
+    if (body === null) return { kind: "error", outcome: tooLarge() };
     return { kind: "response", res, body };
   } catch (e) {
     return { kind: "error", outcome: networkError(e, signal.aborted) };
@@ -144,12 +175,16 @@ async function fetchRobots(origin: string, allowUrl: (url: URL) => boolean, time
   let url = new URL("/robots.txt", origin);
   for (let hop = 0; ; hop++) {
     if (!allowUrl(url)) return { kind: "not_allowed", url: url.href };
-    const raw = await throttle(url.host, MIN_INTERVAL_MS, () => rawGet(url, { ...BASE_HEADERS, accept: "text/plain,*/*;q=0.1" }, timeoutMs));
+    const raw = await throttle(url.host, MIN_INTERVAL_MS, () => rawGet(url, { ...BASE_HEADERS, accept: "text/plain,*/*;q=0.1" }, timeoutMs, ROBOTS_MAX_BYTES));
     if (raw.kind === "error") return raw.outcome;
     const { res, body } = raw;
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       if (hop >= MAX_REDIRECTS) return { kind: "network_error", message: "too many redirects", code: "too_many_redirects", tls: false };
-      url = new URL(res.headers.get("location")!, url);
+      try {
+        url = new URL(res.headers.get("location")!, url);
+      } catch {
+        return { kind: "http_error", status: res.status, code: "robots_unavailable" };
+      }
       continue;
     }
     let state: RobotsState;
@@ -161,7 +196,7 @@ async function fetchRobots(origin: string, allowUrl: (url: URL) => boolean, time
     } else if (res.status >= 400 && res.status < 500 && res.status !== 429) {
       state = { kind: "allow_all", crawlDelayMs: 0 }; // robots.txt が無い（RFC 9309）
     } else {
-      return { kind: "http_error", status: res.status }; // 5xx、429、未解決の 3xx: 規則が分からないので本体を取らない。覚えない
+      return { kind: "http_error", status: res.status, code: "robots_unavailable" }; // 5xx、429、未解決の 3xx: 規則が分からないので本体を取らない。覚えない
     }
     robotsCache.set(origin, { at: Date.now(), state });
     return state;
@@ -196,7 +231,7 @@ export async function politeFetch(url: string, opts: PoliteFetchOptions = {}): P
       if (opts.lastModified) headers["if-modified-since"] = opts.lastModified;
     }
     const target = current;
-    const raw = await throttle(target.host, Math.max(MIN_INTERVAL_MS, robots.crawlDelayMs), () => rawGet(target, headers, timeoutMs));
+    const raw = await throttle(target.host, Math.max(MIN_INTERVAL_MS, robots.crawlDelayMs), () => rawGet(target, headers, timeoutMs, opts.maxBytes ?? DEFAULT_MAX_BYTES));
     if (raw.kind === "error") return raw.outcome;
     const { res, body } = raw;
 

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { findForbiddenPhrases } from "@hpai/shared/wording";
 import { PREFS } from "@hpai/shared/pref";
 import type { ProbeRow, ProbeTarget, ProbeVerdict } from "../../functions/src/probe/run";
-import { parseNdjson, renderReachability, runProbe, type ProbeIo } from "../lib/reachability";
+import { loadReachRows, parseNdjson, renderReachability, runProbe, type ProbeIo } from "../lib/reachability";
 
 const MEASURED_AT = "2026-11-04T12:00:00+09:00";
 
@@ -234,6 +234,29 @@ describe("runProbe（ops.ts probe の中身）", () => {
     const md = fs.readFileSync(path.join(root, "docs", "reachability.md"), "utf8");
     expect(md).toContain("https://www.pref.okayama.jp/a.html"); // 前の日の結果も残る
     expect(md).toContain("https://www.pref.aichi.jp/new.html");
+  });
+
+  it("同じ日の 2 回目以降の NDJSON が、1 回目より新しい（数字の順。-10 は -2 より後）", async () => {
+    const dir = path.join(root, "data", "private", "reach");
+    fs.mkdirSync(dir, { recursive: true });
+    const X = "https://www.pref.okayama.jp/x.html";
+    const put = (name: string, verdict: ProbeVerdict) =>
+      fs.writeFileSync(path.join(dir, name), `${JSON.stringify(row({ target: { prefCode: "33", url: X }, verdict }))}\n`);
+    put("probe-20261103.ndjson", "http_error");
+    put("probe-20261104.ndjson", "network_error");
+    put("probe-20261104-2.ndjson", "robots_denied");
+    put("probe-20261104-10.ndjson", "ok");
+    put("probe-20261104-9.ndjson", "tls_error");
+    expect(loadReachRows(root).map((r) => r.verdict)).toEqual(["http_error", "network_error", "robots_denied", "tls_error", "ok"]);
+
+    fs.writeFileSync(
+      path.join(root, "data", "sources.json"),
+      JSON.stringify([{ prefCode: "23", url: "https://www.pref.aichi.jp/new.html", kind: "pref_fixed", confirmedOn: "2026-11-03", note: null }]),
+    );
+    expect(await runProbe(["--from-sources"], makeIo(fakeServer as never))).toBe(0);
+    const md = fs.readFileSync(path.join(root, "docs", "reachability.md"), "utf8");
+    const xRow = md.split("\n").find((l) => l.includes(X) && l.includes("hpai_fixed"))!;
+    expect(xRow).toContain("| ok |"); // 最後（-10）の結果が載る
   });
 
   it("認証の失敗や、使い方の誤りでは何も書かない", async () => {

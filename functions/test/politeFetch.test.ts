@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { politeFetch, USER_AGENT } from "../src/watch/politeFetch";
+import { DEFAULT_MAX_BYTES, politeFetch, USER_AGENT } from "../src/watch/politeFetch";
 
 // node:http の一時サーバーだけを相手にする。外へは出ない。
 interface Seen {
@@ -95,7 +95,25 @@ describe("作法（§9.1）", () => {
       res.writeHead(req.url === "/robots.txt" ? 503 : 200).end("x");
     });
     const out = await politeFetch(`${s.origin}/page`);
-    expect(out.kind).not.toBe("ok");
+    // 本体の失敗と区別するため code を付ける
+    expect(out).toEqual({ kind: "http_error", status: 503, code: "robots_unavailable" });
+    expect(s.paths()).toEqual(["/robots.txt"]);
+  });
+
+  it("robots.txt が 429 でも本体を取らず robots_unavailable", async () => {
+    const s = await startServer((req, res) => {
+      res.writeHead(req.url === "/robots.txt" ? 429 : 200).end("x");
+    });
+    expect(await politeFetch(`${s.origin}/page`)).toEqual({ kind: "http_error", status: 429, code: "robots_unavailable" });
+    expect(s.paths()).toEqual(["/robots.txt"]);
+  });
+
+  it("robots.txt のリダイレクトの Location が壊れていても結果を返す", async () => {
+    const s = await startServer((req, res) => {
+      if (req.url === "/robots.txt") return void res.writeHead(302, { location: "http://[bad" }).end();
+      res.writeHead(200).end("x");
+    });
+    expect(await politeFetch(`${s.origin}/page`)).toEqual({ kind: "http_error", status: 302, code: "robots_unavailable" });
     expect(s.paths()).toEqual(["/robots.txt"]);
   });
 
@@ -179,10 +197,73 @@ describe("条件付きの取得と状態", () => {
     expect(await politeFetch(`${s.origin}/boom`)).toEqual({ kind: "http_error", status: 500 });
   }, 15_000);
 
+  it("本体のリダイレクトの Location が壊れていても http_error を返す（code なし）", async () => {
+    const s = await startServer((req, res) => {
+      if (robotsAllowAll(req, res)) return;
+      res.writeHead(302, { location: "http://[bad" }).end();
+    });
+    expect(await politeFetch(`${s.origin}/page`)).toEqual({ kind: "http_error", status: 302 });
+  }, 15_000);
+
   it("http と https 以外は not_allowed で何も要求しない", async () => {
     expect(await politeFetch("ftp://example.test/x")).toEqual({ kind: "not_allowed", url: "ftp://example.test/x" });
     expect(await politeFetch("file:///etc/hosts")).toMatchObject({ kind: "not_allowed" });
     expect(await politeFetch("not a url")).toMatchObject({ kind: "network_error", tls: false });
+  });
+});
+
+describe("読む大きさの上限", () => {
+  it("content-length が maxBytes を超えるなら読まずに response_too_large", async () => {
+    const s = await startServer((req, res) => {
+      if (robotsAllowAll(req, res)) return;
+      res.writeHead(200, { "content-length": "100" }).end("x".repeat(100));
+    });
+    expect(await politeFetch(`${s.origin}/big`, { maxBytes: 10 })).toMatchObject({ kind: "network_error", code: "response_too_large", tls: false });
+  }, 15_000);
+
+  it("content-length がなくても、累積が上限を超えたところで中止する", async () => {
+    let closedEarly = false;
+    const s = await startServer((req, res) => {
+      if (robotsAllowAll(req, res)) return;
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.on("close", () => {
+        if (!res.writableFinished) closedEarly = true;
+      });
+      const chunk = "x".repeat(16 * 1024);
+      let sent = 0;
+      const timer = setInterval(() => {
+        if (res.destroyed || sent++ > 400) {
+          clearInterval(timer);
+          res.destroyed || res.end();
+          return;
+        }
+        res.write(chunk);
+      }, 2);
+    });
+    const out = await politeFetch(`${s.origin}/stream`, { maxBytes: 100 * 1024 });
+    expect(out).toMatchObject({ kind: "network_error", code: "response_too_large" });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(closedEarly).toBe(true);
+  }, 15_000);
+
+  it("上限ちょうどまでは受け取る。既定の上限は 8 MiB", async () => {
+    const s = await startServer((req, res) => {
+      if (robotsAllowAll(req, res)) return;
+      res.writeHead(200).end("y".repeat(1000));
+    });
+    const out = await politeFetch(`${s.origin}/edge`, { maxBytes: 1000 });
+    expect(out.kind === "ok" && out.body.length).toBe(1000);
+    expect(DEFAULT_MAX_BYTES).toBe(8 * 1024 * 1024);
+  }, 15_000);
+
+  it("robots.txt が 512 KiB を超えるなら本体を取らず response_too_large", async () => {
+    const s = await startServer((req, res) => {
+      if (req.url === "/robots.txt") return void res.writeHead(200).end("#".repeat(513 * 1024));
+      res.writeHead(200).end("x");
+    });
+    const out = await politeFetch(`${s.origin}/page`);
+    expect(out).toMatchObject({ kind: "network_error", code: "response_too_large" });
+    expect(s.paths()).toEqual(["/robots.txt"]);
   });
 });
 
