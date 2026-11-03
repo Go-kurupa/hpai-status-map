@@ -57,16 +57,16 @@ describe("I-1: 回数の制限を偽れない、費用を食えない", () => {
     expect(limit("198.51.100.200", t + 60_000)).toBe("ok"); // 次の分
   });
 
-  it("数える IP の数が上限に達したら、追跡されない IP は 1 つの共有の鍵にまとめて数える（無制限に通さない）", () => {
+  it("追跡の表が満杯のとき、新しい IP は 429 にせず shed（キャッシュだけ）。表に足さないので、何度来ても追跡済みの IP を締め出さない", () => {
     const limit = createRateLimiter(3, { globalPerMinute: 1000, maxTrackedIps: 2 });
     const t = Date.UTC(2026, 10, 4, 3, 0, 5);
     expect(limit("203.0.113.1", t)).toBe("ok");
     expect(limit("203.0.113.2", t)).toBe("ok");
-    expect(limit("203.0.113.3", t)).toBe("ok"); // 共有の鍵 1 回目
-    expect(limit("203.0.113.4", t)).toBe("ok");
-    expect(limit("203.0.113.5", t)).toBe("ok");
-    expect(limit("203.0.113.6", t)).toBe("ip"); // 共有の鍵が上限
-    expect(limit("203.0.113.1", t)).toBe("ok"); // 追跡済みの IP は影響されない
+    for (let i = 0; i < 500; i++) expect(limit(`198.51.100.${i % 250}`, t)).toBe("shed"); // 429 にならない（攻撃者が共有の鍵を使い切れない）
+    expect(limit("203.0.113.1", t)).toBe("ok");
+    expect(limit("203.0.113.1", t)).toBe("ok");
+    expect(limit("203.0.113.1", t)).toBe("ip"); // 追跡済みの IP は自分の上限
+    expect(limit("203.0.113.9", t + 60_000)).toBe("ok"); // 次の分は表が空
   });
 
   it("clientIp は右端", () => {
@@ -442,5 +442,29 @@ describe("3回目 3: 細かい直し", () => {
     const urls = (await get(deps, "/api/v1/cases")).body.data[0].sourceUrls as string[];
     expect(urls).toHaveLength(1);
     expect(urls[0]!.length).toBeLessThanOrEqual(500);
+  });
+});
+
+// ── 修正 4 回目 ──
+
+describe("4回目: 古い答えは長く共有の置き場に残さない", () => {
+  it("読んだ時刻に合わせて max-age を短くする。60 秒以上古ければ no-cache。時刻がなければ従来どおり", async () => {
+    const { deps } = await makeDeps();
+    const at = (ageMs: number): ApiDeps => ({ ...deps, dataAt: () => NOW.getTime() - ageMs });
+    const cc = async (d: ApiDeps) => (await get(d, "/api/v1/watch-status")).headers["Cache-Control"];
+    expect(await cc(deps)).toBe("public, max-age=60");
+    expect(await cc(at(5_000))).toBe("public, max-age=55");
+    expect(await cc(at(59_000))).toBe("public, max-age=1");
+    expect(await cc(at(60_000))).toBe("no-cache");
+    expect(await cc(at(7 * 60_000))).toBe("no-cache");
+    for (const p of ["/api/v1/cases", "/api/v1/areas/33203", "/api/v1/wild-birds"]) expect((await get(at(7 * 60_000), p)).headers["Cache-Control"], p).toBe("no-cache");
+  });
+
+  it("IPv4 マップの 16 進の書き方も IPv4 として扱う", () => {
+    expect(clientIp("::ffff:cb00:7109")).toBe("203.0.113.9");
+    expect(clientIp("::FFFF:CB00:7109")).toBe("203.0.113.9");
+    expect(clientIp("0:0:0:0:0:ffff:c0a8:1")).toBe("192.168.0.1");
+    expect(clientIp("::ffff:c0a8:0001")).toBe("192.168.0.1");
+    expect(clientIp("::fffe:c0a8:1")).not.toBe("192.168.0.1"); // マップ形ではない
   });
 });

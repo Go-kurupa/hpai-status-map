@@ -194,7 +194,19 @@ export function fail(status: number, code: string, message: string, extra: Recor
   return { status, headers: { ...ERR_HEADERS, ...extra }, body: { error: { code, message } } };
 }
 
-const done = (body: unknown): ApiResult => ({ status: 200, headers: { ...OK_HEADERS }, body });
+/**
+ * 成功の応答。共有の置き場（CDN）に残す時間は、記録を読んだ時刻（dataAsOf）の残りの新しさに合わせる。
+ * 60 秒以上古い答え（全体の上限のとき、古いキャッシュから返したもの）は残させない（no-cache）。
+ */
+function done(body: unknown, now: Date): ApiResult {
+  const dataAsOf = (body as { dataAsOf?: string }).dataAsOf;
+  let cacheControl = OK_HEADERS["Cache-Control"];
+  if (dataAsOf !== undefined) {
+    const age = now.getTime() - Date.parse(dataAsOf);
+    cacheControl = Number.isFinite(age) && age >= 0 && age < 60_000 ? `public, max-age=${60 - Math.floor(age / 1000)}` : "no-cache";
+  }
+  return { status: 200, headers: { ...OK_HEADERS, "Cache-Control": cacheControl }, body };
+}
 
 const BAD_SEASON = (now: Date) => fail(400, "bad_season", `season は ${API_MIN_SEASON} から ${currentSeason(now)} までの 4 桁の数字です`);
 const BAD_PREF = () => fail(400, "bad_pref", "pref は 01 から 47 までの 2 桁の都道府県コードです");
@@ -213,14 +225,14 @@ export async function handleApi(
       if (season === null) return BAD_SEASON(now);
       const pref = parsePref(r.query.pref);
       if (pref === null) return BAD_PREF();
-      return done(await buildCases(d, { season, pref: pref ?? null }, now));
+      return done(await buildCases(d, { season, pref: pref ?? null }, now), now);
     }
     if (path === "/wild-birds") {
       const season = parseSeason(r.query.season, now);
       if (season === null) return BAD_SEASON(now);
-      return done(await buildWildBirds(d, season, now));
+      return done(await buildWildBirds(d, season, now), now);
     }
-    if (path === "/watch-status") return done(await buildWatch(d, now));
+    if (path === "/watch-status") return done(await buildWatch(d, now), now);
 
     const area = /^\/areas\/([^/]+)$/.exec(path);
     if (area) {
@@ -228,7 +240,7 @@ export async function handleApi(
       const muni = parseMuniCode(code);
       if (muni === null) return fail(400, "bad_muni_code", "市町村コードは 5 桁の数字です");
       const built = await buildArea(d, muni, now);
-      return built ? done(built) : fail(404, "unknown_area", "知らない市町村コードです（政令市は市のコードで呼んでください）");
+      return built ? done(built, now) : fail(404, "unknown_area", "知らない市町村コードです（政令市は市のコードで呼んでください）");
     }
     return fail(404, "not_found", "知らない path です");
   } catch (e) {
