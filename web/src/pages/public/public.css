@@ -1,0 +1,94 @@
+/* 鶏を飼っていない方へ、市町村の案内（W-07）。平面の単色。文字は大きく、読む順に並べる */
+.public-page,
+.area-page {
+  max-width: 44rem;
+}
+
+.guidance-review {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 2px solid var(--fg);
+  font-weight: 700;
+}
+
+.guidance-toc ul {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.guidance-toc a {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+}
+
+.guidance {
+  margin: 0 0 28px;
+  padding-top: 8px;
+  border-top: 3px solid var(--fg);
+  scroll-margin-top: 8px;
+}
+
+.guidance-statement {
+  margin: 0 0 12px;
+}
+.guidance-statement blockquote {
+  margin: 0 0 4px;
+  padding: 4px 0 4px 12px;
+  border-left: 6px solid var(--line);
+}
+.guidance-statement blockquote p {
+  margin: 0;
+}
+
+.guidance-links h3,
+.guidance-notes h3 {
+  margin: 12px 0 4px;
+  font-size: 1rem;
+}
+.guidance-links ul {
+  margin: 0 0 8px;
+  padding-left: 1.2em;
+}
+.guidance-links li {
+  margin: 0 0 4px;
+}
+
+/* 作品側の文。公式の文（左の太い線の引用）と見た目を分ける */
+.guidance-notes {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border: 2px dashed var(--muted);
+}
+.guidance-notes ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+.guidance-notes li {
+  margin: 0 0 6px;
+}
+
+.guidance-map-link {
+  margin: 12px 0 0;
+}
+
+/* /area */
+.area-links ul {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.area-links a {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+}
+.area-sources {
+  font-size: 0.9rem;
+}
