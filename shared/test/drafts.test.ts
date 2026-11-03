@@ -1,0 +1,187 @@
+// M-18: 声かけ文の雛形と検査。説明文（M-19）の検査も同じ部品を通す。
+import { describe, expect, it } from "vitest";
+import type { Case } from "../src/types";
+import { checkNeighborText, checkWorkerMessage, dateNumbers, draftFactsOf, workerMessageTemplate } from "../src/drafts";
+import { findForbiddenPhrases } from "../src/wording";
+
+const F = { muniName: "津山市", date: "2025-12-19", allowedNumbers: dateNumbers("2025-12-19") };
+const OK = workerMessageTemplate({ muniName: "津山市", date: "2025-12-19", stage: "confirmed" });
+const failures = (text: string) => checkWorkerMessage(text, F).failures;
+
+describe("dateNumbers", () => {
+  it("年、月、日を頭の 0 なしで返す", () => {
+    expect(dateNumbers("2025-12-19")).toEqual(["2025", "12", "19"]);
+    expect(dateNumbers("2026-01-05")).toEqual(["2026", "1", "5"]);
+  });
+  it("日付でなければ RangeError", () => {
+    expect(() => dateNumbers("2025-02-30")).toThrow(RangeError);
+  });
+});
+
+describe("workerMessageTemplate", () => {
+  it("疑い: 確定ではないと書き、2 つの核を含む", () => {
+    expect(workerMessageTemplate({ muniName: "津山市", date: "2025-12-19", stage: "suspected" })).toBe(
+      "12月19日、津山市で鳥インフルエンザの疑いの発表がありました（確定ではありません）。発生地の近くに行かないでください。出勤の前後に消毒と着替えをお願いします。",
+    );
+  });
+  it("確定", () => {
+    expect(workerMessageTemplate({ muniName: "津山市", date: "2025-12-19", stage: "confirmed" })).toBe(
+      "12月19日、津山市で鳥インフルエンザの発生が確認されました。発生地の近くに行かないでください。出勤の前後に消毒と着替えをお願いします。",
+    );
+  });
+  it("頭の 0 のある月日でも、自分の検査に通る（1 月 5 日）", () => {
+    for (const stage of ["suspected", "confirmed"] as const) {
+      const f = { muniName: "津山市", date: "2026-01-05", stage };
+      const t = workerMessageTemplate(f);
+      expect(t).toContain("1月5日");
+      expect(checkWorkerMessage(t, { muniName: f.muniName, date: f.date, allowedNumbers: dateNumbers(f.date) })).toEqual({ ok: true, failures: [] });
+    }
+  });
+  it("2 つの雛形は、禁句も煽る語も持たず、自分の検査に通る", () => {
+    for (const stage of ["suspected", "confirmed"] as const) {
+      const t = workerMessageTemplate({ muniName: "津山市", date: "2025-12-19", stage });
+      expect(findForbiddenPhrases(t)).toEqual([]);
+      expect(checkWorkerMessage(t, F)).toEqual({ ok: true, failures: [] });
+    }
+  });
+});
+
+describe("checkWorkerMessage", () => {
+  it("雛形は合格", () => {
+    expect(checkWorkerMessage(OK, F)).toEqual({ ok: true, failures: [] });
+  });
+  it("全角数字と空白の混じった日付も日付として通る", () => {
+    const t = OK.replace("12月19日", "１２ 月 １９ 日");
+    expect(checkWorkerMessage(t, F)).toEqual({ ok: true, failures: [] });
+  });
+  it("別の月の日付に埋もれた同じ数字は日付と認めない（2月19日 と 12月19日）", () => {
+    const f = { muniName: "津山市", date: "2026-02-19", allowedNumbers: dateNumbers("2026-02-19") };
+    // 本文の「12月19日」は 2月19日 ではない。数字 12 も許されない
+    const r = checkWorkerMessage(OK, f);
+    expect(r.ok).toBe(false);
+    expect(r.failures).toContain("missing_date");
+    expect(r.failures).toContain("unknown_number:12");
+  });
+  it("市町村名が無い: missing_muni", () => {
+    expect(failures(OK.replace("津山市", "この地域"))).toContain("missing_muni");
+  });
+  it("日付が無い: missing_date", () => {
+    expect(failures(OK.replace("12月19日、", ""))).toContain("missing_date");
+  });
+  it("発生地に近づかない旨が無い: missing_core_avoid", () => {
+    expect(failures(OK.replace("発生地の近くに行かないでください。", "気をつけてください。"))).toContain("missing_core_avoid");
+    // 「近く」だけ、「行かない」だけでは足りない
+    expect(failures(OK.replace("発生地の近くに行かないでください。", "近くの様子を見てください。"))).toContain("missing_core_avoid");
+    expect(failures(OK.replace("発生地の近くに行かないでください。", "出かけないでください。"))).toContain("missing_core_avoid");
+  });
+  it("近づかない旨は 行かない／行かず／立ち寄らない／近づかない のどれでもよい", () => {
+    for (const v of ["行かないでください", "行かずにください", "立ち寄らないでください", "近づかないでください"]) {
+      expect(failures(OK.replace("行かないでください", v))).not.toContain("missing_core_avoid");
+    }
+  });
+  it("消毒と着替えのどちらかが無い: missing_core_disinfect", () => {
+    expect(failures(OK.replace("消毒と着替え", "消毒"))).toContain("missing_core_disinfect");
+    expect(failures(OK.replace("消毒と着替え", "着替え"))).toContain("missing_core_disinfect");
+  });
+  it("事実にない数字: unknown_number", () => {
+    const r = checkWorkerMessage("約43万羽です。", F);
+    expect(r.ok).toBe(false);
+    expect(r.failures).toContain("unknown_number:43");
+  });
+  it("許した数字は通る（年の言い方）", () => {
+    expect(failures(OK.replace("12月19日", "2025年12月19日"))).toEqual([]);
+  });
+  it("漢数字の数と単位: unknown_kanji_number", () => {
+    expect(failures("三キロ以内です。")).toContain("unknown_kanji_number:三キロ");
+    expect(failures(`${OK}二人で来ます。`)).toContain("unknown_kanji_number:二人");
+    expect(failures(`${OK}十分に気をつけてください。`)).not.toContain("unknown_kanji_number:十分");
+  });
+  it("煽る語: sensational", () => {
+    expect(failures("大変危険です。")).toContain("sensational:危険");
+    for (const w of ["危ない", "緊急事態", "非常事態", "パニック", "恐怖", "壊滅", "猛威", "爆発", "まん延", "蔓延", "大流行", "絶対", "ホットスポット", "また発生しやすい"]) {
+      expect(failures(`${OK}${w}です。`)).toContain(`sensational:${w}`);
+    }
+  });
+  it("禁句: forbidden", () => {
+    expect(failures("卵は安全です。")).toContain("forbidden:安全");
+    expect(failures(`${OK}安心してください。`)).toContain("forbidden:安心");
+  });
+  it("人の健康の断定: health", () => {
+    for (const w of ["感染しません", "感染しない", "うつりません", "うつらない", "受診", "病院", "発症"]) {
+      expect(failures(`${OK}${w}。`)).toContain(`health:${w}`);
+    }
+  });
+  it("空の文は、核も市町村も日付も無い", () => {
+    const r = checkWorkerMessage("", F);
+    expect(r.ok).toBe(false);
+    expect(r.failures).toEqual(expect.arrayContaining(["missing_muni", "missing_date", "missing_core_avoid", "missing_core_disinfect"]));
+  });
+});
+
+describe("checkNeighborText", () => {
+  const allowed = ["2025", "12", "19"];
+  it("人の健康の断定を health で落とす", () => {
+    expect(checkNeighborText("人には感染しません。", allowed).failures).toContain("health:感染しません");
+    expect(checkNeighborText("心配なら受診してください。", allowed).failures).toContain("health:受診");
+  });
+  it("数字、漢数字、煽る語、禁句を落とす", () => {
+    expect(checkNeighborText("約43万羽です。", allowed).failures).toContain("unknown_number:43");
+    expect(checkNeighborText("三キロ以内です。", allowed).failures).toContain("unknown_kanji_number:三キロ");
+    expect(checkNeighborText("大変危険です。", allowed).failures).toContain("sensational:危険");
+    expect(checkNeighborText("卵は安全です。", allowed).failures).toContain("forbidden:安全");
+  });
+  it("声かけ文の核（市町村、日付、近づかない）は求めない", () => {
+    expect(checkNeighborText("近所の農場で検査が行われています。", allowed)).toEqual({ ok: true, failures: [] });
+  });
+  it("許した数字は通る", () => {
+    expect(checkNeighborText("12月19日に発表がありました。", allowed).ok).toBe(true);
+  });
+});
+
+function mkCase(o: Partial<Case>): Case {
+  return {
+    id: "c1",
+    season: 2025,
+    nationalNo: null,
+    prefNo: null,
+    prefCode: "33",
+    muniCode: "33203",
+    muniName: "津山市",
+    birdUse: null,
+    housing: null,
+    headCount: null,
+    stages: { confirmed: { date: "2025-12-19", time: null } },
+    radiiKm: [],
+    prefEstimates: { shipment: null, movement: null, surveillance: null },
+    negation: "none",
+    negatedAt: null,
+    confirmState: "auto",
+    sourceUrls: [],
+    updatedAt: "2025-12-19T12:00:00+09:00",
+    ...o,
+  };
+}
+
+describe("draftFactsOf（下書きを作ってよい事例か）", () => {
+  it("確定があれば確定の日、なければ疑いの日", () => {
+    expect(draftFactsOf(mkCase({}))).toEqual({ muniName: "津山市", date: "2025-12-19", stage: "confirmed" });
+    expect(
+      draftFactsOf(mkCase({ stages: { suspected: { date: "2025-12-18", time: null } } })),
+    ).toEqual({ muniName: "津山市", date: "2025-12-18", stage: "suspected" });
+    expect(
+      draftFactsOf(mkCase({ stages: { suspected: { date: "2025-12-18", time: null }, confirmed: { date: "2025-12-19", time: null } } })),
+    ).toEqual({ muniName: "津山市", date: "2025-12-19", stage: "confirmed" });
+  });
+  it("確認中、再現、否定、市町村なし、段階なしは null", () => {
+    expect(draftFactsOf(mkCase({ confirmState: "reviewing" }))).toBeNull();
+    expect(draftFactsOf(mkCase({ confirmState: "replay" }))).toBeNull();
+    expect(draftFactsOf(mkCase({ negation: "negated" }))).toBeNull();
+    expect(draftFactsOf(mkCase({ muniCode: null }))).toBeNull();
+    expect(draftFactsOf(mkCase({ muniName: null }))).toBeNull();
+    expect(draftFactsOf(mkCase({ stages: { culling_done: { date: "2025-12-20", time: null } } }))).toBeNull();
+  });
+  it("国の過去の資料（national）と運営者の確定（operator）は対象", () => {
+    expect(draftFactsOf(mkCase({ confirmState: "national" }))).not.toBeNull();
+    expect(draftFactsOf(mkCase({ confirmState: "operator" }))).not.toBeNull();
+  });
+});

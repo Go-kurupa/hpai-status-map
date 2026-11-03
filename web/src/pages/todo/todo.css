@@ -48,3 +48,28 @@
 .done-row {
   margin-top: 4px;
 }
+.worker-message {
+  margin: 0 0 16px;
+  padding: 12px var(--gutter);
+  border: 2px solid var(--fg);
+}
+.worker-message textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 8rem;
+  margin: 4px 0 8px;
+  padding: 8px;
+  border: 2px solid var(--fg);
+  font: inherit;
+  line-height: 1.6;
+}
+.worker-message-source,
+.worker-message-basis {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.worker-message-warn {
+  margin: 0 0 8px;
+  font-weight: 700;
+}

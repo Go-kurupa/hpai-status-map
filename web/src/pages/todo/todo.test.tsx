@@ -168,10 +168,10 @@ function mount(
   );
 }
 
-/** 「いつ時点か」の行を除いた画面の文字 */
+/** 「いつ時点か」の行と、声かけ文の枠（M-18。発生の日付を書く。worker-message.test.tsx が見る）を除いた画面の文字 */
 function pageText(container: HTMLElement): string {
   const clone = container.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll(".as-of").forEach((e) => e.remove());
+  clone.querySelectorAll(".as-of, .worker-message").forEach((e) => e.remove());
   return clone.textContent ?? "";
 }
 const hasHeading = (re: RegExp) => screen.queryAllByRole("heading", { name: re }).length > 0;

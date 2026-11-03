@@ -13,6 +13,7 @@ import { DoneButton, FarmGuide, useDisinfectionLog, useFarmRecord } from "../rec
 import { LiftEstimateBlock } from "./LiftEstimateBlock";
 import { TODO_TEXT } from "./texts";
 import { levelOf, useTodoData } from "./useTodoData";
+import { WorkerMessagePanel } from "./WorkerMessagePanel";
 import "./todo.css";
 
 function ItemRow({ item, log }: { item: ChecklistItem; log: ReturnType<typeof useDisinfectionLog> | null }) {
@@ -71,6 +72,10 @@ export default function TodoPage() {
           ))}
           {state.result.level.inSurveillanceNote ? <p>{SURVEILLANCE_NOTE}</p> : null}
         </section>
+      ) : null}
+
+      {state.status === "ready" && state.result.workerCase ? (
+        <WorkerMessagePanel caseId={state.result.workerCase.caseId} facts={state.result.workerCase.facts} />
       ) : null}
 
       {state.status !== "loading" && state.status !== "failed" ? (
