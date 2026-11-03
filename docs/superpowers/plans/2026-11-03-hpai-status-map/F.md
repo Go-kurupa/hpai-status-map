@@ -228,11 +228,11 @@ expect(sec).not.toMatch(/手続き.{0,6}不要/);
 **Interfaces:** Produces 契約 3.2 の `level` の全部、`ZONE_BASE_KM: 10`、`MESH_MARGIN_KM: 0.85`、`zoneRadiusKm(c: Case): number`（`Math.max(10, ...c.radiiKm)`）。文を持たない。索引 Q5 の回答が既定と違えば、解除の後の同じ市町村の期待を直す。
 
 - [ ] **Step 1: 失敗する試験を書く**（偽の `GeoStore` は `ensurePrefs` の前に `GeoNotLoadedError`）
-  - §5、§16: 同じ市町村は①（`same_muni`、遠くても）／10.70km は①、10.80km は①でない（理由に `within_radius`、`radiusKm` 10、距離）／`radiiKm` `[3]`、`[3,10]`、`[20]` は 10、10、20、20.70km は①、20.80km は①でない／隣は②、登録は③、他は④で `reasons` 空／複数は最も高い段階で、`reasons` は高い順／否定は外し、候補は数える／確認中と別のシーズンは数えない／搬出制限の解除の後も①で `shipmentLifted` true／完了から 28 日でも移動制限の解除がなければ①／`inSurveillanceNote` は①のときだけ／離島は②にならず距離なら①／`muniCode` なしは④／未読み込みは `GeoNotLoadedError`。
+  - §5、§16: 同じ市町村は①（`same_muni`、遠くても）／10.80km は①、10.95km は①でない（理由に `within_radius`、`radiusKm` 10、距離）／`radiiKm` `[3]`、`[3,10]`、`[20]` は 10、10、20、20.80km は①、20.95km は①でない／隣は②、登録は③、他は④で `reasons` 空／複数は最も高い段階で、`reasons` は高い順／否定は外し、候補は数える／確認中と別のシーズンは数えない／搬出制限の解除の後も①で `shipmentLifted` true／完了から 28 日でも移動制限の解除がなければ①／`inSurveillanceNote` は①のときだけ／離島は②にならず距離なら①／`muniCode` なしは④／未読み込みは `GeoNotLoadedError`。
   - 移動制限の解除の後（契約 2.4）: 同じ市町村は②で `same_muni`（`adjacent` にしない）／隣は②、登録は③のまま／10km 以内でも隣でなければ④／否定とシーズン違いは数えない。
   - `prefsToLoad`: `isCountable` の事例と野鳥の県を重複なく。確認中と否定の県を含めない。
   - `computeAreaStatus`: 同じは 1、解除の後の同じは 2 で `sameMuniCases` に残る、隣は 2、他は 4。距離を見ない／否定と確認中を含まない／`wildBirds` は同じと隣の今季で `negative` を除く。
-  - `wildBirdsNotifiable`（§5）: `hpai_confirmed` の 10.40km は入り、10.80km は入らない／`screening_positive`、`negative`、`muniCode` なしは入らない。
+  - `wildBirdsNotifiable`（§5）: `hpai_confirmed` の 10.80km は入り、10.95km は入らない／`screening_positive`、`negative`、`muniCode` なしは入らない。
   - `summarizeWatch`（§9.7）: 6 時間ちょうどは入り、6 時間 1 分は入らない／`summarizeWatch([],now)` は `failedCount` 47。
   - `data/geo`: 岡山市は `33100` で同じ市は①／`13421` に②がない／冷えた状態から県をまたぐ: 津山市の center のメッシュと鳥取市の事例は、`ensurePrefs(prefsToLoad(...))` の前は `GeoNotLoadedError`、後は②（`adjacent`。鳥取市の面まで 17.66km【確】）。
 - [ ] **Step 2: 失敗を確かめる** `npx vitest run --project shared --passWithNoTests=false shared/test/level.test.ts`。期待: 失敗。
