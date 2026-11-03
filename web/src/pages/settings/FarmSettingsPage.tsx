@@ -7,13 +7,14 @@ import { useRecordStore } from "../../data/context";
 import { loadWebGeoStore } from "../../geo/loadGeo";
 import { Button } from "../../ui/Button";
 import { createFarmInviteCall } from "../auth/callables";
+import { MultipleFarmsError } from "../auth/firestoreRecordStore";
 import { RequireMember } from "../auth/RequireMember";
 import { savedAtLabel } from "./farmForm";
 import { MeshPicker, type FarmPick } from "./MeshPicker";
 import "./settings.css";
 
 type Saved = Farm & { id: string };
-type Load = { state: "loading" } | { state: "error" } | { state: "ok"; farm: Saved | null };
+type Load = { state: "loading" } | { state: "error"; message: string | null } | { state: "ok"; farm: Saved | null };
 
 /** 農場の設定。この版は地点と、会員を足す招待リンク。名前や鶏舎などは M-05 が足す */
 function FarmSettings() {
@@ -41,8 +42,8 @@ function FarmSettings() {
           setMuniCode(farm.muniCode);
         }
       },
-      () => {
-        if (!cancelled) setLoad({ state: "error" });
+      (e: unknown) => {
+        if (!cancelled) setLoad({ state: "error", message: e instanceof MultipleFarmsError ? e.message : null });
       },
     );
     return () => {
@@ -83,7 +84,7 @@ function FarmSettings() {
       <section className="settings-page">
         <h1>農場の設定</h1>
         <p className="settings-error" role="alert">
-          農場の情報を読めませんでした。通信を確かめて、ページを読み込み直してください。
+          {load.message ?? "農場の情報を読めませんでした。通信を確かめて、ページを読み込み直してください。"}
         </p>
       </section>
     );

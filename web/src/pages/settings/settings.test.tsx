@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_NOTIFY_FIXTURE, farmFixture } from "../../../../shared/test/helpers/mFixtures";
 import { DataSourceProvider, RecordStoreProvider } from "../../data/context";
 import type { DataSource, RecordStore } from "../../data/types";
+import { MultipleFarmsError } from "../auth/firestoreRecordStore";
 
 // 地図（WebGL）は jsdom にないので、maplibre の入口を偽物にする。クリックは偽の地図から起こす
 interface FakeMap {
@@ -400,5 +401,13 @@ describe("/settings/notify", () => {
     const link = await screen.findByRole("link", { name: /プライバシー/ });
     expect(link.getAttribute("href")).toBe("/privacy");
     expect(findForbiddenPhrases(container.textContent ?? "")).toEqual([]);
+  });
+});
+
+describe("農場の所属が複数ある（fail closed）", () => {
+  it.each(["/settings/farm", "/settings/notify"])("%s は所属が複数ありますと出し、保存の欄を出さない", async (at) => {
+    mount(at, { getFarm: vi.fn(async () => Promise.reject(new MultipleFarmsError())) });
+    expect((await screen.findByRole("alert")).textContent).toBe("農場の所属が複数あります。運営者に連絡してください");
+    expect(screen.queryByRole("button", { name: /保存/ })).toBeNull();
   });
 });

@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc, type Firestore } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Farm } from "@hpai/shared/types";
 import { DEFAULT_NOTIFY_FIXTURE, farmFixture, houseFixture } from "../shared/test/helpers/mFixtures";
-import { createFirestoreRecordStore, createFirestoreRecordStoreWith } from "../web/src/pages/auth/firestoreRecordStore";
+import { createFirestoreRecordStore, createFirestoreRecordStoreWith, MultipleFarmsError } from "../web/src/pages/auth/firestoreRecordStore";
 
 // 画面の記録の口（契約 3.10）を、本物のルールの上で確かめる。web/src/firebase.ts は Vite の環境を読むので、差し替える
 const firebaseMock = vi.hoisted(() => ({
@@ -181,6 +181,44 @@ async function rawFarmCount(): Promise<number> {
   });
   return n;
 }
+
+describe("2 つ以上の農場に入っている（fail closed）", () => {
+  const MESSAGE = "農場の所属が複数あります。運営者に連絡してください";
+  async function twoFarms() {
+    await seed(async (admin) => {
+      await setDoc(doc(admin, "farms/f1"), farmFixture("alice"));
+      await setDoc(doc(admin, "farms/f2"), farmFixture("alice", { unsubscribedUids: ["alice"] }));
+    });
+  }
+
+  it("読む口はどれも reject し、どちらかの農場を黙って選ばない", async () => {
+    await twoFarms();
+    const store = storeOf(asMember("alice"), "alice");
+    await expect(store.getFarm()).rejects.toBeInstanceOf(MultipleFarmsError);
+    await expect(store.getFarm()).rejects.toThrow(MESSAGE);
+    await expect(store.listHouses()).rejects.toBeInstanceOf(MultipleFarmsError);
+    await expect(store.listDeaths("2026-11-01", "2026-11-30")).rejects.toBeInstanceOf(MultipleFarmsError);
+    await expect(store.listChecks("2026-11-01", "2026-11-30")).rejects.toBeInstanceOf(MultipleFarmsError);
+    await expect(store.isMailStopped()).rejects.toBeInstanceOf(MultipleFarmsError);
+  });
+
+  it("書く口も reject し、何も書かない", async () => {
+    await twoFarms();
+    const store = storeOf(asMember("alice"), "alice");
+    await expect(store.saveFarm({ name: "x" })).rejects.toBeInstanceOf(MultipleFarmsError);
+    await expect(store.saveHouse(houseFixture())).rejects.toBeInstanceOf(MultipleFarmsError);
+    await expect(store.saveDeath({ date: "2026-11-05", houseId: "h1", deaths: 1, flockSizeAt: 100, exclusion: null })).rejects.toBeInstanceOf(MultipleFarmsError);
+    await expect(store.saveCheck({ kind: "disinfection", date: "2026-11-05", itemId: "i1" })).rejects.toBeInstanceOf(MultipleFarmsError);
+    expect((await rawData("farms/f1"))?.name).toBe("テスト農場");
+    expect(await rawFarmCount()).toBe(2);
+  });
+
+  it("0 件は今までどおり null、1 件は読める", async () => {
+    expect(await storeOf(asMember("alice"), "alice").getFarm()).toBeNull();
+    await seed(async (admin) => setDoc(doc(admin, "farms/f1"), farmFixture("alice")));
+    expect((await storeOf(asMember("alice"), "alice").getFarm())?.id).toBe("f1");
+  });
+});
 
 describe("鶏舎", () => {
   it("saveHouse は id なしで新しく、id ありで同じ文書に保存し、listHouses が読める", async () => {

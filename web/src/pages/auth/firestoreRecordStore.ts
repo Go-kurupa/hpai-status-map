@@ -22,6 +22,16 @@ export interface StoreOptions {
 
 type FarmWithId = Farm & { id: string };
 
+export const MULTIPLE_FARMS_MESSAGE = "農場の所属が複数あります。運営者に連絡してください";
+
+/** 2 つ以上の農場の会員になっている。どちらかを黙って選ぶと別の農場に書くので、止める（fail closed） */
+export class MultipleFarmsError extends Error {
+  constructor() {
+    super(MULTIPLE_FARMS_MESSAGE);
+    this.name = "MultipleFarmsError";
+  }
+}
+
 const NO_FARM = "農場がありません。先に農場の設定で地点を選んでください";
 
 function errorCode(e: unknown): string | undefined {
@@ -43,8 +53,12 @@ function createStore(getSession: () => Promise<Session>, opts: StoreOptions): Re
     if (!s.uid) return null;
     const fs = await import("firebase/firestore");
     const snap = await fs.getDocs(
-      fs.query(fs.collection(s.db, "farms"), fs.where("memberUids", "array-contains", s.uid), fs.limit(1)),
+      fs.query(fs.collection(s.db, "farms"), fs.where("memberUids", "array-contains", s.uid), fs.limit(2)),
     );
+    if (snap.docs.length > 1) {
+      known = null;
+      throw new MultipleFarmsError();
+    }
     const d = snap.docs[0];
     if (!d) {
       known = null;

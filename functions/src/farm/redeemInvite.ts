@@ -17,7 +17,8 @@ type Outcome =
   | { kind: "missing" }
   | { kind: "expired" }
   | { kind: "exhausted" }
-  | { kind: "farm_missing" };
+  | { kind: "farm_missing" }
+  | { kind: "other_farm" };
 
 interface Attempts {
   failures: number;
@@ -51,6 +52,8 @@ export async function handleRedeemInvite(
   const { db, auth } = deps;
   const now = deps.now();
   const inviteRef = db.collection("invites").doc(hashInviteCode(code));
+  // 同じ人が 2 つの農場の招待を同時に使っても 2 農場にならないための、読んで書くだけの文書
+  const membershipLockRef = db.collection("invites").doc("_membership").collection("uids").doc(uid);
   const attemptsRef = db.collection("invites").doc("_attempts").collection("uids").doc(uid);
 
   const outcome = await db.runTransaction(async (tx): Promise<Outcome> => {
@@ -77,8 +80,16 @@ export async function handleRedeemInvite(
     if (invite.kind === "farm") {
       if (!farmId) return { kind: "farm_missing" };
       const farmRef = db.collection("farms").doc(farmId);
-      const farmSnap = await tx.get(farmRef);
+      const [farmSnap, mine, lockSnap] = await Promise.all([
+        tx.get(farmRef),
+        tx.get(db.collection("farms").where("memberUids", "array-contains", uid).limit(2)),
+        tx.get(membershipLockRef),
+      ]);
+      void lockSnap; // 読んで書く（下）ことで、同じ人の同時の招待を直列にする
       if (!farmSnap.exists) return { kind: "farm_missing" };
+      // 1 会員 1 農場。別の農場にすでに入っている人は、農場の招待を使えない（試行には数えない）
+      if (mine.docs.some((d) => d.id !== farmId)) return { kind: "other_farm" };
+      tx.set(membershipLockRef, { touchedAt: toJstIso(now) });
       tx.update(farmRef, { memberUids: FieldValue.arrayUnion(uid) });
     }
     tx.update(inviteRef, { usedBy: FieldValue.arrayUnion(uid) });
@@ -92,6 +103,8 @@ export async function handleRedeemInvite(
     case "expired":
     case "exhausted":
       throw new HttpsError("failed-precondition", "このコードは使えません");
+    case "other_farm":
+      throw new HttpsError("failed-precondition", "すでに別の農場の会員です。1 人が入れる農場は 1 つです");
     case "farm_missing":
       throw new HttpsError("not-found", "招待された農場が見つかりません");
     case "ok":

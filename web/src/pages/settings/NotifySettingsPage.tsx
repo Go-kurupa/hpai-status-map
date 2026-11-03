@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useDataSource, useRecordStore } from "../../data/context";
 import { Button } from "../../ui/Button";
+import { MultipleFarmsError } from "../auth/firestoreRecordStore";
 import { RequireMember } from "../auth/RequireMember";
 import { savedAtLabel, seasonMonths } from "./farmForm";
 import "./settings.css";
 
 type Saved = Farm & { id: string };
-type Load = { state: "loading" } | { state: "error" } | { state: "ok"; farm: Saved | null };
+type Load = { state: "loading" } | { state: "error"; message: string | null } | { state: "ok"; farm: Saved | null };
 
 /** 期限の何日前に知らせるか。入れたときの既定は 3 日前 */
 const REMIND_CHOICES = [1, 2, 3, 5, 7] as const;
@@ -163,8 +164,8 @@ function NotifySettingsLoader() {
       (farm) => {
         if (!cancelled) setLoad({ state: "ok", farm });
       },
-      () => {
-        if (!cancelled) setLoad({ state: "error" });
+      (e: unknown) => {
+        if (!cancelled) setLoad({ state: "error", message: e instanceof MultipleFarmsError ? e.message : null });
       },
     );
     return () => {
@@ -178,7 +179,7 @@ function NotifySettingsLoader() {
       <section className="settings-page">
         <h1>知らせの設定</h1>
         <p className="settings-error" role="alert">
-          農場の情報を読めませんでした。通信を確かめて、ページを読み込み直してください。
+          {load.message ?? "農場の情報を読めませんでした。通信を確かめて、ページを読み込み直してください。"}
         </p>
       </section>
     );

@@ -172,6 +172,53 @@ describe("redeemInvite", () => {
     expect((await auth.getUser(uid)).customClaims ?? {}).toEqual({});
   });
 
+  it("1 会員 1 農場: 農場 A の会員が農場 B の招待を使うと拒否する。何も変えず、試行にも数えない", async () => {
+    const uid = await newUser({ member: true });
+    const ownerB = await newUser({ member: true });
+    await db.collection("farms").doc("fa").set(farmFixture(uid));
+    await db.collection("farms").doc("fb").set(farmFixture(ownerB));
+    const code = await seedInvite({ kind: "farm", farmId: "fb", maxUses: 1 });
+
+    expect(await codeOf(handleRedeemInvite(deps, uid, code))).toBe("failed-precondition");
+
+    expect(((await db.collection("farms").doc("fb").get()).data() as Farm).memberUids).toEqual([ownerB]);
+    expect(((await db.collection("farms").doc("fa").get()).data() as Farm).memberUids).toEqual([uid]);
+    expect((await inviteOf(code)).usedBy).toEqual([]);
+    expect(await attemptsOf(uid)).toBeUndefined();
+  });
+
+  it("同じ農場の招待なら、すでに会員でも成功する。signup のコードは影響を受けない", async () => {
+    const uid = await newUser({ member: true });
+    await db.collection("farms").doc("fa").set(farmFixture(uid));
+    const same = await seedInvite({ kind: "farm", farmId: "fa", maxUses: 1 });
+    expect(await handleRedeemInvite(deps, uid, same)).toEqual({ farmId: "fa" });
+    expect(((await db.collection("farms").doc("fa").get()).data() as Farm).memberUids).toEqual([uid]);
+
+    const signup = await seedInvite();
+    expect(await handleRedeemInvite(deps, uid, signup)).toEqual({ farmId: null });
+  });
+
+  it("1 会員 1 農場: 同時に 2 つの農場の招待を使っても、入れるのは 1 農場だけ", async () => {
+    for (let round = 0; round < 3; round++) {
+      const ownerA = await newUser({ member: true });
+      const ownerB = await newUser({ member: true });
+      const fa = `ra${round}`;
+      const fb = `rb${round}`;
+      await db.collection("farms").doc(fa).set(farmFixture(ownerA));
+      await db.collection("farms").doc(fb).set(farmFixture(ownerB));
+      const codeA = await seedInvite({ kind: "farm", farmId: fa, maxUses: 1 });
+      const codeB = await seedInvite({ kind: "farm", farmId: fb, maxUses: 1 });
+      const guest = await newUser();
+
+      const results = await Promise.all([codeOf(handleRedeemInvite(deps, guest, codeA)), codeOf(handleRedeemInvite(deps, guest, codeB))]);
+
+      expect(results.filter((r) => r === "ok")).toHaveLength(1);
+      expect(results.filter((r) => r === "failed-precondition")).toHaveLength(1);
+      const joined = (await db.collection("farms").where("memberUids", "array-contains", guest).get()).size;
+      expect(joined).toBe(1);
+    }
+  });
+
   it("存在しないコードは failed-precondition で、invites/_attempts/uids/{uid} に数える", async () => {
     const uid = await newUser();
     expect(await codeOf(handleRedeemInvite(deps, uid, "no-such-code"))).toBe("failed-precondition");
