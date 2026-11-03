@@ -1,0 +1,758 @@
+[
+  {
+    "prefCode": null,
+    "url": "https://www.maff.go.jp/j/press/index.html",
+    "kind": "maff_press",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": null,
+    "url": "https://www.maff.go.jp/j/syouan/douei/tori/r8_hpai_kokunai.html",
+    "kind": "maff_season",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": null,
+    "url": "https://www.env.go.jp/nature/dobutsu/bird_flu/",
+    "kind": "moe",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "01",
+    "url": "https://www.pref.hokkaido.lg.jp/ns/tss/kachikueisei/aviflu.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "01",
+    "url": "https://www.pref.hokkaido.lg.jp/news/rss.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "02",
+    "url": "https://www.pref.aomori.lg.jp/soshiki/nourin/chikusan/infuru.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "02",
+    "url": "https://www.pref.aomori.lg.jp/rss/feed.rss",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "03",
+    "url": "https://www.pref.iwate.jp/sangyoukoyou/nougyou/chikusangijutsu/kansenshou/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "03",
+    "url": "https://www.pref.iwate.jp/news.rss",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "04",
+    "url": "https://www.pref.miyagi.jp/life/toriinfluenza/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "04",
+    "url": "https://www.pref.miyagi.jp/shinchaku/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "05",
+    "url": "https://www.pref.akita.lg.jp/pages/archive/64737",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "05",
+    "url": "https://www.pref.akita.lg.jp/feed/news.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "06",
+    "url": "https://www.pref.yamagata.jp/140028/sangyo/nourinsuisangyou/nogyo/chikusan/toriinfluenza.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "06",
+    "url": "https://www.pref.yamagata.jp/shinchaku/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "07",
+    "url": "https://www.pref.fukushima.lg.jp/sec/36035d/toriinfluenza.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "07",
+    "url": "https://www.pref.fukushima.lg.jp/rss/10/list1.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "08",
+    "url": "https://www.pref.ibaraki.jp/nourinsuisan/chikusan/kachiku/infuru/kanrenzyouhoutop.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "08",
+    "url": "https://www.pref.ibaraki.jp/news.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "09",
+    "url": "https://www.pref.tochigi.lg.jp/g06/hpai/hpaijyouhou.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "09",
+    "url": "https://www.pref.tochigi.lg.jp/c05/kensei/kouhou/hp/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "10",
+    "url": "https://www.pref.gunma.jp/page/9451.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "10",
+    "url": "https://www.pref.gunma.jp/rss/10/list1.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "11",
+    "url": "https://www.pref.saitama.lg.jp/b0919/osirase/hpai.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "11",
+    "url": "https://www.pref.saitama.lg.jp/news/news.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "12",
+    "url": "https://www.pref.chiba.lg.jp/chikusan/toriinfluenza/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "12",
+    "url": "https://www.pref.chiba.lg.jp/homepage/shinchaku/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "13",
+    "url": "https://www.sangyo-rodo.metro.tokyo.lg.jp/nourin/shoku/hpai",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "13",
+    "url": "https://www.metro.tokyo.lg.jp/index.html/-/asset_publisher/knkg/rss",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "14",
+    "url": "https://www.pref.kanagawa.jp/docs/w5c/cnt/avianinfluenza/avianinfluenzatop.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "14",
+    "url": "https://www.pref.kanagawa.jp/news/news.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "15",
+    "url": "https://www.pref.niigata.lg.jp/site/chikusan/1196180201100.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "15",
+    "url": "https://www.pref.niigata.lg.jp/rss/10/site-163.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "15",
+    "url": "https://www.pref.niigata.lg.jp/rss/10/list2.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "16",
+    "url": "https://www.pref.toyama.jp/1612/kurashi/seikatsu/shokuseikatsu/20260309.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": "URL に日付。次季も使うか未確認"
+  },
+  {
+    "prefCode": "16",
+    "url": "https://www.pref.toyama.jp/1612/kensei/kenseiunei/kensei/soshiki/16/1612.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "16",
+    "url": "https://www.pref.toyama.jp/shinchaku/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "16",
+    "url": "https://www.pref.toyama.jp/kensei/kouhou/houdou/press.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "17",
+    "url": "https://www.pref.ishikawa.lg.jp/tikusan/hpai/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "17",
+    "url": "https://www.pref.ishikawa.lg.jp/shinchaku/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "18",
+    "url": "https://www.pref.fukui.lg.jp/doc/kaho/toriinfluenza.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": "確定できず。国の発表で補う"
+  },
+  {
+    "prefCode": "18",
+    "url": "https://www.pref.fukui.lg.jp/news.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": "発生時に流れるか未確認"
+  },
+  {
+    "prefCode": "19",
+    "url": "https://www.pref.yamanashi.jp/kansensho/kansensyou/bird-flu.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "19",
+    "url": "https://www.pref.yamanashi.jp/shinchaku/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "20",
+    "url": "https://www.pref.nagano.lg.jp/enchiku/sangyo/nogyo/chikusan/influ/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "20",
+    "url": "https://www.pref.nagano.lg.jp/kensei/koho/pressreleases/pressreleases.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "21",
+    "url": "https://www.pref.gifu.lg.jp/page/120868.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "21",
+    "url": "https://www.pref.gifu.lg.jp/page/338648.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": "次季も使うか未確認"
+  },
+  {
+    "prefCode": "21",
+    "url": "https://www.pref.gifu.lg.jp/site/pressrelease/",
+    "kind": "pref_press_list",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "22",
+    "url": "https://www.pref.shizuoka.jp/kenkofukushi/eiseiyakuji/dobutsuaigo/1003147/1025208.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "22",
+    "url": "https://www.pref.shizuoka.jp/news.rss",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "23",
+    "url": "https://www.pref.aichi.jp/soshiki/chikusan/chikusan-hpai.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "23",
+    "url": "https://www.pref.aichi.jp/rss/10/list7.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "23",
+    "url": "https://www.pref.aichi.jp/rss/10/list1.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "24",
+    "url": "https://www.pref.mie.lg.jp/common/05/ci500004496.htm",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "24",
+    "url": "https://www.pref.mie.lg.jp/app/rss/new_rss",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "25",
+    "url": "https://www.pref.shiga.lg.jp/ge00/7137.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "25",
+    "url": "https://www.pref.shiga.lg.jp/cgi-bin/press/index.php",
+    "kind": "pref_press_list",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "26",
+    "url": "https://www.pref.kyoto.jp/birdflu/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "27",
+    "url": "https://www.pref.osaka.lg.jp/o120140/doubutu/tikusaneisei/hpai_top.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "27",
+    "url": "https://www.pref.osaka.lg.jp/shinchaku/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "28",
+    "url": "https://web.pref.hyogo.lg.jp/kf14/hw14_000000026.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "28",
+    "url": "https://web.pref.hyogo.lg.jp/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "29",
+    "url": "https://www.pref.nara.lg.jp/shigoto/nourinsuisangyou/chikusangyou/bouekieisei/torii-influenza/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "29",
+    "url": "https://www.pref.nara.lg.jp/press/press.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "30",
+    "url": "https://www.pref.wakayama.lg.jp/prefg/070400/kikikanri/toriinhuruenza/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "30",
+    "url": "https://www.pref.wakayama.lg.jp/whatsnew/news.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "31",
+    "url": "https://www.pref.tottori.lg.jp/avian_influenza/",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "31",
+    "url": "https://www.pref.tottori.lg.jp/services/rdf/rss10/58395.ashx",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "32",
+    "url": "https://www.pref.shimane.lg.jp/industry/norin/seisan/kachikueisei/kinkyuu.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "32",
+    "url": "https://www.pref.shimane.lg.jp/top_news.rdf",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "33",
+    "url": "https://www.pref.okayama.jp/page/816850.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "33",
+    "url": "https://www.pref.okayama.jp/rss/10/site-3.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "34",
+    "url": "https://www.pref.hiroshima.lg.jp/soshiki/85/kachiku-sippei-hasseijyouhou.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "34",
+    "url": "https://www.pref.hiroshima.lg.jp/rss/10/list1.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "35",
+    "url": "https://www.pref.yamaguchi.lg.jp/soshiki/105/22593.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "35",
+    "url": "https://www.pref.yamaguchi.lg.jp/rss/10/list10.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "36",
+    "url": "https://www.pref.tokushima.lg.jp/anshin/bousai/densen/7246539/",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "36",
+    "url": "https://www.pref.tokushima.lg.jp/file/rss/kenseijoho_hodoteikyoshiryo_index.rss",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "37",
+    "url": "https://www.pref.kagawa.lg.jp/chikusan/densenbyo/influenza/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "37",
+    "url": "https://www.pref.kagawa.lg.jp/shinchaku.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "38",
+    "url": "https://www.pref.ehime.jp/soshiki/85/",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "38",
+    "url": "https://www.pref.ehime.jp/page/95900.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": "次季も使うか未確認"
+  },
+  {
+    "prefCode": "38",
+    "url": "https://www.pref.ehime.jp/rss/20/soshiki-19-85.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "38",
+    "url": "https://www.pref.ehime.jp/rss/20/list5.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "39",
+    "url": "https://www.pref.kochi.lg.jp/soshiki/160000/160901/",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "39",
+    "url": "https://www.pref.kochi.lg.jp/doc/2022041100295/",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "39",
+    "url": "https://www.pref.kochi.lg.jp/category/bunya/shigoto_sangyo/chikusangyo/index.rss",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "39",
+    "url": "https://www.pref.kochi.lg.jp/category/kubun/news/index.rss",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "40",
+    "url": "https://www.pref.fukuoka.lg.jp/contents/kachikueisei-osirase.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": "条件付き。家きんの節は外部リンクのみ"
+  },
+  {
+    "prefCode": "40",
+    "url": "https://www.pref.fukuoka.lg.jp/contents/shizentorifuru.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": "野鳥のみ"
+  },
+  {
+    "prefCode": "40",
+    "url": "https://www.pref.fukuoka.lg.jp/press/",
+    "kind": "pref_press_list",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "41",
+    "url": "https://www.pref.saga.lg.jp/kiji00352123/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "41",
+    "url": "https://www.pref.saga.lg.jp/new_list.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "42",
+    "url": "https://www.pref.nagasaki.jp/bunrui/shigoto-sangyo/nogyo/chikusan/boueki/infuruenza/",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "42",
+    "url": "https://www.pref.nagasaki.jp/press-contents/index.html",
+    "kind": "pref_press_list",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "43",
+    "url": "https://www.pref.kumamoto.jp/soshiki/77/",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "43",
+    "url": "https://www.pref.kumamoto.jp/rss/10/soshiki-7-77.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "43",
+    "url": "https://www.pref.kumamoto.jp/rss/10/list1.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "44",
+    "url": "https://www.pref.oita.jp/soshiki/15450/",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "44",
+    "url": "https://www.pref.oita.jp/rss/10/soshiki-15-15450.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "44",
+    "url": "https://www.pref.oita.jp/rss/10/list6.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "45",
+    "url": "https://www.pref.miyazaki.lg.jp/shigoto/chikusangyo/densenbyo/influenza/index.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "45",
+    "url": "https://www.pref.miyazaki.lg.jp/press/pressrelease.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "46",
+    "url": "https://www.pref.kagoshima.jp/ag37/sangyo-rodo/nogyo/tikusan/eisei/tyuuikanki.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "46",
+    "url": "https://www.pref.kagoshima.jp/saishin/saishin.xml",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "47",
+    "url": "https://www.pref.okinawa.lg.jp/shigoto/chikusangyo/1022768/1011259.html",
+    "kind": "pref_fixed",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  },
+  {
+    "prefCode": "47",
+    "url": "https://www.pref.okinawa.lg.jp/news.rss",
+    "kind": "pref_rss",
+    "confirmedOn": "2026-11-03",
+    "note": null
+  }
+]
