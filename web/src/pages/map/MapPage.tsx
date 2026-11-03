@@ -19,9 +19,12 @@ export default function MapPage() {
   const d = useSeasonData();
   const { view } = d;
   const noneConfirmed = d.failedPrefCodes.length === PREFS.length;
-  // 確認できていない県があるうちは、今季の件数に注記を添える（0 件を「発生なし」と読ませない）
+  // 確認できていない県があるうちは、今季の件数を「確認できた範囲では N 件（M 県は確認できていません）」にする。
+  // 47 県とも（見回りの結果が未着のときを含む）確認できていなければ、件数を見出しにしない
   const bars = d.bars.map((b) =>
-    b.season === d.current && b.count !== null && d.failedPrefCodes.length > 0 ? { ...b, note: "確認できていない県あり" } : b,
+    b.season === d.current && d.failedPrefCodes.length > 0
+      ? { ...b, unchecked: d.failedPrefCodes.length, allUnchecked: noneConfirmed }
+      : b,
   );
 
   return (

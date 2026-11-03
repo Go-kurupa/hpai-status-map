@@ -5,8 +5,18 @@ export interface SeasonBarItem {
   label: string;
   /** null は「まだ読めていない」。0 件とは別 */
   count: number | null;
-  /** 件数に添える注記（例: 確認できていない県あり）。0 件を「発生なし」と読ませないため */
-  note?: string;
+  /** 見回りで確認できていない県の数。1 以上のとき「確認できた範囲では N 件（M 県は確認できていません）」と出す */
+  unchecked?: number;
+  /** 47 県とも確認できていない（見回りの結果が未着を含む）。件数を見出しにせず「まだ確認できていません」と出す */
+  allUnchecked?: boolean;
+}
+
+/** 件数の見出し。確認できていない県があるあいだは、0 件を「発生なし」と読ませない形にする */
+export function countText(b: SeasonBarItem): string {
+  if (b.count === null) return "まだ読めていません";
+  if (b.allUnchecked) return "まだ確認できていません";
+  if (b.unchecked && b.unchecked > 0) return `確認できた範囲では ${b.count} 件（${b.unchecked} 県は確認できていません）`;
+  return `${b.count} 件`;
 }
 
 /**
@@ -42,12 +52,9 @@ export function SeasonBar({
                   <small>{b.season}〜{b.season + 1} 年</small>
                 </span>
                 <span className="season-bar-track" aria-hidden="true">
-                  <span className="season-bar-fill" style={{ width: `${b.count === null ? 0 : (b.count / max) * 100}%` }} />
+                  <span className="season-bar-fill" style={{ width: `${b.count === null || b.allUnchecked ? 0 : (b.count / max) * 100}%` }} />
                 </span>
-                <span className="season-bar-count">
-                  {b.count === null ? "まだ読めていません" : `${b.count} 件`}
-                  {b.note ? <small>（{b.note}）</small> : null}
-                </span>
+                <span className="season-bar-count">{countText(b)}</span>
               </button>
             </li>
           );

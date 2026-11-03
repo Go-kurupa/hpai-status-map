@@ -102,6 +102,16 @@ describe("MapPage", () => {
     expect(lastProps().failedPrefCodes).toHaveLength(47);
   });
 
+  it("見回りの結果が未着（47 県とも未確認）の間は、今季の棒に件数を見出しとして出さない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    const btn = screen.getByRole("button", { name: /今季/ });
+    expect(btn.textContent).toContain("まだ確認できていません");
+    expect(btn.textContent).not.toContain("0 件");
+  });
+
   it("今季 0 件が届いたら riskAnywhere を出す。禁句はない", async () => {
     const r = rig();
     show(r);
@@ -123,8 +133,8 @@ describe("MapPage", () => {
     expect(lastProps().failedPrefCodes).toEqual(["33"]);
     expect(document.body.textContent).toMatch(/確認できていない県.*岡山県/);
     expect(document.body.textContent).not.toMatch(/発生なし/);
-    // いちばん目立つ「今季 0 件」にも注記が付く
-    expect(screen.getByRole("button", { name: /今季.*0 件.*確認できていない県あり/ })).toBeTruthy();
+    // いちばん目立つ今季の件数は「確認できた範囲では 0 件（1 県は確認できていません）」
+    expect(screen.getByRole("button", { name: /今季/ }).textContent).toContain("確認できた範囲では 0 件（1 県は確認できていません）");
   });
 
   it("見回りの結果が全県確認できているときは注記を付けない", async () => {
@@ -133,7 +143,7 @@ describe("MapPage", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    expect(screen.getByRole("button", { name: /今季.*0 件/ }).textContent).not.toContain("確認できていない");
+    expect(screen.getByRole("button", { name: /今季/ }).textContent).toMatch(/^今季2026〜2027 年0 件$/);
   });
 
   it("過去のシーズンを選んでも、野鳥の配列は同じ参照のまま（地図の source を替えない）", async () => {

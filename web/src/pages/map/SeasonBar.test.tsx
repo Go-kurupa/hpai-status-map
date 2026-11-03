@@ -28,9 +28,18 @@ describe("SeasonBar", () => {
     expect(unread.textContent).not.toMatch(/0 件/);
   });
 
-  it("注記があれば件数に添える", () => {
-    render(<SeasonBar bars={[{ season: 2026, label: "今季", count: 0, note: "確認できていない県あり" }]} selected={2026} onSelect={() => {}} />);
-    expect(screen.getByRole("button", { name: /今季.*0 件.*確認できていない県あり/ })).toBeTruthy();
+  it("確認できていない県があれば『確認できた範囲では N 件（M 県は確認できていません）』と、県の数を出す", () => {
+    render(<SeasonBar bars={[{ season: 2026, label: "今季", count: 0, unchecked: 3 }]} selected={2026} onSelect={() => {}} />);
+    const btn = screen.getByRole("button", { name: /今季/ });
+    expect(btn.textContent).toContain("確認できた範囲では 0 件（3 県は確認できていません）");
+    expect(btn.textContent).not.toMatch(/(^|[^0-9])0 件$/);
+  });
+
+  it("47 県とも確認できていないときは件数を見出しにせず『まだ確認できていません』", () => {
+    render(<SeasonBar bars={[{ season: 2026, label: "今季", count: 0, unchecked: 47, allUnchecked: true }]} selected={2026} onSelect={() => {}} />);
+    const btn = screen.getByRole("button", { name: /今季/ });
+    expect(btn.textContent).toContain("まだ確認できていません");
+    expect(btn.textContent).not.toContain("0 件");
   });
 
   it("押すとそのシーズンを渡す", () => {

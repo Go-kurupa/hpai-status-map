@@ -174,7 +174,7 @@ export default function MapView(props: MapViewProps) {
         el.classList.toggle("is-past", !view.isCurrent); // 過去のシーズンは段階の色を使わない
         if (text !== undefined) {
           el.textContent = text;
-          el.setAttribute("aria-label", `${PREF_NAME.get(code) ?? code} ${text}。押すと拡大します`);
+          el.setAttribute("aria-label", `${PREF_NAME.get(code) ?? code} ${/^\d+$/.test(text) ? `${text} 件` : text}。押すと拡大します`);
         }
       }
     };
