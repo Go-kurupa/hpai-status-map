@@ -175,6 +175,15 @@ export function isFiveFieldCron(expression: string): boolean {
   return parts.length === 5 && parts.every((p) => CRON_FIELD.test(p));
 }
 
+/**
+ * 1 日に 1 回以下しか動かない cron か。分と時が、それぞれ範囲内の 1 つの数だけ（*、/、,、- を含まない）。
+ * 毎分などにすると 1 回 1 ドルの実行が何度も走って、費用が止まらなくなる。
+ */
+export function firesAtMostDaily(expression: string): boolean {
+  const [minute, hour] = expression.trim().split(/\s+/);
+  return /^\d{1,2}$/.test(minute ?? "") && /^\d{1,2}$/.test(hour ?? "") && Number(minute) <= 59 && Number(hour) <= 23;
+}
+
 /** コマンドの引数から操作を読む。操作の指定がなければ null（通常の setup）。指定が誤っていれば error。 */
 export function parseScheduleArgs(argv: readonly string[]): ScheduleCommand | { error: string } | null {
   const has = (f: string) => argv.includes(f);
@@ -186,6 +195,7 @@ export function parseScheduleArgs(argv: readonly string[]): ScheduleCommand | { 
   const i = argv.indexOf("--schedule");
   const cron = argv[i + 1];
   if (cron === undefined || cron.startsWith("--") || !isFiveFieldCron(cron)) return { error: '--schedule には 5 項目の cron を 1 つ渡してください（例: --schedule "30 15 4 11 *"）' };
+  if (!firesAtMostDaily(cron)) return { error: "--schedule の cron は 1 日に 1 回以下にしてください（分と時を 1 つの数で指定します。例: 30 15 4 11 *）。1 回 1 ドルの実行が何度も走るのを防ぐためです" };
   return { kind: "schedule", cron: cron.trim().replace(/\s+/g, " ") };
 }
 

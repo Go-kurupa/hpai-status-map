@@ -549,6 +549,22 @@ describe("載せるの前と後の記録", () => {
   });
 });
 
+describe("入口の承認は、その県の公式ドメインの https だけ（多重の守り）", () => {
+  it.each([
+    ["別のドメイン", "https://evil.example/x"],
+    ["似たドメイン", "https://pref.okayama.jp.evil.example/x"],
+    ["別の県の公式ドメイン", "https://www.pref.hyogo.lg.jp/x"],
+    ["ポート", "https://www.pref.okayama.jp:8443/x"],
+    ["利用者情報つき", "https://user:pw" + "@www.pref.okayama.jp/x"],
+    ["http", "http://www.pref.okayama.jp/x"],
+  ])("%s の URL は承認できない（failed-precondition。sources は変わらず、項目も解決しない）", async (_n, url) => {
+    const id = await seedItem({ id: "entr-dom", kind: "entrance_proposal", prefCode: "33", oldUrl: null, proposedUrl: url, sourceKind: "pref_fixed", rationale: "r" });
+    expect(await codeOf(resolve({ itemId: id, action: "approve_entrance" }))).toBe("failed-precondition");
+    expect(await listIds("sources")).toEqual([]);
+    expect((await itemOf(id))!.resolvedAt).toBeNull();
+  });
+});
+
 describe("入口の承認は項目の県の source だけ", () => {
   it("同じ URL が別の県の source として登録されていれば、有効にせず failed-precondition", async () => {
     const url = "https://www.pref.okayama.jp/new/index.html";

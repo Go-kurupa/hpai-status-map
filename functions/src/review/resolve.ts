@@ -12,6 +12,7 @@ import { actionsFor, parseResolveRequest, reviewDetailOf, type CorrectedCaseValu
 import type { DocumentKind, DocumentRecord, NormalizedRead, ReviewItem } from "@hpai/shared/read/types";
 import { seasonOf } from "@hpai/shared/season";
 import type { Case, CaseStage, IsoDate, Source, SourceKind } from "@hpai/shared/types";
+import { isAllowedUrl } from "../agent/prefDomains";
 import { deleteReviewingCaseIn, upsertCaseIn } from "../read/upsert";
 
 export interface ResolveDeps {
@@ -179,6 +180,8 @@ async function approveEntrance(ctx: Ctx, item: ProposalItem): Promise<null> {
     throw new HttpsError("failed-precondition", "提案の URL を読めません");
   }
   if (url.protocol !== "https:") throw new HttpsError("failed-precondition", "提案の URL が https ではありません");
+  // 多重の守り: 箱に入るのは提案の道具（取得前にドメインを検査する）だけだが、承認の側でも、その項目の県の公式ドメインの https だけを通す。
+  if (!isAllowedUrl(item.prefCode, url)) throw new HttpsError("failed-precondition", "提案の URL がその県の公式ドメインの外です");
   if (!PROPOSABLE.has(item.sourceKind)) throw new HttpsError("failed-precondition", "提案の入口の種類が違います");
 
   const id = sha24(item.proposedUrl);

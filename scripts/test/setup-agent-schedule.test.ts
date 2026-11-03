@@ -14,6 +14,15 @@ describe("parseScheduleArgs", () => {
     expect(parseScheduleArgs(["--restore-schedule"])).toEqual({ kind: "restore" });
     expect(parseScheduleArgs(["--unpause"])).toEqual({ kind: "unpause" });
   });
+  it.each(["* * * * *", "*/5 * * * *", "0 * * * *", "0 7,19 * * *", "0,30 7 * * *", "0 */6 * * *", "0 7-9 * * *", "60 7 * * *", "0 24 * * *"])(
+    "1 日に 1 回より多く動く（または範囲外の）cron は error: %s",
+    (cron) => {
+      expect(parseScheduleArgs(["--schedule", cron]), cron).toHaveProperty("error");
+    },
+  );
+  it.each(["30 15 4 11 *", "0 7 * * 1", "0 7 * * *", "5 0 1 1 *", "59 23 31 12 *"])("1 日に 1 回以下の cron は通る: %s", (cron) => {
+    expect(parseScheduleArgs(["--schedule", cron])).toEqual({ kind: "schedule", cron });
+  });
   it("cron がない、形が違う、操作が重なるのは error", () => {
     for (const argv of [["--schedule"], ["--schedule", "--unpause"], ["--schedule", "@daily"], ["--unpause", "--restore-schedule"]]) {
       expect(parseScheduleArgs(argv), argv.join(" ")).toHaveProperty("error");

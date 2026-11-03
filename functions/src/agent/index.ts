@@ -28,12 +28,13 @@ export const mcpInternal = onRequest(
 );
 
 /** claude の鍵は handler の中で読む。 */
-const anthropic = () => new Anthropic({ apiKey: ANTHROPIC_API_KEY.value(), timeout: 30_000, maxRetries: 1 });
+const anthropic = (maxRetries: number) => new Anthropic({ apiKey: ANTHROPIC_API_KEY.value(), timeout: 30_000, maxRetries });
 
 /** 運営者の画面のボタン。エージェントを手動で 1 回実行する（運営者だけ）。 */
 export const runEntranceAgent = onCall({ timeoutSeconds: 60, memory: "256MiB", secrets: [ANTHROPIC_API_KEY] }, async (request) =>
   handleRunEntranceAgent(
-    { client: anthropic(), deploymentId: AGENT_DEPLOYMENT_ID.value(), now: () => new Date() },
+    // 実行は冪等でないので、再試行しない（二重に走ると費用が二重になる）。
+    { client: anthropic(0), deploymentId: AGENT_DEPLOYMENT_ID.value(), now: () => new Date() },
     request.auth ? { uid: request.auth.uid, operator: (request.auth.token as { operator?: unknown }).operator === true } : null,
   ),
 );
@@ -42,6 +43,6 @@ export const runEntranceAgent = onCall({ timeoutSeconds: 60, memory: "256MiB", s
 export const checkAgentRuns = onSchedule(
   { schedule: "0 8 * * *", timeZone: "Asia/Tokyo", timeoutSeconds: 120, memory: "256MiB", secrets: [ANTHROPIC_API_KEY] },
   async () => {
-    await handleCheckAgentRuns({ client: anthropic(), deploymentId: AGENT_DEPLOYMENT_ID.value(), now: () => new Date() });
+    await handleCheckAgentRuns({ client: anthropic(1),deploymentId: AGENT_DEPLOYMENT_ID.value(), now: () => new Date() });
   },
 );

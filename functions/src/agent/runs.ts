@@ -66,6 +66,8 @@ export function agentCostJpy(cents: number | null, jpyPerUsd: number): number {
 
 export interface RunRecord {
   id: string;
+  /** 実行を記録した時刻（RFC 3339）。費用が測れないままの実行を、何日待ったかの数え方に使う。 */
+  created_at: string;
   session_id: string | null;
   error: { type: string } | null;
 }
@@ -85,11 +87,15 @@ export interface RunsClient {
       retrieve(sessionId: string): Promise<SessionRecord>;
       events: { list(sessionId: string, params: { types: ["session.status_idle"]; order: "desc" }): AsyncIterable<IdleEventRecord> };
     };
-    deployments: { pause(deploymentId: string): Promise<unknown>; run(deploymentId: string): Promise<unknown> };
+    deployments: { pause(deploymentId: string): Promise<unknown>; run(deploymentId: string, params: null, options: { maxRetries: number }): Promise<unknown> };
   };
 }
 
 const LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+/** 終わった実行の費用が測れないまま、この日数がたったら最悪値で確定する。 */
+const COST_WAIT_MS = 3 * 24 * 60 * 60 * 1000;
+/** セッション 1 回の上限（セント）。scripts/lib/agent-config.ts の AGENT_BUDGET と同じ値（試験で揃えを確かめる）。 */
+export const MAX_SESSION_COST_CENTS = 100;
 const MAX_RUNS = 200;
 const MAX_COUNTED_IDS = 500;
 const MANUAL_RUN_COOLDOWN_MS = 5 * 60 * 1000;
@@ -109,9 +115,19 @@ export interface CheckResult {
   paused: boolean;
 }
 
+interface RunInspection {
+  view: AgentRunView;
+  /** 費用が分かっている（または、待たずに確定してよい）。false なら数え済みにせず、次の回に取り直す。 */
+  costSettled: boolean;
+  /** 最悪値で確定した（費用が測れないまま待ちきった）。 */
+  costGuessed: boolean;
+}
+
 /** 実行 1 件の見え方を作る。セッションがまだ終わっていなければ null（次の回に見る）。 */
-async function viewOf(client: RunsClient, run: RunRecord): Promise<AgentRunView | null> {
-  if (run.error !== null) return { runId: run.id, errorType: run.error.type, finished: true, stopReason: null, listCostCents: null };
+async function inspect(client: RunsClient, run: RunRecord, now: Date): Promise<RunInspection | null> {
+  if (run.error !== null) {
+    return { view: { runId: run.id, errorType: run.error.type, finished: true, stopReason: null, listCostCents: null }, costSettled: true, costGuessed: false };
+  }
   if (run.session_id === null) return null;
 
   const session = await client.beta.sessions.retrieve(run.session_id);
@@ -126,8 +142,18 @@ async function viewOf(client: RunsClient, run: RunRecord): Promise<AgentRunView 
   if (session.status === "idle" && stopReason === null) return null;
 
   const amount = session.usage?.list_cost?.amount;
-  const listCostCents = typeof amount === "string" && /^\d{1,12}$/.test(amount) ? Number(amount) : null;
-  return { runId: run.id, errorType: null, finished: true, stopReason, listCostCents };
+  const measured = typeof amount === "string" && /^\d{1,12}$/.test(amount) ? Number(amount) : null;
+  if (measured !== null) {
+    return { view: { runId: run.id, errorType: null, finished: true, stopReason, listCostCents: measured }, costSettled: true, costGuessed: false };
+  }
+  // 費用が測れていない（list_cost が無い、または形が想定外）。0 円で確定せず、次の回に取り直す。
+  // 待ちきったら、セッションの上限を最悪値として足す（不明を 0 としない）。作成日時が読めないときも待ちきったものとして扱う。
+  const waited = !(now.getTime() - Date.parse(run.created_at) < COST_WAIT_MS);
+  return {
+    view: { runId: run.id, errorType: null, finished: true, stopReason, listCostCents: waited ? MAX_SESSION_COST_CENTS : null },
+    costSettled: waited,
+    costGuessed: waited,
+  };
 }
 
 /**
@@ -146,26 +172,44 @@ export async function handleCheckAgentRuns(deps: CheckDeps): Promise<CheckResult
   const stateRef = db.doc("usage/agent");
   const counted = new Set(((await stateRef.get()).data() as Partial<AgentHeartbeat> | undefined)?.countedRunIds ?? []);
 
-  const views: AgentRunView[] = [];
+  const inspected: RunInspection[] = [];
   let seen = 0;
   for await (const run of client.beta.deploymentRuns.list({ deployment_id: deploymentId, "created_at[gte]": new Date(now.getTime() - LOOKBACK_MS).toISOString() })) {
     if (++seen > MAX_RUNS) break;
     if (counted.has(run.id)) continue;
-    const v = await viewOf(client, run);
-    if (v !== null) views.push(v);
+    const v = await inspect(client, run, now);
+    if (v !== null) inspected.push(v);
   }
+  const views = inspected.map((i) => i.view);
 
+  // 失敗は、費用がまだ測れていなくても知らせる（id は実行ごとで、何度走っても 1 件）。
   const failures = detectAgentRunFailures(views);
   for (const f of failures) {
     await enqueueReview({ id: reviewAlertId("agent_run_failed", f.key), kind: "alert", alert: "agent_run_failed", prefCode: null, caseId: null, message: f.message }, now);
   }
+  // 費用が測れないまま待ちきった実行は、最悪値で足すことを知らせる。
+  for (const g of inspected.filter((i) => i.costGuessed)) {
+    const key = g.view.runId.replace(/[^A-Za-z0-9_-]/g, "_");
+    await enqueueReview(
+      {
+        id: reviewAlertId("agent_run_failed", `cost-unknown-${key}`),
+        kind: "alert",
+        alert: "agent_run_failed",
+        prefCode: null,
+        caseId: null,
+        message: `入口を直すエージェントの実行（${key}）の費用を測れないまま${COST_WAIT_MS / 86_400_000}日たちました。セッションの上限（${MAX_SESSION_COST_CENTS / 100}ドル）を最悪値として足しました。`,
+      },
+      now,
+    );
+  }
 
-  // 数える。取引の中で数え済みの id をもう一度読み、足すのは未計上の実行だけ。
+  // 数える。取引の中で数え済みの id をもう一度読み、足すのは費用が確定した未計上の実行だけ。
+  const settled = inspected.filter((i) => i.costSettled).map((i) => i.view);
   const monthRef = db.doc(`usage/${usageMonthKey(now)}`);
   const added = await db.runTransaction(async (tx) => {
     const ids = ((await tx.get(stateRef)).data() as Partial<AgentHeartbeat> | undefined)?.countedRunIds ?? [];
     const have = new Set(ids);
-    const fresh = views.filter((v) => !have.has(v.runId));
+    const fresh = settled.filter((v) => !have.has(v.runId));
     if (fresh.length === 0) return { n: 0, jpy: 0 };
     const jpy = fresh.reduce((sum, v) => sum + agentCostJpy(v.listCostCents, settings.jpyPerUsd), 0);
     tx.set(stateRef, { countedRunIds: [...ids, ...fresh.map((v) => v.runId)].slice(-MAX_COUNTED_IDS) }, { merge: true });
@@ -234,7 +278,8 @@ export async function handleRunEntranceAgent(deps: RunDeps, caller: Caller | nul
   });
 
   try {
-    await deps.client.beta.deployments.run(deps.deploymentId);
+    // 実行は冪等でない。通信の失敗の再試行で二重に走り、費用が二重にならないよう、再試行しない。
+    await deps.client.beta.deployments.run(deps.deploymentId, null, { maxRetries: 0 });
   } catch (e) {
     // 原因の文には入力の一部が入りうるので、種類と HTTP の状態だけを残す。
     const status = (e as { status?: unknown } | null)?.status;

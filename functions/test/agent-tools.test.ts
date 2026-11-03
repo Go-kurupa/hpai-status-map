@@ -1,11 +1,12 @@
 // 入口を直すエージェントの道具（X-14）。県の公式ドメイン、取得の関門、回数の上限、提案、対象の一覧。ネットワークへは出ない。
 import fs from "node:fs";
 import path from "node:path";
+import { logger } from "firebase-functions";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isPrefDomainHost } from "@hpai/shared/pref";
 import type { SourceSeed } from "@hpai/shared/types";
 import { canTakeCall, MAX_CALLS_PER_PREF, MAX_CALLS_TOTAL, readCallCount } from "../src/agent/limits";
-import { buildPrefDomains, isAllowedUrl, normalizeUrl, PREF_DOMAINS } from "../src/agent/prefDomains";
+import { buildPrefDomains, buildPrefDomainsLenient, isAllowedUrl, normalizeUrl, PREF_DOMAINS } from "../src/agent/prefDomains";
 import { AgentToolError, createAgentTools, parseHidePrefs, type AgentToolDeps, type SourceRow } from "../src/agent/tools";
 import type { FetchOutcome } from "../src/watch/politeFetch";
 import { politeFetch } from "../src/watch/politeFetch";
@@ -83,6 +84,63 @@ describe("buildPrefDomains の差し戻し", () => {
     ["URL を読めない", [seed("33", "not a url")]],
   ])("%s は例外", (_n, input) => {
     expect(() => buildPrefDomains(input)).toThrow();
+  });
+});
+
+describe("入口の一覧に不正な行があっても、読み込みでは例外にしない（1 行の誤りで watchTick などほかの関数を止めない）", () => {
+  const seed = (prefCode: string | null, url: string) => ({ prefCode, url });
+  const mixed = [
+    seed("33", "https://www.pref.okayama.jp/a"),
+    seed("34", "https://www.pref.hiroshima.lg.jp/a"),
+    seed("35", "https://www.example.jp/not-a-pref"), // 県の公式の形でない
+    seed("36", "https://www.pref.tokushima.lg.jp/a"),
+    seed("36", "https://www.pref.kagawa.lg.jp/b"), // 同じ県に別のドメイン
+    seed("37", "not a url"),
+  ];
+
+  it("buildPrefDomainsLenient は例外を投げず、不正な行のある県を表から外して理由を返す。残りの県は使える", () => {
+    const r = buildPrefDomainsLenient(mixed);
+    expect([...r.domains.keys()].sort()).toEqual(["33", "34"]);
+    expect(r.excluded.map((e) => e.prefCode).sort()).toEqual(["35", "36", "37"]);
+    expect(r.excluded.every((e) => e.message.length > 0)).toBe(true);
+  });
+
+  it("別の県が同じドメインを名乗るときは、両方の県を外す", () => {
+    const r = buildPrefDomainsLenient([seed("33", "https://www.pref.okayama.jp/a"), seed("34", "https://www.pref.okayama.jp/b"), seed("35", "https://www.pref.hyogo.lg.jp/c")]);
+    expect([...r.domains.keys()]).toEqual(["35"]);
+    expect(r.excluded.map((e) => e.prefCode).sort()).toEqual(["33", "34"]);
+  });
+
+  it("行の形が壊れていても（url が文字列でない）例外にしない", () => {
+    expect(() => buildPrefDomainsLenient([{ prefCode: "33", url: 5 as never }, null as never, { prefCode: 33 as never, url: "https://www.pref.okayama.jp/" }])).not.toThrow();
+  });
+
+  it("厳密な buildPrefDomains は従来どおり例外（CI で差し戻す）", () => {
+    expect(() => buildPrefDomains(mixed)).toThrow();
+  });
+
+  it("sources.json に不正な行があっても prefDomains の読み込みは例外にならず、logger.error に出し、その県だけ isAllowedUrl が常に false", async () => {
+    vi.resetModules();
+    vi.doMock("../../data/sources.json", () => ({
+      default: [
+        { prefCode: "33", url: "https://www.pref.okayama.jp/a", kind: "pref_fixed", confirmedOn: "2026-11-03", note: null },
+        { prefCode: "34", url: "https://www.example.jp/x", kind: "pref_fixed", confirmedOn: "2026-11-03", note: null },
+      ],
+    }));
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+    try {
+      const mod = await import("../src/agent/prefDomains");
+      expect(mod.isAllowedUrl("33", "https://www.pref.okayama.jp/a")).toBe(true);
+      expect(mod.isAllowedUrl("34", "https://www.example.jp/x")).toBe(false);
+      expect(mod.isAllowedUrl("34", "https://www.pref.hiroshima.lg.jp/a")).toBe(false);
+      expect(mod.PREF_DOMAINS.has("34")).toBe(false);
+      expect(errorSpy).toHaveBeenCalled();
+      expect(JSON.stringify(errorSpy.mock.calls)).toContain("34");
+    } finally {
+      errorSpy.mockRestore();
+      vi.doUnmock("../../data/sources.json");
+      vi.resetModules();
+    }
   });
 });
 

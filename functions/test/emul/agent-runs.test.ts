@@ -8,12 +8,14 @@ import { db } from "../../src/admin";
 import {
   handleCheckAgentRuns,
   handleRunEntranceAgent,
+  MAX_SESSION_COST_CENTS,
   type IdleEventRecord,
   type RunRecord,
   type RunsClient,
   type SessionRecord,
 } from "../../src/agent/runs";
 import { readUsageMonth } from "../../src/usage/settings";
+import { AGENT_BUDGET } from "../../../scripts/lib/agent-config";
 
 const PROJECT = "demo-hpai";
 beforeAll(() => {
@@ -25,6 +27,8 @@ beforeEach(async () => {
 
 const NOW = new Date("2026-11-05T03:00:00Z"); // 日本時間 2026-11-05 12:00
 const DEPLOYMENT = "depl_test";
+const RECENT = "2026-11-05T01:00:00Z"; // NOW の 2 時間前
+const OLD_RUN = "2026-11-01T01:00:00Z"; // NOW の 4 日前
 
 interface Fake {
   runs: RunRecord[];
@@ -69,7 +73,7 @@ const check = (client: RunsClient) => handleCheckAgentRuns({ client, deploymentI
 
 describe("checkAgentRuns の費用", () => {
   it("終わった実行の list cost を usage/{YYYY-MM}.estimatedJpy に足し、同じ実行を 2 度足さない", async () => {
-    const f = makeClient({ runs: [{ id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
+    const f = makeClient({ runs: [{ created_at: RECENT, id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
     const r1 = await check(f.client);
     expect(r1).toMatchObject({ counted: 1, addedJpy: 150, failures: 0, paused: false });
     expect(await month()).toBe(150);
@@ -82,7 +86,7 @@ describe("checkAgentRuns の費用", () => {
   });
 
   it("同時に 2 回走っても 1 度しか足さない", async () => {
-    const f = makeClient({ runs: [{ id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
+    const f = makeClient({ runs: [{ created_at: RECENT, id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
     await Promise.all([check(f.client), check(f.client)]);
     expect(await month()).toBe(150);
     expect(await counted()).toEqual(["drun_1"]);
@@ -90,7 +94,7 @@ describe("checkAgentRuns の費用", () => {
 
   it("2,400 円に 150 円を足すと 2,550 円で、読み取りが止まる", async () => {
     await db.doc("usage/2026-11").set({ estimatedJpy: 2400 });
-    const f = makeClient({ runs: [{ id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
+    const f = makeClient({ runs: [{ created_at: RECENT, id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
     await check(f.client);
     const m = await readUsageMonth(NOW);
     expect(m.estimatedJpy).toBe(2550);
@@ -100,8 +104,8 @@ describe("checkAgentRuns の費用", () => {
   it("まだ終わっていない実行（running、停止の理由のない idle）は数えず、終わった次の回に数える", async () => {
     const fake: Fake = {
       runs: [
-        { id: "drun_run", session_id: "ses_run", error: null },
-        { id: "drun_new", session_id: "ses_new", error: null },
+        { created_at: RECENT, id: "drun_run", session_id: "ses_run", error: null },
+        { created_at: RECENT, id: "drun_new", session_id: "ses_new", error: null },
       ],
       sessions: { ses_run: { status: "running", usage: { list_cost: { amount: "50" } } }, ses_new: finished("20") },
       idle: {},
@@ -116,21 +120,91 @@ describe("checkAgentRuns の費用", () => {
     expect(await month()).toBe(105);
   });
 
-  it("terminated の実行も数える。list cost が測れていなければ 0 円として数える", async () => {
+  it("terminated の実行も、費用が分かっていれば数える", async () => {
     const f = makeClient({
-      runs: [{ id: "drun_t", session_id: "ses_t", error: null }, { id: "drun_n", session_id: "ses_n", error: null }],
-      sessions: { ses_t: { status: "terminated", usage: { list_cost: { amount: "40" } } }, ses_n: finished(null) },
-      idle: { ses_n: "end_turn" },
+      runs: [{ created_at: RECENT, id: "drun_t", session_id: "ses_t", error: null }],
+      sessions: { ses_t: { status: "terminated", usage: { list_cost: { amount: "40" } } } },
+      idle: {},
     });
-    expect(await check(f.client)).toMatchObject({ counted: 2, addedJpy: 60 });
-    expect((await counted()).sort()).toEqual(["drun_n", "drun_t"]);
+    expect(await check(f.client)).toMatchObject({ counted: 1, addedJpy: 60 });
+    expect(await counted()).toEqual(["drun_t"]);
+  });
+
+  it("終わっても list cost が測れていない実行は 0 円で確定せず、数え済みにしない。分かった回に実額で数える", async () => {
+    const fake: Fake = {
+      runs: [{ created_at: RECENT, id: "drun_n", session_id: "ses_n", error: null }],
+      sessions: { ses_n: finished(null) },
+      idle: { ses_n: "end_turn" },
+    };
+    const f = makeClient(fake);
+    expect(await check(f.client)).toMatchObject({ counted: 0, addedJpy: 0 });
+    expect(await month()).toBe(0);
+    expect(await counted()).toEqual([]);
+    expect(await queue()).toEqual([]); // まだ待つ間は警告も出さない
+
+    fake.sessions.ses_n = finished("40");
+    expect(await check(f.client)).toMatchObject({ counted: 1, addedJpy: 60 });
+    expect(await month()).toBe(60);
+    expect(await counted()).toEqual(["drun_n"]);
+  });
+
+  it("形が想定外の list cost（小数、空）も測れていないものとして待つ", async () => {
+    const f = makeClient({
+      runs: [
+        { created_at: RECENT, id: "drun_a", session_id: "ses_a", error: null },
+        { created_at: RECENT, id: "drun_b", session_id: "ses_b", error: null },
+      ],
+      sessions: { ses_a: finished("1.5"), ses_b: finished("") },
+      idle: { ses_a: "end_turn", ses_b: "end_turn" },
+    });
+    expect(await check(f.client)).toMatchObject({ counted: 0, addedJpy: 0 });
+    expect(await counted()).toEqual([]);
+  });
+
+  it("3 日たっても測れていなければ、セッションの上限 1 ドルを最悪値として足して確定し、費用が測れない旨を 1 回だけ知らせる", async () => {
+    const f = makeClient({
+      runs: [{ created_at: OLD_RUN, id: "drun_old", session_id: "ses_old", error: null }],
+      sessions: { ses_old: finished(null) },
+      idle: { ses_old: "end_turn" },
+    });
+    expect(await check(f.client)).toMatchObject({ counted: 1, addedJpy: 150 });
+    expect(await month()).toBe(150);
+    expect(await counted()).toEqual(["drun_old"]);
+    await check(f.client);
+    expect(await month()).toBe(150);
+    const alerts = await queue();
+    expect(alerts.map((i) => i.id)).toEqual(["alert-agent_run_failed-cost-unknown-drun_old"]);
+    expect(alerts[0]).toMatchObject({ kind: "alert", alert: "agent_run_failed", prefCode: null });
+  });
+
+  it("測れていない間も、失敗（refusal）は知らせる。費用は待つ", async () => {
+    const f = makeClient({
+      runs: [{ created_at: RECENT, id: "drun_r", session_id: "ses_r", error: null }],
+      sessions: { ses_r: finished(null) },
+      idle: { ses_r: "refusal" },
+    });
+    expect(await check(f.client)).toMatchObject({ counted: 0, failures: 1 });
+    expect((await queue()).map((i) => i.id)).toEqual(["alert-agent_run_failed-drun_r"]);
+    expect(await counted()).toEqual([]);
+  });
+
+  it("作成の失敗（セッションがない実行）は費用 0 円で確定する", async () => {
+    const f = makeClient({ runs: [{ created_at: RECENT, id: "drun_e", session_id: null, error: { type: "vault_not_found_error" } }], sessions: {}, idle: {} });
+    expect(await check(f.client)).toMatchObject({ counted: 1, addedJpy: 0, failures: 1 });
+    expect(await counted()).toEqual(["drun_e"]);
   });
 
   it("deployment の id が空なら何もしない", async () => {
-    const f = makeClient({ runs: [{ id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
+    const f = makeClient({ runs: [{ created_at: RECENT, id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
     const list = vi.spyOn(f.client.beta.deploymentRuns, "list");
     expect(await handleCheckAgentRuns({ client: f.client, deploymentId: "", now: () => NOW })).toMatchObject({ counted: 0 });
     expect(list).not.toHaveBeenCalled();
+  });
+});
+
+describe("最悪値の定数", () => {
+  it("費用が測れないときに足す額は、セッションの上限（AGENT_BUDGET、セント）と同じ", () => {
+    expect(String(MAX_SESSION_COST_CENTS)).toBe(AGENT_BUDGET.max_list_cost.amount);
   });
 });
 
@@ -138,9 +212,9 @@ describe("checkAgentRuns の失敗", () => {
   it("失敗は agent_run_failed で箱に入り、何度走っても 2 度は作られない。end_turn は入らない", async () => {
     const f = makeClient({
       runs: [
-        { id: "drun_err", session_id: null, error: { type: "vault_not_found_error" } },
-        { id: "drun_ref", session_id: "ses_ref", error: null },
-        { id: "drun_ok", session_id: "ses_ok", error: null },
+        { created_at: RECENT, id: "drun_err", session_id: null, error: { type: "vault_not_found_error" } },
+        { created_at: RECENT, id: "drun_ref", session_id: "ses_ref", error: null },
+        { created_at: RECENT, id: "drun_ok", session_id: "ses_ok", error: null },
       ],
       sessions: { ses_ref: finished("30"), ses_ok: finished("30") },
       idle: { ses_ref: "refusal", ses_ok: "end_turn" },
@@ -156,7 +230,7 @@ describe("checkAgentRuns の失敗", () => {
   });
 
   it("箱に入れられなければ数えず、次の回にやり直す", async () => {
-    const f = makeClient({ runs: [{ id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "budget_reached" } });
+    const f = makeClient({ runs: [{ created_at: RECENT, id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "budget_reached" } });
     const spy = vi.spyOn(await import("../../src/review/queue"), "enqueueReview").mockRejectedValueOnce(new Error("down"));
     await expect(check(f.client)).rejects.toThrow();
     spy.mockRestore();
@@ -169,7 +243,7 @@ describe("checkAgentRuns の失敗", () => {
 });
 
 describe("checkAgentRuns の費用の上限（hardLimitJpy 2,500 円）", () => {
-  const oneRun = () => makeClient({ runs: [{ id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
+  const oneRun = () => makeClient({ runs: [{ created_at: RECENT, id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
 
   it("上限に届かなければ止めない", async () => {
     await db.doc("usage/2026-11").set({ estimatedJpy: 2000 });
@@ -226,7 +300,8 @@ describe("runEntranceAgent", () => {
     const f = empty();
     expect(await handleRunEntranceAgent(deps(f), operator)).toEqual({ ok: true });
     expect(f.run).toHaveBeenCalledTimes(1);
-    expect(f.run).toHaveBeenCalledWith(DEPLOYMENT);
+    // 実行は冪等でないので、通信の失敗の再試行で二重に走らせない（1 回 1 ドル）。
+    expect(f.run).toHaveBeenCalledWith(DEPLOYMENT, null, { maxRetries: 0 });
   });
 
   it("続けて押しても 1 回だけ（5 分たてばまた使える）", async () => {

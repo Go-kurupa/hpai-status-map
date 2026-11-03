@@ -1,5 +1,6 @@
 // 県と公式ドメインの束縛（X-14）。入口の一覧 data/sources.json から作る。エージェントの道具が取りに行ける先は、ここで決まる。
 // 県ごとに 1 つのドメイン（例: 33 → pref.okayama.jp）。そのドメインそのもの、またはその下のホスト（www、web、www.sangyo-rodo など）だけを許す。
+import { logger } from "firebase-functions";
 import { isPrefDomainHost } from "@hpai/shared/pref";
 import type { PrefCode, SourceSeed } from "@hpai/shared/types";
 import rawSeeds from "../../../data/sources.json";
@@ -7,45 +8,101 @@ import rawSeeds from "../../../data/sources.json";
 /** 入口のホストの末尾に当てる。当たらないときは入口の一覧（F-09）が県の公式でないので、差し戻す。 */
 const DOMAIN_TAIL = /(pref\.[a-z]+(\.lg)?\.jp|metro\.tokyo\.lg\.jp)$/;
 
-/**
- * 県ごとの公式ドメインを入口の一覧から作る。県の入口（prefCode がある行）のホストの末尾に DOMAIN_TAIL を当てた値。
- * 当たらない、同じ県で別のドメインが混ざる、別の県が同じドメインを名乗る、shared の県の公式ドメインの表にない、のどれかなら例外（黙って通さない）。
- */
-export function buildPrefDomains(seeds: readonly Pick<SourceSeed, "prefCode" | "url">[]): ReadonlyMap<PrefCode, string> {
-  const out = new Map<PrefCode, string>();
+interface Problem {
+  prefCode: PrefCode | null;
+  message: string;
+}
+
+/** 入口の一覧を調べる。使える県の表と、問題（どの県のどの行がだめか）を返す。問題のある県は表に入れない。例外は投げない。 */
+function analyze(seeds: readonly Pick<SourceSeed, "prefCode" | "url">[]): { domains: Map<PrefCode, string>; problems: Problem[] } {
+  const found = new Map<PrefCode, string>();
+  const problems: Problem[] = [];
+  const bad = new Set<PrefCode>();
+  const fail = (prefCode: PrefCode, message: string) => {
+    bad.add(prefCode);
+    problems.push({ prefCode, message });
+  };
+
   for (const seed of seeds) {
+    if (seed === null || typeof seed !== "object") {
+      problems.push({ prefCode: null, message: "入口の一覧に、行の形でないものがあります" });
+      continue;
+    }
     if (seed.prefCode === null) continue;
+    if (typeof seed.prefCode !== "string") {
+      problems.push({ prefCode: null, message: "入口の一覧に、県のコードが文字列でない行があります" });
+      continue;
+    }
+    const code = seed.prefCode;
     let host: string;
     try {
       host = new URL(seed.url).hostname.toLowerCase();
     } catch {
-      throw new Error(`県 ${seed.prefCode} の入口の URL を読めません。入口の一覧（F-09）へ差し戻してください`);
+      fail(code, `県 ${code} の入口の URL を読めません。入口の一覧（F-09）へ差し戻してください`);
+      continue;
     }
     const domain = DOMAIN_TAIL.exec(host)?.[1];
     // 先頭は「.」で区切るか、ホストそのもの（evilpref.… を通さない）
     if (domain === undefined || !(host === domain || host.endsWith(`.${domain}`))) {
-      throw new Error(`県 ${seed.prefCode} の入口のホスト ${host} が県の公式ドメインの形ではありません。入口の一覧（F-09）へ差し戻してください`);
+      fail(code, `県 ${code} の入口のホスト ${host} が県の公式ドメインの形ではありません。入口の一覧（F-09）へ差し戻してください`);
+      continue;
     }
     if (!isPrefDomainHost(domain)) {
-      throw new Error(`県 ${seed.prefCode} のドメイン ${domain} は県の公式ドメインの表にありません。入口の一覧（F-09）へ差し戻してください`);
+      fail(code, `県 ${code} のドメイン ${domain} は県の公式ドメインの表にありません。入口の一覧（F-09）へ差し戻してください`);
+      continue;
     }
-    const known = out.get(seed.prefCode);
+    const known = found.get(code);
     if (known !== undefined && known !== domain) {
-      throw new Error(`県 ${seed.prefCode} の入口に別のドメインが混ざっています（${known}、${domain}）`);
+      fail(code, `県 ${code} の入口に別のドメインが混ざっています（${known}、${domain}）`);
+      continue;
     }
-    out.set(seed.prefCode, domain);
+    found.set(code, domain);
   }
-  const seen = new Map<string, PrefCode>();
-  for (const [code, domain] of out) {
-    const other = seen.get(domain);
-    if (other !== undefined) throw new Error(`県 ${other} と ${code} が同じドメイン ${domain} になっています`);
-    seen.set(domain, code);
+
+  const byDomain = new Map<string, PrefCode[]>();
+  for (const [code, domain] of found) byDomain.set(domain, [...(byDomain.get(domain) ?? []), code]);
+  for (const [domain, codes] of byDomain) {
+    if (codes.length > 1) for (const c of codes) fail(c, `県 ${codes.join("、")} が同じドメイン ${domain} になっています`);
   }
-  return out;
+
+  const domains = new Map([...found].filter(([code]) => !bad.has(code)));
+  return { domains, problems };
 }
 
-/** 同梱の入口の一覧から作った 47 県の表。読み込み時に検査され、壊れていれば関数が起動しない。 */
-export const PREF_DOMAINS: ReadonlyMap<PrefCode, string> = buildPrefDomains(rawSeeds as readonly SourceSeed[]);
+/**
+ * 県ごとの公式ドメインを入口の一覧から作る（厳密版。試験と CI の差し戻し用）。
+ * 当たらない、同じ県で別のドメインが混ざる、別の県が同じドメインを名乗る、shared の県の公式ドメインの表にない、のどれかなら例外。
+ */
+export function buildPrefDomains(seeds: readonly Pick<SourceSeed, "prefCode" | "url">[]): ReadonlyMap<PrefCode, string> {
+  const { domains, problems } = analyze(seeds);
+  if (problems.length > 0) throw new Error(problems[0]?.message);
+  return domains;
+}
+
+/**
+ * 実行時の版。例外を投げず、問題のある県を表から外す（外した県は isAllowedUrl が常に false ＝取得も提案もできない。安全側に閉じる）。
+ * 1 行の誤りで、全関数を 1 つにまとめた bundle のほかの関数（watchTick など）の起動を止めないため。差し戻しは試験（47 県すべてある）が行う。
+ */
+export function buildPrefDomainsLenient(seeds: readonly Pick<SourceSeed, "prefCode" | "url">[]): {
+  domains: ReadonlyMap<PrefCode, string>;
+  excluded: Array<{ prefCode: PrefCode | null; message: string }>;
+} {
+  const { domains, problems } = analyze(seeds);
+  return { domains, excluded: problems };
+}
+
+function loadPrefDomains(): ReadonlyMap<PrefCode, string> {
+  if (!Array.isArray(rawSeeds)) {
+    logger.error("data/sources.json が配列ではありません。エージェントは県のページを取得できません");
+    return new Map();
+  }
+  const { domains, excluded } = buildPrefDomainsLenient(rawSeeds as readonly SourceSeed[]);
+  for (const e of excluded) logger.error("sources.json の行を除きました。その県はエージェントの取得も提案もできません", { prefCode: e.prefCode, message: e.message });
+  return domains;
+}
+
+/** 同梱の入口の一覧から作った県の表。47 県そろうことは試験が確かめる。 */
+export const PREF_DOMAINS: ReadonlyMap<PrefCode, string> = loadPrefDomains();
 
 /**
  * その県の公式ドメインの中の URL か。https、利用者情報なし、既定のポート、ホストがドメインそのものかその下。
