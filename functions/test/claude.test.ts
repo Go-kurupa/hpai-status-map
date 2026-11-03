@@ -359,6 +359,22 @@ describe("system プロンプト", () => {
     }
     expect(PRIMARY_SYSTEM).toContain("multipleCases");
   });
+  it("両方に、野鳥の test の 3 値の意味と wildBirds の項目の説明がある", () => {
+    for (const sys of [PRIMARY_SYSTEM, SECOND_SYSTEM]) {
+      expect(sys).toMatch(/screening_positive: 簡易検査の陽性（確定検査の結果待ち）/);
+      expect(sys).toMatch(/hpai_confirmed: 確定検査で高病原性鳥インフルエンザと確定/);
+      expect(sys).toMatch(/negative: 確定検査で陰性、または高病原性ではない/);
+      expect(sys).toMatch(/wildBirds/);
+      expect(sys).toMatch(/date.*prefecture.*municipality.*test/s);
+    }
+  });
+  it("confirmed は疑似患畜の確認が軸で、患畜の判定の続報は progress", () => {
+    for (const sys of [PRIMARY_SYSTEM, SECOND_SYSTEM]) {
+      expect(sys).toMatch(/- confirmed: 疑似患畜の確認/);
+      expect(sys).not.toContain("患畜の判定を含む");
+      expect(sys).toMatch(/- progress:.*患畜の判定.*progress/);
+    }
+  });
   it("SECOND_SYSTEM: quote の文がない。ほかは主と同じ", () => {
     expect(SECOND_SYSTEM).not.toMatch(/quote|引用/);
     expect(SECOND_SYSTEM).toMatch(/本文.*データ/);
@@ -438,6 +454,11 @@ describe("decodeMessage", () => {
       expect(r.detail).not.toContain("SECRET_KIND_VALUE");
       expect(r.detail).toContain("kind");
     }
+  });
+
+  it("model_context_window_exceeded は json_parse に混ぜず、停止の理由を detail に残す", () => {
+    const r = decodeMessage(message({ text: "{", stop_reason: "model_context_window_exceeded" }), ReadResultSchema);
+    expect(r).toMatchObject({ ok: false, reason: "format_error", detail: "stop_reason=model_context_window_exceeded", usage: USAGE });
   });
 
   it("text ブロックがなければ format_error", () => {

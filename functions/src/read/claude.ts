@@ -85,6 +85,10 @@ export function decodeMessage<T>(message: Anthropic.Message, schema: z.ZodType<T
   if (message.stop_reason === "max_tokens") {
     return { ok: false, reason: "max_tokens", detail: "max_tokens", usage };
   }
+  if (message.stop_reason === "model_context_window_exceeded") {
+    // 契約にない停止理由。json_parse に混ぜず、理由の名前だけ残す（本文や値は入れない）。
+    return { ok: false, reason: "format_error", detail: "stop_reason=model_context_window_exceeded", usage };
+  }
   const text = message.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
     .map((b) => b.text)

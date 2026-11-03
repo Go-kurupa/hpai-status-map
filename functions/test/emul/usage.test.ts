@@ -39,6 +39,39 @@ describe("readRuntimeSettings", () => {
   });
 });
 
+describe("readRuntimeSettings の不正な値", () => {
+  it("0 や負の上限、数でない上限は既定値のまま", async () => {
+    for (const bad of [0, -100, Number.NaN, "2000"]) {
+      await db.doc("usage/settings").set({ softLimitJpy: bad, hardLimitJpy: bad });
+      const s = await readRuntimeSettings();
+      expect(s.softLimitJpy).toBe(S.softLimitJpy);
+      expect(s.hardLimitJpy).toBe(S.hardLimitJpy);
+    }
+  });
+
+  it("soft が hard を超える組は両方とも既定値", async () => {
+    await db.doc("usage/settings").set({ softLimitJpy: 3000, hardLimitJpy: 2800 });
+    const s = await readRuntimeSettings();
+    expect(s.softLimitJpy).toBe(S.softLimitJpy);
+    expect(s.hardLimitJpy).toBe(S.hardLimitJpy);
+  });
+
+  it("片方だけ重ねても soft <= hard が崩れるなら既定値", async () => {
+    await db.doc("usage/settings").set({ softLimitJpy: 9000 }); // 既定の hard 2500 を超える
+    const s = await readRuntimeSettings();
+    expect(s.softLimitJpy).toBe(S.softLimitJpy);
+    expect(s.hardLimitJpy).toBe(S.hardLimitJpy);
+  });
+
+  it("soft == hard は受け入れる。為替が 0 や負なら既定値", async () => {
+    await db.doc("usage/settings").set({ softLimitJpy: 1000, hardLimitJpy: 1000, jpyPerUsd: 0 });
+    const s = await readRuntimeSettings();
+    expect(s.softLimitJpy).toBe(1000);
+    expect(s.hardLimitJpy).toBe(1000);
+    expect(s.jpyPerUsd).toBe(S.jpyPerUsd);
+  });
+});
+
 describe("readUsageMonth", () => {
   it("文書がなければ全部 0", async () => {
     expect(await readUsageMonth(NOV_15)).toEqual({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, estimatedJpy: 0 });

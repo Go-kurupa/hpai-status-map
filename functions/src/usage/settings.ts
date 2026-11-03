@@ -18,13 +18,15 @@ export async function readRuntimeSettings(): Promise<RuntimeSettings> {
   const snap = await db.doc("usage/settings").get();
   const data = (snap.data() ?? {}) as Record<string, unknown>;
   const out: RuntimeSettings = { ...DEFAULT_RUNTIME_SETTINGS };
-  const num = (k: "softLimitJpy" | "hardLimitJpy" | "jpyPerUsd") => {
-    const v = data[k];
-    if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
-  };
-  num("softLimitJpy");
-  num("hardLimitJpy");
-  num("jpyPerUsd");
+  const positive = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0;
+  // 上限は正の数だけ受け入れる。重ねた結果が soft > hard になるなら、食い違うので両方とも既定値に倒す。
+  const soft = positive(data.softLimitJpy) ? data.softLimitJpy : out.softLimitJpy;
+  const hard = positive(data.hardLimitJpy) ? data.hardLimitJpy : out.hardLimitJpy;
+  if (soft <= hard) {
+    out.softLimitJpy = soft;
+    out.hardLimitJpy = hard;
+  }
+  if (positive(data.jpyPerUsd)) out.jpyPerUsd = data.jpyPerUsd;
   if (typeof data.autoPublishEnabled === "boolean") out.autoPublishEnabled = data.autoPublishEnabled;
   for (const k of ["primaryModel", "secondModel"] as const) {
     const v = data[k];
