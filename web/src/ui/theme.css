@@ -1,0 +1,241 @@
+/* 平面の単色だけで作る。陰影・ぼかし・色の移り変わりは使わない（現場で読み取れることを優先）。
+   本文は 18px 以上、押せるものは 48px 以上。 */
+:root {
+  --fg: #1b1d21;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --line: #c9ccd1;
+  --soft: #f1f2f4;
+  --muted: #5c6168;
+  --lv1: #b3261e;
+  --lv2: #8a5a00;
+  --lv3: #00639b;
+  --lv4: #4a4f57;
+  --on-lv: #ffffff;
+  --accent: #00639b;
+  --on-accent: #ffffff;
+  --font-base: 18px;
+  --tap: 48px;
+  --gutter: 16px;
+  --font-sans: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.4;
+  margin: 0 0 0.5em;
+}
+h1 {
+  font-size: 1.4rem;
+}
+h2 {
+  font-size: 1.2rem;
+}
+p {
+  margin: 0 0 0.8em;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--fg);
+  outline-offset: 2px;
+}
+
+/* ── 画面の骨格 ── */
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px var(--gutter);
+  border-bottom: 2px solid var(--fg);
+}
+.app-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.app-title a {
+  color: var(--fg);
+  text-decoration: none;
+}
+.app-header .settings-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 4px;
+  color: var(--fg);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.app-main {
+  min-width: 0;
+  padding: var(--gutter);
+}
+
+.app-nav {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 2px solid var(--fg);
+  background: var(--surface);
+}
+.app-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 8px 0;
+  border-right: 1px solid var(--line);
+  color: var(--fg);
+  font-weight: 700;
+  text-decoration: none;
+}
+.app-nav a:last-child {
+  border-right: 0;
+}
+.app-nav a[aria-current="page"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ── 部品 ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 8px 20px;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.btn:disabled {
+  background: var(--soft);
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: default;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0 8px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.tag-lv1 {
+  background: var(--lv1);
+  border-color: var(--lv1);
+  color: var(--on-lv);
+}
+.tag-lv2 {
+  background: var(--lv2);
+  border-color: var(--lv2);
+  color: var(--on-lv);
+}
+.tag-lv3 {
+  background: var(--lv3);
+  border-color: var(--lv3);
+  color: var(--on-lv);
+}
+.tag-lv4 {
+  background: var(--lv4);
+  border-color: var(--lv4);
+  color: var(--on-lv);
+}
+.tag-neutral {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.as-of {
+  margin: 0 0 0.8em;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.source-line {
+  margin: 0 0 0.5em;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* やること（§7）。線の種類で、義務かどうかを見分けられるようにする */
+.class-block {
+  margin: 0 0 16px;
+  padding: 12px var(--gutter);
+  background: var(--surface);
+}
+.class-block > h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.class-always {
+  border: 2px solid var(--fg);
+}
+.class-if_in_zone {
+  border: 2px solid var(--lv1);
+  border-left-width: 10px;
+}
+.class-good_to_check {
+  border: 2px dashed var(--muted);
+}
+
+.placeholder {
+  max-width: 40rem;
+}
+
+@media print {
+  .app-header,
+  .app-nav {
+    display: none;
+  }
+}

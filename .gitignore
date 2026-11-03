@@ -43,3 +43,6 @@ web/public/evals/
 web/public/trends/
 .firebase/
 .secret.local
+web/test-results/
+web/playwright-report/
+web/dist-e2e/
