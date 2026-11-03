@@ -60,7 +60,7 @@ const AFTER: Readonly<Record<CaseStage, readonly CaseStage[]>> = {
 };
 
 /** 同じ段階なら同じ日、前の段階は後の段階より遅くない。 */
-function stagesConflict(a: { stage: CaseStage; date: IsoDate }, b: { stage: CaseStage; date: IsoDate }): boolean {
+export function stagesConflict(a: { stage: CaseStage; date: IsoDate }, b: { stage: CaseStage; date: IsoDate }): boolean {
   if (a.stage === b.stage) return a.date !== b.date;
   if (AFTER[a.stage].includes(b.stage)) return a.date > b.date;
   if (AFTER[b.stage].includes(a.stage)) return b.date > a.date;

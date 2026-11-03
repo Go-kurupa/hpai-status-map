@@ -150,10 +150,12 @@ function PublishForm({ item, detail, munis, now, disabled, onPublish, onIrreleva
   return (
     <form
       className="op-form"
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
         const r = toValues(f);
         if (!r.ok) return setFormError(r.message);
+        if (f.date > jstDateOf(now)) return setFormError("未来の日付は載せられません。日付を確かめてください");
         setFormError(null);
         onPublish(r.values);
       }}
@@ -195,7 +197,7 @@ function PublishForm({ item, detail, munis, now, disabled, onPublish, onIrreleva
           </select>
         )}
       </Field>
-      <Field label="日付">{(id) => <input id={id} type="date" value={f.date} onChange={(e) => set("date", e.target.value)} />}</Field>
+      <Field label="日付">{(id) => <input id={id} type="date" max={jstDateOf(now)} value={f.date} onChange={(e) => set("date", e.target.value)} />}</Field>
       <Field label="時刻">{(id) => <input id={id} type="time" value={f.time} onChange={(e) => set("time", e.target.value)} />}</Field>
       <Field label="国内の番号">{(id) => <input id={id} inputMode="numeric" value={f.nationalNo} onChange={(e) => set("nationalNo", e.target.value)} />}</Field>
       <Field label="県内の番号">{(id) => <input id={id} inputMode="numeric" value={f.prefNo} onChange={(e) => set("prefNo", e.target.value)} />}</Field>

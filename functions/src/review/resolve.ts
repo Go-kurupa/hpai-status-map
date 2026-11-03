@@ -7,6 +7,7 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { applyRead, matchCase, nextCaseId } from "@hpai/shared/cases";
 import { jstDateOf, toJstIso } from "@hpai/shared/dates";
 import type { GeoStore } from "@hpai/shared/geo";
+import { checkCorrectedStage } from "@hpai/shared/read/correctedCheck";
 import { actionsFor, parseResolveRequest, reviewDetailOf, type CorrectedCaseValues, type ResolveRequest, type ResolveResponse, type ReviewDetail } from "@hpai/shared/read/review";
 import type { DocumentKind, DocumentRecord, NormalizedRead, ReviewItem } from "@hpai/shared/read/types";
 import { seasonOf } from "@hpai/shared/season";
@@ -83,6 +84,8 @@ interface Ctx {
   tx: Transaction;
   deps: ResolveDeps;
   nowJst: string;
+  /** 項目に足して書く記録（publish_corrected の前と後）。 */
+  extra: Record<string, unknown>;
 }
 
 /** 文書の記録に、人が決めたことを理由として足す（引用を含めない符号）。 */
@@ -99,7 +102,11 @@ async function publishCorrected(ctx: Ctx, item: DocItem, v: CorrectedCaseValues)
   const caseSnap = await tx.get(deps.db.collection("cases").where("prefCode", "==", v.prefCode).where("season", "==", seasonOf(v.date)));
   const existing = caseSnap.docs.map((d) => d.data() as Case);
 
-  const m = matchCase({ prefCode: v.prefCode, muniCode: v.muniCode, date: v.date, nationalNo: v.nationalNo, stage: v.stage }, existing);
+  // 読み手の経路と同じ検査: 未来の日付、シーズン外、既にある段階との食い違い・順序の逆転は載せない（打ち間違いで正しい日付を上書きしない）
+  const docData = docSnap.exists ? (docSnap.data() as DocumentRecord) : null;
+  const season = seasonOf(jstDateOf(new Date(docData?.fetchedAt ?? item.createdAt)));
+  const matchInput = { prefCode: v.prefCode, muniCode: v.muniCode, date: v.date, nationalNo: v.nationalNo, stage: v.stage };
+  const m = matchCase(matchInput, existing);
   if (m.kind === "ambiguous") {
     throw new HttpsError("failed-precondition", "同じ事例か判断できません。候補の事例を確かめてください", { candidateIds: m.candidateIds });
   }
@@ -109,10 +116,19 @@ async function publishCorrected(ctx: Ctx, item: DocItem, v: CorrectedCaseValues)
     throw new HttpsError("failed-precondition", "続きの事例がないので、疑いか確定の段階で載せてください");
   }
 
+  const checked = checkCorrectedStage(v, { today: jstDateOf(deps.now()), season, previousStages: prev?.stages ?? null });
+  if (!checked.ok) throw new HttpsError(checked.code, checked.message);
+
   const created = applyRead(prev, normalizedOf(v, entry.name), item.url, "operator", deps.now());
   const next: Case = prev === null ? { ...created, id: nextCaseId(v.muniCode, firstDateOf(created), existing) } : created;
 
-  // 書き
+  // 書き。変更の前（読み取った値、足す前の段階）と後（直した値）を項目に残す
+  const { issues: _i, mismatches: _m, error: _e, kind: _k, ...readValues } = docData === null ? ({} as ReviewDetail) : reviewDetailOf(docData);
+  ctx.extra.resolution = {
+    before: docData === null || docData.primary === null ? null : readValues,
+    after: v,
+    caseBefore: prev === null ? null : { stages: prev.stages },
+  };
   upsertCaseIn(tx, next);
   deleteReviewingCaseIn(tx, item.documentId);
   if (docSnap.exists) {
@@ -172,6 +188,8 @@ async function approveEntrance(ctx: Ctx, item: ProposalItem): Promise<null> {
 
   const today = jstDateOf(deps.now());
   if (newSnap.exists) {
+    // 別の県の入口として登録された URL は有効にしない（その項目の県の source だけを有効にする）
+    if ((newSnap.data() as Partial<Source>).prefCode !== item.prefCode) throw new HttpsError("failed-precondition", "この URL は別の県の入口として登録されています");
     // 数えた失敗の回数や指紋を消さない
     tx.update(newRef, { enabled: true, confirmedOn: today });
   } else {
@@ -216,7 +234,7 @@ export async function handleResolveReviewItem(deps: ResolveDeps, caller: Caller 
     if ((item.resolvedAt ?? null) !== null) throw new HttpsError("failed-precondition", "この項目はすでに解決済みです");
     if (!actionsFor(item).includes(req.action)) throw new HttpsError("failed-precondition", "この項目にはその操作を使えません");
 
-    const ctx: Ctx = { tx, deps, nowJst };
+    const ctx: Ctx = { tx, deps, nowJst, extra: {} };
     let result: string | null = null;
     // actionsFor が種類と操作の組を確かめ済み。ここでは型を絞るだけ
     switch (req.action) {
@@ -239,7 +257,7 @@ export async function handleResolveReviewItem(deps: ResolveDeps, caller: Caller 
       case "dismiss_alert":
         break; // 項目を閉じるだけ（入口の却下は sources を変えない、§13）
     }
-    tx.update(itemRef, { resolvedAt: nowJst, resolvedBy: caller.uid, resolvedAction: req.action });
+    tx.update(itemRef, { resolvedAt: nowJst, resolvedBy: caller.uid, resolvedAction: req.action, ...ctx.extra });
     return result;
   });
   return { ok: true, caseId };

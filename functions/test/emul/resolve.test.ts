@@ -490,3 +490,73 @@ describe("すべての操作で resolvedAt が入る", () => {
     }
   });
 });
+
+// ── レビュー 1 回目の修正 ──
+describe("直した日付の検査（読み手の経路と同じ決まり）", () => {
+  const unchanged = async (itemId: string) => {
+    expect((await itemOf(itemId))!.resolvedAt).toBeNull();
+    expect(await listIds("cases")).toContain("rev-d1");
+    expect((await getDoc("documents/d1"))!.readState).toBe("review_public");
+  };
+  it("未来の日付と、年の打ち間違いは invalid-argument。何も変えない", async () => {
+    const { itemId } = await seedDocItem();
+    for (const date of ["2025-12-23", "2052-12-20", "2024-12-20"]) {
+      expect(await codeOf(resolve({ itemId, action: "publish_corrected", values: values({ date }) })), date).toBe("invalid-argument");
+    }
+    await unchanged(itemId);
+    expect((await listIds("cases")).filter((id) => id !== "rev-d1")).toEqual([]);
+  });
+  it("既にある段階の日付と違う入力は拒み、正しい日付を上書きしない", async () => {
+    await db.doc("cases/33203-2025-12-20-1").set(realCase({ stages: { suspected: { date: "2025-12-20", time: null } } }));
+    const { itemId } = await seedDocItem();
+    expect(await codeOf(resolve({ itemId, action: "publish_corrected", values: values({ date: "2025-12-19" }) }))).toBe("failed-precondition");
+    expect(((await getDoc("cases/33203-2025-12-20-1")) as Case).stages).toEqual({ suspected: { date: "2025-12-20", time: null } });
+    await unchanged(itemId);
+  });
+  it("段階の順序が逆になる日付（確定より後の疑い）は拒む", async () => {
+    await db.doc("cases/33203-2025-12-20-1").set(realCase({ stages: { confirmed: { date: "2025-12-21", time: null } } }));
+    const { itemId } = await seedDocItem();
+    expect(await codeOf(resolve({ itemId, action: "publish_corrected", values: values({ stage: "suspected", date: "2025-12-22" }) }))).toBe("failed-precondition");
+    await unchanged(itemId);
+  });
+  it("同じ段階の同じ日付への足しは通る（時刻の補い）", async () => {
+    await db.doc("cases/33203-2025-12-20-1").set(realCase({ stages: { suspected: { date: "2025-12-20", time: null } } }));
+    const { itemId } = await seedDocItem();
+    await resolve({ itemId, action: "publish_corrected", values: values({ time: "08:00" }) });
+    expect(((await getDoc("cases/33203-2025-12-20-1")) as Case).stages.suspected).toEqual({ date: "2025-12-20", time: "08:00" });
+  });
+});
+
+describe("載せるの前と後の記録", () => {
+  it("読み取った値（前）、直した値（後）、足す前の段階を項目に残す", async () => {
+    await db.doc("cases/33203-2025-12-20-1").set(realCase({ stages: { suspected: { date: "2025-12-20", time: null } } }));
+    const { itemId } = await seedDocItem();
+    const v = values({ stage: "confirmed", date: "2025-12-21", headCount: 13000 });
+    await resolve({ itemId, action: "publish_corrected", values: v });
+    const r = ((await getDoc(`reviewQueue/${itemId}`)) as { resolution?: any }).resolution;
+    expect(r.before).toMatchObject({ prefecture: "岡山県", municipality: "津山市", primaryStage: "suspected", headCount: 12000, birdUse: "採卵鶏" });
+    expect(JSON.stringify(r)).not.toContain("quote");
+    expect(r.after).toEqual(v);
+    expect(r.caseBefore).toEqual({ stages: { suspected: { date: "2025-12-20", time: null } } });
+  });
+  it("新しい事例のとき caseBefore は null、文書の記録がなければ before は null", async () => {
+    const { itemId } = await seedDocItem({ withDoc: false });
+    await resolve({ itemId, action: "publish_corrected", values: values() });
+    const r = ((await getDoc(`reviewQueue/${itemId}`)) as { resolution?: any }).resolution;
+    expect(r.before).toBeNull();
+    expect(r.caseBefore).toBeNull();
+    expect(r.after).toEqual(values());
+  });
+});
+
+describe("入口の承認は項目の県の source だけ", () => {
+  it("同じ URL が別の県の source として登録されていれば、有効にせず failed-precondition", async () => {
+    const url = "https://www.pref.okayama.jp/new/index.html";
+    const id = sha24(url);
+    await db.doc(`sources/${id}`).set({ id, prefCode: "34", url, kind: "pref_fixed", confirmedOn: "2025-11-01", note: null, group: 0, enabled: false, lastCheckedAt: null, lastOkAt: null, etag: null, lastModified: null, fingerprint: null, failureCount: 0 });
+    const item = await seedItem({ id: "entr-x", kind: "entrance_proposal", prefCode: "33", oldUrl: null, proposedUrl: url, sourceKind: "pref_fixed", rationale: "r" });
+    expect(await codeOf(resolve({ itemId: item, action: "approve_entrance" }))).toBe("failed-precondition");
+    expect(((await getDoc(`sources/${id}`)) as Source).enabled).toBe(false);
+    expect((await itemOf(item))!.resolvedAt).toBeNull();
+  });
+});

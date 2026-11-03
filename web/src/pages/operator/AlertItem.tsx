@@ -13,6 +13,7 @@ export function AlertItem({ item, resolve, runAgent }: { item: Alert; resolve: R
   const r = useResolver(resolve);
   const [agent, setAgent] = useState<"idle" | "busy" | "requested" | "failed">("idle");
   const agentLock = useRef(false);
+  const [confirming, setConfirming] = useState(false);
 
   async function startAgent() {
     if (agentLock.current) return;
@@ -40,19 +41,33 @@ export function AlertItem({ item, resolve, runAgent }: { item: Alert; resolve: R
       {item.alert === "mail_failing" && (
         <p className="op-note">この知らせは、メールでは届きません（メールを送れていないため）。この画面で確かめてください。</p>
       )}
+      {confirming && (
+        <p className="op-note">否定を確定すると取り消せません。この事例の知らせを受け取った会員全員に、訂正のメールが届きます。公式の発表で否定を確かめましたか。</p>
+      )}
       {r.error !== null && <p role="alert" className="op-error">{r.error}</p>}
       {agent === "failed" && <p role="alert" className="op-error">実行できませんでした。しばらくしてから、もう一度試してください。</p>}
       {agent === "requested" && <p role="status">実行を依頼しました。結果は、新しい入口の提案としてこの画面に届きます。</p>}
       <div className="op-actions">
         {item.alert === "negation_candidate" ? (
-          <>
-            <Button variant="primary" disabled={r.disabled} onClick={() => void r.run({ itemId: item.id, action: "confirm_negation" })}>
-              否定を確定する
-            </Button>
-            <Button disabled={r.disabled} onClick={() => void r.run({ itemId: item.id, action: "reject_negation" })}>
-              退ける
-            </Button>
-          </>
+          confirming ? (
+            <>
+              <Button variant="primary" disabled={r.disabled} onClick={() => void r.run({ itemId: item.id, action: "confirm_negation" })}>
+                はい、否定を確定する
+              </Button>
+              <Button disabled={r.disabled} onClick={() => setConfirming(false)}>
+                やめる
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="primary" disabled={r.disabled} onClick={() => setConfirming(true)}>
+                否定を確定する
+              </Button>
+              <Button disabled={r.disabled} onClick={() => void r.run({ itemId: item.id, action: "reject_negation" })}>
+                退ける
+              </Button>
+            </>
+          )
         ) : (
           <>
             {item.alert === "agent_run_failed" && (

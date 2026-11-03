@@ -240,6 +240,16 @@ describe("文書の項目", () => {
     await waitFor(() => expect(resolve).toHaveBeenCalled());
     expect(resolve.mock.calls[0]![0]).toMatchObject({ action: "publish_corrected", values: { muniCode: "33202", stage: "confirmed", headCount: null, nationalNo: 7 } });
   });
+  it("日付の入力欄は今日（JST）までしか選べず、未来の日付は送らない", async () => {
+    const { resolve } = setup(ready(docItem()));
+    await screen.findByRole("button", { name: "載せる" });
+    const date = screen.getByLabelText("日付") as HTMLInputElement;
+    expect(date.max).toBe("2025-12-22");
+    fireEvent.change(date, { target: { value: "2052-12-20" } });
+    fireEvent.click(screen.getByRole("button", { name: "載せる" }));
+    expect(resolve).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toMatch(/未来/);
+  });
   it("数字でない羽数は送らず、直すよう示す", async () => {
     const { resolve } = setup(ready(docItem()));
     await screen.findByRole("button", { name: "載せる" });
@@ -290,12 +300,25 @@ describe("文書の項目", () => {
 // ── 否定、入口、知らせ ──
 describe("否定の候補", () => {
   it("確定の前に訂正のメールが届くと示し、確定と退けるの 2 つだけ", () => {
-    const { resolve } = setup(ready(alertItem("negation_candidate", { caseId: "33203-2025-12-20-1" })));
+    setup(ready(alertItem("negation_candidate", { caseId: "33203-2025-12-20-1" })));
     const card = screen.getByRole("article");
     expect(within(card).getByText("否定の発表があるようです")).toBeTruthy();
     expect(within(card).getByText(/訂正のメール/)).toBeTruthy();
     expect(within(card).getAllByRole("button").map((b) => b.textContent)).toEqual(["否定を確定する", "退ける"]);
+  });
+  it("「否定を確定する」は 1 度では送らず、確認の文を出し、もう一度押して初めて confirm_negation を送る", async () => {
+    const { resolve } = setup(ready(alertItem("negation_candidate", { caseId: "33203-2025-12-20-1" })));
+    const card = screen.getByRole("article");
     fireEvent.click(within(card).getByRole("button", { name: "否定を確定する" }));
+    expect(resolve).not.toHaveBeenCalled();
+    expect(within(card).getByText(/取り消せません/)).toBeTruthy();
+    expect(within(card).getAllByRole("button").map((b) => b.textContent)).toEqual(["はい、否定を確定する", "やめる"]);
+    fireEvent.click(within(card).getByRole("button", { name: "やめる" }));
+    expect(resolve).not.toHaveBeenCalled();
+    expect(within(card).getAllByRole("button").map((b) => b.textContent)).toEqual(["否定を確定する", "退ける"]);
+    fireEvent.click(within(card).getByRole("button", { name: "否定を確定する" }));
+    fireEvent.click(within(card).getByRole("button", { name: "はい、否定を確定する" }));
+    await waitFor(() => expect(resolve).toHaveBeenCalledTimes(1));
     expect(resolve).toHaveBeenCalledWith({ itemId: "alert-negation_candidate-k", action: "confirm_negation" });
   });
   it("「退ける」で reject_negation", () => {
