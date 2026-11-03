@@ -303,7 +303,7 @@ describe("summarize と evalPasses", () => {
   });
 
   it("対照（正しい読み）が載らないときは、入れ替えが落ちた数を合格に数えない", () => {
-    const ok = { control: "publish", total: 17, rejected: 17, failures: [] } as const;
+    const ok = { control: "publish" as const, total: 17, rejected: 17, failures: [] as string[] };
     expect(tamperForSummary(ok)).toEqual({ total: 17, rejected: 17 });
     const broken = tamperForSummary({ control: "review_private", total: 17, rejected: 17, failures: [] });
     expect(broken).toEqual({ total: 17, rejected: 0 });
