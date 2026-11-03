@@ -113,6 +113,8 @@ beforeEach(() => {
     mode: "firestore",
     getFarm: vi.fn(async () => farm),
     saveFarm,
+    listHouses: vi.fn(async () => []), // 鶏舎の欄（M-05）が読む。この試験の対象ではない
+    saveHouse: vi.fn(),
   } as unknown as RecordStore;
 });
 afterEach(cleanup);

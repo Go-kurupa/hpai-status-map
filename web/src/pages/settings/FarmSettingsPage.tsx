@@ -10,13 +10,19 @@ import { createFarmInviteCall } from "../auth/callables";
 import { MultipleFarmsError } from "../auth/firestoreRecordStore";
 import { RequireMember } from "../auth/RequireMember";
 import { savedAtLabel } from "./farmForm";
+import { FarmBasicsForm, KahoContactForm } from "./FarmProfileForm";
+import { HouseList } from "./HouseList";
 import { MeshPicker, type FarmPick } from "./MeshPicker";
+import { MuniMultiPicker } from "./MuniMultiPicker";
 import "./settings.css";
 
 type Saved = Farm & { id: string };
 type Load = { state: "loading" } | { state: "error"; message: string | null } | { state: "ok"; farm: Saved | null };
 
-/** 農場の設定。この版は地点と、会員を足す招待リンク。名前や鶏舎などは M-05 が足す */
+/**
+ * 農場の設定。地点、農場名、採卵か肉用か、飼い方、行き来する町、鶏舎、家保の連絡先、招待の順。
+ * 農場がない間（地点を保存する前）は地点の欄だけ。ほかの欄は農場がないと保存できない（ルールが meshCode を要る）。
+ */
 function FarmSettings() {
   const store = useRecordStore();
   const [load, setLoad] = useState<Load>({ state: "loading" });
@@ -109,6 +115,16 @@ function FarmSettings() {
     setSaving(false);
   }
 
+  /** 地点以外の欄の保存。渡した項目だけを保存し、保存の後に読み直して『最終保存』を進める */
+  async function saveProfile(patch: Partial<Farm>) {
+    await store.saveFarm(patch);
+    try {
+      setLoad({ state: "ok", farm: await store.getFarm() });
+    } catch {
+      // 保存は済んでいる。読み直せなかっただけなので、保存の失敗にはしない
+    }
+  }
+
   async function makeInvite() {
     if (!farm || inviting) return;
     setInviting(true);
@@ -125,6 +141,7 @@ function FarmSettings() {
   return (
     <div className="settings-page">
       <h1>農場の設定</h1>
+      {saved ? <p className="settings-saved">{saved}</p> : null}
 
       <section>
         <h2>農場の地点</h2>
@@ -188,8 +205,37 @@ function FarmSettings() {
             保存できませんでした。通信を確かめて、もう一度試してください。
           </p>
         ) : null}
-        {saved ? <p className="settings-saved">{saved}</p> : null}
       </section>
+
+      {farm ? (
+        <>
+          <section>
+            <h2>農場の情報</h2>
+            <FarmBasicsForm farm={farm} save={saveProfile} />
+          </section>
+
+          <section>
+            <h2>行き来する町</h2>
+            <MuniMultiPicker
+              geo={geo}
+              geoFailed={geoFailed}
+              farmMuniCode={farm.muniCode}
+              initial={farm.frequentMuniCodes}
+              save={(codes) => saveProfile({ frequentMuniCodes: codes })}
+            />
+          </section>
+
+          <section>
+            <h2>鶏舎</h2>
+            <HouseList store={store} onSaved={() => saveProfile({})} />
+          </section>
+
+          <section>
+            <h2>家畜保健衛生所の連絡先</h2>
+            <KahoContactForm farm={farm} save={saveProfile} />
+          </section>
+        </>
+      ) : null}
 
       {farm ? (
         <section>
