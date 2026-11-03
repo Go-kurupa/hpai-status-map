@@ -1,0 +1,18 @@
+{
+  "id": "f-kyoto-type",
+  "url": null,
+  "fabricated": true,
+  "file": "f-kyoto-type.txt",
+  "season": 2025,
+  "title": "【試験用】高病原性鳥インフルエンザを疑う事例の発生について",
+  "contentType": "html",
+  "kind": "suspected",
+  "prefCode": "41",
+  "muniName": "唐津市",
+  "primaryStage": "suspected",
+  "primaryDate": "2025-11-12",
+  "nationalNo": null,
+  "headCount": 30000,
+  "radiiKm": [],
+  "wildBirds": null
+}

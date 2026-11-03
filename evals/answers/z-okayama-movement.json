@@ -1,0 +1,18 @@
+{
+  "id": "z-okayama-movement",
+  "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970461_misc.pdf",
+  "fabricated": false,
+  "file": "z-okayama-movement.pdf",
+  "season": 2025,
+  "title": "高病原性鳥インフルエンザ発生に係る移動制限区域を解除しました（令和８年１月21日０時）",
+  "contentType": "pdf",
+  "kind": "zone_lifted",
+  "prefCode": "33",
+  "muniName": "津山市",
+  "primaryStage": "movement_lifted",
+  "primaryDate": "2026-01-21",
+  "nationalNo": null,
+  "headCount": null,
+  "radiiKm": [],
+  "wildBirds": null
+}

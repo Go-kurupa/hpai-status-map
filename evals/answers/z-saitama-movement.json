@@ -1,0 +1,18 @@
+{
+  "id": "z-saitama-movement",
+  "url": "https://www.pref.saitama.lg.jp/a0908/news/page/news2026012701.html",
+  "fabricated": false,
+  "file": "z-saitama-movement.html",
+  "season": 2025,
+  "title": "県内で発生した高病原性鳥インフルエンザに係る移動制限区域の解除について",
+  "contentType": "html",
+  "kind": "zone_lifted",
+  "prefCode": "11",
+  "muniName": "嵐山町",
+  "primaryStage": "movement_lifted",
+  "primaryDate": "2026-01-27",
+  "nationalNo": null,
+  "headCount": null,
+  "radiiKm": [],
+  "wildBirds": null
+}

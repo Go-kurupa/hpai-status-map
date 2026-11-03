@@ -1,0 +1,18 @@
+{
+  "id": "z-ibaraki-movement",
+  "url": "https://www.pref.ibaraki.jp/nourinsuisan/chikusan/kachiku/infuru/documents/260127sirosatoidouseigenkaijo.pdf",
+  "fabricated": false,
+  "file": "z-ibaraki-movement.pdf",
+  "season": 2025,
+  "title": "【令和8年1月27日】高病原性鳥インフルエンザ発生農場に係る移動制限区域の解除について",
+  "contentType": "pdf",
+  "kind": "zone_lifted",
+  "prefCode": "08",
+  "muniName": "城里町",
+  "primaryStage": "movement_lifted",
+  "primaryDate": "2026-01-27",
+  "nationalNo": null,
+  "headCount": null,
+  "radiiKm": [],
+  "wildBirds": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "s-okayama-meeting",
+  "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
+  "fabricated": false,
+  "file": "s-okayama-meeting.pdf",
+  "season": 2025,
+  "title": "第２回岡山県高病原性鳥インフルエンザ対策本部会議資料（令和7年12月19日）",
+  "contentType": "pdf",
+  "kind": "suspected",
+  "prefCode": "33",
+  "muniName": "津山市",
+  "primaryStage": "suspected",
+  "primaryDate": "2025-12-19",
+  "nationalNo": null,
+  "headCount": 430000,
+  "radiiKm": [
+    3,
+    10
+  ],
+  "wildBirds": null
+}

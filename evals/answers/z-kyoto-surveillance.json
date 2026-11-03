@@ -1,0 +1,18 @@
+{
+  "id": "z-kyoto-surveillance",
+  "url": "https://www.pref.kyoto.jp/birdflu/documents/r7flu_260128kanshikaizyo.pdf",
+  "fabricated": false,
+  "file": "z-kyoto-surveillance.pdf",
+  "season": 2025,
+  "title": "亀岡市における高病原性鳥インフルエンザの発生に係る監視強化区域の解除について(令和8年1月28日9時)",
+  "contentType": "pdf",
+  "kind": "zone_lifted",
+  "prefCode": "26",
+  "muniName": "亀岡市",
+  "primaryStage": "surveillance_lifted",
+  "primaryDate": "2026-01-28",
+  "nationalNo": null,
+  "headCount": 281786,
+  "radiiKm": [],
+  "wildBirds": null
+}

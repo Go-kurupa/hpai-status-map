@@ -1,0 +1,21 @@
+{
+  "id": "d-okayama-special",
+  "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970459_misc.pdf",
+  "fabricated": false,
+  "file": "d-okayama-special.pdf",
+  "season": 2025,
+  "title": "高病原性鳥インフルエンザに係る防疫措置状況 （特報、発生農場の防疫措置完了）",
+  "contentType": "pdf",
+  "kind": "control_done",
+  "prefCode": "33",
+  "muniName": "津山市",
+  "primaryStage": "control_done",
+  "primaryDate": "2025-12-30",
+  "nationalNo": null,
+  "headCount": null,
+  "radiiKm": [
+    3,
+    10
+  ],
+  "wildBirds": null
+}

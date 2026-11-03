@@ -1,0 +1,21 @@
+{
+  "id": "c-maff-ibaraki",
+  "url": "https://www.maff.go.jp/j/press/syouan/douei/251225.html",
+  "fabricated": false,
+  "file": "c-maff-ibaraki.html",
+  "season": 2025,
+  "title": "茨城県における高病原性鳥インフルエンザの疑似患畜の確認（国内10例目）及び「農林水産省鳥インフルエンザ防疫対策本部」の開催について",
+  "contentType": "html",
+  "kind": "confirmed",
+  "prefCode": "08",
+  "muniName": "城里町",
+  "primaryStage": "confirmed",
+  "primaryDate": "2025-12-25",
+  "nationalNo": 10,
+  "headCount": 970000,
+  "radiiKm": [
+    3,
+    10
+  ],
+  "wildBirds": null
+}

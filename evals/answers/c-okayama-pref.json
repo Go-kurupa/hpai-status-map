@@ -1,0 +1,21 @@
+{
+  "id": "c-okayama-pref",
+  "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf",
+  "fabricated": false,
+  "file": "c-okayama-pref.pdf",
+  "season": 2025,
+  "title": "高病原性鳥インフルエンザが疑われる事例に係る遺伝子検査の結果及び今後の対応について（令和7年12月20日）",
+  "contentType": "pdf",
+  "kind": "confirmed",
+  "prefCode": "33",
+  "muniName": "津山市",
+  "primaryStage": "confirmed",
+  "primaryDate": "2025-12-20",
+  "nationalNo": null,
+  "headCount": 430000,
+  "radiiKm": [
+    3,
+    10
+  ],
+  "wildBirds": null
+}

@@ -1,0 +1,25 @@
+{
+  "id": "w-moe-kurihara-negative",
+  "url": "https://www.env.go.jp/press/111118_00083.html",
+  "fabricated": false,
+  "file": "w-moe-kurihara-negative.html",
+  "season": 2026,
+  "title": "野鳥における高病原性鳥インフルエンザ発生状況について （陰性確定、宮城県栗原市）",
+  "contentType": "html",
+  "kind": "wild_bird",
+  "prefCode": null,
+  "muniName": null,
+  "primaryStage": null,
+  "primaryDate": null,
+  "nationalNo": null,
+  "headCount": null,
+  "radiiKm": [],
+  "wildBirds": [
+    {
+      "date": "2026-10-30",
+      "prefCode": "04",
+      "muniName": "栗原市",
+      "test": "negative"
+    }
+  ]
+}

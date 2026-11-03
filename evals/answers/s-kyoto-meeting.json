@@ -1,0 +1,18 @@
+{
+  "id": "s-kyoto-meeting",
+  "url": "https://www.pref.kyoto.jp/birdflu/documents/1223_birdflu.pdf",
+  "fabricated": false,
+  "file": "s-kyoto-meeting.pdf",
+  "season": 2025,
+  "title": "第2回会議（令和7年12月23日）",
+  "contentType": "pdf",
+  "kind": "suspected",
+  "prefCode": "26",
+  "muniName": "亀岡市",
+  "primaryStage": "suspected",
+  "primaryDate": "2025-12-23",
+  "nationalNo": null,
+  "headCount": 280000,
+  "radiiKm": [],
+  "wildBirds": null
+}

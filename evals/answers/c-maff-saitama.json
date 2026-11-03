@@ -1,0 +1,21 @@
+{
+  "id": "c-maff-saitama",
+  "url": "https://www.maff.go.jp/j/press/syouan/douei/251230.html",
+  "fabricated": false,
+  "file": "c-maff-saitama.html",
+  "season": 2025,
+  "title": "埼玉県における高病原性鳥インフルエンザの疑似患畜の確認（国内12例目）及び「農林水産省鳥インフルエンザ防疫対策本部」の持ち回り開催について",
+  "contentType": "html",
+  "kind": "confirmed",
+  "prefCode": "11",
+  "muniName": "嵐山町",
+  "primaryStage": "confirmed",
+  "primaryDate": "2025-12-30",
+  "nationalNo": 12,
+  "headCount": 240000,
+  "radiiKm": [
+    3,
+    10
+  ],
+  "wildBirds": null
+}

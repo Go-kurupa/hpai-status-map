@@ -1,0 +1,21 @@
+{
+  "id": "c-maff-kyoto",
+  "url": "https://www.maff.go.jp/j/press/syouan/douei/251224.html",
+  "fabricated": false,
+  "file": "c-maff-kyoto.html",
+  "season": 2025,
+  "title": "京都府における高病原性鳥インフルエンザの疑似患畜の確認（国内9例目）及び「農林水産省鳥インフルエンザ防疫対策本部」の持ち回り開催について",
+  "contentType": "html",
+  "kind": "confirmed",
+  "prefCode": "26",
+  "muniName": "亀岡市",
+  "primaryStage": "confirmed",
+  "primaryDate": "2025-12-24",
+  "nationalNo": 9,
+  "headCount": 280000,
+  "radiiKm": [
+    3,
+    10
+  ],
+  "wildBirds": null
+}

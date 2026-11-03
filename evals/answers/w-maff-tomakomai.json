@@ -1,0 +1,25 @@
+{
+  "id": "w-maff-tomakomai",
+  "url": "https://www.maff.go.jp/j/press/syouan/douei/251017.html",
+  "fabricated": false,
+  "file": "w-maff-tomakomai.html",
+  "season": 2025,
+  "title": "北海道における野鳥の高病原性鳥インフルエンザウイルスの検出事例について",
+  "contentType": "html",
+  "kind": "wild_bird",
+  "prefCode": null,
+  "muniName": null,
+  "primaryStage": null,
+  "primaryDate": null,
+  "nationalNo": null,
+  "headCount": null,
+  "radiiKm": [],
+  "wildBirds": [
+    {
+      "date": "2025-10-17",
+      "prefCode": "01",
+      "muniName": "苫小牧市",
+      "test": "hpai_confirmed"
+    }
+  ]
+}

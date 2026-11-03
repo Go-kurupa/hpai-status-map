@@ -1,0 +1,20 @@
+{
+  "id": "p-tottori-r4",
+  "url": "https://www.pref.tottori.lg.jp/secure/1409630/1627.pdf",
+  "fabricated": false,
+  "file": "p-tottori-r4.pdf",
+  "season": 2025,
+  "title": "高病原性鳥インフルエンザに係る防疫措置状況（第４報、１２月４日午前９時現在）",
+  "contentType": "pdf",
+  "kind": "progress",
+  "prefCode": "31",
+  "muniName": "米子市",
+  "primaryStage": "culling_done",
+  "primaryDate": "2025-12-04",
+  "nationalNo": null,
+  "headCount": null,
+  "radiiKm": [
+    3
+  ],
+  "wildBirds": null
+}

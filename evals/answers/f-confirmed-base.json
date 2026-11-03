@@ -1,0 +1,21 @@
+{
+  "id": "f-confirmed-base",
+  "url": null,
+  "fabricated": true,
+  "file": "f-confirmed-base.txt",
+  "season": 2025,
+  "title": "【試験用】高病原性鳥インフルエンザの疑似患畜の確認について",
+  "contentType": "html",
+  "kind": "confirmed",
+  "prefCode": "40",
+  "muniName": "朝倉市",
+  "primaryStage": "confirmed",
+  "primaryDate": "2025-11-08",
+  "nationalNo": null,
+  "headCount": 50000,
+  "radiiKm": [
+    3,
+    10
+  ],
+  "wildBirds": null
+}

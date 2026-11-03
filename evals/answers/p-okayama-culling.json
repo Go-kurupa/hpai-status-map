@@ -1,0 +1,21 @@
+{
+  "id": "p-okayama-culling",
+  "url": "https://www.pref.okayama.jp/uploaded/life/1030744_9970458_misc.pdf",
+  "fabricated": false,
+  "file": "p-okayama-culling.pdf",
+  "season": 2025,
+  "title": "高病原性鳥インフルエンザの疑似患畜に係る防疫措置状況（特報、殺処分完了）",
+  "contentType": "pdf",
+  "kind": "progress",
+  "prefCode": "33",
+  "muniName": "津山市",
+  "primaryStage": "culling_done",
+  "primaryDate": "2025-12-27",
+  "nationalNo": null,
+  "headCount": null,
+  "radiiKm": [
+    3,
+    10
+  ],
+  "wildBirds": null
+}

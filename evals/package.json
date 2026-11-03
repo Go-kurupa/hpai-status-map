@@ -2,5 +2,6 @@
   "name": "evals",
   "private": true,
   "version": "0.0.0",
-  "description": "読み取りの校正。answers/ は事実のみ。"
+  "description": "読み取りの校正。answers/ は事実のみ。",
+  "scripts": { "typecheck": "tsc --noEmit" }
 }
