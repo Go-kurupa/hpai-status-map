@@ -1,0 +1,75 @@
+/* 農場と知らせの設定。平面の単色だけ（陰影・ぼかしなし）。色は ui/theme.css の変数。 */
+.settings-page {
+  max-width: 40rem;
+}
+.settings-page section {
+  margin: 0 0 28px;
+}
+.settings-form {
+  display: grid;
+  gap: 10px;
+}
+.settings-form label {
+  font-weight: 700;
+}
+.settings-form select,
+.settings-form input[type="text"],
+.settings-form input[type="date"] {
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  font-weight: 400;
+}
+.settings-check input {
+  width: 24px;
+  height: 24px;
+}
+.settings-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.settings-saved {
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+.settings-error {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border: 2px solid var(--lv1);
+  background: var(--surface);
+  font-weight: 700;
+}
+.picker-canvas {
+  width: 100%;
+  height: 50vh;
+  min-height: 300px;
+  max-height: 480px;
+  border: 2px solid var(--fg);
+  background: var(--soft);
+}
+.picker-attribution {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.picker-attribution-item + .picker-attribution-item::before {
+  content: " / ";
+}
+.invite-url {
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  font: inherit;
+  width: 100%;
+}

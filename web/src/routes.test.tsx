@@ -3,7 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { createMemoryRouter, matchRoutes, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
-import { createFirestoreRecordStore, createFirestoreRecordStoreWith } from "./pages/auth/firestoreRecordStore";
 import { routes } from "./routes";
 
 afterEach(cleanup);
@@ -106,25 +105,5 @@ describe("公開の画面に Firebase を載せない", () => {
     expect(src).not.toMatch(/^\s*import\s+["']firebase\//m);
     // firebase.ts 自体を静的に読んでも、公開の画面に Firebase が載る
     expect(src).not.toMatch(/^\s*(?:import|export)\s+(?!type\b)[^;"']*?from\s+["'](?:\.{1,2}\/)+firebase["']/m);
-  });
-});
-
-describe("仮の記録の口（M-01 が置き換える）", () => {
-  it("農場は null、一覧は空、配信停止ではなく、保存は『準備中』で断る", async () => {
-    for (const store of [createFirestoreRecordStore(), createFirestoreRecordStoreWith({} as never, "uid")]) {
-      expect(store.mode).toBe("firestore");
-      expect(await store.getFarm()).toBeNull();
-      expect(await store.listHouses()).toEqual([]);
-      expect(await store.listDeaths("2025-12-01", "2025-12-31")).toEqual([]);
-      expect(await store.listChecks("2025-12-01", "2025-12-31")).toEqual([]);
-      expect(await store.getCaseDraft("rev-x")).toBeNull();
-      expect(await store.isMailStopped()).toBe(false);
-      await expect(store.saveFarm({ name: "x" })).rejects.toThrow("準備中");
-      await expect(store.saveHouse({ name: "a", birdType: "b", flockSize: 1, empty: false })).rejects.toThrow("準備中");
-      await expect(store.saveDeath({ date: "2025-12-01", houseId: "h", deaths: 0, flockSizeAt: 1, exclusion: null })).rejects.toThrow(
-        "準備中",
-      );
-      await expect(store.saveCheck({ kind: "disinfection", date: "2025-12-01", itemId: "i" })).rejects.toThrow("準備中");
-    }
   });
 });

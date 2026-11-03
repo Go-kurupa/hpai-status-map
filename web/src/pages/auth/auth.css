@@ -1,0 +1,37 @@
+/* ログインと招待の画面。平面の単色だけ（陰影・ぼかしなし）。色は ui/theme.css の変数。 */
+.auth-page {
+  max-width: 34rem;
+}
+.auth-form {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+.auth-form label {
+  font-weight: 700;
+}
+.auth-form input[type="email"],
+.auth-form input[type="text"] {
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.auth-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.auth-error {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border: 2px solid var(--lv1);
+  background: var(--surface);
+  font-weight: 700;
+}
+.auth-or {
+  margin: 4px 0 12px;
+  color: var(--muted);
+}
