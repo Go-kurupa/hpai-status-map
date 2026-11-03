@@ -43,7 +43,7 @@
         "sourceUrls": [
           "https://www.maff.go.jp/j/press/syouan/douei/251201.html"
         ],
-        "updatedAt": "2025-12-02T23:59:59+09:00"
+        "updatedAt": "2025-12-02T00:00:00+09:00"
       },
       "noticePreview": null,
       "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251201.html",
@@ -85,7 +85,7 @@
         "sourceUrls": [
           "https://www.maff.go.jp/j/press/syouan/douei/251216.html"
         ],
-        "updatedAt": "2025-12-16T23:59:59+09:00"
+        "updatedAt": "2025-12-16T00:00:00+09:00"
       },
       "noticePreview": null,
       "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251216.html",
@@ -93,6 +93,57 @@
     },
     {
       "order": 3,
+      "date": "2025-12-17",
+      "time": "17:00",
+      "caseAfter": {
+        "id": "replay-6",
+        "season": 2025,
+        "nationalNo": 6,
+        "prefNo": null,
+        "prefCode": "31",
+        "muniCode": "31202",
+        "muniName": "米子市",
+        "birdUse": "肉用鶏",
+        "housing": "平飼い",
+        "headCount": 75000,
+        "stages": {
+          "confirmed": {
+            "date": "2025-12-02",
+            "time": null
+          },
+          "control_done": {
+            "date": "2025-12-06",
+            "time": "12:00"
+          },
+          "shipment_lifted": {
+            "date": "2025-12-17",
+            "time": "17:00"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.maff.go.jp/j/press/syouan/douei/251201.html",
+          "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-240.pdf"
+        ],
+        "updatedAt": "2025-12-17T17:00:00+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-240.pdf",
+      "backstageId": null
+    },
+    {
+      "order": 4,
       "date": "2025-12-19",
       "time": null,
       "caseAfter": {
@@ -127,7 +178,7 @@
         "sourceUrls": [
           "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf"
         ],
-        "updatedAt": "2025-12-19T23:59:59+09:00"
+        "updatedAt": "2025-12-19T00:00:00+09:00"
       },
       "noticePreview": {
         "level": 1,
@@ -137,7 +188,7 @@
       "backstageId": null
     },
     {
-      "order": 4,
+      "order": 5,
       "date": "2025-12-20",
       "time": "09:00",
       "caseAfter": {
@@ -187,7 +238,7 @@
       "backstageId": null
     },
     {
-      "order": 5,
+      "order": 6,
       "date": "2025-12-24",
       "time": null,
       "caseAfter": {
@@ -222,14 +273,14 @@
         "sourceUrls": [
           "https://www.maff.go.jp/j/press/syouan/douei/251224.html"
         ],
-        "updatedAt": "2025-12-24T23:59:59+09:00"
+        "updatedAt": "2025-12-24T00:00:00+09:00"
       },
       "noticePreview": null,
       "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251224.html",
       "backstageId": null
     },
     {
-      "order": 6,
+      "order": 7,
       "date": "2025-12-28",
       "time": "00:00",
       "caseAfter": {
@@ -250,11 +301,11 @@
           },
           "control_done": {
             "date": "2025-12-06",
-            "time": null
+            "time": "12:00"
           },
           "shipment_lifted": {
             "date": "2025-12-17",
-            "time": null
+            "time": "17:00"
           },
           "movement_lifted": {
             "date": "2025-12-28",
@@ -275,6 +326,7 @@
         "confirmState": "replay",
         "sourceUrls": [
           "https://www.maff.go.jp/j/press/syouan/douei/251201.html",
+          "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-240.pdf",
           "https://www.maff.go.jp/j/press/syouan/douei/251228.html"
         ],
         "updatedAt": "2025-12-28T00:00:00+09:00"
@@ -284,7 +336,7 @@
       "backstageId": null
     },
     {
-      "order": 7,
+      "order": 8,
       "date": "2025-12-30",
       "time": "15:10",
       "caseAfter": {
@@ -336,7 +388,109 @@
       "backstageId": null
     },
     {
-      "order": 8,
+      "order": 9,
+      "date": "2026-01-01",
+      "time": "12:00",
+      "caseAfter": {
+        "id": "replay-7",
+        "season": 2025,
+        "nationalNo": 7,
+        "prefNo": null,
+        "prefCode": "28",
+        "muniCode": "28201",
+        "muniName": "姫路市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 240000,
+        "stages": {
+          "confirmed": {
+            "date": "2025-12-16",
+            "time": null
+          },
+          "control_done": {
+            "date": "2025-12-21",
+            "time": "20:00"
+          },
+          "shipment_lifted": {
+            "date": "2026-01-01",
+            "time": "12:00"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.maff.go.jp/j/press/syouan/douei/251216.html",
+          "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-240.pdf"
+        ],
+        "updatedAt": "2026-01-01T12:00:00+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-240.pdf",
+      "backstageId": null
+    },
+    {
+      "order": 10,
+      "date": "2026-01-10",
+      "time": "09:00",
+      "caseAfter": {
+        "id": "replay-9",
+        "season": 2025,
+        "nationalNo": 9,
+        "prefNo": null,
+        "prefCode": "26",
+        "muniCode": "26206",
+        "muniName": "亀岡市",
+        "birdUse": "採卵鶏",
+        "housing": "ケージ飼い",
+        "headCount": 280000,
+        "stages": {
+          "confirmed": {
+            "date": "2025-12-24",
+            "time": null
+          },
+          "control_done": {
+            "date": "2025-12-30",
+            "time": "20:00"
+          },
+          "shipment_lifted": {
+            "date": "2026-01-10",
+            "time": "09:00"
+          }
+        },
+        "radiiKm": [
+          3,
+          10
+        ],
+        "prefEstimates": {
+          "shipment": null,
+          "movement": null,
+          "surveillance": null
+        },
+        "negation": "none",
+        "negatedAt": null,
+        "confirmState": "replay",
+        "sourceUrls": [
+          "https://www.maff.go.jp/j/press/syouan/douei/251224.html",
+          "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-240.pdf"
+        ],
+        "updatedAt": "2026-01-10T09:00:00+09:00"
+      },
+      "noticePreview": null,
+      "sourceUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-240.pdf",
+      "backstageId": null
+    },
+    {
+      "order": 11,
       "date": "2026-01-10",
       "time": "15:00",
       "caseAfter": {
@@ -396,7 +550,7 @@
       "backstageId": null
     },
     {
-      "order": 9,
+      "order": 12,
       "date": "2026-01-12",
       "time": "00:00",
       "caseAfter": {
@@ -417,11 +571,11 @@
           },
           "control_done": {
             "date": "2025-12-21",
-            "time": null
+            "time": "20:00"
           },
           "shipment_lifted": {
             "date": "2026-01-01",
-            "time": null
+            "time": "12:00"
           },
           "movement_lifted": {
             "date": "2026-01-12",
@@ -442,6 +596,7 @@
         "confirmState": "replay",
         "sourceUrls": [
           "https://www.maff.go.jp/j/press/syouan/douei/251216.html",
+          "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-240.pdf",
           "https://www.maff.go.jp/j/press/syouan/douei/260112.html"
         ],
         "updatedAt": "2026-01-12T00:00:00+09:00"
@@ -451,7 +606,7 @@
       "backstageId": null
     },
     {
-      "order": 10,
+      "order": 13,
       "date": "2026-01-21",
       "time": "00:00",
       "caseAfter": {
@@ -516,7 +671,7 @@
       "backstageId": null
     },
     {
-      "order": 11,
+      "order": 14,
       "date": "2026-01-21",
       "time": "09:00",
       "caseAfter": {
@@ -537,11 +692,11 @@
           },
           "control_done": {
             "date": "2025-12-30",
-            "time": null
+            "time": "20:00"
           },
           "shipment_lifted": {
             "date": "2026-01-10",
-            "time": null
+            "time": "09:00"
           },
           "movement_lifted": {
             "date": "2026-01-21",
@@ -562,6 +717,7 @@
         "confirmState": "replay",
         "sourceUrls": [
           "https://www.maff.go.jp/j/press/syouan/douei/251224.html",
+          "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-240.pdf",
           "https://www.maff.go.jp/j/press/syouan/douei/260121.html"
         ],
         "updatedAt": "2026-01-21T09:00:00+09:00"

@@ -48,6 +48,7 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, children 
   const order = useSyncExternalStore(dataSource.subscribeOrder, dataSource.currentOrder);
   const fixed = spot ?? scenario.defaultSpot;
   const tentative = isDefaultSpot(scenario, spot);
+  const timeKnown = order > 0 && scenario.events[order - 1]!.time !== null;
 
   return (
     <DataSourceProvider value={dataSource}>
@@ -69,7 +70,11 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, children 
               <li>{REPLAY_NOTES.noTime}</li>
             </ul>
           </section>
-          {children}
+          {/* 時刻の記載がない時点では、地図などの『N 月 N 日 H:MM 時点』を隠す（内部の 23:59:59 を時刻として見せない）。
+              地図の h1 は『今季』と出るので隠し、再現の画面が『去年の再現』の見出しを出す（replay.css） */}
+          <div className="replay-scope" data-time-known={timeKnown ? "true" : "false"}>
+            {children}
+          </div>
         </SpotProvider>
       </RecordStoreProvider>
     </DataSourceProvider>

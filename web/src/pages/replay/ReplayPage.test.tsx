@@ -95,6 +95,25 @@ describe("ReplayPage", () => {
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
   });
 
+  it("見出しは『去年の再現』。地図の『今季』の見出しと、時刻のない時点の『H:MM 時点』は、隠す印（replay-scope）の中にある。再現の見出しは隠さない", async () => {
+    await show();
+    await screen.findByTestId("map");
+    const h1s = [...document.querySelectorAll("h1")];
+    expect(h1s.filter((h) => !h.closest(".map-page")).map((h) => h.textContent)).toEqual(["去年の再現（2025 年シーズンの発生状況）"]);
+    const scope = document.querySelector(".replay-scope") as HTMLElement;
+    expect(scope.querySelector(".map-page > h1")?.textContent).toContain("今季");
+    expect(scope.dataset.timeKnown).toBe("false"); // order 0
+    fireEvent.click(item(/12 月 19 日.*津山市.*疑い/)); // 時刻の記載なし
+    expect(scope.dataset.timeKnown).toBe("false");
+    expect(document.body.textContent).toContain("再現の時点: 12 月 19 日（時刻の記載なし）");
+    fireEvent.click(item(/12 月 20 日.*津山市.*確定/)); // 09:00
+    expect(scope.dataset.timeKnown).toBe("true");
+    // 隠す規則は replay.css にある（jsdom は CSS を当てないので、規則の存在を確かめる）
+    const css = readFileSync(path.resolve(import.meta.dirname, "replay.css"), "utf8");
+    expect(css).toMatch(/\.replay-scope\[data-time-known="false"\] \.as-of\s*\{\s*display:\s*none/);
+    expect(css).toMatch(/\.replay-scope \.map-page > h1\s*\{\s*display:\s*none/);
+  });
+
   it("読み込めなければ、そう書く（空の地図を出さない）", async () => {
     await show({ failScenario: true });
     expect(await screen.findByText(/再現のデータを読めませんでした/)).toBeTruthy();

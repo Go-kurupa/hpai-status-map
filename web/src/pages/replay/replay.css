@@ -78,3 +78,12 @@
   font-size: 0.9rem;
   margin: 0 0 8px;
 }
+
+/* 時刻の記載がない時点では、画面の『時点』（地図などの AsOf）を隠す。帯の『再現の時点』が日付だけを出す */
+.replay-scope[data-time-known="false"] .as-of {
+  display: none;
+}
+/* 地図の見出しは『今季の発生状況』。再現では、再現の見出し（.replay-heading）を使う */
+.replay-scope .map-page > h1 {
+  display: none;
+}

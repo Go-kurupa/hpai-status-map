@@ -91,6 +91,7 @@ function ReplayControls({
 
   return (
     <div className="replay-controls">
+      <h1 className="replay-heading">去年の再現（2025 年シーズンの発生状況）</h1>
       <div role="group" aria-label="見る場所" className="replay-switch">
         <button type="button" className="btn" aria-pressed={view === "zone"} onClick={() => onView("zone")}>
           もし区域の近くの農場なら

@@ -147,6 +147,49 @@ describe("scenario.json の事例（国内 6、7、8、9 例目）", () => {
   });
 });
 
+describe("解除は、解除の日に独立の出来事として現れる（制限を実際より長く見せない）", () => {
+  it("4 事例とも、搬出制限の解除と移動制限の解除が、それぞれの日の出来事になっている", () => {
+    for (const m of ["31202", "28201", "33203", "26206"]) {
+      for (const stage of ["shipment_lifted", "movement_lifted"] as const) {
+        const own = events.filter((e) => e.caseAfter.muniCode === m);
+        const first = own.find((e) => e.caseAfter.stages[stage] !== undefined);
+        expect(first, `${m} ${stage}`).toBeDefined();
+        expect(eventStage(first!), `${m} ${stage}`).toBe(stage);
+        expect(first!.date, `${m} ${stage}`).toBe(first!.caseAfter.stages[stage]!.date);
+      }
+    }
+  });
+
+  it("搬出制限の解除の日と時刻は、国の事例一覧のとおり（米子 12/17 17:00、姫路 1/1 12:00、津山 1/10 15:00、亀岡 1/10 09:00）", () => {
+    const at = (m: string) => lastOf(m).stages.shipment_lifted;
+    expect(at("31202")).toEqual({ date: "2025-12-17", time: "17:00" });
+    expect(at("28201")).toEqual({ date: "2026-01-01", time: "12:00" });
+    expect(at("33203")).toEqual({ date: "2026-01-10", time: "15:00" });
+    expect(at("26206")).toEqual({ date: "2026-01-10", time: "09:00" });
+  });
+
+  it("米子の地点は、12/17 の搬出制限の解除で shipmentLifted が true になっても、12/28 までは level 1", () => {
+    const [lng, lat] = geo.index["31202"]!.center;
+    const spot = { meshCode: latLngToMesh3(lat, lng), muniCode: "31202", frequentMuniCodes: [] };
+    const orderOf = (stage: CaseStage) => events.find((e) => e.caseAfter.muniCode === "31202" && eventStage(e) === stage)!.order;
+    const before = computeLevel(spot, casesAt(scenario, orderOf("shipment_lifted") - 1), 2025, geo);
+    const mid = computeLevel(spot, casesAt(scenario, orderOf("shipment_lifted")), 2025, geo);
+    const after = computeLevel(spot, casesAt(scenario, orderOf("movement_lifted")), 2025, geo);
+    expect([before.level, before.shipmentLifted]).toEqual([1, false]);
+    expect([mid.level, mid.shipmentLifted]).toEqual([1, true]);
+    expect(after.level).toBe(1 + 1); // 同じ町は、移動制限の解除の後 2
+  });
+});
+
+describe("時刻の記載がない出来事に、出典のない時刻を持たせない", () => {
+  it("updatedAt は、時刻があればその時刻、なければ T00:00:00（過去の記録と同じ書き方）。23:59:59 はデータに残らない", () => {
+    for (const e of events) {
+      expect(e.caseAfter.updatedAt, `order ${e.order}`).toBe(`${e.date}T${e.time ?? "00:00"}:00+09:00`);
+    }
+    expect(JSON.stringify(scenario)).not.toContain("23:59");
+  });
+});
+
 describe("既定の地点（仮の地点）", () => {
   it("muniCode は 33622（勝央町）。meshCode は 33622 の center を latLngToMesh3 に通した値", () => {
     expect(scenario.defaultSpot.muniCode).toBe("33622");
