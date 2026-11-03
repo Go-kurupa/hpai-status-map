@@ -24,7 +24,9 @@ type MapHandle = {
   getLayer(id: string): unknown;
   dragRotate: { isEnabled(): boolean };
   touchPitch: { isEnabled(): boolean };
-  touchZoomRotate: { isRotationDisabled(): boolean };
+  // maplibre 6.16 には isRotationDisabled が無い（d.ts と実装で確認）。disableRotation() が立てる内部の印と、回転の取り扱い部品の状態で確かめる
+  touchZoomRotate: { _rotationDisabled: boolean; _touchRotate: { isEnabled(): boolean } };
+  keyboard: { _rotationDisabled: boolean };
   getBearing(): number;
   getPitch(): number;
 };
@@ -62,11 +64,12 @@ test.describe("地図（入口）", () => {
       return {
         dragRotate: m.dragRotate.isEnabled(),
         touchPitch: m.touchPitch.isEnabled(),
-        rotationDisabled: m.touchZoomRotate.isRotationDisabled(),
+        rotationDisabled: m.touchZoomRotate._rotationDisabled && !m.touchZoomRotate._touchRotate.isEnabled(),
+        keyboardRotationDisabled: m.keyboard._rotationDisabled,
         circles: m.getStyle().layers.filter((l) => l.type === "circle").map((l) => l.id),
       };
     });
-    expect(state).toEqual({ dragRotate: false, touchPitch: false, rotationDisabled: true, circles: [] });
+    expect(state).toEqual({ dragRotate: false, touchPitch: false, rotationDisabled: true, keyboardRotationDisabled: true, circles: [] });
 
     // 右ボタンのドラッグでも向きと傾きは変わらない
     const box = (await page.locator(".map-canvas").boundingBox())!;

@@ -27,7 +27,8 @@ test.describe("貼り紙", () => {
       }
       return null;
     });
-    expect(pageRule).toContain("A4");
+    // ブラウザは CSS の size: A4 を小文字（a4）に直して返すので、大文字小文字は区別しない
+    expect(pageRule).toMatch(/size:\s*a4\b/iu);
   });
 
   test("見出しは 2 行以内で、横にはみ出さない", async ({ page }) => {

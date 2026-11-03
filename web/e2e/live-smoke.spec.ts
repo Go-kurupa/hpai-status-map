@@ -65,7 +65,13 @@ test.describe("模擬環境（live の DataSource）", () => {
     await page.waitForFunction(
       () => {
         const m = (window as unknown as { __hpaiMap?: { getFilter(id: string): unknown } }).__hpaiMap;
-        return !!m && JSON.stringify(m.getFilter("case-confirmed") ?? null).includes("33203");
+        if (!m) return false;
+        try {
+          return JSON.stringify(m.getFilter("case-confirmed") ?? null).includes("33203");
+        } catch {
+          // 層がまだ無いとき maplibre は例外を投げる。まだ届いていないので、待ち続ける
+          return false;
+        }
       },
       undefined,
       { timeout: 30_000 },
@@ -80,6 +86,12 @@ test.describe("模擬環境（live の DataSource）", () => {
     await page.waitForTimeout(15_000);
     const main = page.getByRole("main");
     await expect(main.getByText(/読み込んでいます。読めるまで/)).toBeVisible();
+    // 次の 2 つは、読めないときの正しい表示で、今季の発生の件数や段階の文ではない。確かめたうえで、除いた残りを調べる。
+    // ・確認状況の 1 行（「47 都道府県のうち 0 件を確認、47 件は確認できていません」）。「0 件を確認」は確認できた県の数
+    // ・過去の記録の行（「昨季に隣町で発生しました」）。同梱の過去データから出る、「過去の記録」と明示した別の行（色なし）
+    await expect(page.getByTestId("watch-line")).toContainText(/47 件は確認できていません/);
+    await expect(page.locator(".town-past")).toContainText("過去の記録");
+    await page.addStyleTag({ content: '.town-past, [data-testid="watch-line"] { display: none !important; }' });
     const text = await main.innerText();
     expect(text).not.toMatch(/(^|[^0-9])0 件/);
     for (const sentence of ["全国の動きをお知らせしています", "隣町で発生しました", "区域に入っている可能性があります"]) {
