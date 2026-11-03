@@ -148,6 +148,8 @@ export interface DocumentRecord {
   compare: CompareReport | null;
   caseId: string | null;
   error: string | null; // `refusal:<category>`、`format_error`、`max_tokens`、`api_error`
+  /** 載せる／確認中／破棄を決めた理由（`municipality:value_in_quote`、`both_read:drill`、`budget_stop` など。引用を含めない）。I-05 が書く。省略可（見回りが作るときは無い）。 */
+  reasons?: string[];
 }
 
 export type ReviewItem = { id: string; createdAt: IsoDateTime; resolvedAt: IsoDateTime | null } & (

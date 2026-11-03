@@ -1,4 +1,5 @@
 // cases に書くのはこの 2 つだけ（契約 2.7、6.3）。確認中の事例は県名とリンクだけ公開する。
+import type { Transaction } from "firebase-admin/firestore";
 import type { Case } from "@hpai/shared/types";
 import { db } from "../admin";
 
@@ -25,8 +26,8 @@ function reviewingLeak(c: Case): string | null {
   return null;
 }
 
-/** 事例を cases/{id} に書く（置き換え）。確認中に読み取った値が混ざっていれば何も書かず reject する。 */
-export async function upsertCase(c: Case): Promise<void> {
+/** 書いてよい事例か確かめる。だめなら RangeError（何も書かない）。 */
+function assertWritable(c: Case): void {
   assertDocId(c.id, "事例の id");
   if (c.confirmState === "reviewing") {
     if (!c.id.startsWith(REVIEWING_PREFIX)) throw new RangeError("確認中の事例の id は rev- で始めてください");
@@ -36,6 +37,11 @@ export async function upsertCase(c: Case): Promise<void> {
     if (c.id.startsWith(REVIEWING_PREFIX)) throw new RangeError("確認中でない事例の id は rev- で始められません");
     if (c.muniCode === null || c.muniName === null) throw new RangeError("確認中でない事例には市町村が必要です");
   }
+}
+
+/** 事例を cases/{id} に書く（置き換え）。確認中に読み取った値が混ざっていれば何も書かず reject する。 */
+export async function upsertCase(c: Case): Promise<void> {
+  assertWritable(c);
   await db.doc(`cases/${c.id}`).set(c);
 }
 
@@ -43,4 +49,16 @@ export async function upsertCase(c: Case): Promise<void> {
 export async function deleteReviewingCase(documentId: string): Promise<void> {
   assertDocId(documentId, "文書の id");
   await db.doc(`cases/${REVIEWING_PREFIX}${documentId}`).delete();
+}
+
+/** トランザクションの中で upsertCase と同じ検査をして書く（I-05。読みはすべて書きの前に済ませること）。 */
+export function upsertCaseIn(tx: Transaction, c: Case): void {
+  assertWritable(c);
+  tx.set(db.doc(`cases/${c.id}`), c);
+}
+
+/** トランザクションの中で deleteReviewingCase と同じことをする。 */
+export function deleteReviewingCaseIn(tx: Transaction, documentId: string): void {
+  assertDocId(documentId, "文書の id");
+  tx.delete(db.doc(`cases/${REVIEWING_PREFIX}${documentId}`));
 }
