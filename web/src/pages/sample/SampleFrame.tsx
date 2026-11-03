@@ -1,9 +1,10 @@
-// 見本の農場の 3 つの画面の外枠（X-08）。再現の枠（ReplayFrame）の中に M の画面を置き、複製しない。
+// 見本の農場の外枠（X-08）。SampleLayout（/sample の下に 1 つ）が置く。再現の枠（ReplayFrame）の中に M の画面を置き、複製しない。
 // 再現の時計を見本の今日に合わせ、記録の口は SampleRecordStore（端末の中だけ）。会員の状態も Firebase も読まない。
+// 口と時計は読み込みの後に 1 度だけ作り、入口・やること・記録の間を移っても同じものを使う（ページの再読み込みで元に戻る）。
 import { lastOrderOn, type ReplayScenario, type SampleFarmData } from "@hpai/shared/replay";
 import type { FarmPoint } from "@hpai/shared/types";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useOutletContext } from "react-router";
 import { fetchHistory } from "../../data/history";
 import { ReplayDataSource } from "../replay/ReplayDataSource";
 import { ReplayFrame } from "../replay/ReplayFrame";
@@ -53,10 +54,11 @@ function SampleBand({ data, nav }: { data: SampleFarmData; nav: boolean }) {
   return (
     <section className="sample-band" aria-label={SAMPLE_TEXT.title}>
       <p className="sample-badge">{SAMPLE_TEXT.badge}</p>
-      <p>{SAMPLE_TEXT.fictional}。{SAMPLE_TEXT.member}</p>
+      <p>
+        {SAMPLE_TEXT.fictional}。{SAMPLE_TEXT.member}
+      </p>
       <p>{SAMPLE_TEXT.asOf(jaDayWithYear(data.today))}</p>
       <p className="sample-note">{SAMPLE_TEXT.notSent}</p>
-      <p className="sample-note">{SAMPLE_TEXT.noMail}</p>
       {nav ? (
         <nav aria-label={SAMPLE_TEXT.navLabel} className="sample-nav">
           <Link to="/sample">{SAMPLE_TEXT.navEntry}</Link>
@@ -74,7 +76,13 @@ function SampleBand({ data, nav }: { data: SampleFarmData; nav: boolean }) {
  * 替えるのは画面の中の複製だけで、データのファイルと再現の画面には届かない。Claude は呼ばない（sample の口と再現の時計は getCaseDraft を呼ばない）。
  */
 function withTemplateDraftCases(s: ReplayScenario): ReplayScenario {
-  return { ...s, events: s.events.map((e) => ({ ...e, caseAfter: { ...e.caseAfter, confirmState: "auto" as const } })) };
+  return {
+    ...s,
+    events: s.events.map((e) => ({
+      ...e,
+      caseAfter: { ...e.caseAfter, confirmState: "auto" as const },
+    })),
+  };
 }
 
 function SampleReady({ scenario: loaded, data, nav, children }: Loaded & { nav: boolean; children: (data: SampleFarmData) => ReactNode }) {
@@ -83,8 +91,17 @@ function SampleReady({ scenario: loaded, data, nav, children }: Loaded & { nav: 
     const dataSource = new ReplayDataSource(scenario, fetchHistory);
     // 子の画面が今日を読む前に、再現の時計を見本の今日に合わせる（購読者はまだいないので、通知は要らない）
     dataSource.seek(lastOrderOn(scenario, data.today));
-    const spot: FarmPoint = { meshCode: data.farm.meshCode, muniCode: data.farm.muniCode, frequentMuniCodes: [...data.farm.frequentMuniCodes] };
-    return { scenario, dataSource, recordStore: new SampleRecordStore(data), spot };
+    const spot: FarmPoint = {
+      meshCode: data.farm.meshCode,
+      muniCode: data.farm.muniCode,
+      frequentMuniCodes: [...data.farm.frequentMuniCodes],
+    };
+    return {
+      scenario,
+      dataSource,
+      recordStore: new SampleRecordStore(data),
+      spot,
+    };
   });
   return (
     <ReplayFrame scenario={env.scenario} dataSource={env.dataSource} spot={env.spot} recordStore={env.recordStore}>
@@ -113,4 +130,9 @@ export function SampleFrame({ nav = true, children }: { nav?: boolean; children:
       {children}
     </SampleReady>
   );
+}
+
+/** SampleLayout の Outlet が渡す見本のデータ（入口の画面が読む） */
+export function useSampleData(): SampleFarmData {
+  return useOutletContext<SampleFarmData>();
 }

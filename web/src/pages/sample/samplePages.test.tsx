@@ -6,13 +6,14 @@ import { findForbiddenPhrases, FIXED_TEXT } from "@hpai/shared/wording";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import adjacencyJson from "../../../../data/geo/adjacency.json";
 import indexJson from "../../../../data/geo/muni-index.json";
 import historyJson from "../../../../data/history/cases.json";
 import sampleJson from "../../../../data/replay/sample-farm.json";
 import scenarioJson from "../../../../data/replay/scenario.json";
+import { routes } from "../../routes";
 import { RECORD_TEXT } from "../record/recordTexts";
 import { TODO_TEXT, WORKER_MESSAGE_TEXT } from "../todo/texts";
 import { SAMPLE_TEXT } from "./sampleTexts";
@@ -42,6 +43,7 @@ vi.mock("../../firebase", () => ({
   },
 }));
 
+import SampleLayout from "./SampleLayout";
 import SamplePage from "./SamplePage";
 import SampleRecordPage from "./SampleRecordPage";
 import SampleTodoPage from "./SampleTodoPage";
@@ -73,12 +75,14 @@ function mount(entry: string) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
-        <Route path="/sample" element={<SamplePage />} />
-        <Route path="/sample/todo" element={<SampleTodoPage />} />
-        <Route path="/sample/record" element={<SampleRecordPage />} />
-        <Route path="/sample/record/deaths" element={<SampleRecordPage />} />
-        <Route path="/sample/record/self-check" element={<SampleRecordPage />} />
-        <Route path="/sample/record/disinfection" element={<SampleRecordPage />} />
+        <Route path="/sample" element={<SampleLayout />}>
+          <Route index element={<SamplePage />} />
+          <Route path="todo" element={<SampleTodoPage />} />
+          <Route path="record" element={<SampleRecordPage />} />
+          <Route path="record/deaths" element={<SampleRecordPage />} />
+          <Route path="record/self-check" element={<SampleRecordPage />} />
+          <Route path="record/disinfection" element={<SampleRecordPage />} />
+        </Route>
       </Routes>
       <Where />
     </MemoryRouter>,
@@ -273,7 +277,7 @@ describe("/sample/record", () => {
     expectNoMemberLinks();
   });
 
-  it("記録した死亡数は、タブを移っても残る。ページを開き直す（新しい口）と元に戻る", async () => {
+  it("記録した死亡数は、タブを移っても残る。ページを読み込み直す（新しい口）と元に戻る", async () => {
     const first = mount("/sample/record/deaths");
     await screen.findByLabelText(RECORD_TEXT.houseLabel);
     fireEvent.change(screen.getByLabelText(RECORD_TEXT.deathsLabel), { target: { value: "7" } });
@@ -285,12 +289,51 @@ describe("/sample/record", () => {
     fireEvent.click(within(screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel })).getByRole("link", { name: RECORD_TEXT.tabDeaths }));
     await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.deathsTitle });
     await waitFor(() => expect(text()).toContain("7 羽（飼養 5000 羽）"));
-    first.unmount();
+    first.unmount(); // ページの読み込み直しに当たる
 
     mount("/sample/record/deaths");
     await screen.findByLabelText(RECORD_TEXT.houseLabel);
     await waitFor(() => expect(text()).toContain("10 羽（飼養 5000 羽）"));
     expect(text()).not.toContain("7 羽（飼養 5000 羽）");
+  });
+
+  it("入口・やること・記録の間を移っても、見本の記録は残る（やること → 記録の消毒、入口を挟んでも）。読み込みは 1 回だけ", async () => {
+    mount("/sample/todo");
+    await waitFor(() => expect(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) }).length).toBeGreaterThan(0));
+    const btn = screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) })[0]!;
+    const label = btn.getAttribute("aria-label")!.replace(`${TODO_TEXT.done}: `, "");
+    fireEvent.click(btn);
+    await waitFor(() => expect(btn.textContent).toBe(TODO_TEXT.doneSaved));
+
+    // 入口へ戻って、また記録へ
+    fireEvent.click(within(screen.getByRole("navigation", { name: SAMPLE_TEXT.navLabel })).getByRole("link", { name: SAMPLE_TEXT.navEntry }));
+    await screen.findByRole("heading", { level: 1, name: SAMPLE_TEXT.title });
+    expect(screen.queryByRole("navigation", { name: SAMPLE_TEXT.navLabel })).toBeNull(); // 入口では行き来の帯を出さない
+    fireEvent.click(screen.getByRole("link", { name: /^記録/ }));
+    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.exportTitle });
+    fireEvent.click(within(screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel })).getByRole("link", { name: RECORD_TEXT.tabDisinfection }));
+    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.panelTitle });
+    const recent = await screen.findByRole("region", { name: TODO_TEXT.panelRecent });
+    await waitFor(() => expect(recent.textContent).toContain("12月30日"));
+    expect(recent.textContent).toContain(label.slice(0, 10));
+    // 同じ日の同じ項目は『今日は記録しました』のまま（やること側の「やった」の記録を引き継いでいる）
+    expect(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}: ${label.slice(0, 10)}`) })[0]!.textContent).toBe(TODO_TEXT.doneSaved);
+    expect(fetched.filter((u) => u.endsWith("sample-farm.json"))).toHaveLength(1);
+    expect(fetched.filter((u) => u.endsWith("scenario.json"))).toHaveLength(1);
+  });
+
+  it("実際の経路表（routes.tsx）でも、やること → 記録で見本の記録が残る", async () => {
+    const router = createMemoryRouter(routes, { initialEntries: ["/sample/todo"] });
+    render(<RouterProvider router={router} />);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) }).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) })[0]!);
+    await waitFor(() => expect(screen.getAllByText(TODO_TEXT.doneSaved).length).toBeGreaterThan(0));
+    await router.navigate("/sample/record/disinfection");
+    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.panelTitle });
+    const recent = await screen.findByRole("region", { name: TODO_TEXT.panelRecent });
+    await waitFor(() => expect(recent.textContent).toContain("12月30日"));
+    expect(forbidden.firebase).not.toHaveBeenCalled();
+    expect(fetched.filter((u) => u.endsWith("sample-farm.json"))).toHaveLength(1);
   });
 });
 
@@ -324,6 +367,6 @@ describe("見本の全体", () => {
   it("記録の画面の説明のうち『同じ農場の会員へメールで知らせます』は見本では送らない、と書いてある", async () => {
     mount("/sample/record/deaths");
     await screen.findByLabelText(RECORD_TEXT.houseLabel);
-    expect(text()).toContain(SAMPLE_TEXT.noMail);
+    expect(text()).toContain("メールは送りません");
   });
 });

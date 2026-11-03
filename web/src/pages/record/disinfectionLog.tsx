@@ -2,11 +2,9 @@
 // RecordStore だけを使う（再現と見本の農場でも動く）。農場がなければ「やった」を出さず、saveCheck を呼ばない。
 import { addDays, jstDateOf } from "@hpai/shared/dates";
 import type { Farm, IsoDate } from "@hpai/shared/types";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useDataSource, useRecordStore } from "../../data/context";
 import { Button } from "../../ui/Button";
-import { useAuthUser } from "../auth/useAuthUser";
 import { TODO_TEXT } from "../todo/texts";
 
 export type FarmState =
@@ -132,24 +130,11 @@ export function DoneButton({ itemId, label, log }: { itemId: string; label: stri
   );
 }
 
-/** 会員のログイン状態を見る部分は、ここだけ（見本の農場で Firebase を読み込まないため、必要なときだけ置く） */
-function MemberGuide() {
-  const auth = useAuthUser();
-  if (auth.loading) return null;
-  if (auth.error) return <p role="alert">{TODO_TEXT.recordAuthError}</p>;
-  if (!auth.member) {
-    return (
-      <p>
-        {TODO_TEXT.recordNeedInvite}。 <Link to="/login">{TODO_TEXT.loginLink}</Link>
-      </p>
-    );
-  }
-  return (
-    <p>
-      {TODO_TEXT.recordNeedFarm}。 <Link to="/settings/farm">{TODO_TEXT.setFarmLink}</Link>
-    </p>
-  );
-}
+/**
+ * 会員のログイン状態を見る部分は別ファイルにして、必要なときだけ読む。
+ * useAuthUser は firebase.ts を静的に読むので、ここで静的に import すると、見本の農場と再現の画面にも Firebase が載る。
+ */
+const MemberGuide = lazy(() => import("./MemberGuide"));
 
 /** 農場の状態に合わせた案内。ready のときは何も出さない */
 export function FarmGuide({ farm }: { farm: FarmState }) {
@@ -157,5 +142,9 @@ export function FarmGuide({ farm }: { farm: FarmState }) {
   if (farm.status === "ready" || farm.status === "loading") return null;
   if (farm.status === "failed") return <p role="alert">{TODO_TEXT.farmFailed}</p>;
   if (store.mode === "sample") return <p role="status">{TODO_TEXT.recordSampleNone}</p>;
-  return <MemberGuide />;
+  return (
+    <Suspense fallback={null}>
+      <MemberGuide />
+    </Suspense>
+  );
 }

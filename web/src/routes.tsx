@@ -26,6 +26,7 @@ const JoinPage = lazy(() => import("./pages/auth/JoinPage"));
 const OperatorPage = lazy(() => import("./pages/operator/OperatorPage"));
 const ReplayPage = lazy(() => import("./pages/replay/ReplayPage"));
 const BackstagePage = lazy(() => import("./pages/replay/BackstagePage"));
+const SampleLayout = lazy(() => import("./pages/sample/SampleLayout"));
 const SamplePage = lazy(() => import("./pages/sample/SamplePage"));
 const SampleTodoPage = lazy(() => import("./pages/sample/SampleTodoPage"));
 const SampleRecordPage = lazy(() => import("./pages/sample/SampleRecordPage"));
@@ -84,12 +85,19 @@ export const routes: RouteObject[] = [
       { path: "operator", element: <OperatorPage /> },
       { path: "replay", element: <ReplayPage /> },
       { path: "replay/backstage", element: <BackstagePage /> },
-      { path: "sample", element: <SamplePage /> },
-      { path: "sample/todo", element: <SampleTodoPage /> },
-      { path: "sample/record", element: <SampleRecordPage /> },
-      { path: "sample/record/deaths", element: <SampleRecordPage /> },
-      { path: "sample/record/self-check", element: <SampleRecordPage /> },
-      { path: "sample/record/disinfection", element: <SampleRecordPage /> },
+      // 見本の記録の口と再現の時計は、この層で 1 つだけ作って共有する（SampleLayout）
+      {
+        path: "sample",
+        element: <SampleLayout />,
+        children: [
+          { index: true, element: <SamplePage /> },
+          { path: "todo", element: <SampleTodoPage /> },
+          { path: "record", element: <SampleRecordPage /> },
+          { path: "record/deaths", element: <SampleRecordPage /> },
+          { path: "record/self-check", element: <SampleRecordPage /> },
+          { path: "record/disinfection", element: <SampleRecordPage /> },
+        ],
+      },
       { path: "results", element: <ResultsPage /> },
       { path: "trends", element: <TrendsPage /> },
       { path: "privacy", element: <PrivacyPage /> },
