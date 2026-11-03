@@ -1,0 +1,62 @@
+/* 運営者の画面。平面の単色だけ（陰影・ぼかしなし）。色は ui/theme.css の変数。文字は大きく、押すものは 48px 以上。 */
+.op-page {
+  max-width: 44rem;
+}
+.op-item {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.op-item h2 {
+  font-size: 1.2rem;
+}
+.op-kind,
+.op-label {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.op-note {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.op-error {
+  padding: 8px 12px;
+  border: 2px solid var(--lv1);
+  background: var(--surface);
+  font-weight: 700;
+}
+.op-url {
+  overflow-wrap: anywhere;
+}
+.op-form {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+.op-field {
+  display: grid;
+  gap: 4px;
+}
+.op-field label {
+  font-weight: 700;
+}
+.op-field select,
+.op-field input {
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.op-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0 0;
+}
