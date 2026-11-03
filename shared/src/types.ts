@@ -127,8 +127,8 @@ export interface RuntimeSettings {
   secondModel: string;
 }
 export const DEFAULT_RUNTIME_SETTINGS: Readonly<RuntimeSettings> = Object.freeze({
-  softLimitJpy: 2000,
-  hardLimitJpy: 2500,
+  softLimitJpy: 8000,
+  hardLimitJpy: 10000,
   jpyPerUsd: 150,
   autoPublishEnabled: false,
   primaryModel: "claude-opus-5-5",

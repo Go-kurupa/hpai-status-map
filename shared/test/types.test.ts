@@ -4,8 +4,8 @@ import { DEFAULT_RUNTIME_SETTINGS } from "../src/types";
 describe("DEFAULT_RUNTIME_SETTINGS", () => {
   it("契約 2.2 の既定値", () => {
     expect(DEFAULT_RUNTIME_SETTINGS).toEqual({
-      softLimitJpy: 2000,
-      hardLimitJpy: 2500,
+      softLimitJpy: 8000,
+      hardLimitJpy: 10000,
       jpyPerUsd: 150,
       autoPublishEnabled: false,
       primaryModel: "claude-opus-5-5",

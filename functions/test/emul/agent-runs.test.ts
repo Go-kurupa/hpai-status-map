@@ -92,12 +92,12 @@ describe("checkAgentRuns の費用", () => {
     expect(await counted()).toEqual(["drun_1"]);
   });
 
-  it("2,400 円に 150 円を足すと 2,550 円で、読み取りが止まる", async () => {
-    await db.doc("usage/2026-11").set({ estimatedJpy: 2400 });
+  it("9,900 円に 150 円を足すと 10,050 円で、読み取りが止まる", async () => {
+    await db.doc("usage/2026-11").set({ estimatedJpy: 9900 });
     const f = makeClient({ runs: [{ created_at: RECENT, id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
     await check(f.client);
     const m = await readUsageMonth(NOW);
-    expect(m.estimatedJpy).toBe(2550);
+    expect(m.estimatedJpy).toBe(10050);
     expect(decideReadBudget(m, DEFAULT_RUNTIME_SETTINGS, "題")).toBe("stop");
   });
 
@@ -242,18 +242,18 @@ describe("checkAgentRuns の失敗", () => {
   });
 });
 
-describe("checkAgentRuns の費用の上限（hardLimitJpy 2,500 円）", () => {
+describe("checkAgentRuns の費用の上限（hardLimitJpy 10,000 円）", () => {
   const oneRun = () => makeClient({ runs: [{ created_at: RECENT, id: "drun_1", session_id: "ses_1", error: null }], sessions: { ses_1: finished("100") }, idle: { ses_1: "end_turn" } });
 
   it("上限に届かなければ止めない", async () => {
-    await db.doc("usage/2026-11").set({ estimatedJpy: 2000 });
+    await db.doc("usage/2026-11").set({ estimatedJpy: 9000 });
     const f = oneRun();
     expect((await check(f.client)).paused).toBe(false);
     expect(f.pause).not.toHaveBeenCalled();
   });
 
   it("上限以上になったら deployments.pause を呼び、運営者に知らせる。同じ月に 1 回だけ", async () => {
-    await db.doc("usage/2026-11").set({ estimatedJpy: 2400 });
+    await db.doc("usage/2026-11").set({ estimatedJpy: 9900 });
     const f = oneRun();
     expect((await check(f.client)).paused).toBe(true);
     expect(f.pause).toHaveBeenCalledTimes(1);
@@ -266,14 +266,14 @@ describe("checkAgentRuns の費用の上限（hardLimitJpy 2,500 円）", () => 
   });
 
   it("新しい実行がなくても、すでに上限以上なら止める", async () => {
-    await db.doc("usage/2026-11").set({ estimatedJpy: 2600 });
+    await db.doc("usage/2026-11").set({ estimatedJpy: 10600 });
     const f = makeClient({ runs: [], sessions: {}, idle: {} });
     expect((await check(f.client)).paused).toBe(true);
     expect(f.pause).toHaveBeenCalledTimes(1);
   });
 
   it("止めるのに失敗したら例外で、知らせも記録もしない。次の回にやり直す", async () => {
-    await db.doc("usage/2026-11").set({ estimatedJpy: 2600 });
+    await db.doc("usage/2026-11").set({ estimatedJpy: 10600 });
     const f = makeClient({ runs: [], sessions: {}, idle: {} });
     f.pause.mockRejectedValueOnce(new Error("api down"));
     await expect(check(f.client)).rejects.toThrow();
@@ -320,8 +320,8 @@ describe("runEntranceAgent", () => {
     expect(f.run).toHaveBeenCalledTimes(1);
   });
 
-  it("今月の費用が上限以上なら実行しない（止めた後の手動の実行で 3,000 円を超えないように）", async () => {
-    await db.doc("usage/2026-11").set({ estimatedJpy: 2500 });
+  it("今月の費用が上限以上なら実行しない（止めた後の手動の実行で 10,000 円を大きく超えないように）", async () => {
+    await db.doc("usage/2026-11").set({ estimatedJpy: 10000 });
     const f = empty();
     expect(await code(handleRunEntranceAgent(deps(f), operator))).toBe("failed-precondition");
     expect(f.run).not.toHaveBeenCalled();

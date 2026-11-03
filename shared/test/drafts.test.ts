@@ -365,11 +365,11 @@ describe("近隣への説明文の検査: 入力にない言い切り（レビ�
 });
 
 describe("decideDraftBudget（説明文と声かけ文は soft で止める）", () => {
-  const s = { ...DEFAULT_RUNTIME_SETTINGS, softLimitJpy: 2000, hardLimitJpy: 2500 };
+  const s = { ...DEFAULT_RUNTIME_SETTINGS, softLimitJpy: 8000, hardLimitJpy: 10000 };
   const m = (jpy: number) => ({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, estimatedJpy: jpy });
   it("soft 未満は下書きする、soft 以上は止める（境界は含む）", () => {
-    expect(isDraftBudgetStopped(m(1999.99), s)).toBe(false);
-    expect(isDraftBudgetStopped(m(2000), s)).toBe(true);
-    expect(isDraftBudgetStopped(m(2600), s)).toBe(true);
+    expect(isDraftBudgetStopped(m(7999.99), s)).toBe(false);
+    expect(isDraftBudgetStopped(m(8000), s)).toBe(true);
+    expect(isDraftBudgetStopped(m(10600), s)).toBe(true);
   });
 });

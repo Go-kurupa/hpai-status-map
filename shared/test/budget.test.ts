@@ -88,20 +88,20 @@ describe("looksLikeProgressTitle", () => {
 });
 
 describe("decideReadBudget", () => {
-  it("1,999 円は read", () => {
-    expect(decideReadBudget(month(1999), S, "防疫措置状況（第3報）")).toBe("read");
+  it("7,999 円は read", () => {
+    expect(decideReadBudget(month(7999), S, "防疫措置状況（第3報）")).toBe("read");
   });
-  it("2,000 円で進捗報だけ skip_progress（2,499 円も同じ）", () => {
-    expect(decideReadBudget(month(2000), S, "防疫措置状況（第3報）")).toBe("skip_progress");
-    expect(decideReadBudget(month(2499), S, "防疫措置状況（第3報）")).toBe("skip_progress");
+  it("8,000 円で進捗報だけ skip_progress（9,999 円も同じ）", () => {
+    expect(decideReadBudget(month(8000), S, "防疫措置状況（第3報）")).toBe("skip_progress");
+    expect(decideReadBudget(month(9999), S, "防疫措置状況（第3報）")).toBe("skip_progress");
   });
-  it("2,000 円でも進捗報でなければ read", () => {
-    expect(decideReadBudget(month(2000), S, "（特報、疑似患畜の確認）")).toBe("read");
-    expect(decideReadBudget(month(2499), S, "（特報、疑似患畜の確認）")).toBe("read");
+  it("8,000 円でも進捗報でなければ read", () => {
+    expect(decideReadBudget(month(8000), S, "（特報、疑似患畜の確認）")).toBe("read");
+    expect(decideReadBudget(month(9999), S, "（特報、疑似患畜の確認）")).toBe("read");
   });
-  it("2,500 円は stop", () => {
-    expect(decideReadBudget(month(2500), S, "防疫措置状況（第3報）")).toBe("stop");
-    expect(decideReadBudget(month(2500), S, "（特報、疑似患畜の確認）")).toBe("stop");
+  it("10,000 円は stop", () => {
+    expect(decideReadBudget(month(10000), S, "防疫措置状況（第3報）")).toBe("stop");
+    expect(decideReadBudget(month(10000), S, "（特報、疑似患畜の確認）")).toBe("stop");
   });
   it("上限は設定から読む", () => {
     expect(decideReadBudget(month(100), { ...S, softLimitJpy: 100, hardLimitJpy: 200 }, "続報")).toBe("skip_progress");

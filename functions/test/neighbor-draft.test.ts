@@ -243,7 +243,7 @@ describe("handleNeighborDraft: 雛形と結果", () => {
     expect(t.record).not.toHaveBeenCalled();
     expect(r.officialPart).toEqual(neighborOfficialPart());
   });
-  it("soft の上限（月 2,000 円）で止める。読み取り（発生の文書）の予算を残すため、hard まで使わない", async () => {
+  it("soft の上限（月 8,000 円）で止める。読み取り（発生の文書）の予算を残すため、hard まで使わない", async () => {
     const soft = DEFAULT_RUNTIME_SETTINGS.softLimitJpy;
     const under = setup(msg(wire(GOOD)), { budgetJpy: soft - 0.01 });
     expect((await run(under.deps)).source).toBe("claude");

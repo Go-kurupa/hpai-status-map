@@ -11,7 +11,7 @@ export const ASSUMED_SECOND_MODEL = "claude-haiku-5-5";
 export const ASSUMED_DOCUMENT_TOKENS: Readonly<ModelTokens> = Object.freeze({ inputTokens: 5000, outputTokens: 1500, cacheReadTokens: 0, cacheWriteTokens: 0 });
 /** 1 事例で読む文書の数。仮定（実測していない） */
 export const ASSUMED_DOCS_PER_CASE = 12;
-/** 運用の上限は月 3,000 円（設計書 §15【決定】） */
+/** 予算の通知の線は月 3,000 円（設計書 §15【決定】）。読み取りを止める線は月 10,000 円（2026-11-04 利用者の決定、DEFAULT_RUNTIME_SETTINGS.hardLimitJpy） */
 export const MONTHLY_BUDGET_JPY = 3000;
 /** 前季（2025）の事例の数と、過去 6 シーズンで最多の数（cases.json の関連農場を除く件数。試験が照らす） */
 export const PREV_SEASON_CASES = 24;

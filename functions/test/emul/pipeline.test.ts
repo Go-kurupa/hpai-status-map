@@ -172,8 +172,8 @@ describe("読み手の失敗", () => {
 });
 
 describe("費用の上限（§15）", () => {
-  it("2,500 円では Claude を呼ばず skipped_budget。発生の語があれば確認中は公開する", async () => {
-    await db.doc("usage/2025-12").set({ estimatedJpy: 2500, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
+  it("10,000 円では Claude を呼ばず skipped_budget。発生の語があれば確認中は公開する", async () => {
+    await db.doc("usage/2025-12").set({ estimatedJpy: 10000, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
     await seedTsuyama();
     const { client, calls } = agreeing(tsuyamaConfirmed());
     expect(await run("d1", client)).toMatchObject({ status: "done", readState: "skipped_budget" });
@@ -183,8 +183,8 @@ describe("費用の上限（§15）", () => {
     expect(await getDoc("reviewQueue/doc-d1")).toMatchObject({ reasons: ["budget_stop"], hasOutbreakWords: true });
   });
 
-  it("2,000 円では進捗報だけ読まない。発生の語があれば確認中は公開する。それ以外の題は読む", async () => {
-    await db.doc("usage/2025-12").set({ estimatedJpy: 2000, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
+  it("8,000 円では進捗報だけ読まない。発生の語があれば確認中は公開する。それ以外の題は読む", async () => {
+    await db.doc("usage/2025-12").set({ estimatedJpy: 8000, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
     const progressTitle = "高病原性鳥インフルエンザの発生に伴う防疫措置状況（第5報）";
     const body = bodyOf(progressTitle, "発生農場の殺処分を進めています。");
     await seedDoc({ id: "p1", title: progressTitle, text: body });
@@ -199,7 +199,7 @@ describe("費用の上限（§15）", () => {
   });
 
   it("進捗報で発生の語がなければ、skipped_budget で箱の中だけ（公開しない）", async () => {
-    await db.doc("usage/2025-12").set({ estimatedJpy: 2100, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
+    await db.doc("usage/2025-12").set({ estimatedJpy: 8100, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
     await seedDoc({ id: "p2", title: "防疫措置の進捗について（第3報）", text: "防疫措置の進捗について（第3報）\n作業を続けています。\n" });
     const { client, calls } = agreeing(tsuyamaConfirmed());
     expect(await run("p2", client)).toMatchObject({ readState: "skipped_budget" });

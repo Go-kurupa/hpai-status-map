@@ -12,11 +12,11 @@
 | 回数 | 1 日に県ごと 60 回、全体で 300 回。超えたら取得せず `limit_reached` | 同上、`functions/test/emul/agent-tools.test.ts` |
 | 提案 | `reviewQueue` に `entrance_proposal` を入れるだけ。同じ県と URL は 1 件。`sources` は変わらない | `functions/test/emul/agent-tools.test.ts` |
 | 1 回の費用 | 1 セッション 1 ドル（X-01 の予算）。足りなければ止まる | `scripts/test/agent-config.test.ts` |
-| 月の費用 | `checkAgentRuns`（毎朝 08:00）が list cost を `usage/{YYYY-MM}` に足す。同じ実行を 2 度足さない。上限（既定 2,500 円）以上で定期実行を止める | `functions/test/emul/agent-runs.test.ts` |
+| 月の費用 | `checkAgentRuns`（毎朝 08:00）が list cost を `usage/{YYYY-MM}` に足す。同じ実行を 2 度足さない。上限（既定 10,000 円）以上で定期実行を止める | `functions/test/emul/agent-runs.test.ts` |
 | 手動の実行 | `runEntranceAgent`（運営者だけ）。5 分に 1 回まで。月の上限以上なら実行しない | 同上 |
 | 外の文 | ページの本文はデータとして返すだけ。指示として扱わない（エージェントの説明書きにも明記） | `scripts/test/agent-config.test.ts` |
 
-上限に近いときの計算: 止める線 2,500 円に、週 1 回の実行 150 円（1 ドル × 150 円）が足されても 3,000 円を超えない。止めた後は運営者が `--unpause` で戻す。
+上限に近いときの計算: 止める線 10,000 円に、週 1 回の実行 150 円（1 ドル × 150 円）が足されても 10,500 円以内に収まる。止めた後は運営者が `--unpause` で戻す。
 
 ## 受け入れの手順（人の作業）
 

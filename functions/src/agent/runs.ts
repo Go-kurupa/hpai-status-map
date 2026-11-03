@@ -2,7 +2,7 @@
 // Claude の API の client は引数で受ける（試験は偽物を渡す）。鍵は index.ts の handler の中で読む。
 //
 // 費用の約束: 1 回の実行は 1 ドル（セッションの上限、X-01）。週 1 回の定期実行で月に約 150 円 × 4〜5 回。
-// 止める線 hardLimitJpy（2,500 円）に週 1 回の 150 円が足されても、3,000 円を超えない。止めた後は運営者が `--unpause` で戻す。
+// 止める線 hardLimitJpy（10,000 円）に週 1 回の 150 円が足されても、10,500 円以内に収まる。止めた後は運営者が `--unpause` で戻す。
 import { FieldValue } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import { HttpsError } from "firebase-functions/v2/https";

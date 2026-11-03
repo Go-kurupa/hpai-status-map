@@ -10,6 +10,6 @@ describe("functions から @hpai/shared を読める", () => {
     expect(hasHpaiWord("⿃インフルエンザ")).toBe(true);
     expect(seasonOf("2026-06-01")).toBe(2026);
     expect(FIXED_TEXT.replayBanner).toBe("去年の再現です");
-    expect(DEFAULT_RUNTIME_SETTINGS.softLimitJpy).toBe(2000);
+    expect(DEFAULT_RUNTIME_SETTINGS.softLimitJpy).toBe(8000);
   });
 });

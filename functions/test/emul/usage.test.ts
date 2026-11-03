@@ -57,7 +57,7 @@ describe("readRuntimeSettings の不正な値", () => {
   });
 
   it("片方だけ重ねても soft <= hard が崩れるなら既定値", async () => {
-    await db.doc("usage/settings").set({ softLimitJpy: 9000 }); // 既定の hard 2500 を超える
+    await db.doc("usage/settings").set({ softLimitJpy: 12000 }); // 既定の hard 10000 を超える
     const s = await readRuntimeSettings();
     expect(s.softLimitJpy).toBe(S.softLimitJpy);
     expect(s.hardLimitJpy).toBe(S.hardLimitJpy);

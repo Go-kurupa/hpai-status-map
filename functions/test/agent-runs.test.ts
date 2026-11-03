@@ -51,16 +51,16 @@ describe("agentCostJpy", () => {
   });
 });
 
-describe("費用の線（hardLimitJpy 2,500 円）", () => {
+describe("費用の線（hardLimitJpy 10,000 円）", () => {
   const s = DEFAULT_RUNTIME_SETTINGS;
   const month = (estimatedJpy: number) => ({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, estimatedJpy });
 
-  it("2,400 円に 1 回 150 円を足すと、読み取りが止まる", () => {
-    expect(decideReadBudget(month(2400), s, "題")).toBe("read");
-    expect(decideReadBudget(month(2400 + agentCostJpy(100, s.jpyPerUsd)), s, "題")).toBe("stop");
+  it("9,900 円に 1 回 150 円を足すと、読み取りが止まる", () => {
+    expect(decideReadBudget(month(9900), s, "題")).toBe("read");
+    expect(decideReadBudget(month(9900 + agentCostJpy(100, s.jpyPerUsd)), s, "題")).toBe("stop");
   });
 
-  it("止める線に週 1 回の 150 円が足されても 3,000 円を超えない", () => {
-    expect(s.hardLimitJpy + agentCostJpy(100, s.jpyPerUsd)).toBeLessThanOrEqual(3000);
+  it("止める線に週 1 回の 150 円が足されても 10,500 円以内（超えても 1 回分の小さな幅）", () => {
+    expect(s.hardLimitJpy + agentCostJpy(100, s.jpyPerUsd)).toBeLessThanOrEqual(10500);
   });
 });
