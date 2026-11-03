@@ -27,7 +27,7 @@ const REQUIRED_PHRASES = [
   "入力者を記録しません",
   "リンク 1 つで配信を止められます",
   "農場の全データを本人が消せます",
-  "近隣への説明文の下書きで入力した文だけ",
+  "声かけ文の下書きのため、発生の公開の事実",
   "地図を表示するときに国土地理院のサーバーへ",
 ];
 
@@ -86,6 +86,15 @@ describe("PRIVACY_NOTICE（文の正）", () => {
   it.each(TOWN_PHRASES)("『$heading』の節に、選んだ町の保存の説明『$phrase』がある", ({ heading, phrase }) => {
     const section = PRIVACY_NOTICE.find((x) => x.heading === heading)!.paragraphs.join("\n");
     expect(section).toContain(phrase);
+  });
+
+  it("Claude に渡すものは、声かけ文の下書きの公開の事実だけと書き、実装のない近隣への説明文は書かない", () => {
+    const place = PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs.join("\n");
+    for (const w of ["声かけ文", "自動", "都道府県、市町村、日付、段階", "会員の農場名、位置、記録は渡しません"]) {
+      expect(place, w).toContain(w);
+    }
+    const all = PRIVACY_NOTICE.flatMap((s) => s.paragraphs).join("\n");
+    expect(all).not.toContain("近隣");
   });
 
   it("選んだ町の保存の説明が、画面にも出る", () => {
