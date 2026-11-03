@@ -7,7 +7,7 @@ import { radiusInQuote } from "./read/quote";
 import type { CompareReport, DocumentKind, ReadDate, ReadResult, SecondReadResult, VerifyCheck, VerifyReport } from "./read/types";
 import { normalizeForMatch } from "./text";
 import { FIXED_TEXT } from "./wording";
-import type { Case, CaseStage, FarmPoint, IsoDate, IsoDateTime, Level, WatchStatus, WildBird } from "./types";
+import type { Case, CaseStage, CheckRecord, DeathRecord, Farm, FarmPoint, House, IsoDate, IsoDateTime, Level, WatchStatus, WildBird } from "./types";
 
 export interface ReplayEvent {
   /** 1 からの連番。日付の昇順（同じ日は時刻の順） */
@@ -95,6 +95,16 @@ export function casesAt(s: ReplayScenario, order: number): Case[] {
   return [...latest.values()];
 }
 
+/** order までに出来事がある最後の order（出来事の日付が date 以前のもの）。なければ 0 */
+export function lastOrderOn(s: ReplayScenario, date: IsoDate): number {
+  let last = 0;
+  for (const e of s.events) {
+    if (e.date > date) break;
+    last = e.order;
+  }
+  return last;
+}
+
 /** order の時計。order 0 は最初の出来事の前の日の終わり（2025 シーズンの中） */
 export function replayNowAt(s: ReplayScenario, order: number): Date {
   assertOrder(s, order);
@@ -127,6 +137,19 @@ export function noticeTextFor(muniName: string, stage: CaseStage, authority: str
 export function watchAt(s: ReplayScenario, order: number): WatchStatus[] {
   const at = toJstIso(replayNowAt(s, order));
   return s.watchStatus.map((w) => ({ ...w, checkedAt: at, lastOkAt: w.ok ? at : w.lastOkAt }));
+}
+
+// ── 見本の農場（X-08）──
+// 会員でなくても「会員だったらこう見える」を試せる、作り物の農場（data/replay/sample-farm.json）。
+// 実在の農場名、人名、住所、電話番号を持たない。再現の筋（津山市の約 1km のマス目）に合わせた架空の数字だけ。
+
+export interface SampleFarmData {
+  /** 見本の「今日」。再現の時計をこの日の最後の出来事に合わせる（lastOrderOn） */
+  today: IsoDate;
+  farm: Farm & { id: string };
+  houses: Array<House & { id: string }>;
+  deaths: DeathRecord[];
+  checks: Array<CheckRecord & { id: string }>;
 }
 
 // ── 舞台裏（X-07）──

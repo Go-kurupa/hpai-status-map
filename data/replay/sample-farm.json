@@ -1,0 +1,729 @@
+{
+  "today": "2025-12-30",
+  "farm": {
+    "id": "sample-farm",
+    "name": "架空の見本農場",
+    "memberUids": [],
+    "unsubscribedUids": [],
+    "meshCode": "52344160",
+    "muniCode": "33622",
+    "prefCode": "33",
+    "frequentMuniCodes": [],
+    "production": "layer",
+    "housing": "windowless",
+    "kahoContact": "見本の家保（作り物） 00-0000-0000",
+    "notify": {
+      "level1": true,
+      "level2": true,
+      "level3": true,
+      "morningDigest": false,
+      "selfCheckRemindDays": null
+    },
+    "selfCheckDue": {
+      "2025-12": "2025-12-31"
+    },
+    "updatedAt": "2025-12-30T09:00:00+09:00"
+  },
+  "houses": [
+    {
+      "id": "house-a",
+      "name": "鶏舎A",
+      "birdType": "採卵鶏",
+      "flockSize": 5000,
+      "empty": false
+    },
+    {
+      "id": "house-b",
+      "name": "鶏舎B",
+      "birdType": "採卵鶏",
+      "flockSize": 3000,
+      "empty": false
+    },
+    {
+      "id": "house-c",
+      "name": "鶏舎C",
+      "birdType": "採卵鶏",
+      "flockSize": 1500,
+      "empty": false
+    }
+  ],
+  "deaths": [
+    {
+      "date": "2025-11-30",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-11-30",
+      "houseId": "house-b",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-01",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-01",
+      "houseId": "house-b",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-02",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-02",
+      "houseId": "house-b",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-03",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-03",
+      "houseId": "house-b",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-04",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-04",
+      "houseId": "house-b",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-05",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-05",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-06",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-06",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-07",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-07",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-08",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-08",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-09",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-09",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-10",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-10",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-11",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-11",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-12",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-12",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-13",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-13",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-14",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-14",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-15",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-15",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-15",
+      "houseId": "house-c",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-16",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-16",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-16",
+      "houseId": "house-c",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-17",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-17",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-17",
+      "houseId": "house-c",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-18",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-18",
+      "houseId": "house-b",
+      "deaths": 30,
+      "flockSizeAt": 3000,
+      "exclusion": {
+        "kind": "equipment",
+        "note": "停電でファンが止まった（作り物の記録）"
+      }
+    },
+    {
+      "date": "2025-12-18",
+      "houseId": "house-c",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-19",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-19",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-19",
+      "houseId": "house-c",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-20",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-20",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-20",
+      "houseId": "house-c",
+      "deaths": 0,
+      "flockSizeAt": 0,
+      "exclusion": {
+        "kind": "empty",
+        "note": ""
+      }
+    },
+    {
+      "date": "2025-12-21",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-21",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-21",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-22",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-22",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-22",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-23",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-23",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-23",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-24",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-24",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-24",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-25",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-25",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-25",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-26",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-26",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-26",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-27",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-27",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-27",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-28",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-28",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-28",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-29",
+      "houseId": "house-a",
+      "deaths": 2,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-29",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-29",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-30",
+      "houseId": "house-a",
+      "deaths": 10,
+      "flockSizeAt": 5000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-30",
+      "houseId": "house-b",
+      "deaths": 2,
+      "flockSizeAt": 3000,
+      "exclusion": null
+    },
+    {
+      "date": "2025-12-30",
+      "houseId": "house-c",
+      "deaths": 1,
+      "flockSizeAt": 1500,
+      "exclusion": null
+    }
+  ],
+  "checks": [
+    {
+      "id": "dis_2025-12-24_always-17",
+      "kind": "disinfection",
+      "date": "2025-12-24",
+      "itemId": "always-17"
+    },
+    {
+      "id": "dis_2025-12-24_always-22",
+      "kind": "disinfection",
+      "date": "2025-12-24",
+      "itemId": "always-22"
+    },
+    {
+      "id": "dis_2025-12-25_always-17",
+      "kind": "disinfection",
+      "date": "2025-12-25",
+      "itemId": "always-17"
+    },
+    {
+      "id": "dis_2025-12-25_always-22",
+      "kind": "disinfection",
+      "date": "2025-12-25",
+      "itemId": "always-22"
+    },
+    {
+      "id": "dis_2025-12-26_always-17",
+      "kind": "disinfection",
+      "date": "2025-12-26",
+      "itemId": "always-17"
+    },
+    {
+      "id": "dis_2025-12-26_always-22",
+      "kind": "disinfection",
+      "date": "2025-12-26",
+      "itemId": "always-22"
+    },
+    {
+      "id": "dis_2025-12-27_always-17",
+      "kind": "disinfection",
+      "date": "2025-12-27",
+      "itemId": "always-17"
+    },
+    {
+      "id": "dis_2025-12-27_always-22",
+      "kind": "disinfection",
+      "date": "2025-12-27",
+      "itemId": "always-22"
+    },
+    {
+      "id": "dis_2025-12-28_always-17",
+      "kind": "disinfection",
+      "date": "2025-12-28",
+      "itemId": "always-17"
+    },
+    {
+      "id": "dis_2025-12-28_always-22",
+      "kind": "disinfection",
+      "date": "2025-12-28",
+      "itemId": "always-22"
+    },
+    {
+      "id": "dis_2025-12-29_always-17",
+      "kind": "disinfection",
+      "date": "2025-12-29",
+      "itemId": "always-17"
+    },
+    {
+      "id": "dis_2025-12-29_always-22",
+      "kind": "disinfection",
+      "date": "2025-12-29",
+      "itemId": "always-22"
+    },
+    {
+      "id": "dis_2025-12-29_always-19",
+      "kind": "disinfection",
+      "date": "2025-12-29",
+      "itemId": "always-19"
+    },
+    {
+      "id": "self_2025-12",
+      "kind": "self_inspection",
+      "date": "2025-12-15",
+      "month": "2025-12",
+      "answers": {
+        "17": "ok",
+        "18": "ok",
+        "19": "ng",
+        "22": "ok",
+        "23": "ok",
+        "25": "ok",
+        "27": null
+      }
+    }
+  ]
+}
