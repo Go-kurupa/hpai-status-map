@@ -13,7 +13,9 @@ import {
   ownOutbreakNoticeTemplate,
   workerMessageTemplate,
 } from "../src/drafts";
+import { isDraftBudgetStopped } from "../src/budget";
 import { OFFICIAL_GUIDANCE, type OfficialGuidance } from "../src/guidance/official";
+import { DEFAULT_RUNTIME_SETTINGS } from "../src/types";
 import { findForbiddenPhrases } from "../src/wording";
 
 const F = { muniName: "津山市", date: "2025-12-19", allowedNumbers: dateNumbers("2025-12-19") };
@@ -260,5 +262,76 @@ describe("近隣への説明文（M-19）の雛形と公式の部分", () => {
     expect(t).not.toMatch(/\d/u);
     expect(checkNeighborText(t, [])).toEqual({ ok: true, failures: [] });
     expect(findForbiddenPhrases(t)).toEqual([]);
+  });
+});
+
+describe("近隣への説明文の検査: 入力にない言い切り（レビュー指摘 3）", () => {
+  const IN = "入口で長靴を履き替え、消毒しています。";
+  const fails = (text: string, input = IN) => checkNeighborText(text, neighborAllowedNumbers(input), { input }).failures;
+
+  it.each([
+    ["卵は食べても問題ありません。"],
+    ["人体への影響はありません。"],
+    ["ご心配には及びません。"],
+    ["心配はいりません。"],
+    ["どうぞ心配なさらないでください。 大丈夫です。"],
+    ["鶏肉は召し上がっていただいて差し支えありません。"],
+    ["人にうつることはありません。"],
+    ["ウイルスが入る可能性はありません。"],
+    ["健康への害はありません。"],
+    ["卵も鶏肉も無害です。"],
+    ["住民の皆さまへの影響は出ません。"],
+  ])("『%s』は雛形に戻す（落ちる）", (text) => {
+    const f = fails(`${IN}${text}`);
+    expect(f.length, text).toBeGreaterThan(0);
+  });
+
+  it("落ちた理由は符号で残り、出力の断片を含まない", () => {
+    const f = fails(`${IN}卵は食べても問題ありません。`);
+    expect(f.some((x) => x.startsWith("assurance:"))).toBe(true);
+    expect(f.join(" ")).not.toContain("食べても");
+  });
+
+  it("入力にない卵、鶏肉、人体、健康の話は、言い切りでなくても落ちる", () => {
+    for (const w of ["卵", "鶏肉", "人体", "健康", "食べ"]) {
+      expect(fails(`${IN}${w}についても気をつけています。`), w).toContain(`outside_topic:${w}`);
+    }
+  });
+
+  it("入力にその語があれば、話題の語は通る（農場が自分で書いた対策）", () => {
+    const input = "卵の出荷の前に、集卵の道具を消毒しています。";
+    expect(fails("卵の出荷の前に、道具を消毒しています。", input)).toEqual([]);
+  });
+
+  it("対策の文として普通の文は通る（感染を広げない、問題を減らす、など）", () => {
+    for (const ok of [
+      "鶏舎の入口で長靴を履き替え、消毒をしています。",
+      "ウイルスを持ち込まない、広げないために、野鳥が入らないようネットを張っています。",
+      "気になることがあれば、いつでもお尋ねください。",
+      "問題があれば、すぐ家畜保健衛生所に連絡します。",
+    ]) {
+      expect(fails(ok), ok).toEqual([]);
+    }
+  });
+
+  it("入力の文に言い切りがあれば、入力の検査（opts なし）で知らせる。出力では入力にある言い回しは通す", () => {
+    const input = "卵は食べても問題ありません。と聞かれたら、国の説明を示します。";
+    expect(checkNeighborText(input, []).failures.some((x) => x.startsWith("assurance:"))).toBe(true);
+    expect(fails("卵は食べても問題ありません。", input).some((x) => x.startsWith("assurance:"))).toBe(false);
+  });
+
+  it("従来の呼び方（opts なし）でも、数字、煽る語、禁止語、健康の断定は同じに落ちる", () => {
+    expect(checkNeighborText("卵は安全です。", []).failures).toContain("forbidden:安全");
+    expect(checkNeighborText("約43万羽です。", []).failures).toContain("unknown_number:43");
+  });
+});
+
+describe("decideDraftBudget（説明文と声かけ文は soft で止める）", () => {
+  const s = { ...DEFAULT_RUNTIME_SETTINGS, softLimitJpy: 2000, hardLimitJpy: 2500 };
+  const m = (jpy: number) => ({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, estimatedJpy: jpy });
+  it("soft 未満は下書きする、soft 以上は止める（境界は含む）", () => {
+    expect(isDraftBudgetStopped(m(1999.99), s)).toBe(false);
+    expect(isDraftBudgetStopped(m(2000), s)).toBe(true);
+    expect(isDraftBudgetStopped(m(2600), s)).toBe(true);
   });
 });

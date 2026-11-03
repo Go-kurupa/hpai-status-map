@@ -9,8 +9,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { neighborAllowedNumbers, neighborOfficialPart, neighborTemplate, type NeighborAudience } from "@hpai/shared/drafts";
 import { OFFICIAL_GUIDANCE, type OfficialGuidance } from "@hpai/shared/guidance/official";
 import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
-import { DRAFT_MODEL } from "../src/drafts/claude";
+import { DRAFT_MAX_TOKENS, DRAFT_MODEL } from "../src/drafts/claude";
 import {
+  NEIGHBOR_DAILY_LIMIT,
   NEIGHBOR_MAX_INPUT,
   NEIGHBOR_SYSTEM,
   buildNeighborUser,
@@ -44,7 +45,7 @@ function msg(text: string, o: Partial<Anthropic.Message> = {}): Anthropic.Messag
 const wire = (message: string) => JSON.stringify({ message });
 
 /** 偽の client と、差し込む関数。budgetJpy は今月の費用。 */
-function setup(reply: Anthropic.Message | Error, o: { budgetJpy?: number; guidance?: readonly OfficialGuidance[]; recordFails?: boolean } = {}) {
+function setup(reply: Anthropic.Message | Error, o: { budgetJpy?: number; guidance?: readonly OfficialGuidance[]; recordFails?: boolean; reserve?: boolean | Error } = {}) {
   const calls: Anthropic.MessageCreateParamsNonStreaming[] = [];
   const create = vi.fn(async (params: Anthropic.MessageCreateParamsNonStreaming) => {
     calls.push(params);
@@ -57,15 +58,20 @@ function setup(reply: Anthropic.Message | Error, o: { budgetJpy?: number; guidan
     if (o.recordFails) throw new Error("firestore down");
     return { usd: 0, jpy: 0 };
   });
+  const reserve = vi.fn(async (_uid: string, _now: Date) => {
+    if (o.reserve instanceof Error) throw o.reserve;
+    return o.reserve ?? true;
+  });
   const deps: NeighborDraftDeps = {
     client: makeClient,
     now: () => NOW,
     settings: async () => DEFAULT_RUNTIME_SETTINGS,
     month: async () => ({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, estimatedJpy: o.budgetJpy ?? 0 }),
     record,
+    reserve,
     ...(o.guidance ? { guidance: o.guidance } : {}),
   };
-  return { deps, calls, create, makeClient, record };
+  return { deps, calls, create, makeClient, record, reserve };
 }
 
 const run = (deps: NeighborDraftDeps, data: unknown = { measures: MEASURES, audience: "meeting" }, caller = MEMBER) =>
@@ -104,6 +110,9 @@ describe("Claude に渡すもの", () => {
     const p = t.calls[0]!;
     expect(p.model).toBe("claude-sonnet-5-5");
     expect(p.system).toBe(NEIGHBOR_SYSTEM);
+    // 出力は 3000 字で捨てるので、捨てる分まで払わない。16000 は多すぎる
+    expect(p.max_tokens).toBe(1500);
+    expect(DRAFT_MAX_TOKENS).toBe(1500);
     expect(p.messages).toEqual([{ role: "user", content: buildNeighborUser(MEASURES, "meeting") }]);
     for (const k of ["temperature", "top_p", "top_k", "thinking", "tool_choice", "tools", "citations"]) expect(p).not.toHaveProperty(k);
     // 公式の文は 1 つも渡さない（健康の説明を頼まない。Claude を通さない）
@@ -166,6 +175,21 @@ describe("decideNeighborDraft（Claude の返事を採るか、雛形に戻す�
   it("漢数字の数は雛形", () => {
     expect(decide(`${GOOD}三キロ先まで消毒します。`).failures).toContain("unknown_kanji_number:三キロ");
   });
+  it("入力にない健康、卵、鶏肉、安心させる言い換えは雛形（レビュー指摘 3）", () => {
+    for (const bad of [
+      "卵は食べても問題ありません。",
+      "人体への影響はありません。",
+      "ご心配には及びません。",
+      "鶏肉も卵も、通常どおり出荷しています。",
+    ]) {
+      const d = decide(`${GOOD}${bad}`);
+      expect(d.source, bad).toBe("template");
+      expect(d.failures.some((f) => f.startsWith("assurance:") || f.startsWith("outside_topic:")), bad).toBe(true);
+    }
+  });
+  it("入力に卵の話があれば、その話題は通る", () => {
+    expect(decide("卵の出荷の前に、道具を消毒しています。", "卵の出荷の前に、集卵の道具を消毒しています。").source).toBe("claude");
+  });
   it("空、長すぎる、URL は雛形", () => {
     expect(decide("   ").failures).toContain("empty");
     expect(decide(GOOD + "あ".repeat(3000)).failures).toContain("too_long");
@@ -219,9 +243,15 @@ describe("handleNeighborDraft: 雛形と結果", () => {
     expect(t.record).not.toHaveBeenCalled();
     expect(r.officialPart).toEqual(neighborOfficialPart());
   });
-  it("費用が soft 以上でも hard 未満なら Claude を呼ぶ（進捗報の読みを飛ばす段階は、この下書きに関係しない）", async () => {
-    const t = setup(msg(wire(GOOD)), { budgetJpy: DEFAULT_RUNTIME_SETTINGS.softLimitJpy });
-    expect((await run(t.deps)).source).toBe("claude");
+  it("soft の上限（月 2,000 円）で止める。読み取り（発生の文書）の予算を残すため、hard まで使わない", async () => {
+    const soft = DEFAULT_RUNTIME_SETTINGS.softLimitJpy;
+    const under = setup(msg(wire(GOOD)), { budgetJpy: soft - 0.01 });
+    expect((await run(under.deps)).source).toBe("claude");
+    const at = setup(msg(wire(GOOD)), { budgetJpy: soft });
+    const r = await run(at.deps);
+    expect(r).toMatchObject({ source: "template", failures: ["budget_stop"] });
+    expect(at.create).not.toHaveBeenCalled();
+    expect(at.reserve).not.toHaveBeenCalled(); // 止まっている日は回数を使わせない
   });
   it("予算を読めないときも Claude を呼ばず、雛形を返す", async () => {
     const t = setup(msg(wire(GOOD)));
@@ -256,6 +286,54 @@ describe("費用", () => {
     const r = await run(setup(msg(wire(GOOD)), { recordFails: true }).deps);
     expect(r.source).toBe("claude");
     expect(errSpy).toHaveBeenCalled();
+  });
+});
+
+describe("会員ごとの 1 日の回数の上限（レビュー指摘 2）", () => {
+  it("1 日 10 回", () => {
+    expect(NEIGHBOR_DAILY_LIMIT).toBe(10);
+  });
+  it("Claude を呼ぶ前に、uid と今の時刻で 1 回分を確保する", async () => {
+    const t = setup(msg(wire(GOOD)));
+    const order: string[] = [];
+    t.reserve.mockImplementationOnce(async () => {
+      order.push("reserve");
+      return true;
+    });
+    t.create.mockImplementationOnce(async () => {
+      order.push("create");
+      return msg(wire(GOOD));
+    });
+    await run(t.deps);
+    expect(t.reserve).toHaveBeenCalledWith("u1", NOW);
+    expect(order).toEqual(["reserve", "create"]);
+  });
+  it("上限に当たったら Claude を呼ばず、雛形と『今日はこれ以上』の符号を返す", async () => {
+    const t = setup(msg(wire(GOOD)), { reserve: false });
+    const r = await run(t.deps);
+    expect(r).toMatchObject({ source: "template", farmPart: neighborTemplate(MEASURES, "meeting"), failures: ["daily_limit"] });
+    expect(r.officialPart).toEqual(neighborOfficialPart());
+    expect(t.create).not.toHaveBeenCalled();
+    expect(t.makeClient).not.toHaveBeenCalled();
+    expect(t.record).not.toHaveBeenCalled();
+  });
+  it("回数を確かめられないときも Claude を呼ばず、雛形を返す", async () => {
+    vi.spyOn(logger, "error").mockImplementation(() => {});
+    const t = setup(msg(wire(GOOD)), { reserve: new Error("firestore down") });
+    const r = await run(t.deps);
+    expect(r).toMatchObject({ source: "template", failures: ["limit_unavailable"] });
+    expect(t.create).not.toHaveBeenCalled();
+  });
+  it("権限や入力で断る前には、回数を使わせない", async () => {
+    const t = setup(msg(wire(GOOD)));
+    await codeOf(handleNeighborDraft(t.deps, null, { measures: MEASURES, audience: "meeting" }));
+    await codeOf(handleNeighborDraft(t.deps, { uid: "u2", member: false }, { measures: MEASURES, audience: "meeting" }));
+    await codeOf(run(t.deps, { measures: "", audience: "meeting" }));
+    expect(t.reserve).not.toHaveBeenCalled();
+  });
+  it("index.ts の関数は maxInstances を絞ってある", () => {
+    const idx = fs.readFileSync(path.resolve(__dirname, "../src/drafts/index.ts"), "utf8");
+    expect(idx).toMatch(/draftNeighborExplainer[\s\S]*?maxInstances:\s*[1-3]\b/u);
   });
 });
 

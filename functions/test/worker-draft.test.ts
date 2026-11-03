@@ -62,7 +62,7 @@ describe("callDraft", () => {
     const p = f.calls[0]!;
     expect(p.model).toBe("claude-sonnet-5-5");
     expect(DRAFT_MODEL).toBe("claude-sonnet-5-5");
-    expect(p.max_tokens).toBe(16000);
+    expect(p.max_tokens).toBe(1500);
     expect(p.system).toBe(DRAFT_SYSTEM);
     expect(p.messages).toEqual([{ role: "user", content: user }]);
     expect(p.output_config?.effort).toBe("medium");

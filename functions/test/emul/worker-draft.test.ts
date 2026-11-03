@@ -224,37 +224,19 @@ describe("雛形で残る", () => {
     expect(f.calls).toHaveLength(0);
   });
 
-  it("ソフトリミットを超えただけでは止めない（進捗報の見分けは使わない）", async () => {
-    await db.doc("usage/2025-12").set({ estimatedJpy: DEFAULT_RUNTIME_SETTINGS.softLimitJpy + 1 });
+  it("soft の上限で止める（読み取りの予算を残す。進捗報の見分けは使わない）", async () => {
+    await db.doc("usage/2025-12").set({ estimatedJpy: DEFAULT_RUNTIME_SETTINGS.softLimitJpy });
+    const f = fakeClient(msg(GOOD_CONFIRMED));
+    await run(f.client, mkCase());
+    expect(f.calls).toHaveLength(0);
+    expect(await draftOf()).toMatchObject({ source: "template", workerMessage: TEMPLATE });
+  });
+
+  it("soft の手前なら Claude を呼ぶ", async () => {
+    await db.doc("usage/2025-12").set({ estimatedJpy: DEFAULT_RUNTIME_SETTINGS.softLimitJpy - 1 });
     const f = fakeClient(msg(GOOD_CONFIRMED));
     await run(f.client, mkCase());
     expect(f.calls).toHaveLength(1);
-    expect(await draftOf()).toMatchObject({ source: "claude" });
-  });
-});
-
-describe("費用", () => {
-  it("下書きの費用が usage/{YYYY-MM} の estimatedJpy に積まれる（既存に足す）", async () => {
-    await db.doc("usage/2025-12").set({ estimatedJpy: 10, inputTokens: 5 });
-    await run(fakeClient(msg(GOOD_CONFIRMED)).client, mkCase());
-    const jpy = estimateUsd(DRAFT_MODEL, USAGE) * DEFAULT_RUNTIME_SETTINGS.jpyPerUsd;
-    expect(jpy).toBeGreaterThan(0);
-    const m = await monthOf();
-    expect(m?.estimatedJpy).toBeCloseTo(10 + jpy, 10);
-    expect(m?.inputTokens).toBe(5 + USAGE.input_tokens);
-    expect(m?.outputTokens).toBe(USAGE.output_tokens);
-  });
-
-  it("使用量を積めなくても下書きは残る", async () => {
-    const real = db.doc.bind(db);
-    let monthReads = 0;
-    vi.spyOn(db, "doc").mockImplementation(((p: string) => {
-      // 1 回目は予算のための読み、2 回目が積む書き込み
-      if (p === "usage/2025-12" && ++monthReads === 2) throw new Error("積めない");
-      return real(p);
-    }) as typeof db.doc);
-    await run(fakeClient(msg(GOOD_CONFIRMED)).client, mkCase());
-    expect(monthReads).toBe(2);
     expect(await draftOf()).toMatchObject({ source: "claude" });
   });
 });

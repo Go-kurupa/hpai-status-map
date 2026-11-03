@@ -3,7 +3,7 @@
 // 検査に落ちたとき、Claude が使えないとき、予算が止まっているときは、雛形で残す（下書きが無いより、確かめた雛形がある方がよい）。
 import type Anthropic from "@anthropic-ai/sdk";
 import { logger } from "firebase-functions";
-import { decideReadBudget } from "@hpai/shared/budget";
+import { isDraftBudgetStopped } from "@hpai/shared/budget";
 import { toJstIso } from "@hpai/shared/dates";
 import { checkWorkerMessage, dateNumbers, draftFactsOf, workerMessageTemplate, type DraftFacts } from "@hpai/shared/drafts";
 import { normalizeForMatch } from "@hpai/shared/text";
@@ -57,8 +57,8 @@ export async function draftForCase(caseId: string, after: Case | null | undefine
 
   const now = deps.now();
   const settings = await readRuntimeSettings();
-  // 予算が止まっているときは Claude を呼ばず雛形。題は無い（進捗報の見分けは使わない）ので read か stop だけになる
-  const stopped = decideReadBudget(await readUsageMonth(now), settings, "") === "stop";
+  // soft の上限で Claude を止め、雛形にする。読み取り（発生の文書）の予算を残すため、hard までは使わない
+  const stopped = isDraftBudgetStopped(await readUsageMonth(now), settings);
 
   let attempt: ReadAttempt<{ message: string }> | null = null;
   if (!stopped) {

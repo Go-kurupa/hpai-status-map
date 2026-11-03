@@ -7,7 +7,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { logger } from "firebase-functions";
 import { HttpsError } from "firebase-functions/v2/https";
-import { decideReadBudget } from "@hpai/shared/budget";
+import { isDraftBudgetStopped } from "@hpai/shared/budget";
 import type { TokenUsage, UsageMonth } from "@hpai/shared/budget";
 import {
   checkNeighborText,
@@ -26,6 +26,8 @@ import { DRAFT_MODEL, callDraft } from "./claude";
 export const NEIGHBOR_SYSTEM =
   "あなたは養鶏場が近隣の住民へ配る説明文の、農場の対策の部分だけを下書きします。入力された対策だけを使います。入力にない数字と事実を足しません。人の健康、感染、卵や肉について書きません。不安をあおる語を使いません。";
 
+/** 会員 1 人が 1 日（日本時間）に説明文を頼める回数。 */
+export const NEIGHBOR_DAILY_LIMIT = 10;
 /** 入力の文の長さの上限（文字の数）。 */
 export const NEIGHBOR_MAX_INPUT = 2000;
 /** Claude の返事の長さの上限（文字の数）。超えたら雛形に戻す。 */
@@ -37,6 +39,9 @@ const AUDIENCES: ReadonlySet<unknown> = new Set<NeighborAudience>(["meeting", "c
 export function buildNeighborUser(measures: string, audience: NeighborAudience): string {
   return JSON.stringify({ audience, measures });
 }
+
+/** Claude を呼ばなかった理由。月の予算の停止、予算を読めない、1 日の回数の上限、回数を確かめられない。 */
+export type SkipReason = "budget_stop" | "budget_unavailable" | "daily_limit" | "limit_unavailable";
 
 export interface NeighborDecision {
   farmPart: string;
@@ -52,7 +57,7 @@ export function decideNeighborDraft(
   measures: string,
   audience: NeighborAudience,
   attempt: ReadAttempt<{ message: string }> | null,
-  skipReason: "budget_stop" | "budget_unavailable" = "budget_stop",
+  skipReason: SkipReason = "budget_stop",
 ): NeighborDecision {
   const allowed = neighborAllowedNumbers(measures);
   const template = (failures: string[]): NeighborDecision => ({
@@ -68,7 +73,7 @@ export function decideNeighborDraft(
   if (farmPart === "") failures.push("empty");
   if (Array.from(farmPart).length > NEIGHBOR_MAX_OUTPUT) failures.push("too_long");
   if (/https?:|www\./iu.test(normalizeForMatch(farmPart))) failures.push("url");
-  failures.push(...checkNeighborText(farmPart, allowed).failures);
+  failures.push(...checkNeighborText(farmPart, allowed, { input: measures }).failures);
   if (failures.length > 0) return template(failures);
   return { farmPart, source: "claude", failures: [] };
 }
@@ -87,6 +92,11 @@ export interface NeighborDraftDeps {
   month(now: Date): Promise<UsageMonth>;
   /** 使用量を今月の費用に積む（usage/ への書き込み） */
   record(model: string, usage: TokenUsage, now: Date, settings: RuntimeSettings): Promise<unknown>;
+  /**
+   * その会員の 1 日の分を 1 回確保する。確保できたら true、1 日の上限なら false。
+   * 確認と加算は 1 つの取引（原子的）で行う実装を差し込む。確保した分は Claude が失敗しても戻さない。
+   */
+  reserve(uid: string, now: Date): Promise<boolean>;
   /** 試験で公式の文を差し替えるため。既定は OFFICIAL_GUIDANCE */
   guidance?: readonly OfficialGuidance[];
 }
@@ -119,15 +129,29 @@ export async function handleNeighborDraft(deps: NeighborDraftDeps, caller: Neigh
   const now = deps.now();
   let settings: RuntimeSettings | null = null;
   let stopped: boolean;
-  let skipReason: "budget_stop" | "budget_unavailable" = "budget_stop";
+  let skipReason: SkipReason = "budget_stop";
   try {
     settings = await deps.settings();
-    stopped = decideReadBudget(await deps.month(now), settings, "") === "stop";
+    // soft の上限で止める。読み取り（発生の文書）の予算を残すため、hard までは使わない
+    stopped = isDraftBudgetStopped(await deps.month(now), settings);
   } catch (e) {
     // 予算を読めないときは Claude を呼ばない（上限を越えて使わないため）。雛形は返す
     stopped = true;
     skipReason = "budget_unavailable";
     logger.error("近隣への説明文: 予算を読めませんでした", { error: e instanceof Error ? e.name : "unknown" });
+  }
+  if (!stopped) {
+    // 1 日の回数。確認と加算は deps.reserve の中で原子的に行われる。止まっている日は数えない
+    try {
+      if (!(await deps.reserve(caller.uid, now))) {
+        stopped = true;
+        skipReason = "daily_limit";
+      }
+    } catch (e) {
+      stopped = true;
+      skipReason = "limit_unavailable";
+      logger.error("近隣への説明文: 回数を確かめられませんでした", { error: e instanceof Error ? e.name : "unknown" });
+    }
   }
 
   let attempt: ReadAttempt<{ message: string }> | null = null;

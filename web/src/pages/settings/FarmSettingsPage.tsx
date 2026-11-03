@@ -260,6 +260,9 @@ function FarmSettings() {
       ) : null}
 
       <p>
+        <Link to="/settings/explainer">近隣への説明文を作る</Link>
+      </p>
+      <p>
         <Link to="/privacy">プライバシーの説明</Link>
       </p>
     </div>

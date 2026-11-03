@@ -84,6 +84,9 @@ vi.mock("../auth/callables", () => ({
   redeemInviteCall: vi.fn(),
 }));
 
+const resumeCall = vi.hoisted(() => ({ fn: vi.fn() }));
+vi.mock("./resumeMailCall", () => ({ resumeMailCall: resumeCall.fn }));
+
 import { NEW_FARM_NOTIFY, pickToFarmPatch, savedAtLabel, seasonMonths } from "./farmForm";
 import FarmSettingsPage from "./FarmSettingsPage";
 import NotifySettingsPage from "./NotifySettingsPage";
@@ -93,6 +96,7 @@ let farm: Saved | null;
 let store: RecordStore;
 const saveFarm = vi.fn();
 let nextUpdatedAt = "2026-11-06T10:30:00+09:00";
+let mailStopped = false;
 
 const NOW = new Date("2026-11-06T10:30:00+09:00"); // 今季は 2026
 const dataSource = { mode: "live", now: () => NOW } as unknown as DataSource;
@@ -103,7 +107,12 @@ beforeEach(() => {
   authState.value = { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} };
   farm = { id: "f1", ...farmFixture("u1") };
   nextUpdatedAt = "2026-11-06T10:30:00+09:00";
+  mailStopped = false;
   createInvite.fn.mockReset();
+  resumeCall.fn.mockReset();
+  resumeCall.fn.mockImplementation(async () => {
+    mailStopped = false;
+  });
   saveFarm.mockReset();
   saveFarm.mockImplementation(async (patch: Partial<Farm>) => {
     // 実物の保存と同じく、渡した項目だけを変えて updatedAt を進める
@@ -115,6 +124,7 @@ beforeEach(() => {
     saveFarm,
     listHouses: vi.fn(async () => []), // 鶏舎の欄（M-05）が読む。この試験の対象ではない
     saveHouse: vi.fn(),
+    isMailStopped: vi.fn(async () => mailStopped),
   } as unknown as RecordStore;
 });
 afterEach(cleanup);
@@ -398,6 +408,47 @@ describe("/settings/notify", () => {
     expect(screen.queryByRole("button", { name: /保存/ })).toBeNull();
   });
 
+  it("配信を止めていなければ『配信を止めています』も戻すボタンも出さない", async () => {
+    mount("/settings/notify");
+    await screen.findByRole("button", { name: "知らせの設定を保存" });
+    expect(screen.queryByText("配信を止めています")).toBeNull();
+    expect(screen.queryByRole("button", { name: "配信を再開する" })).toBeNull();
+  });
+
+  it("配信を止めていれば『配信を止めています』と、基準と期限の知らせも止まること、戻すボタンを出す", async () => {
+    mailStopped = true;
+    const { container } = mount("/settings/notify");
+    expect(await screen.findByText("配信を止めています")).toBeTruthy();
+    expect(container.textContent).toContain("基準に当たった知らせと期限の知らせも止まっています");
+    expect(container.textContent).toContain("画面の表示は止まっていません");
+    expect(screen.getByRole("button", { name: "配信を再開する" })).toBeTruthy();
+    expect(findForbiddenPhrases(container.textContent ?? "")).toEqual([]);
+  });
+
+  it("戻すボタンは resumeMail をその農場で呼び、戻ったら表示を消す", async () => {
+    mailStopped = true;
+    mount("/settings/notify");
+    fireEvent.click(await screen.findByRole("button", { name: "配信を再開する" }));
+    await waitFor(() => expect(resumeCall.fn).toHaveBeenCalledWith("f1"));
+    await waitFor(() => expect(screen.queryByText("配信を止めています")).toBeNull());
+    expect(screen.getByText("配信を再開しました")).toBeTruthy();
+  });
+
+  it("戻せなかったら、その旨を出して表示を残す", async () => {
+    mailStopped = true;
+    resumeCall.fn.mockRejectedValue(new Error("x"));
+    mount("/settings/notify");
+    fireEvent.click(await screen.findByRole("button", { name: "配信を再開する" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/戻せませんでした/);
+    expect(screen.getByText("配信を止めています")).toBeTruthy();
+  });
+
+  it("止まっているかを確かめられなくても、設定の画面は使える（止めている表示は出さない）", async () => {
+    mount("/settings/notify", { isMailStopped: vi.fn(async () => Promise.reject(new Error("x"))) });
+    expect(await screen.findByRole("button", { name: "知らせの設定を保存" })).toBeTruthy();
+    expect(screen.queryByText("配信を止めています")).toBeNull();
+  });
+
   it("下に /privacy へのリンクがあり、全文に禁止語がない", async () => {
     const { container } = mount("/settings/notify");
     const link = await screen.findByRole("link", { name: /プライバシー/ });
@@ -411,5 +462,13 @@ describe("農場の所属が複数ある（fail closed）", () => {
     mount(at, { getFarm: vi.fn(async () => Promise.reject(new MultipleFarmsError())) });
     expect((await screen.findByRole("alert")).textContent).toBe("農場の所属が複数あります。運営者に連絡してください");
     expect(screen.queryByRole("button", { name: /保存/ })).toBeNull();
+  });
+});
+
+describe("近隣への説明文への入口（M-19 レビュー指摘 1）", () => {
+  it("農場の設定の画面に、/settings/explainer へのリンクがある", async () => {
+    mount("/settings/farm");
+    const link = await screen.findByRole("link", { name: /近隣への説明文/ });
+    expect(link.getAttribute("href")).toBe("/settings/explainer");
   });
 });

@@ -44,6 +44,8 @@ export function explainFailures(failures: readonly string[]): string[] {
     const [head, ...rest] = f.split(":");
     if (head === "budget_stop") out.add("今月の Claude の利用が上限に達しているため、Claude には頼みませんでした。");
     else if (head === "budget_unavailable") out.add("利用の上限を確かめられなかったため、Claude には頼みませんでした。");
+    else if (head === "daily_limit") out.add("今日はこれ以上作れません。下書きは、1 日 10 回までです。明日、また作れます。入力した文を入れた雛形を出しています。");
+    else if (head === "limit_unavailable") out.add("今日の回数を確かめられなかったため、Claude には頼みませんでした。");
     else if (head === "claude") out.add("Claude から使える返事が来なかったため、雛形にしました。");
     else if (head === "input") {
       const phrase = rest.slice(1).join(":");
@@ -270,6 +272,7 @@ function PeacetimeSection() {
           ))}
         </fieldset>
 
+        <p className="settings-note">下書きは、1 日 10 回まで作れます。</p>
         <p className="explainer-send-notice">{sample ? EXPLAINER_TEXT.sampleNotice : EXPLAINER_TEXT.sendNotice}</p>
         {result ? <p className="settings-note">作り直すと、下の下書きに加えた直しは消えます。</p> : null}
         <p>

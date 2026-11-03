@@ -6,7 +6,8 @@ import type { Case } from "@hpai/shared/types";
 import { ANTHROPIC_API_KEY } from "../secrets";
 import { recordUsage } from "../usage/record";
 import { readRuntimeSettings, readUsageMonth } from "../usage/settings";
-import { handleNeighborDraft } from "./neighborDraft";
+import { reserveNeighborCall } from "./dailyLimit";
+import { NEIGHBOR_DAILY_LIMIT, handleNeighborDraft } from "./neighborDraft";
 import { draftForCase } from "./workerDraft";
 
 /**
@@ -27,10 +28,11 @@ export const draftOnCaseWritten = onDocumentWritten(
 /**
  * `{measures, audience}` → `{farmPart, officialPart, source, failures}`。会員だけ（M-19）。
  * 本人が入力した文だけを Claude に渡す。農場は読まない（handleNeighborDraft は db を受け取らない）。
+ * 会員 1 人は 1 日 10 回まで（取引で数える）。月の費用は soft の上限で止め、同時に動くのは 3 つまで。
  * 1 回の呼び出しが 120 秒に収まるよう、Claude への 1 回は 90 秒、再試行なし（切れても雛形を返せるように）。
  */
 export const draftNeighborExplainer = onCall(
-  { timeoutSeconds: 120, memory: "256MiB", secrets: [ANTHROPIC_API_KEY] },
+  { timeoutSeconds: 120, memory: "256MiB", maxInstances: 3, secrets: [ANTHROPIC_API_KEY] },
   (request) =>
     handleNeighborDraft(
       {
@@ -39,6 +41,7 @@ export const draftNeighborExplainer = onCall(
         settings: readRuntimeSettings,
         month: readUsageMonth,
         record: recordUsage,
+        reserve: (uid, now) => reserveNeighborCall(uid, now, NEIGHBOR_DAILY_LIMIT),
       },
       request.auth ? { uid: request.auth.uid, member: request.auth.token.member === true } : null,
       request.data,

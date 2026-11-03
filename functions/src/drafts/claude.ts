@@ -11,7 +11,8 @@ import type { PrefCode } from "@hpai/shared/types";
 import { decodeMessage, type ReadAttempt } from "../read/claude";
 
 export const DRAFT_MODEL = "claude-sonnet-5-5";
-export const DRAFT_MAX_TOKENS = 16000;
+// 声かけ文は 3 文、説明文の農場の部分も短い。長く出しても捨てるだけなので、払う量を絞る
+export const DRAFT_MAX_TOKENS = 1500;
 
 export const DRAFT_SYSTEM =
   "あなたは養鶏場の経営者が働く人へ送る短い声かけ文を下書きします。渡された事実だけを使います。伝えることは「発生地の近くに行かない」「出勤の前後に消毒と着替え」の 2 つです。3 文以内で、やさしい言葉で書きます。市町村名と日付（M月D日）を入れます。疑いの段階なら「疑い」と書きます。数字を足しません。人の健康について書きません。不安をあおる語を使いません。";

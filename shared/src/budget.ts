@@ -70,3 +70,11 @@ export function decideReadBudget(month: UsageMonth, s: RuntimeSettings, title: s
   if (month.estimatedJpy >= s.softLimitJpy && looksLikeProgressTitle(title)) return "skip_progress";
   return "read";
 }
+
+/**
+ * 下書き（声かけ文、近隣への説明文）を止めるか。soft の上限で止め、読み取り（発生の文書）の予算を残す。
+ * hard まで使い切ると、作品の中心の読み取りが止まるため。境界は含む（>=）。
+ */
+export function isDraftBudgetStopped(month: UsageMonth, s: Pick<RuntimeSettings, "softLimitJpy">): boolean {
+  return month.estimatedJpy >= s.softLimitJpy;
+}

@@ -88,9 +88,40 @@ export function checkWorkerMessage(text: string, f: { muniName: string; date: Is
   return { ok: failures.length === 0, failures };
 }
 
-/** 近隣への説明文（M-19）の検査。声かけ文の核は求めない。 */
-export function checkNeighborText(text: string, allowedNumbers: readonly string[]): CheckResult {
-  const failures = commonFailures(normalizeForMatch(text), allowedNumbers);
+/**
+ * 入力にないのに言い切ってはいけないこと（健康、卵や鶏肉、人への影響、心配はいらない、問題ない）の言い方。
+ * 語の固定リストでは「食べても問題ありません」「ご心配には及びません」などの言い換えが通るので、語の組み合わせの形で探す。
+ * 理由の符号には label（言い回しの種類）だけを入れ、出力の断片は入れない。
+ */
+const ASSURANCES: ReadonlyArray<{ label: string; re: RegExp }> = [
+  { label: "問題ないという言い切り", re: /問題(?:は|も)?(?:ありません|ございません|ない|なし)/u },
+  { label: "大丈夫という言い切り", re: /大丈夫|平気です/u },
+  { label: "差し支えないという言い切り", re: /(?:差し支え|支障)(?:は|も)?(?:ありません|ございません|ない|なし)/u },
+  { label: "心配いらないという言い切り", re: /心配(?:は|には|も)?(?:ありません|ございません|いりません|いらない|要りません|要らない|無用|不要|及びません)|心配する必要|心配なさら|ご?心配なく/u },
+  { label: "影響がないという言い切り", re: /影響(?:は|も)?(?:ありません|ございません|ない|なし|出ません|及びません|ほとんど)|影響を受けません/u },
+  { label: "害がないという言い切り", re: /害(?:は|も)?(?:ありません|ございません|ない)|無害/u },
+  { label: "うつらないという言い切り", re: /(?:うつ|移|感染)(?:る|り)(?:こと|おそれ|恐れ|可能性|心配)(?:は|も)?(?:ありません|ございません|ない|ほとんど)/u },
+  { label: "可能性がないという言い切り", re: /(?:可能性|リスク|おそれ|恐れ|危険性)(?:は|も)?(?:ありません|ございません|ない|なし|ゼロ|ほとんど|低い|低く)/u },
+];
+/** 入力にないのに出たら雛形に戻す話題の語。説明文の農場の部分では、卵や鶏肉、人の健康は書かない。 */
+const OUTSIDE_TOPIC = ["卵", "鶏肉", "人体", "健康", "食べ"] as const;
+
+/**
+ * 近隣への説明文（M-19）の検査。声かけ文の核は求めない。
+ * opts.input を渡すと Claude の返事の検査になる: 入力にない話題の語（卵、鶏肉、人体、健康、食べ）と、入力にない言い切りを落とす。
+ * opts なしは入力の文自体の検査で、話題の語は見ない（言い切りは見る）。
+ */
+export function checkNeighborText(text: string, allowedNumbers: readonly string[], opts?: { input?: string }): CheckResult {
+  const t = normalizeForMatch(text);
+  const failures = commonFailures(t, allowedNumbers);
+  const input = opts?.input === undefined ? null : normalizeForMatch(opts.input);
+  for (const a of ASSURANCES) {
+    const m = a.re.exec(t);
+    if (m && !(input !== null && input.includes(m[0]))) failures.push(`assurance:${a.label}`);
+  }
+  if (input !== null) {
+    for (const w of OUTSIDE_TOPIC) if (t.includes(w) && !input.includes(w)) failures.push(`outside_topic:${w}`);
+  }
   return { ok: failures.length === 0, failures };
 }
 

@@ -296,6 +296,19 @@ describe("見本の農場", () => {
   });
 });
 
+describe("1 日の回数の上限（レビュー指摘 2）", () => {
+  it("上限に当たった結果は『今日はこれ以上作れません』と雛形を出す", async () => {
+    mount();
+    await makeDraft(claudeResult({ source: "template", farmPart: neighborTemplate(MEASURES, "meeting"), failures: ["daily_limit"] }));
+    expect(screen.getByText(/今日はこれ以上作れません/)).toBeTruthy();
+    expect((screen.getByLabelText("農場の部分（直して使えます）") as HTMLTextAreaElement).value).toContain(MEASURES);
+  });
+  it("書く前から『1 日 10 回まで』と書いてある", () => {
+    mount();
+    expect(screen.getByText(/1 日 10 回まで/)).toBeTruthy();
+  });
+});
+
 describe("explainFailures", () => {
   it("理由を、やさしい言葉にする。入力の文の問題は、語だけを示す", () => {
     expect(explainFailures(["budget_stop"])).toEqual(["今月の Claude の利用が上限に達しているため、Claude には頼みませんでした。"]);
@@ -304,6 +317,15 @@ describe("explainFailures", () => {
     expect(out.some((x) => x.includes("書かない言い方"))).toBe(true);
     expect(out.some((x) => x.includes("入力した文に"))).toBe(true);
     expect(out.at(-1)).toBe("気になる言い方: 「安心」");
+  });
+  it("1 日の上限と、回数を確かめられなかったときの理由", () => {
+    expect(explainFailures(["daily_limit"])[0]).toContain("今日はこれ以上作れません");
+    expect(explainFailures(["limit_unavailable"])[0]).toContain("回数を確かめられなかった");
+  });
+  it("言い切りの検査に落ちたときも、返事の断片を出さない", () => {
+    const out = explainFailures(["assurance:問題ないという言い切り", "outside_topic:卵"]).join("");
+    expect(out).toContain("書かない言い方");
+    expect(out).not.toContain("卵");
   });
   it("Claude の返事の断片（数字など）は出さない", () => {
     expect(explainFailures(["unknown_number:43", "unknown_kanji_number:三キロ"]).join("")).not.toMatch(/43|三キロ/u);
