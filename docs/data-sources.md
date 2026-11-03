@@ -51,6 +51,10 @@
 
 - 公式の文（https://maps.gsi.go.jp/development/ichiran.html、確かめた日 2026-11-03）: 「地理院タイルをウェブサイトやソフトウェア、アプリケーション上でリアルタイムに読み込んで利用する場合、地理院タイルは出典の明示のみで申請不要でご利用いただけます。」
 - 出典の書き方（同ページ）: 「国土地理院」または「地理院タイル」等と記載し、地理院タイル一覧ページ（`https://maps.gsi.go.jp/development/ichiran.html`）へのリンクを付ける。画面の帰属表示は `web/src/geo/attribution.ts` の `MAP_ATTRIBUTION`（W-02）に置き、この節と同じ文にする。
+- **画面に常に全文で出す出典（3 つ。`web/src/geo/attribution.ts` の `MAP_ATTRIBUTION`。幅 360px のスマホでも畳まず折り返す）:**
+  1. 地理院タイルに行政区域を追記して掲載（「地理院タイル」は一覧ページ `https://maps.gsi.go.jp/development/ichiran.html` へのリンク）
+  2. Shoreline data is derived from: United States. National Imagery and Mapping Agency. "Vector Map Level 0 (VMAP0)." Bethesda, MD: Denver, CO: The Agency; USGS Information Services, 1997.
+  3. 国土数値情報（行政区域データ）（国土交通省）をもとに作成。形を簡略化（リンク先は N03 の配布ページ `https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html`）
 - 淡色地図の ZL5〜8（500 万分の 1 の小縮尺地図）には、出所の明示を追加する（同ページ）。Vector Map Level 0 の文: Shoreline data is derived from: United States. National Imagery and Mapping Agency. "Vector Map Level 0 (VMAP0)." Bethesda, MD: Denver, CO: The Agency; USGS Information Services, 1997.
 - 標準地図の ZL5〜8 を使う場合は、上に加えて GEBCO と海上保安庁許可の文も要る。本作品は淡色地図（`pale`）を使うので、必要なのは上の VMAP0 の文。
 - アクセス数の上限: 一覧ページには記載が見つからなかった。アクセス数の上限は未確認（確かめた日 2026-11-03）。

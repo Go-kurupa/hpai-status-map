@@ -1,0 +1,231 @@
+import { PREFS } from "@hpai/shared/pref";
+import type { MuniCode, PrefCode, WildBird } from "@hpai/shared/types";
+import { useEffect, useRef, useState } from "react";
+import { feature, mesh } from "topojson-client";
+import type { GeometryCollection, Topology } from "topojson-specification";
+import { MAP_ATTRIBUTION } from "../../geo/attribution";
+import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
+import { AttributionControl, Marker, MlMap } from "../../geo/maplibre";
+import { applyView, applyWildBirds, type ViewTarget } from "./applyView";
+import { hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
+import { baseStyle, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
+import { badgeStates, JAPAN_BOUNDS, MUNI_ZOOM, type SeasonView } from "./seasonView";
+
+export interface MapViewProps {
+  view: SeasonView;
+  wildBirds: readonly WildBird[];
+  failedPrefCodes: readonly PrefCode[];
+  myMuniCode: MuniCode | null;
+  nearMuniCodes: readonly MuniCode[];
+  focus: { kind: "japan" | "muni"; codes: MuniCode[]; nonce: number } | null;
+  pickMode?: boolean;
+  onSelectMuni?: (code: MuniCode) => void;
+  onMapReady?: (map: MlMap) => void;
+}
+
+type Geo = Awaited<ReturnType<typeof loadWebGeoStore>>;
+type Anchors = Awaited<ReturnType<typeof loadPrefAnchors>>;
+type Bounds = [number, number, number, number];
+
+const FIT = { padding: 8 } as const;
+const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
+
+/**
+ * 日本全体から町まで動かせる地図。回転と傾きはできない（設計書 §2）。
+ * 形は最初に 1 度だけ渡し、シーズンの切り替えは filter と paint だけで行う。
+ */
+export default function MapView(props: MapViewProps) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MlMap | null>(null);
+  const latest = useRef(props);
+  latest.current = props;
+  const [ready, setReady] = useState(false);
+  const [geo, setGeo] = useState<{ store: Geo; anchors: Anchors } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [unplaced, setUnplaced] = useState(0);
+  const updateBadges = useRef<(() => void) | null>(null);
+
+  // 1) 地図を作る（1 度だけ）
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    let cancelled = false;
+    const map = new MlMap({
+      container: box,
+      style: baseStyle(),
+      bounds: JAPAN_BOUNDS,
+      fitBoundsOptions: FIT,
+      minZoom: 3,
+      maxZoom: 13,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
+      attributionControl: false, // 既定は幅が狭いと畳むので、全文を出す自前の部品を足す
+    });
+    map.touchZoomRotate.disableRotation();
+    map.keyboard.disableRotation();
+    map.addControl(new AttributionControl({ compact: false, customAttribution: MAP_ATTRIBUTION }), "bottom-right");
+    mapRef.current = map;
+    if (import.meta.env.MODE === "e2e") (window as unknown as { __hpaiMap?: MlMap }).__hpaiMap = map;
+
+    async function init() {
+      try {
+        const [topo, store, anchors] = await Promise.all([loadJapanTopo(), loadWebGeoStore(), loadPrefAnchors()]);
+        if (cancelled) return;
+        const obj = topo.objects["muni"] as GeometryCollection<{ p?: string }>;
+        const munis = feature(topo as Topology, obj);
+        // 県境 = 県が違う市町村の境と、外側の海岸
+        const prefOf = (g: { properties?: unknown }) => (g.properties as { p?: string } | null | undefined)?.p;
+        const prefBorders = mesh(topo as Topology, obj, (a, b) => a === b || prefOf(a) !== prefOf(b));
+
+        for (const [id, color] of [
+          [PAINT.hatchCurrent, PAINT.current],
+          [PAINT.hatchPast, PAINT.past],
+          [PAINT.hatchMuted, PAINT.muted],
+        ] as const) {
+          map.addImage(id, hatchImage(hexToRgb(color)), { pixelRatio: 2 });
+        }
+        map.addImage(IMAGE_IDS.birdScreening, ringImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
+        map.addImage(IMAGE_IDS.birdConfirmed, squareImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
+        map.addSource("muni", { type: "geojson", data: munis, tolerance: 0.3 });
+        map.addSource("pref", { type: "geojson", data: { type: "Feature", properties: {}, geometry: prefBorders } });
+        map.addSource("wild-birds", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        for (const layer of overlayLayers()) map.addLayer(layer);
+
+        map.on("click", (e) => {
+          const hit = map.queryRenderedFeatures(e.point, { layers: ["muni-fill"] })[0];
+          const code = hit?.properties?.["c"];
+          if (typeof code === "string") latest.current.onSelectMuni?.(code);
+        });
+        setGeo({ store, anchors });
+        setReady(true);
+        latest.current.onMapReady?.(map);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    }
+    // スタイルの読み込み完了を待つ（タイルが読めなくても始める）。どちらが先でも 1 度だけ
+    let started = false;
+    const start = () => {
+      if (started) return;
+      started = true;
+      void init();
+    };
+    map.once("styledata", start);
+    map.once("load", start);
+
+    return () => {
+      cancelled = true;
+      mapRef.current = null;
+      map.remove();
+      setReady(false);
+      setGeo(null);
+    };
+  }, []);
+
+  // 2) 層に反映する（filter と paint だけ。形の setData は呼ばない）
+  const failedKey = props.failedPrefCodes.join(",");
+  const nearKey = props.nearMuniCodes.join(",");
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    applyView(map as unknown as ViewTarget, {
+      view: props.view,
+      failedPrefCodes: props.failedPrefCodes,
+      myMuniCode: props.myMuniCode,
+      nearMuniCodes: props.nearMuniCodes,
+    });
+    // failedKey と nearKey が配列の中身の変化を表す
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, props.view, failedKey, props.myMuniCode, nearKey]);
+
+  // 3) 野鳥の点
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !geo) return;
+    const { unplaced: n } = applyWildBirds(map as unknown as ViewTarget, props.wildBirds, (b) => {
+      const entry = b.muniCode ? geo.store.index[b.muniCode] : undefined;
+      return entry ? entry.center : (geo.anchors[b.prefCode] ?? null);
+    });
+    setUnplaced(n);
+  }, [ready, geo, props.wildBirds]);
+
+  // 4) 県のバッジ（Marker は 1 度だけ作り、文字と表示だけを替える）
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !geo) return;
+    const badges = new Map<PrefCode, HTMLButtonElement>();
+    const markers: Marker[] = [];
+    for (const [code, at] of Object.entries(geo.anchors)) {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "pref-badge";
+      el.hidden = true;
+      el.addEventListener("click", () => map.easeTo({ center: at, zoom: MUNI_ZOOM + 0.5 }));
+      markers.push(new Marker({ element: el }).setLngLat(at).addTo(map));
+      badges.set(code, el);
+    }
+    const update = () => {
+      const view = latest.current.view;
+      const shown = new Map(badgeStates(view, map.getZoom()).map((s) => [s.prefCode, s.text]));
+      for (const [code, el] of badges) {
+        const text = shown.get(code);
+        el.hidden = text === undefined;
+        el.classList.toggle("is-past", !view.isCurrent); // 過去のシーズンは段階の色を使わない
+        if (text !== undefined) {
+          el.textContent = text;
+          el.setAttribute("aria-label", `${PREF_NAME.get(code) ?? code} ${text}。押すと拡大します`);
+        }
+      }
+    };
+    update();
+    map.on("zoom", update);
+    updateBadges.current = update;
+    return () => {
+      map.off("zoom", update);
+      updateBadges.current = null;
+      for (const m of markers) m.remove();
+    };
+  }, [ready, geo]);
+  useEffect(() => {
+    updateBadges.current?.();
+  }, [props.view, ready, geo]);
+
+  // 5) 見る場所の指定（nonce が変わるたびに動かす）
+  const nonce = props.focus?.nonce;
+  useEffect(() => {
+    const map = mapRef.current;
+    const f = latest.current.focus;
+    if (!ready || !map || !geo || !f) return;
+    if (f.kind === "japan") {
+      map.fitBounds(JAPAN_BOUNDS, FIT);
+      return;
+    }
+    const boxes = f.codes.map((c) => geo.store.index[c]?.bbox).filter((b): b is Bounds => !!b);
+    if (boxes.length === 0) return;
+    map.fitBounds(
+      [
+        [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1]))],
+        [Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))],
+      ],
+      { padding: 40, maxZoom: 11 },
+    );
+  }, [ready, geo, nonce]);
+
+  useEffect(() => {
+    const canvas = mapRef.current?.getCanvas();
+    if (canvas) canvas.style.cursor = props.pickMode ? "pointer" : "";
+  }, [ready, props.pickMode]);
+
+  return (
+    <div className="map-wrap">
+      <div ref={boxRef} className="map-canvas" role="region" aria-label="発生状況の地図" />
+      {failed ? (
+        <p className="map-error" role="alert">
+          地図の形を読み込めませんでした。ページを読み込み直してください。それまで地図に色がなくても、発生がないとは言えません。
+        </p>
+      ) : null}
+      {unplaced > 0 ? <p className="map-note">場所が分からず、地図に置けなかった野鳥の記録が {unplaced} 件あります。</p> : null}
+    </div>
+  );
+}
