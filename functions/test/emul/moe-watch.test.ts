@@ -102,13 +102,57 @@ describe("今季の PDF", () => {
     expect(f.calls).toEqual([ENTRANCE, PDF1]);
   });
 
-  it("今季の PDF がまだない入口は、確認できたこととして文書を作らず、失敗にも数えない", async () => {
+  it("今季の PDF を一度も見ていない入口は ok にしない（未確認）。文書を作らず、基準も作らない", async () => {
     const { deps, f } = fake({ [ENTRANCE]: entrance([[`${H}/content/000401155.pdf`, "2024-2025年シーズンのサーベイランスの結果・発生状況"]]) });
     const r = await checkMoe(source(), deps);
-    expect(r.ok).toBe(true);
-    expect(r.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(r).toEqual({ ok: false, etag: null, lastModified: null, fingerprint: null });
     expect(await docsNow()).toEqual([]);
     expect(f.calls).toEqual([ENTRANCE]);
+    expect((await stateOf()).seasonPdf).toBeNull();
+  });
+
+  it("今季の PDF を取れたら、季と URL と時刻を基準に残す", async () => {
+    const { deps } = fake({ [ENTRANCE]: entrance([[PDF1, SEASON_TITLE]]), [PDF1]: pdf(PDF1) });
+    await checkMoe(source(), deps);
+    expect((await stateOf()).seasonPdf).toEqual({ season: 2026, href: PDF1, seenAt: expect.stringMatching(/^2026-11-05T12:00:00\+09:00$/) });
+  });
+
+  it("一度見えた今季の PDF が入口から見つからなくなったら失敗。基準は上書きしない。戻れば成功に戻る", async () => {
+    const { deps, f } = fake({ [ENTRANCE]: entrance([[PDF1, SEASON_TITLE]]), [PDF1]: pdf(PDF1) });
+    expect((await checkMoe(source(), deps)).ok).toBe(true);
+    const before = (await stateOf()).seasonPdf;
+    f.pages[ENTRANCE] = entrance([[`${H}/content/000999999.pdf`, "令和８年シーズンの野鳥の発生状況"]]); // 題の形が変わった
+    f.now = new Date("2026-11-06T03:00:00Z");
+    expect((await checkMoe(source(), deps)).ok).toBe(false);
+    expect((await stateOf()).seasonPdf).toEqual(before);
+    expect(await docsNow()).toHaveLength(1);
+    f.pages[ENTRANCE] = entrance([[PDF1, SEASON_TITLE]]);
+    expect((await checkMoe(source(), deps)).ok).toBe(true);
+  });
+
+  it("見えた今季の PDF が取れなくなった（503）ときも基準は残る", async () => {
+    const { deps, f } = fake({ [ENTRANCE]: entrance([[PDF1, SEASON_TITLE]]), [PDF1]: pdf(PDF1) });
+    await checkMoe(source(), deps);
+    const before = (await stateOf()).seasonPdf;
+    expect(before).not.toBeNull();
+    f.pages[PDF1] = { kind: "http_error", status: 503 };
+    expect((await checkMoe(source(), deps)).ok).toBe(false);
+    expect((await stateOf()).seasonPdf).toEqual(before);
+  });
+
+  it("季が替わると、前の季に見えた基準は今季の基準ではない（新しい季の PDF が出るまで未確認、出れば基準を替えて成功）", async () => {
+    const old = `${H}/content/000300000.pdf`;
+    const oldTitle = "令和７（2025）年シーズンの野鳥における鳥インフルエンザ発生状況（令和８年5月31日現在）";
+    const { deps, f } = fake({ [ENTRANCE]: entrance([[old, oldTitle]]), [old]: pdf(old) }, new Date("2026-04-10T03:00:00Z"));
+    expect((await checkMoe(source(), deps)).ok).toBe(true);
+    expect((await stateOf()).seasonPdf).toMatchObject({ season: 2025, href: old });
+    f.now = new Date("2026-06-10T03:00:00Z"); // 2026 季の初め。入口はまだ前の季のまま
+    expect((await checkMoe(source(), deps)).ok).toBe(false);
+    expect((await stateOf()).seasonPdf).toMatchObject({ season: 2025 });
+    f.pages[ENTRANCE] = entrance([[PDF1, SEASON_TITLE], [old, oldTitle]]);
+    f.pages[PDF1] = pdf(PDF1);
+    expect((await checkMoe(source(), deps)).ok).toBe(true);
+    expect((await stateOf()).seasonPdf).toMatchObject({ season: 2026, href: PDF1 });
   });
 
   it("季が変わると前の季の題を選ばない（2026 年 4 月は 2025 季）", async () => {
@@ -158,6 +202,20 @@ describe("報道発表（press）: 新しいものだけ", () => {
     expect((await checkMoe(source(), deps)).ok).toBe(true); // 諦めた後は毎回は取りに行かない
     expect(f.calls.filter((u) => u === P1)).toHaveLength(MAX_LINK_TRIES);
     expect((await docsNow()).map((d) => d.url)).toEqual([PDF1]);
+  });
+
+  it("発表のところに別物（別のページへの転送、鳥インフルの語がない）が返ったら文書にせず、失敗にして印をつけない", async () => {
+    const moved = ok("<html><head><title>環境省トップ</title></head><body><main><p>お知らせ</p><p>鳥インフルエンザ</p></main></body></html>", `${H}/`);
+    const maint = ok("<html><head><title>メンテナンス中</title></head><body><main><p>しばらくお待ちください</p></main></body></html>", P2);
+    const { deps } = fake({
+      [ENTRANCE]: entrance([[PDF1, SEASON_TITLE], [P1, PRESS_TITLE("陰性確定")], [P2, PRESS_TITLE("疑い事例")]]),
+      [PDF1]: pdf(PDF1),
+      [P1]: moved,
+      [P2]: maint,
+    });
+    expect((await checkMoe(source(), deps)).ok).toBe(false);
+    expect((await docsNow()).map((d) => d.url)).toEqual([PDF1]);
+    expect((await stateOf()).hrefs).toEqual([]);
   });
 
   it("環境省の外のリンクは取得しない（要求 0 回）。見えるように失敗に数える", async () => {
