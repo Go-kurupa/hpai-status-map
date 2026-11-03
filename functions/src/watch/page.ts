@@ -187,8 +187,8 @@ export async function queueUnreachable(ctx: LinkCtx, link: { url: string; title:
   );
 }
 
-/** ページのリンクを諦める。リンクの題と URL だけの文書（review_private。読み取りに回さない）を残し、箱に入れる。 */
-async function giveUpLink(ctx: LinkCtx, link: PageLink, why: string): Promise<void> {
+/** リンクを諦める（県のページと環境省の入口が使う）。リンクの題と URL だけの文書（review_private。読み取りに回さない）を残し、箱に入れる。 */
+export async function giveUpLink(ctx: LinkCtx, link: PageLink, why: string): Promise<void> {
   const title = link.text || lastSegment(link.href);
   const body = `${title}\n（このリンクは取得できませんでした: ${why}）\n${link.href}`;
   const stored = await storeDocument({

@@ -127,4 +127,21 @@ describe("runWatch: 見回りの結果が捨てられない", () => {
     await runWatch(deps, firestoreIo(), { pref_fixed: handler });
     expect((await queue()).map((q) => q.id)).toEqual(["doc-dX"]);
   });
+  it("見回りが途中で throw しても、それまでの reviews と missing は箱に入り、確認状況も書かれ、元の例外が投げ直される", async () => {
+    const note: ReviewNote = { url: "https://www.maff.go.jp/j/press/a.html", title: "題", prefCode: null, reason: "unreadable", documentId: "dX" };
+    const miss: MissingNote = { url: "https://www.maff.go.jp/j/press/b.html", prefCode: "33", muniName: "岡山県津山市", nationalNos: [3], date: "2026-11-05" };
+    const { deps } = fake();
+    await seed(prefSource({ id: "a", prefCode: "33", url: URL1, group: 0 }), prefSource({ id: "b", prefCode: "34", url: `${BASE}/page/2.html`, group: 0 }), prefSource({ id: "c", prefCode: "35", url: `${BASE}/page/3.html`, group: 0 }));
+    const boom = new Error("sources の更新に失敗");
+    const real = firestoreIo();
+    const io = { ...real, updateSource: async (id: string, patch: Partial<Source>) => (id === "b" ? Promise.reject(boom) : real.updateSource(id, patch)) };
+    const handler = async (s: Source, _d: unknown, sink: { reviews: ReviewNote[]; missing: MissingNote[] }) => {
+      if (s.id === "a") sink.reviews.push(note);
+      if (s.id === "b") sink.missing.push(miss);
+      return { ok: true, etag: null, lastModified: null, fingerprint: null };
+    };
+    await expect(runWatch(deps, io, { pref_fixed: handler })).rejects.toBe(boom);
+    expect((await queue()).map((q) => q.id).sort()).toEqual(["alert-national_missing-33-3-2026-11-05", "doc-dX"]);
+    expect((await db.collection("watchStatus").get()).size).toBe(47);
+  });
 });

@@ -37,6 +37,20 @@ export function sourcePatch(source: Source, result: CheckResult, now: Date): Par
   return { failureCount: 0, lastCheckedAt: at, lastOkAt: at, etag: result.etag, lastModified: result.lastModified, fingerprint: result.fingerprint };
 }
 
+/**
+ * 見回りが途中で投げた例外。それまでに集めた結果（reviews、missing など）を report に持ち、元の例外を cause に持つ。
+ * 呼び手は report を記録してから cause を投げ直す（途中の失敗で、運営者の箱に入れるはずのものを失わない）。
+ */
+export class TickAbortedError extends Error {
+  constructor(
+    readonly report: TickReport,
+    override readonly cause: unknown,
+  ) {
+    super(`見回りが途中で失敗しました: ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = "TickAbortedError";
+  }
+}
+
 export async function runTick(deps: WatchDeps, io: TickIo, handlers: Handlers): Promise<TickReport> {
   const group = (jstHour(deps.now()) % 3) as 0 | 1 | 2;
   const all = (await io.listSources()).filter((s) => s.enabled);
@@ -63,27 +77,32 @@ export async function runTick(deps: WatchDeps, io: TickIo, handlers: Handlers): 
     return result;
   };
 
-  let seasonChanged = false;
-  for (const source of all.filter((s) => s.group === group)) {
-    const result = await check(source);
-    if (
-      source.kind === "maff_season" &&
-      result !== null &&
-      result.ok &&
-      source.fingerprint !== null &&
-      result.fingerprint !== null &&
-      result.fingerprint !== source.fingerprint
-    ) {
-      seasonChanged = true;
+  // 入口の一覧が読めないときは、まだ集めた結果がない。ここから先の例外は、集めた結果を持たせて投げる
+  try {
+    let seasonChanged = false;
+    for (const source of all.filter((s) => s.group === group)) {
+      const result = await check(source);
+      if (
+        source.kind === "maff_season" &&
+        result !== null &&
+        result.ok &&
+        source.fingerprint !== null &&
+        result.fingerprint !== null &&
+        result.fingerprint !== source.fingerprint
+      ) {
+        seasonChanged = true;
+      }
     }
-  }
 
-  // 今季ページが動いたら、報道発表を次の巡回を待たずに確認する（確定を取りこぼさない）。文書は今季ページからは作らない。
-  if (seasonChanged) {
-    for (const source of all.filter((s) => s.kind === "maff_press" && !ran.has(s.id))) {
-      report.early.push(source.id);
-      await check(source);
+    // 今季ページが動いたら、報道発表を次の巡回を待たずに確認する（確定を取りこぼさない）。文書は今季ページからは作らない。
+    if (seasonChanged) {
+      for (const source of all.filter((s) => s.kind === "maff_press" && !ran.has(s.id))) {
+        report.early.push(source.id);
+        await check(source);
+      }
     }
+  } catch (e) {
+    throw new TickAbortedError(report, e);
   }
   return report;
 }

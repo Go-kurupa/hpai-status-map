@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { DocumentRecord } from "@hpai/shared/read/types";
+import type { DocumentRecord, ReviewItem } from "@hpai/shared/read/types";
 import { bucket, db } from "../../src/admin";
 import { sha256Hex } from "../../src/watch/extract";
 import { checkMoe, type MoeState } from "../../src/watch/moe";
@@ -21,6 +21,7 @@ beforeEach(async () => {
 });
 
 const docsNow = async () => (await db.collection("documents").get()).docs.map((d) => d.data() as DocumentRecord).sort((a, b) => a.url.localeCompare(b.url));
+const queueNow = async () => (await db.collection("reviewQueue").get()).docs.map((d) => d.data() as ReviewItem);
 const stateOf = async (id = "moe1"): Promise<MoeState> => JSON.parse((await bucket().file(`state/pages/${id}.json`).download())[0].toString("utf8")) as MoeState;
 const stateExists = async (id = "moe1") => (await bucket().file(`state/pages/${id}.json`).exists())[0];
 
@@ -197,11 +198,20 @@ describe("報道発表（press）: 新しいものだけ", () => {
     for (let i = 1; i <= MAX_LINK_TRIES; i++) {
       expect((await checkMoe(source(), deps)).ok).toBe(false);
       expect((await stateOf()).hrefs).toEqual(i < MAX_LINK_TRIES ? [] : [P1]);
+      if (i < MAX_LINK_TRIES) expect(await queueNow()).toEqual([]); // 諦める前は箱に入れない
     }
     expect(f.calls.filter((u) => u === P1)).toHaveLength(MAX_LINK_TRIES);
     expect((await checkMoe(source(), deps)).ok).toBe(true); // 諦めた後は毎回は取りに行かない
     expect(f.calls.filter((u) => u === P1)).toHaveLength(MAX_LINK_TRIES);
-    expect((await docsNow()).map((d) => d.url)).toEqual([PDF1]);
+    // 諦めた発表は黙って捨てない: 題と URL だけの文書（review_private。読み取りに回さない）を残し、運営者の箱に doc-<id> を入れる
+    const docs = await docsNow();
+    expect(docs.filter((d) => d.readState !== "review_private").map((d) => d.url)).toEqual([PDF1]);
+    const gave = docs.filter((d) => d.url === P1);
+    expect(gave).toHaveLength(1);
+    expect(gave[0]).toMatchObject({ readState: "review_private", prefCode: null, sourceId: "moe1", title: PRESS_TITLE("陰性確定") });
+    const q = await queueNow();
+    expect(q).toHaveLength(1);
+    expect(q[0]).toMatchObject({ id: `doc-${gave[0]!.id}`, kind: "document", documentId: gave[0]!.id, url: P1, prefCode: null, reasons: ["link_unreachable"], resolvedAt: null });
   });
 
   it("発表のところに別物（別のページへの転送、鳥インフルの語がない）が返ったら文書にせず、失敗にして印をつけない", async () => {

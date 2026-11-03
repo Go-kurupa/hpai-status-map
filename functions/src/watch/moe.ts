@@ -9,7 +9,7 @@ import { hasHpaiWord, normalizeForMatch } from "@hpai/shared/text";
 import type { IsoDateTime, Season, Source } from "@hpai/shared/types";
 import { FAILED, type CheckResult, type Handlers, type WatchDeps } from "./deps";
 import { decodeBody, extractHtml, extractPdfText, fingerprint, sha256Hex } from "./extract";
-import { MAX_LINK_TRIES, MAX_NEW_LINKS_PER_CHECK, loadJson, saveJson, type LinkCtx } from "./page";
+import { MAX_LINK_TRIES, MAX_NEW_LINKS_PER_CHECK, giveUpLink, loadJson, saveJson, type LinkCtx } from "./page";
 import { storeDocument } from "./store";
 
 const MOE_HOST = "www.env.go.jp";
@@ -188,8 +188,9 @@ export async function checkMoe(source: Source, deps: WatchDeps): Promise<CheckRe
     failed = true;
     const n = (state.tries[key] ?? 0) + 1;
     if (n >= MAX_LINK_TRIES) {
+      // 諦める前に、題と URL だけの文書を残して運営者の箱に入れる（黙って捨てない。県のページと同じ形）。箱に入れられなければ throw し、印はつけず次回また試す
+      await giveUpLink(ctx, link, "retry_exhausted");
       hrefs.push(link.href); // 諦める（恒久的に取れないリンクを毎回取りに行かない）
-      logger.warn("環境省の報道発表を取れないまま諦めました", { sourceId: source.id, url: link.href });
     } else {
       tries[key] = n;
     }

@@ -4,7 +4,7 @@ import type { Source, SourceKind } from "@hpai/shared/types";
 import type { FetchOutcome } from "../src/watch/politeFetch";
 import { checkMaffSeason } from "../src/watch/maff";
 import { fingerprint } from "../src/watch/extract";
-import { jstHour, runTick, sourcePatch, type CheckResult, type Handlers, type TickIo, type WatchDeps } from "../src/watch/tick";
+import { jstHour, runTick, sourcePatch, TickAbortedError, type CheckResult, type Handlers, type TickIo, type WatchDeps } from "../src/watch/tick";
 
 function src(id: string, group: 0 | 1 | 2, o: Partial<Source> = {}): Source {
   return {
@@ -102,6 +102,38 @@ describe("runTick: 3 時間で全部を 1 回ずつ", () => {
     expect(patches.find((p) => p.id === "bad")!.patch).toMatchObject({ failureCount: 2 });
     expect(patches.find((p) => p.id === "good")!.patch).toMatchObject({ failureCount: 0 });
     expect(report.checked.map((c) => [c.id, c.ok])).toEqual([["bad", false], ["good", true]]);
+  });
+});
+
+describe("runTick: 途中で throw しても、それまでの結果を失わない", () => {
+  const note = { url: "https://www.maff.go.jp/j/press/a.html", title: "題", prefCode: null, reason: "unreadable", documentId: "dX" } as const;
+  const missing = { url: "https://www.maff.go.jp/j/press/b.html", prefCode: "33", muniName: "岡山県津山市", nationalNos: [3], date: "2026-11-05" } as const;
+
+  it("入口の更新が途中で失敗しても、集めた reviews と missing は TickAbortedError の report に残り、元の例外が cause になる", async () => {
+    const sources = [src("a", 0), src("b", 0), src("c", 0)];
+    const { io, patches } = makeIo(sources);
+    const boom = new Error("Firestore 書込み失敗");
+    const failingIo: TickIo = { ...io, updateSource: async (id, patch) => (id === "b" ? Promise.reject(boom) : io.updateSource(id, patch)) };
+    const handlers: Handlers = {
+      maff_press: async (s, _d, sink) => {
+        if (s.id === "a") sink.reviews.push({ ...note });
+        if (s.id === "b") sink.missing.push({ ...missing, prefCode: "33", nationalNos: [3] });
+        return okResult();
+      },
+    };
+    const err = await runTick(deps(noFetch, at(0)), failingIo, handlers).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TickAbortedError);
+    const aborted = err as TickAbortedError;
+    expect(aborted.cause).toBe(boom);
+    expect(aborted.report.reviews.map((r) => r.documentId)).toEqual(["dX"]);
+    expect(aborted.report.missing.map((m) => m.nationalNos)).toEqual([[3]]);
+    expect(aborted.report.checked.map((c) => c.id)).toEqual(["a"]); // b は更新に失敗したので checked に入らない
+    expect(patches.map((p) => p.id)).toEqual(["a"]); // c は回らない
+  });
+  it("入口の一覧が読めないときは report がまだないので、元の例外のまま投げる", async () => {
+    const boom = new Error("一覧が読めない");
+    const io: TickIo = { listSources: async () => Promise.reject(boom), updateSource: async () => {} };
+    await expect(runTick(deps(noFetch, at(0)), io, {})).rejects.toBe(boom);
   });
 });
 
