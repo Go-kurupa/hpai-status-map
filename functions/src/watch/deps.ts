@@ -22,7 +22,9 @@ export interface ReviewNote {
   url: string;
   title: string;
   prefCode: PrefCode | null;
-  reason: "unreadable" | "ambiguous_case" | "muni_not_found" | "number_conflict";
+  reason: "unreadable" | "ambiguous_case" | "muni_not_found" | "number_conflict" | "title_unclassified";
+  /** 残した文書の id（箱の項目 doc-<id> になる）。 */
+  documentId: string;
 }
 
 /** 国の解除の発表に対応する事例がなかった（national_missing の候補）。 */

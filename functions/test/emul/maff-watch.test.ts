@@ -7,7 +7,7 @@ import type { Case, Source } from "@hpai/shared/types";
 import { db, bucket } from "../../src/admin";
 import { loadGeoStore } from "../../src/geo/loadGeo";
 import type { MissingNote, ReviewNote, TickSink, WatchDeps } from "../../src/watch/deps";
-import { applyNationalConfirmed, applyNationalLift, checkMaffPress, maffHandlers } from "../../src/watch/maff";
+import { applyNationalConfirmed, applyNationalLift, checkMaffPress, checkMaffSeason, maffHandlers } from "../../src/watch/maff";
 import type { FetchOutcome } from "../../src/watch/politeFetch";
 import { firestoreIo, runTick } from "../../src/watch/tick";
 
@@ -199,7 +199,7 @@ describe("確定の発表（疑似患畜の確認）", () => {
     const docs = await docsNow();
     expect(docs).toHaveLength(1);
     expect(docs[0]).toMatchObject({ readState: "pending", caseId: null });
-    expect(s.reviews).toEqual<ReviewNote[]>([{ url: item, title: T_CONFIRMED, prefCode: null, reason: "unreadable" }]);
+    expect(s.reviews).toEqual<ReviewNote[]>([{ url: item, title: T_CONFIRMED, prefCode: null, reason: "unreadable", documentId: docs[0]!.id }]);
   });
 
   it("同じ発表を 2 回見ても、事例も文書も 1 つ。事例は書き直さない", async () => {
@@ -400,11 +400,11 @@ describe("解除の発表を見回りで読む", () => {
     expect((await docsNow())[0]!.caseId).toBe("15227-2025-11-04-1");
   });
 
-  it("対応する事例がなければ事例を作らず、文書は discarded、tick の結果に missing を返す", async () => {
+  it("対応する事例がなければ事例を作らず、文書は review_private で残し（捨てない）、tick の結果に missing を返す", async () => {
     const s = sink();
     await checkMaffPress(pressSource(), makeDeps({ [INDEX_URL]: index, [item]: ok(liftPage(), item) }), s);
     expect(await casesNow()).toEqual([]);
-    expect((await docsNow())[0]).toMatchObject({ readState: "discarded", kind: "zone_lifted", caseId: null });
+    expect((await docsNow())[0]).toMatchObject({ readState: "review_private", kind: "zone_lifted", caseId: null });
     expect(s.missing).toEqual<MissingNote[]>([{ url: item, prefCode: "33", muniName: "津山市", nationalNos: [8], date: "2026-01-21" }]);
   });
 });
@@ -436,5 +436,54 @@ describe("今季ページの指紋が変わった tick", () => {
     expect(savedSeason.fingerprint).not.toBeNull();
     expect(savedSeason.fingerprint).not.toBe("古い指紋");
     expect(((await db.doc("sources/press").get()).data() as Source).lastOkAt).not.toBeNull();
+  });
+});
+
+
+// ── I-01 レビュー 1 の指摘（Important 1〜4）──
+
+describe("200 で中身が別物の国のページは失敗にする（Important 1）", () => {
+  it("報道発表の一覧に報道発表のリンクが 1 本もない（メンテナンスなど）なら ok:false。etag と指紋を更新しない", async () => {
+    const maint = ok(html("ただいまメンテナンス中です", ["しばらくお待ちください"], [["https://www.maff.go.jp/", "トップへ"]]), INDEX_URL);
+    const r = await checkMaffPress(pressSource({ etag: 'W/"old"', fingerprint: "old" }), makeDeps({ [INDEX_URL]: maint }), sink());
+    expect(r).toEqual({ ok: false, etag: null, lastModified: null, fingerprint: null });
+    expect(await docsNow()).toEqual([]);
+  });
+  it("確認と解除の発表が 1 本もない平穏な週でも、報道発表のリンクがあれば ok:true", async () => {
+    const quiet = ok(html("報道発表資料", [], [[`${BASE}251221.html`, "インフルエンザ様疾患による学校の臨時休業について（第23報）"]]), INDEX_URL);
+    expect((await checkMaffPress(pressSource(), makeDeps({ [INDEX_URL]: quiet }), sink())).ok).toBe(true);
+  });
+  it("今季ページに鳥インフルの語がない、または別のページへ転送された（finalUrl が違う）なら ok:false", async () => {
+    const season = pressSource({ id: "season", url: SEASON_URL, kind: "maff_season", fingerprint: "old" });
+    const blank = ok(html("ただいまメンテナンス中です", ["しばらくお待ちください"]), SEASON_URL);
+    expect((await checkMaffSeason(season, makeDeps({ [SEASON_URL]: blank }))).ok).toBe(false);
+    const moved = ok(html("令和8年度 鳥インフルエンザに関する情報", ["新しい発生の情報"]), "https://www.maff.go.jp/index.html");
+    expect((await checkMaffSeason(season, makeDeps({ [SEASON_URL]: moved }))).ok).toBe(false);
+    const good = ok(html("令和8年度 鳥インフルエンザに関する情報", ["新しい発生の情報"]), SEASON_URL);
+    expect((await checkMaffSeason(season, makeDeps({ [SEASON_URL]: good }))).ok).toBe(true);
+  });
+});
+
+describe("題が想定外の HPAI の発表は黙って捨てない（Important 4）", () => {
+  const odd = `${BASE}251230.html`;
+  const T_ODD = "岡山県における高病原性鳥インフルエンザの疑似患畜の確認及び津山市の移動制限の解除について";
+  const idx = () => ok(html("報道発表資料", [], [[odd, T_ODD]]), INDEX_URL);
+
+  it("本文を取って pending の文書にし、運営者の確認の候補（title_unclassified）にする。処理済みの印をつける", async () => {
+    const calls: string[] = [];
+    const s = sink();
+    const page = ok(html(T_ODD, [T_ODD, "令和7年12月30日", "農林水産省"]), odd);
+    const deps = makeDeps({ [INDEX_URL]: idx(), [odd]: page }, calls);
+    expect((await checkMaffPress(pressSource(), deps, s)).ok).toBe(true);
+    const docs = await docsNow();
+    expect(docs).toHaveLength(1);
+    expect(docs[0]).toMatchObject({ url: odd, readState: "pending", kind: null, caseId: null });
+    expect(await casesNow()).toEqual([]);
+    expect(s.reviews).toEqual<ReviewNote[]>([{ url: odd, title: T_ODD, prefCode: null, reason: "title_unclassified", documentId: docs[0]!.id }]);
+    await checkMaffPress(pressSource(), deps, sink());
+    expect(calls.filter((u) => u === odd)).toHaveLength(1);
+  });
+  it("取得に失敗したら入口は失敗にして印をつけない（次の巡回でやり直す）", async () => {
+    expect((await checkMaffPress(pressSource(), makeDeps({ [INDEX_URL]: idx() }), sink())).ok).toBe(false);
   });
 });

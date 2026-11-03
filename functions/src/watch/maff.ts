@@ -4,10 +4,10 @@ import { logger } from "firebase-functions";
 import { applyRead, matchCase, nextCaseId } from "@hpai/shared/cases";
 import { toJstIso } from "@hpai/shared/dates";
 import type { GeoStore, MuniEntry } from "@hpai/shared/geo";
-import { filterMaffItems, parseMaffFarm, parseMaffLift, parseMaffPress, type MaffLift } from "@hpai/shared/read/maff";
+import { filterMaffItems, filterMaffUnclassified, maffPressUrl, parseMaffFarm, parseMaffLift, parseMaffPress, type MaffLift } from "@hpai/shared/read/maff";
 import type { NormalizedRead } from "@hpai/shared/read/types";
 import { seasonOf } from "@hpai/shared/season";
-import { normalizeForMatch } from "@hpai/shared/text";
+import { hasHpaiWord, normalizeForMatch } from "@hpai/shared/text";
 import type { Case, IsoDateTime, MuniCode, PrefCode, Source, StageDates } from "@hpai/shared/types";
 import { bucket, db } from "../admin";
 import { upsertCase } from "../read/upsert";
@@ -186,18 +186,34 @@ export async function applyNationalLift(
 
 const passThrough = (s: Source): CheckResult => ({ ok: true, etag: s.etag, lastModified: s.lastModified, fingerprint: s.fingerprint });
 
-/** 今季ページ。指紋だけを見る（文書は作らない）。変わったら tick が報道発表を前倒しで確認する。 */
+/** 取得したページの最終 URL が、入口の URL と同じホストと経路か（トップへの転送、メンテナンスの別ページを見分ける）。 */
+function samePlace(finalUrl: string, sourceUrl: string): boolean {
+  try {
+    const a = new URL(finalUrl);
+    const b = new URL(sourceUrl);
+    return a.hostname === b.hostname && a.pathname === b.pathname;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 今季ページ。指紋だけを見る（文書は作らない）。変わったら tick が報道発表を前倒しで確認する。
+ * 200 でも、別のページへ転送された、鳥インフルの語が本文にない（メンテナンスなど）ときは失敗にして、指紋を上書きしない。
+ */
 export async function checkMaffSeason(source: Source, deps: WatchDeps): Promise<CheckResult> {
   const o = await deps.fetch(source.url, { etag: source.etag, lastModified: source.lastModified, allowUrl: allowMaff });
   if (o.kind === "not_modified") return passThrough(source);
   if (o.kind !== "ok") return FAILED;
+  if (!samePlace(o.finalUrl, source.url)) return FAILED;
   const page = extractHtml(decodeBody(o.body, o.contentType), o.finalUrl);
+  if (!hasHpaiWord(`${page.title}\n${page.text}`)) return FAILED;
   return { ok: true, etag: o.etag, lastModified: o.lastModified, fingerprint: fingerprint(page.text) };
 }
 
 /** 発表のページを 1 本読み、事例と文書を残す。取得に失敗したら throw（印をつけない）。 */
 async function processItem(
-  item: { url: string; title: string; type: "confirmed" | "movement_lifted" },
+  item: { url: string; title: string; type: "confirmed" | "movement_lifted" | "unclassified" },
   source: Source,
   deps: WatchDeps,
   sink: TickSink,
@@ -217,17 +233,24 @@ async function processItem(
     fetchedAt: o.fetchedAt,
   };
 
+  if (item.type === "unclassified") {
+    // 確認にも解除にも当たらない HPAI の題。推測で読まず、文書として残して運営者に回す（捨てない）
+    const stored = await storeDocument({ ...base, prefCode: null, readState: "pending", kind: null });
+    sink.reviews.push({ url: item.url, title: item.title, prefCode: null, reason: "title_unclassified", documentId: stored.id });
+    return;
+  }
+
   if (item.type === "confirmed") {
     const parsed = parseMaffPress(text);
     if (parsed === null) {
-      sink.reviews.push({ url: item.url, title: item.title, prefCode: null, reason: "unreadable" });
-      await storeDocument({ ...base, prefCode: null, readState: "pending", kind: null });
+      const stored = await storeDocument({ ...base, prefCode: null, readState: "pending", kind: null });
+      sink.reviews.push({ url: item.url, title: item.title, prefCode: null, reason: "unreadable", documentId: stored.id });
       return;
     }
     const r = await applyNationalConfirmed({ parsed, farm: parseMaffFarm(text), url: item.url }, deps);
     if (r.outcome === "review") {
-      sink.reviews.push({ url: item.url, title: item.title, prefCode: parsed.prefCode, reason: r.reason ?? "ambiguous_case" });
-      await storeDocument({ ...base, prefCode: parsed.prefCode, readState: "pending", kind: "confirmed" });
+      const stored = await storeDocument({ ...base, prefCode: parsed.prefCode, readState: "pending", kind: "confirmed" });
+      sink.reviews.push({ url: item.url, title: item.title, prefCode: parsed.prefCode, reason: r.reason ?? "ambiguous_case", documentId: stored.id });
       return;
     }
     await storeDocument({ ...base, prefCode: parsed.prefCode, readState: "published", kind: "confirmed", caseId: r.caseId });
@@ -236,22 +259,29 @@ async function processItem(
 
   const lift = parseMaffLift(text);
   if (lift === null) {
-    sink.reviews.push({ url: item.url, title: item.title, prefCode: null, reason: "unreadable" });
-    await storeDocument({ ...base, prefCode: null, readState: "pending", kind: null });
+    const stored = await storeDocument({ ...base, prefCode: null, readState: "pending", kind: null });
+    sink.reviews.push({ url: item.url, title: item.title, prefCode: null, reason: "unreadable", documentId: stored.id });
     return;
   }
   const r = await applyNationalLift({ lift, url: item.url }, deps);
   if (r.missing.length > 0) {
     sink.missing.push({ url: item.url, prefCode: lift.prefCode, muniName: lift.muniName, nationalNos: r.missing, date: lift.date });
   }
-  // 事例が 1 つ複数でも、文書の caseId は 1 つ。複数の解除は番号の小さい事例の id を持つ。反映できなかった解除は discarded（読み取りに回さない）
+  // 事例が複数でも、文書の caseId は 1 つ。複数の解除は番号の小さい事例の id を持つ。
+  // 対応する事例が 1 つもない解除は、捨てず review_private で残す（読み取りの費用をかけず、運営者の国との突き合わせ national_missing に出る）
   await storeDocument({
     ...base,
     prefCode: lift.prefCode,
-    readState: r.caseIds.length > 0 ? "published" : "discarded",
+    readState: r.caseIds.length > 0 ? "published" : "review_private",
     kind: "zone_lifted",
     caseId: r.caseIds[0] ?? null,
   });
+}
+
+/** 報道発表の個別のページへのリンクか（一覧の index.html は除く）。 */
+function isPressArticle(href: string): boolean {
+  const url = maffPressUrl(href);
+  return url !== null && !new URL(url).pathname.endsWith("/index.html");
 }
 
 /** 国の報道発表。新しい確認と解除の発表だけを取り、定型文から事例を作る。 */
@@ -261,9 +291,15 @@ export async function checkMaffPress(source: Source, deps: WatchDeps, sink: Tick
   if (o.kind !== "ok") return FAILED;
 
   const page = extractHtml(decodeBody(o.body, o.contentType), o.finalUrl);
+  // 200 でも、報道発表のリンクが 1 本もなければ「ニュースなし」ではなく別物のページ（メンテナンスなど）。失敗にして etag と指紋を上書きしない
+  if (!page.links.some((l) => isPressArticle(l.href))) return FAILED;
   const index = await loadIndex();
   let allDone = true;
-  for (const item of filterMaffItems(page.links)) {
+  const items: Array<{ url: string; title: string; type: "confirmed" | "movement_lifted" | "unclassified" }> = [
+    ...filterMaffItems(page.links),
+    ...filterMaffUnclassified(page.links).map((i) => ({ ...i, type: "unclassified" as const })),
+  ];
+  for (const item of items) {
     if (index.processed[item.url] !== undefined) continue;
     try {
       await processItem(item, source, deps, sink);

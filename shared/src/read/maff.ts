@@ -9,43 +9,73 @@ export type MaffItemType = "confirmed" | "movement_lifted";
 
 const HPAI_TITLE = "高病原性鳥インフルエンザ";
 
+/** 題の分類の結果。unclassified は、HPAI の発生に関わりそうなのに確認にも解除にも当てはまらない題（人に回す）。 */
+export type MaffTitleClass = MaffItemType | "unclassified";
+
 /**
- * 国の報道発表の題の分類。
- * 疑似患畜の確認 → confirmed／発生に係る移動制限の解除 → movement_lifted／それ以外（遺伝子解析と NA 亜型の確定、野鳥、
- * 学校の臨時休業、輸入停止、輸出再開）→ null。両方の語がある題は読み違えを避けて null。
+ * 国の報道発表の題の分類（I-01）。
+ * 疑似患畜の確認 → confirmed／発生に係る移動制限の解除 → movement_lifted／
+ * 遺伝子解析と NA 亜型の確定、野鳥、学校の臨時休業、輸入停止、輸出再開 → null。
+ * 両方の語がある題や、「疑似患畜」「移動制限」「区域」の語があるのにどちらにも当たらない題は unclassified
+ * （読み違えを避けて取らず、人に回す。黙って捨てない）。
  */
-export function isMaffOutbreakTitle(title: string): MaffItemType | null {
+export function classifyMaffTitle(title: string): MaffTitleClass | null {
   const t = normalizeForMatch(title);
   if (!t.includes(HPAI_TITLE)) return null;
   if (t.includes("遺伝子解析") || t.includes("NA亜型") || t.includes("野鳥")) return null;
   const confirmed = t.includes("疑似患畜の確認");
   const lifted = t.includes("移動制限の解除");
-  if (confirmed === lifted) return null;
-  return confirmed ? "confirmed" : "movement_lifted";
+  if (confirmed !== lifted) return confirmed ? "confirmed" : "movement_lifted";
+  if (confirmed && lifted) return "unclassified";
+  return t.includes("疑似患畜") || t.includes("移動制限") || t.includes("区域") ? "unclassified" : null;
+}
+
+/** 確認と解除だけを返す（unclassified と null は null）。既存の呼び出しはこちら。 */
+export function isMaffOutbreakTitle(title: string): MaffItemType | null {
+  const c = classifyMaffTitle(title);
+  return c === "unclassified" ? null : c;
 }
 
 const PRESS_HOST = "www.maff.go.jp";
 const PRESS_PATH = "/j/press/";
+
+/** 国の報道発表（https、www.maff.go.jp/j/press/ 配下の .html）のリンクの url。違えば null。fragment は外す。 */
+export function maffPressUrl(href: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(href);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" || u.hostname !== PRESS_HOST || !u.pathname.startsWith(PRESS_PATH) || !u.pathname.endsWith(".html")) return null;
+  u.hash = "";
+  return u.href;
+}
 
 /** 一覧のリンクから、確認と解除の報道発表だけを取り出す。農林水産省の報道発表（https）だけを受け、同じ url は 1 度だけ。 */
 export function filterMaffItems(links: Array<{ href: string; text: string }>): Array<{ url: string; title: string; type: MaffItemType }> {
   const seen = new Set<string>();
   const out: Array<{ url: string; title: string; type: MaffItemType }> = [];
   for (const link of links) {
-    let u: URL;
-    try {
-      u = new URL(link.href);
-    } catch {
-      continue;
-    }
-    if (u.protocol !== "https:" || u.hostname !== PRESS_HOST || !u.pathname.startsWith(PRESS_PATH) || !u.pathname.endsWith(".html")) continue;
+    const url = maffPressUrl(link.href);
+    if (url === null) continue;
     const type = isMaffOutbreakTitle(link.text);
-    if (type === null) continue;
-    u.hash = "";
-    const url = u.href;
-    if (seen.has(url)) continue;
+    if (type === null || seen.has(url)) continue;
     seen.add(url);
     out.push({ url, title: link.text, type });
+  }
+  return out;
+}
+
+/** 確認にも解除にも当たらない HPAI の題（unclassified）の報道発表。取らずに人に回す。 */
+export function filterMaffUnclassified(links: Array<{ href: string; text: string }>): Array<{ url: string; title: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ url: string; title: string }> = [];
+  for (const link of links) {
+    const url = maffPressUrl(link.href);
+    if (url === null || classifyMaffTitle(link.text) !== "unclassified" || seen.has(url)) continue;
+    seen.add(url);
+    out.push({ url, title: link.text });
   }
   return out;
 }

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import * as cheerio from "cheerio";
 import { describe, expect, it } from "vitest";
-import { filterMaffItems, isMaffOutbreakTitle, parseMaffFarm, parseMaffLift, parseMaffPress } from "@hpai/shared/read/maff";
+import { classifyMaffTitle, filterMaffItems, isMaffOutbreakTitle, parseMaffFarm, parseMaffLift, parseMaffPress } from "@hpai/shared/read/maff";
 import { normalizeForMatch } from "@hpai/shared/text";
 import type { HistoryCase } from "@hpai/shared/types";
 import { decodeBody, extractHtml } from "../src/watch/extract";
@@ -33,6 +33,13 @@ describeFixture("国の月別一覧 2510〜2604 の 7 ページ（控え）", [.
     expect(kinds.filter((k) => k === "confirmed")).toHaveLength(24);
     expect(kinds.filter((k) => k === "movement_lifted")).toHaveLength(21);
     expect(kinds.filter((k) => k === null)).toHaveLength(25);
+  });
+
+  it("確認にも解除にも当たらない 25 題の分類（unclassified の件数と題を見える形にする）", () => {
+    const rest = hpaiLinks.filter((l) => isMaffOutbreakTitle(l.text) === null);
+    const unclassified = rest.filter((l) => classifyMaffTitle(l.text) === "unclassified");
+    // 前季の実物では 0 件（遺伝子解析、野鳥、輸入停止、輸出再開などは語で外れる）。増えたら毎シーズン箱が雑音で埋まる
+    expect(unclassified.map((l) => l.text)).toEqual([]);
   });
 
   it("filterMaffItems は確認と解除の 45 本だけを返し、他の題（遺伝子解析、野鳥、輸入停止、輸出再開）を含まない", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterMaffItems, isMaffOutbreakTitle, parseMaffFarm, parseMaffLift, parseMaffPress } from "../src/read/maff";
+import { classifyMaffTitle, filterMaffItems, filterMaffUnclassified, isMaffOutbreakTitle, parseMaffFarm, parseMaffLift, parseMaffPress } from "../src/read/maff";
 
 describe("isMaffOutbreakTitle", () => {
   it("疑似患畜の確認の題は confirmed（国内N例目があってもなくても）", () => {
@@ -255,5 +255,37 @@ describe("parseMaffLift", () => {
     expect(parseMaffLift(liftBody({ lead: "岡山県は、津山市で確認された高病原性鳥インフルエンザに関し、令和8年1月21日をもって、当該移動制限を解除しました。" }))).toBeNull();
     expect(parseMaffLift(liftBody({ lead: "津山市で確認された高病原性鳥インフルエンザ（今シーズン国内8例目）に関し、令和8年1月21日をもって、当該移動制限を解除しました。" }))).toBeNull();
     expect(parseMaffLift(liftBody({ lead: "岡山県は、津山市で確認された高病原性鳥インフルエンザ（今シーズン国内8例目）に関し、当該移動制限を解除しました。" }))).toBeNull();
+  });
+});
+
+describe("classifyMaffTitle: 確認にも解除にも当たらない HPAI の題を黙って捨てない（I-01 レビュー Important 4）", () => {
+  it("確認と解除の語が両方ある題は unclassified（読み違えを避けて人に回す）", () => {
+    expect(classifyMaffTitle("岡山県における高病原性鳥インフルエンザの疑似患畜の確認及び津山市の移動制限の解除について")).toBe("unclassified");
+  });
+  it("疑似患畜、移動制限、区域の語があるのに確認にも解除にも当たらない題は unclassified", () => {
+    expect(classifyMaffTitle("岡山県で発生した高病原性鳥インフルエンザの疑似患畜に係る移動制限区域の変更について")).toBe("unclassified");
+    expect(classifyMaffTitle("北海道における高病原性鳥インフルエンザの疑似患畜の判定について")).toBe("unclassified");
+  });
+  it("確認と解除はこれまでどおり、除外語と無関係な題は null", () => {
+    expect(classifyMaffTitle("岡山県における高病原性鳥インフルエンザの疑似患畜の確認について")).toBe("confirmed");
+    expect(classifyMaffTitle("岡山県津山市で発生した高病原性鳥インフルエンザに係る移動制限の解除について")).toBe("movement_lifted");
+    expect(classifyMaffTitle("北海道で確認された高病原性鳥インフルエンザの疑似患畜の遺伝子解析及びNA亜型の確定について")).toBeNull();
+    expect(classifyMaffTitle("北海道における野鳥の高病原性鳥インフルエンザの疑似患畜の検出について")).toBeNull();
+    expect(classifyMaffTitle("ブラジルからの家きん肉等の輸入一時停止措置の解除について")).toBeNull();
+    expect(classifyMaffTitle("高病原性鳥インフルエンザに関するQ&Aを更新しました")).toBeNull();
+    expect(classifyMaffTitle("口蹄疫の疑似患畜の確認と移動制限の解除について")).toBeNull();
+  });
+  it("isMaffOutbreakTitle は unclassified を null のままにする（既存の分類は変えない）", () => {
+    expect(isMaffOutbreakTitle("岡山県における高病原性鳥インフルエンザの疑似患畜の確認及び津山市の移動制限の解除について")).toBeNull();
+  });
+  it("filterMaffUnclassified は農林水産省の報道発表の url だけを、同じ url は 1 度だけ返す", () => {
+    const t = "岡山県における高病原性鳥インフルエンザの疑似患畜の確認及び津山市の移動制限の解除について";
+    const links = [
+      { href: "https://www.maff.go.jp/j/press/syouan/douei/251220.html", text: t },
+      { href: "https://www.maff.go.jp/j/press/syouan/douei/251220.html#top", text: t },
+      { href: "https://example.jp/j/press/x.html", text: t },
+      { href: "https://www.maff.go.jp/j/press/syouan/douei/251221.html", text: "岡山県における高病原性鳥インフルエンザの疑似患畜の確認について" },
+    ];
+    expect(filterMaffUnclassified(links)).toEqual([{ url: "https://www.maff.go.jp/j/press/syouan/douei/251220.html", title: t }]);
   });
 });
