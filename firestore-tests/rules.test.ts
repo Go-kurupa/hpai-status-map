@@ -69,6 +69,7 @@ beforeEach(async () => {
     await setDoc(doc(db, "documents/d1"), { id: "d1" });
     await setDoc(doc(db, "invites/abc"), { kind: "signup" });
     await setDoc(doc(db, "invites/_attempts/uids/alice"), { count: 1 });
+    await setDoc(doc(db, "invites/_membership/uids/alice"), { farmId: "f1" }); // 1 会員 1 農場の鍵（redeemInvite が書く）
     await setDoc(doc(db, "sentNotices/n1"), { state: "queued" });
     await setDoc(doc(db, "usage/settings"), { softLimitJpy: 2000 });
     await setDoc(doc(db, "somethingElse/x"), { a: 1 });
@@ -306,12 +307,13 @@ describe("公開と非公開", () => {
     await assertFails(deleteDoc(doc(operator(), "reviewQueue/r1")));
   });
 
-  it("sources、documents、invites、_attempts、sentNotices、usage、書かれていない集合は operator でも読めない", async () => {
+  it("sources、documents、invites、_attempts、_membership、sentNotices、usage、書かれていない集合は operator でも読めない", async () => {
     const paths = [
       "sources/s1",
       "documents/d1",
       "invites/abc",
       "invites/_attempts/uids/alice",
+      "invites/_membership/uids/alice",
       "sentNotices/n1",
       "usage/settings",
       "somethingElse/x",

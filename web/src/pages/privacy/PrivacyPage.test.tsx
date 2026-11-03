@@ -42,8 +42,16 @@ const REVIEW_R1_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
   { heading: "消し方", phrase: "同じ農場の会員なら、だれでも農場全体を消せます" },
   { heading: "消し方", phrase: "ログイン用のアカウント（メールアドレス）はこの操作では消えません" },
   { heading: "消し方", phrase: "送ったメールの控えは Gmail に残ります" },
-  { heading: "消し方", phrase: "端末の中の保存は、その端末のブラウザの設定で消してください" },
+  { heading: "消し方", phrase: "端末の中の保存は、その端末のブラウザの設定で消してください" },];
+
+// W-03 の申し送り: 『自分の町』として選んだ町を、端末のブラウザに保存する（src/data/spot.ts の TOWN_KEY。市町村コードの 5 桁だけ）
+const TOWN_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
+  { heading: "保存場所", phrase: "選んだ町は、市町村コード" },
+  { heading: "保存場所", phrase: "市町村コード（5 桁の数字）だけ" },
+  { heading: "保存場所", phrase: "hpai.town.v1" },
+  { heading: "保存場所", phrase: "サーバーには送りません" },
 ];
+
 
 function renderPage(ui = <PrivacyPage />) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
@@ -73,6 +81,16 @@ describe("PRIVACY_NOTICE（文の正）", () => {
   it.each(REVIEW_R1_PHRASES)("『$heading』の節に『$phrase』がある", ({ heading, phrase }) => {
     const section = PRIVACY_NOTICE.find((x) => x.heading === heading)!.paragraphs.join("\n");
     expect(section).toContain(phrase);
+  });
+
+  it.each(TOWN_PHRASES)("『$heading』の節に、選んだ町の保存の説明『$phrase』がある", ({ heading, phrase }) => {
+    const section = PRIVACY_NOTICE.find((x) => x.heading === heading)!.paragraphs.join("\n");
+    expect(section).toContain(phrase);
+  });
+
+  it("選んだ町の保存の説明が、画面にも出る", () => {
+    renderPage();
+    expect(pageText()).toContain("hpai.town.v1");
   });
 
   it("保存場所の節に Firebase（Firestore、Authentication、asia-northeast1）と Gmail がある", () => {
