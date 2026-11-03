@@ -395,7 +395,7 @@ Secret: `ANTHROPIC_API_KEY`、`GMAIL_APP_PASSWORD`、`UNSUBSCRIBE_SECRET`、`OPS
 
 ## 5. 地図のデータ
 
-`data/geo/`（F-06、commit する）: `japan.topo.json`（全国、`1.5%`、表示用）／`pref/NN.topo.json`（県ごと、`interval=30`。**距離の計算は画面でもサーバーでもこれだけ**）／`adjacency.json`（`Record<MuniCode, MuniCode[]>`、簡略化の前の全国の形から）／`muni-index.json`／`pref-anchors.json`／`build-info.json`。オブジェクト名は `muni`、properties は `{c, n, p}`。30m の誤差は 0.85km に含み（半対角の最大約 0.78km と合わせて）、§19 の限界として README と `docs/data-sources.md` に書く。
+`data/geo/`（F-06、commit する）: `japan.topo.json`（全国、`1.5%`、表示用）／`pref/NN.topo.json`（県ごと、`interval=30`。**距離の計算は画面でもサーバーでもこれだけ**）／`adjacency.json`（`Record<MuniCode, MuniCode[]>`、簡略化の前の全国の形から）／`muni-index.json`／`pref-anchors.json`／`build-info.json`。オブジェクト名は `muni`、properties は `{c, n, p}`。簡略化の誤差（実測の最大約 41m、幅 100m 以上の面）は 0.85km に含み（半対角の最大約 0.786km と合わせて 829m）、§19 の限界として README と `docs/data-sources.md` に書く。
 
 W-02 が作り、M-01、再現が使う部品:
 

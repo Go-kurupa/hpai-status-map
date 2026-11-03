@@ -25,7 +25,7 @@ import type {
 
 /** 区域の基準の半径（km）。県の発表がこれより狭くても狭くしない。 */
 export const ZONE_BASE_KM = 10;
-/** メッシュの中心から角まで最大約 0.78km と、形の簡略化の約 30m を覆う誤差（km）。 */
+/** メッシュの中心から角まで最大約 0.786km と、形の簡略化の最大約 41m（幅 100m 以上の面。scripts/test/build-geo.test.ts が build-info.json の実測で確かめる）を覆う誤差（km）。 */
 export const MESH_MARGIN_KM = 0.85;
 /** 確認済みと数える、直近の確認（ok かつ checkedAt）からの時間（§9.7）。未来の時刻は数えない。 */
 const WATCH_FRESH_MS = 6 * 60 * 60 * 1000;
