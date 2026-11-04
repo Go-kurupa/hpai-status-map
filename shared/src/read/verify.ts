@@ -17,6 +17,7 @@ import {
   radiusInQuote,
   relativeDateInQuote,
   valueInQuote,
+  yearlessDateInQuote,
 } from "./quote";
 import type { DocumentKind, NormalizedRead, Quoted, ReadDate, ReadResult, VerifyCheck, VerifyIssue, VerifyReport } from "./types";
 
@@ -37,6 +38,11 @@ const KIND_WORD: Partial<Record<DocumentKind, RegExp>> = {
   zone_lifted: /解除/u,
   negated: new RegExp(`陰性|否定|${NEGATION_PHRASE}`, "u"),
 };
+
+// 処分した羽の数を知らせる語。羽数（headCount）は飼っている羽数なので、引用にこの語があれば採らない（飼養の語があっても、採らない側に倒す）。
+export const CULLED_COUNT_WORD = /殺処分|処分|とう汰|淘汰|埋却/u;
+/** 照合が都道府県を取得元の県で補った印（issues の detail）。compareReads と舞台裏が見る。 */
+export const PREF_FILLED_FROM_SOURCE = "prefecture_filled_from_source";
 
 // 種類と primaryStage の組み合わせ（null は段階なし）。
 const ALLOWED_STAGES: Partial<Record<DocumentKind, ReadonlyArray<CaseStage | null>>> = {
@@ -67,9 +73,14 @@ export function stagesConflict(a: { stage: CaseStage; date: IsoDate }, b: { stag
   return false;
 }
 
+/** シーズン（6/1〜翌 5/31。seasonOf と同じ決まり）の中で、その月が入る年。6〜12 月はシーズンの年、1〜5 月は翌年。 */
+function seasonYearOf(month: number, season: number): number {
+  return month >= 6 ? season : season + 1;
+}
+
 /** 年のない日付をシーズンから補い、実在とシーズンの範囲（6/1〜翌 5/31）を確かめる。範囲外と実在しない日は null。 */
 export function resolveReadDate(d: ReadDate, season: number): { date: IsoDate; completed: boolean } | null {
-  const year = d.year ?? (d.month >= 6 ? season : season + 1);
+  const year = d.year ?? seasonYearOf(d.month, season);
   const date = `${String(year).padStart(4, "0")}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
   try {
     addDays(date, 0);
@@ -95,6 +106,17 @@ const PREF_FORMAL_BY_CODE: ReadonlyMap<PrefCode, string> = new Map(PREFS.map((p)
 /** 引用に、その都道府県の正式名（東京都、京都府のように都道府県の字まで）がある。短縮名の部分一致（京都←東京都）は数えない。 */
 function prefNameInQuote(code: PrefCode, quote: string): boolean {
   return normalizeForMatch(quote).includes(PREF_FORMAL_BY_CODE.get(code) ?? "\u0000");
+}
+
+/**
+ * 値の日付が引用から取り出せるなら、照合に使う日付を返す（取り出せなければ null）。
+ * 引用に年があればその年と合うこと（dateInQuote）。引用が月日だけで、値の年がシーズンから決まる年と同じときも合格にし、
+ * 年は補った扱い（year を null にして返す。resolveReadDate で yearCompleted になる）。指示文が題などから年を補うことを許すため。
+ */
+function matchQuotedDate(d: ReadDate, quote: string, season: number): ReadDate | null {
+  if (dateInQuote(d, quote)) return d;
+  if (d.year === null || d.year !== seasonYearOf(d.month, season) || !yearlessDateInQuote(d, quote)) return null;
+  return { ...d, year: null };
 }
 
 /** 引用に、いずれかの都道府県の正式名がある。 */
@@ -160,7 +182,7 @@ export function verifyRead(
   previous: Case | null,
   /**
    * 呼び出し側が渡す、プログラムが取り出した情報（どちらも省略可）。
-   * sourcePrefCode: 取得元の県（sources.json の prefCode。国の発表のように複数県なら渡さない）。引用に県名がなくても、読みの県と一致すれば都道府県は合格。
+   * sourcePrefCode: 取得元の県（sources.json の prefCode。国の発表のように複数県なら渡さない）。引用に県名がなくても、読みの県と一致すれば都道府県は合格。読みの県が null でも、本文に別の県名がなければこの県で補う。
    * announcedOn: 文書の発表日。引用が「本日」「同日」だけで年月日がないとき、日付の値がこの日と同じなら合格（時刻は引用で照合する）。
    */
   opts: { sourcePrefCode?: PrefCode | null; announcedOn?: IsoDate | null } = {},
@@ -207,7 +229,7 @@ export function verifyRead(
   }
 
   // ── 都道府県、市町村（必須） ──
-  const prefCode = checkPrefecture(read.prefecture, inDoc, mandatoryFail, opts.sourcePrefCode ?? null, issues);
+  const prefCode = checkPrefecture(read.prefecture, inDoc, mandatoryFail, opts.sourcePrefCode ?? null, issues, ndoc);
   const muni = checkMunicipality(read.municipality, prefCode, geo, inDoc, mandatoryFail);
   out.prefCode = prefCode;
   out.muniCode = muni?.code ?? null;
@@ -225,11 +247,12 @@ export function verifyRead(
     mandatoryFail("primaryDate", "quote_exists", "missing_quote");
   } else if (!inDoc(read.primaryDateQuote)) {
     mandatoryFail("primaryDate", "quote_exists", "quote_not_in_document");
-  } else if (!dateInQuote(d, read.primaryDateQuote) && !(opts.announcedOn && relativeDateInQuote(d, read.primaryDateQuote, opts.announcedOn))) {
-    mandatoryFail("primaryDate", "value_in_quote", "date_not_in_quote");
   } else {
-    const r = resolveReadDate(d, doc.season);
-    if (!r) mandatoryFail("primaryDate", "year_completion", "out_of_season_or_invalid");
+    const matched =
+      matchQuotedDate(d, read.primaryDateQuote, doc.season) ?? (opts.announcedOn && relativeDateInQuote(d, read.primaryDateQuote, opts.announcedOn) ? d : null);
+    const r = matched && resolveReadDate(matched, doc.season);
+    if (!matched) mandatoryFail("primaryDate", "value_in_quote", "date_not_in_quote");
+    else if (!r) mandatoryFail("primaryDate", "year_completion", "out_of_season_or_invalid");
     else {
       stamp = { date: r.date, time: d.time };
       if (read.primaryStage !== null && previous) {
@@ -253,7 +276,11 @@ export function verifyRead(
   // ── 任意の項目 ──
   out.nationalNo = checkCount("nationalNo", read.nationalNo, nationalNoInQuote, inDoc, optionalFail);
   out.prefNo = checkCount("prefNo", read.prefNo, prefNoInQuote, inDoc, optionalFail);
-  out.headCount = checkCount("headCount", read.headCount, headCountInQuote, inDoc, optionalFail);
+  if (read.headCount.value !== null && read.headCount.quote !== null && CULLED_COUNT_WORD.test(normalizeForMatch(read.headCount.quote))) {
+    optionalFail("headCount", "value_in_quote", "culled_count_not_flock_size");
+  } else {
+    out.headCount = checkCount("headCount", read.headCount, headCountInQuote, inDoc, optionalFail);
+  }
   out.birdUse = checkText("birdUse", read.birdUse, inDoc, optionalFail);
   out.housing = checkText("housing", read.housing, inDoc, optionalFail);
   out.negationBasis = checkText("negationBasis", read.negationBasis, inDoc, optionalFail);
@@ -271,8 +298,9 @@ export function verifyRead(
   read.estimates.forEach((row, i) => {
     const field = "estimates";
     if (!inDoc(row.quote)) return optionalFail(field, "quote_exists", `row${i}:quote_not_in_document`);
-    if (!dateInQuote(row.date, row.quote)) return optionalFail(field, "value_in_quote", `row${i}:date_not_in_quote`);
-    const r = resolveReadDate(row.date, doc.season);
+    const matched = matchQuotedDate(row.date, row.quote, doc.season);
+    if (!matched) return optionalFail(field, "value_in_quote", `row${i}:date_not_in_quote`);
+    const r = resolveReadDate(matched, doc.season);
     if (!r) return optionalFail(field, "year_completion", `row${i}:out_of_season_or_invalid`);
     completed ||= r.completed;
     est.set(row.target, [...(est.get(row.target) ?? []), r.date]);
@@ -290,8 +318,9 @@ export function verifyRead(
   read.stageEvents.forEach((row, i) => {
     const field = "stageEvents";
     if (!inDoc(row.quote)) return optionalFail(field, "quote_exists", `row${i}:quote_not_in_document`);
-    if (!dateInQuote(row.date, row.quote)) return optionalFail(field, "value_in_quote", `row${i}:date_not_in_quote`);
-    const r = resolveReadDate(row.date, doc.season);
+    const matched = matchQuotedDate(row.date, row.quote, doc.season);
+    if (!matched) return optionalFail(field, "value_in_quote", `row${i}:date_not_in_quote`);
+    const r = resolveReadDate(matched, doc.season);
     if (!r) return optionalFail(field, "year_completion", `row${i}:out_of_season_or_invalid`);
     if (reference.some((ref) => stagesConflict({ stage: row.stage, date: r.date }, ref))) {
       return optionalFail(field, "chronology", `row${i}:conflicts_with_known_stage`);
@@ -348,10 +377,24 @@ function checkKind(read: ReadResult, inDoc: InDoc, fail: Fail): boolean {
  * 都道府県。引用が本文にあり、値が都道府県の名前で、引用にその正式名があること。
  * 引用に都道府県名が 1 つもない（または引用がない）ときだけ、取得元の県（プログラムの情報）と読みの県の一致で合格にする。
  * 引用に別の県名があれば救わない。国の発表（取得元の県なし）では引用に県名が要る。
+ * 値が null（本文に県名がないので読み手が空にした）のときは、本文（ndoc。正規化済み）に取得元の県以外の県名がなければ、
+ * 取得元の県で補う（裁定 Q-a）。補ったことは任意の注記 prefecture_filled_from_source で残す。取得元の県がなければ補わない。
  */
-function checkPrefecture(q: Quoted<string>, inDoc: InDoc, fail: Fail, sourcePrefCode: PrefCode | null, issues: VerifyIssue[]): PrefCode | null {
-  if (q.value === null) return failNull(fail, "prefecture", "value_in_quote", "missing_value");
+function checkPrefecture(
+  q: Quoted<string>,
+  inDoc: InDoc,
+  fail: Fail,
+  sourcePrefCode: PrefCode | null,
+  issues: VerifyIssue[],
+  ndoc: string,
+): PrefCode | null {
   if (q.quote !== null && !inDoc(q.quote)) return failNull(fail, "prefecture", "quote_exists", "quote_not_in_document");
+  if (q.value === null) {
+    const otherPref = PREFS.some((p) => p.code !== sourcePrefCode && ndoc.includes(PREF_FORMAL_BY_CODE.get(p.code)!));
+    if (sourcePrefCode === null || otherPref) return failNull(fail, "prefecture", "value_in_quote", "missing_value");
+    issues.push({ field: "prefecture", check: "value_in_quote", mandatory: false, detail: PREF_FILLED_FROM_SOURCE });
+    return sourcePrefCode;
+  }
   const code = prefCodeOfName(q.value);
   if (code === null) return failNull(fail, "prefecture", "muni_exists", "unknown_prefecture");
   if (q.quote !== null && prefNameInQuote(code, q.quote)) return code;

@@ -169,6 +169,18 @@ describe("toBackstageEntry", () => {
     expect(e.droppedOptional).toEqual([]);
   });
 
+  it("都道府県が null で、取得元の県で補った場合も『落ちた』にしない（補った注記つきで通過）", () => {
+    const read = readA();
+    read.prefecture = q(null, null);
+    const verify = verifyRead(read, { text: TEXT_A, hasTextLayer: true, season: 2025 }, geo, null, { sourcePrefCode: "33" });
+    expect(verify.pass).toBe(true);
+    expect(verify.issues.some((i) => i.detail === "prefecture_filled_from_source")).toBe(true);
+    const e = toBackstageEntry({ id: "t", url: "https://example.test/a", read, second: secondA(), verify, compare: null, docText: TEXT_A });
+    const c = e.checks.find((x) => x.check === "value_in_quote")!;
+    expect(c.pass).toBe(true);
+    expect(c.detail).toContain("補いました");
+  });
+
   it("二重読みがない（失敗した）ときは second が空で compare は null", () => {
     const read = readA();
     const e = toBackstageEntry({ id: "t", url: "https://example.test/a", read, second: null, verify: verifyA(read), compare: null, docText: TEXT_A });

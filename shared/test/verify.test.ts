@@ -582,3 +582,163 @@ describe("verifyRead: 取得元の県の救済の範囲と、地名の部分一�
     expect(go(s2, { prefecture: q("京都", s2), municipality: q("京都市", s2) }).pass).toBe(true); // 値は短くても、引用に正式名がある
   });
 });
+
+// 裁定 Q-a の続き: 県の発表で都道府県が null と読まれたとき、本文に別の県名がなければ取得元の県で補う。
+describe("verifyRead: 都道府県が null のとき取得元の県で補う", () => {
+  const s = "令和7年12月20日午前9時、津山市の養鶏場で、高病原性鳥インフルエンザの疑似患畜を確認しました。";
+  const nullPref = { prefecture: none, municipality: q("津山市", s) };
+  const go = (text: string, opts?: { sourcePrefCode?: string | null }) =>
+    verifyRead(oneSentence(s, nullPref), { text, hasTextLayer: true, season: 2025 }, geo, null, opts);
+  const filled = (r: VerifyReport) => r.issues.find((i) => i.field === "prefecture" && i.detail === "prefecture_filled_from_source");
+
+  it("本文に県名がなく、取得元の県があれば補って合格。補った印が任意の注記で残る", () => {
+    const r = go(s, { sourcePrefCode: "33" });
+    expect(r.pass).toBe(true);
+    expect(r.normalized).toMatchObject({ prefCode: "33", muniCode: "33203", muniName: "津山市" });
+    expect(filled(r)?.mandatory).toBe(false);
+  });
+  it("本文にある県名が取得元の県だけなら補う（部署名などに県名がある県の発表）", () => {
+    const r = go(`岡山県農林水産部\n${s}`, { sourcePrefCode: "33" });
+    expect(r.pass).toBe(true);
+    expect(r.normalized?.prefCode).toBe("33");
+  });
+  it("本文に別の県名があれば補わず不合格", () => {
+    for (const text of [`鳥取県と連携します。\n${s}`, `岡山県農林水産部\n${s}\n鳥取県と連携します。`]) {
+      const r = go(text, { sourcePrefCode: "33" });
+      expect(r.pass).toBe(false);
+      expect(issueOf(r, "prefecture", "value_in_quote")).toMatchObject({ mandatory: true, detail: "missing_value" });
+      expect(r.normalized?.prefCode).toBeNull();
+      expect(filled(r)).toBeUndefined();
+    }
+  });
+  it("国や市のページ（取得元の県なし）は補わない", () => {
+    for (const opts of [undefined, { sourcePrefCode: null }]) {
+      const r = go(s, opts);
+      expect(r.pass).toBe(false);
+      expect(issueOf(r, "prefecture", "value_in_quote")).toMatchObject({ mandatory: true, detail: "missing_value" });
+      expect(r.normalized?.prefCode).toBeNull();
+    }
+  });
+  it("市町村は補った県の中で照合する（鳥取県の取得元に津山市はない）", () => {
+    const r = go(s, { sourcePrefCode: "31" });
+    expect(r.pass).toBe(false);
+    expect(issueOf(r, "municipality", "muni_exists")?.mandatory).toBe(true);
+    expect(r.normalized?.muniCode).toBeNull();
+  });
+  it("値が null でも、本文にない引用があれば補わない", () => {
+    const r = verifyRead(oneSentence(s, { ...nullPref, prefecture: q(null, "どこにもない文") }), { text: s, hasTextLayer: true, season: 2025 }, geo, null, {
+      sourcePrefCode: "33",
+    });
+    expect(r.pass).toBe(false);
+    expect(issueOf(r, "prefecture")?.mandatory).toBe(true);
+  });
+});
+
+// 指示文は題などから年を補うことを許す。引用が月日だけでも、値の年がシーズンから決まる年と同じなら合格。
+describe("verifyRead: 月日だけの引用と、年のある値", () => {
+  const mk = (md: string) => `${md}午前9時、岡山県津山市の養鶏場で、高病原性鳥インフルエンザの疑似患畜を確認しました。`;
+  const primary = (md: string, d: ReadDate, opts?: { announcedOn?: string | null }) => {
+    const s = mk(md);
+    return verifyRead(oneSentence(s, { primaryDate: d }), { text: s, hasTextLayer: true, season: 2025 }, geo, null, opts);
+  };
+
+  it("主の日付: 年がシーズンと合えば合格（12 月は 2025 年、1 月は 2026 年）。年は補った扱い", () => {
+    const r = primary("12月20日", date(2025, 12, 20, "09:00"));
+    expect(r.pass).toBe(true);
+    expect(r.normalized?.primaryStamp).toEqual({ date: "2025-12-20", time: "09:00" });
+    expect(r.normalized?.yearCompleted).toBe(true);
+    const r2 = primary("1月5日", date(2026, 1, 5, "09:00"));
+    expect(r2.pass).toBe(true);
+    expect(r2.normalized?.primaryStamp?.date).toBe("2026-01-05");
+  });
+  it("主の日付: 年がシーズンと合わなければ不合格", () => {
+    for (const d of [date(2026, 12, 20, "09:00"), date(2024, 12, 20, "09:00"), date(2025, 1, 5, "09:00")]) {
+      const r = primary(d.month === 1 ? "1月5日" : "12月20日", d);
+      expect(r.pass).toBe(false);
+      expect(issueOf(r, "primaryDate", "value_in_quote")).toMatchObject({ mandatory: true, detail: "date_not_in_quote" });
+    }
+  });
+  it("主の日付: 引用に別の年が書いてあれば、月日が合っても不合格", () => {
+    const r = primary("令和6年12月20日", date(2025, 12, 20, "09:00"));
+    expect(r.pass).toBe(false);
+    expect(issueOf(r, "primaryDate", "value_in_quote")?.mandatory).toBe(true);
+  });
+  it("主の日付: 月日だけの引用でも、時刻が合わなければ不合格", () => {
+    expect(primary("12月20日", date(2025, 12, 20, "10:00")).pass).toBe(false);
+  });
+  it("「本日」だけの引用と、時刻だけの引用は、今までどおり不合格", () => {
+    const today = "本日９時に国において高病原性鳥インフルエンザの疑似患畜と確定されました。";
+    const timeOnly = "９時に国において高病原性鳥インフルエンザの疑似患畜と確定されました。";
+    for (const kq of [today, timeOnly]) {
+      const text = `津山市において疑われた事例について\n${kq}`;
+      const read = withRead({
+        kindQuote: kq,
+        prefecture: q("岡山県", null),
+        municipality: q("津山市", text.split("\n")[0]!),
+        primaryDate: date(2025, 12, 20, "09:00"),
+        primaryDateQuote: kq,
+        ...bare,
+      });
+      const r = verifyRead(read, { text, hasTextLayer: true, season: 2025 }, geo, null, { sourcePrefCode: "33" });
+      expect(r.pass).toBe(false);
+      expect(issueOf(r, "primaryDate", "value_in_quote")?.mandatory).toBe(true);
+    }
+  });
+  it("段階の出来事と見込み日: 年がシーズンと合えば採り、合わなければ落とす", () => {
+    const ev = "12月21日に殺処分を完了しました。";
+    const es = "1月10日に搬出制限区域を解除する見込みです。";
+    const base = mk("令和7年12月20日");
+    const text = [base, ev, es].join("\n");
+    const go = (evYear: number, esYear: number) =>
+      verifyRead(
+        oneSentence(base, {
+          stageEvents: [{ stage: "culling_done", date: date(evYear, 12, 21), quote: ev }],
+          estimates: [{ target: "shipment", date: date(esYear, 1, 10), quote: es }],
+        }),
+        { text, hasTextLayer: true, season: 2025 },
+        geo,
+        null,
+      );
+    const ok = go(2025, 2026);
+    expect(ok.pass).toBe(true);
+    expect(ok.normalized?.stages.culling_done).toEqual({ date: "2025-12-21", time: null });
+    expect(ok.normalized?.estimates.shipment).toBe("2026-01-10");
+    expect(ok.droppedOptional).toEqual([]);
+    const bad = go(2026, 2025);
+    expect(bad.pass).toBe(true);
+    expect(bad.normalized?.stages.culling_done).toBeUndefined();
+    expect(bad.normalized?.estimates.shipment).toBeNull();
+    expect(bad.droppedOptional.sort()).toEqual(["estimates", "stageEvents"]);
+    expect(bad.issues.filter((i) => i.detail === "row0:date_not_in_quote").length).toBe(2);
+  });
+});
+
+// 処分した羽の数は、飼っている羽数（headCount）として採らない。両方の語がある引用も採らない側に倒す。
+describe("verifyRead: 羽数の引用が処分の数", () => {
+  const go = (quote: string, value: number) => {
+    const text = `${TEXT}\n${quote}`;
+    return verifyRead(withRead({ headCount: q(value, quote) }), { text, hasTextLayer: true, season: 2025 }, geo, null);
+  };
+  it("処分の数の引用（殺処分、処分、とう汰）は採らず、任意の項目として落とす", () => {
+    for (const quote of ["12月21日に殺処分を完了しました（75,137羽）。", "処分羽数 75,137羽（羽数精査中）", "とう汰した羽数は75,137羽です。"]) {
+      const r = go(quote, 75137);
+      expect(r.pass).toBe(true);
+      expect(r.normalized?.headCount).toBeNull();
+      expect(r.droppedOptional).toContain("headCount");
+      expect(issueOf(r, "headCount")?.mandatory).toBe(false);
+    }
+  });
+  it("飼養の引用は今までどおり採る", () => {
+    for (const quote of [S2, "飼養羽数 約7.5万羽", "約7万5千羽を飼養しています。"]) {
+      const value = quote === S2 ? 430000 : 75000;
+      const r = go(quote, value);
+      expect(r.normalized?.headCount).toBe(value);
+      expect(r.droppedOptional).not.toContain("headCount");
+    }
+  });
+  it("処分と飼養の両方がある引用は採らない", () => {
+    const r = go("飼養羽数約7.5万羽のうち、75,000羽の殺処分を完了しました。", 75000);
+    expect(r.normalized?.headCount).toBeNull();
+    expect(r.droppedOptional).toContain("headCount");
+  });
+});

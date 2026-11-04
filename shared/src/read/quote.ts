@@ -133,6 +133,16 @@ export function dateInQuote(d: ReadDate, quote: string): boolean {
 }
 
 /**
+ * 引用に年のない月日（「12月20日」「12/20」）があり、値の月日と合う。値の年は見ない（呼び出し側がシーズンの年と比べる）。
+ * 同じ月日に別の年が書いてあれば数えない。値に時刻があれば、引用の時刻とも合うこと。
+ */
+export function yearlessDateInQuote(d: ReadDate, quote: string): boolean {
+  const same = dateCandidates(prep(quote)).filter((c) => c.month === d.month && c.day === d.day);
+  if (!same.some((c) => c.year === null) || same.some((c) => c.year !== null && c.year !== d.year)) return false;
+  return d.time === null || timeInQuote(d.time, quote);
+}
+
+/**
  * 「本日」「同日」で日を指し、年月日が引用のどこにも書かれていない。
  * その日付は、呼び出し側が文書から取り出した発表日で決める（引用の中では決まらない）。
  */

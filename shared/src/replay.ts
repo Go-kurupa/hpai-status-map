@@ -211,6 +211,7 @@ export const BACKSTAGE_WORD_MAX = 20;
 const OMITTED = "（長い文なので載せません）";
 const GUARD = 20;
 const FROM_SOURCE = "prefecture_from_source";
+const FILLED_FROM_SOURCE = "prefecture_filled_from_source"; // verify.ts の PREF_FILLED_FROM_SOURCE と同じ
 
 /** 本文（正規化後）の連続 20 字の集合。値や詳細がこれを含めば、本文の写しになる */
 function runSet(docText: string): Set<string> {
@@ -320,9 +321,13 @@ export function toBackstageEntry(i: {
   for (const check of CHECK_ORDER) {
     if (!applied.has(check)) continue;
     const all = i.verify.issues.filter((x) => x.check === check);
-    // 引用に県名がなく、取得元の県（プログラムの情報）と一致して通した注記は、落ちたのではない
-    const issues = all.filter((x) => x.detail !== FROM_SOURCE);
-    const note = all.length > issues.length ? "都道府県は、引用に県名がなかったので、取得元の県（プログラムの情報）と一致したことで通しました" : null;
+    // 引用に県名がなく、取得元の県（プログラムの情報）と一致して通した注記、本文に県名がなく取得元の県で補った注記は、落ちたのではない
+    const issues = all.filter((x) => x.detail !== FROM_SOURCE && x.detail !== FILLED_FROM_SOURCE);
+    const note = all.some((x) => x.detail === FILLED_FROM_SOURCE)
+      ? "都道府県は、読み取りが空で、本文に別の県名もなかったので、取得元の県（プログラムの情報）で補いました"
+      : all.some((x) => x.detail === FROM_SOURCE)
+        ? "都道府県は、引用に県名がなかったので、取得元の県（プログラムの情報）と一致したことで通しました"
+        : null;
     const detail =
       issues.length === 0
         ? (note ?? "問題なし")

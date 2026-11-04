@@ -314,7 +314,7 @@ export async function runBackstage(argv: string[], deps: BackstageDeps): Promise
     const vdoc = { text: loaded.text, hasTextLayer: loaded.hasTextLayer, season: REPLAY_SEASON };
     const opts = { sourcePrefCode: doc.sourcePrefCode, announcedOn: doc.announcedOn };
     const verify = verifyRead(read, vdoc, geo, previous, opts);
-    const compare = compareReads(read, second);
+    const compare = compareReads(read, second, verify);
 
     // scenario の出来事に結びつく文書だけが、scenario と食い違えば止める。出来事のない文書（進捗報、市のページ）は、
     // 食い違いを記録して続ける（読み切れなかったことも、舞台裏に正直に出す）
@@ -338,7 +338,7 @@ export async function runBackstage(argv: string[], deps: BackstageDeps): Promise
     if (entry.tamperedDemo === null && !compareDemo && compare.match && read.municipality.value !== null) {
       const other = otherMuniName(scenario, read.municipality.value);
       if (other !== null) {
-        const c = compareReads(read, tamperSecondMuni(second, other));
+        const c = compareReads(read, tamperSecondMuni(second, other), verify);
         if (!c.match && c.mismatches.includes("municipality")) {
           entry = { ...entry, tamperedDemo: { field: "municipality", before: second.municipality ?? read.municipality.value, after: other, rejectedBy: "compare" } };
           compareDemo = true;

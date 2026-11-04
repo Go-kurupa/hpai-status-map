@@ -4,7 +4,8 @@
 import { prefCodeOfName } from "../pref";
 import { normalizeForMatch } from "../text";
 import { muniCoreName } from "./names";
-import type { CompareReport, DocumentKind, MandatoryField, ReadDate, ReadResult, SecondReadResult } from "./types";
+import type { CompareReport, DocumentKind, MandatoryField, ReadDate, ReadResult, SecondReadResult, VerifyReport } from "./types";
+import { PREF_FILLED_FROM_SOURCE } from "./verify";
 
 const CASE_KINDS: ReadonlySet<DocumentKind> = new Set(["suspected", "confirmed", "progress", "control_done", "zone_lifted", "negated"]);
 
@@ -39,12 +40,23 @@ function sameBirds(a: ReadResult["wildBirds"], b: SecondReadResult["wildBirds"])
   return true;
 }
 
-export function compareReads(primary: ReadResult, second: SecondReadResult): CompareReport {
+/**
+ * 主の都道府県が空で、照合が取得元の県で補った（印がある）ときだけ、補った県で比べる。それ以外は主の読みの値で比べる。
+ */
+function primaryPrefMatches(primary: ReadResult, second: SecondReadResult, verify: Pick<VerifyReport, "issues" | "normalized"> | null): boolean {
+  const filled = primary.prefecture.value === null && verify?.issues.some((i) => i.field === "prefecture" && i.detail === PREF_FILLED_FROM_SOURCE);
+  const code = verify?.normalized?.prefCode ?? null;
+  if (filled && code !== null) return second.prefecture !== null && prefCodeOfName(second.prefecture) === code;
+  return samePref(primary.prefecture.value, second.prefecture);
+}
+
+/** verify は主の読みの照合の結果（省略可）。都道府県を取得元の県で補ったかを見るだけに使う。 */
+export function compareReads(primary: ReadResult, second: SecondReadResult, verify: Pick<VerifyReport, "issues" | "normalized"> | null = null): CompareReport {
   const mismatches: MandatoryField[] = [];
   if (primary.kind !== second.kind || primary.multipleCases !== second.multipleCases) mismatches.push("kind");
   // 家きんの事例の種類は都道府県、市町村、段階、日付を、野鳥は各行を比べる。他県の対策や訓練などは種類だけ。
   if (CASE_KINDS.has(primary.kind)) {
-    if (!samePref(primary.prefecture.value, second.prefecture)) mismatches.push("prefecture");
+    if (!primaryPrefMatches(primary, second, verify)) mismatches.push("prefecture");
     if (!sameMuni(primary.municipality.value, second.municipality)) mismatches.push("municipality");
     if (primary.primaryStage !== second.primaryStage) mismatches.push("primaryStage");
     if (!sameDate(primary.primaryDate, second.primaryDate)) mismatches.push("primaryDate");

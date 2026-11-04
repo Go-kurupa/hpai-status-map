@@ -137,7 +137,8 @@ async function judge(rec: DocumentRecord, deps: PipelineDeps, now: Date, setting
   const second = s.ok ? s.value : null;
   const error = !p.ok ? failureCode(p) : !s.ok ? `second:${failureCode(s)}` : null;
 
-  const compare = read !== null && second !== null ? compareReads(read, second) : null;
+  // 比べ合わせは、照合が都道府県を取得元の県で補ったかを見るので、最初の照合の後に行う（補うかは前の事例に依らない）
+  let compare: CompareReport | null = null;
   let verify: VerifyReport | null = null;
   let judgedKey: string | null = null;
   let redo: Outcome["redo"] = null;
@@ -147,6 +148,7 @@ async function judge(rec: DocumentRecord, deps: PipelineDeps, now: Date, setting
     // announcedOn（発表日）は取得のときに取り出して保存したもの。取り出せなかった（null、古い文書）なら「本日」だけの引用は確認中に回る（安全な側）
     const opts = { sourcePrefCode: await sourcePrefCodeOf(rec), announcedOn: rec.announcedOn ?? null };
     verify = verifyRead(read, doc, deps.geo, null, opts);
+    compare = second !== null ? compareReads(read, second, verify) : null;
     redo = (previous) => {
       const v = verifyRead(read, doc, deps.geo, previous, opts);
       const d = decidePublication({ read, verify: v, compare, hasTextLayer: rec.hasTextLayer, docText, autoPublishEnabled: settings.autoPublishEnabled });

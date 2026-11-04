@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compareReads } from "../src/read/compare";
-import type { ReadDate, ReadResult, SecondReadResult } from "../src/read/types";
+import type { ReadDate, ReadResult, SecondReadResult, VerifyReport } from "../src/read/types";
 
 const date = (year: number | null, month: number, day: number, time: string | null = null): ReadDate => ({ year, month, day, time });
 const none = { value: null, quote: null };
@@ -110,5 +110,28 @@ describe("compareReads: 野鳥", () => {
     expect(compareReads(base, ws([birdS(date(null, 10, 27), null)])).mismatches).toEqual(["wildBirds"]);
     expect(compareReads(base, ws([])).mismatches).toEqual(["wildBirds"]);
     expect(compareReads(base, ws([birdS(date(null, 10, 27), "栗原市"), birdS(date(null, 10, 27), "栗原市")])).mismatches).toEqual(["wildBirds"]);
+  });
+});
+
+// 照合が取得元の県で補った（主の県が空）ときは、補った県で別の読み手と比べる。補っていなければ今までどおり。
+describe("compareReads: 照合で補った都道府県", () => {
+  const nullPref: ReadResult = { ...primary, prefecture: none };
+  const filled = (prefCode: string | null, marked = true): Pick<VerifyReport, "issues" | "normalized"> => ({
+    issues: marked ? [{ field: "prefecture", check: "value_in_quote", mandatory: false, detail: "prefecture_filled_from_source" }] : [],
+    normalized: { prefCode } as VerifyReport["normalized"],
+  });
+  it("補った県と別の読み手の県が同じなら一致", () => {
+    expect(compareReads(nullPref, second, filled("33"))).toEqual({ match: true, mismatches: [] });
+    expect(compareReads(nullPref, { ...second, prefecture: "岡山" }, filled("33")).match).toBe(true);
+  });
+  it("別の読み手が違う県、または空なら食い違い", () => {
+    expect(compareReads(nullPref, { ...second, prefecture: "鳥取県" }, filled("33")).mismatches).toEqual(["prefecture"]);
+    expect(compareReads(nullPref, { ...second, prefecture: null }, filled("33")).mismatches).toEqual(["prefecture"]);
+  });
+  it("補った印がない、照合がない、主の県が空でないときは今までどおり", () => {
+    expect(compareReads(nullPref, second, filled("33", false)).mismatches).toEqual(["prefecture"]);
+    expect(compareReads(nullPref, second).mismatches).toEqual(["prefecture"]);
+    expect(compareReads(nullPref, second, null).mismatches).toEqual(["prefecture"]);
+    expect(compareReads({ ...primary, prefecture: q("鳥取県") }, second, filled("33")).mismatches).toEqual(["prefecture"]);
   });
 });
