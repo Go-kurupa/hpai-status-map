@@ -107,7 +107,7 @@ export default function ResultsPage() {
       </Section>
 
       <p className="replay-hint">
-        <Link to="/">地図にもどる</Link>　<Link to="/replay/backstage">去年の再現の舞台裏を見る</Link>
+        <Link to="/" className="tap-link">地図にもどる</Link>　<Link to="/replay/backstage" className="tap-link">去年の再現の舞台裏を見る</Link>　<Link to="/trends" className="tap-link">全国の傾向</Link>
       </p>
     </div>
   );
@@ -140,7 +140,8 @@ function EvalSection({ src }: { src: Src<EvalSummary> }) {
   return (
     <div>
       <p>時点: {formatAt(s.measuredAt)}</p>
-      <table>
+      <div className="table-scroll">
+      <table className="data-table">
         <thead>
           <tr>
             <th scope="col">項目</th>
@@ -155,13 +156,14 @@ function EvalSection({ src }: { src: Src<EvalSummary> }) {
             return (
               <tr key={name}>
                 <th scope="row">{METRIC_LABEL[name]}</th>
-                <td>{m ? formatMetric(m) : UNMEASURED_METRIC}</td>
+                <td className="num">{m ? formatMetric(m) : UNMEASURED_METRIC}</td>
                 <td>{m?.note ?? ""}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -232,7 +234,8 @@ function CalcSection({ usage, summary }: { usage: MeasuredUsage; summary: EvalSu
 
 function CostTable({ bases, jpyPerUsd, caption }: { bases: ReturnType<typeof costBases>; jpyPerUsd: number; caption: string }) {
   return (
-      <table>
+    <div className="table-scroll">
+      <table className="data-table">
         <caption>{caption}</caption>
         <thead>
           <tr>
@@ -252,9 +255,9 @@ function CostTable({ bases, jpyPerUsd, caption }: { bases: ReturnType<typeof cos
             return (
               <tr key={b.id}>
                 <th scope="row">{b.measured ? `${b.label}。円の額は ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う見積もり（推定）` : b.label}</th>
-                <td>${formatUsd(b.usdPerDocument)}</td>
+                <td className="num">${formatUsd(b.usdPerDocument)}</td>
                 {SCENARIOS.map((c) => (
-                  <td key={c.label}>{formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases: c.cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy)}</td>
+                  <td key={c.label} className="num">{formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases: c.cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy)}</td>
                 ))}
                 <td>{cap === null ? "—" : `1 か月に ${cap} 事例まで${b.id === "assumed" ? "（別の読み手を除く）" : ""}`}</td>
               </tr>
@@ -262,5 +265,6 @@ function CostTable({ bases, jpyPerUsd, caption }: { bases: ReturnType<typeof cos
           })}
         </tbody>
       </table>
+    </div>
   );
 }

@@ -326,4 +326,34 @@ describe("リンク", () => {
     expect(screen.getByRole("link", { name: /地図/ }).getAttribute("href")).toBe("/");
     expect(screen.getByRole("link", { name: /舞台裏/ }).getAttribute("href")).toBe("/replay/backstage");
   });
+
+  it("末尾に全国の傾向へのリンクがあり、3 本とも .tap-link", async () => {
+    await show();
+    const trends = screen.getByRole("link", { name: "全国の傾向" });
+    expect(trends.getAttribute("href")).toBe("/trends");
+    for (const l of [trends, screen.getByRole("link", { name: /地図/ }), screen.getByRole("link", { name: /舞台裏/ })]) expect(l.classList.contains("tap-link")).toBe(true);
+  });
+});
+
+describe("表の見た目（.data-table と .table-scroll）", () => {
+  it("試験の表と費用の表は .data-table で、.table-scroll に入る。数値のセルにだけ .num を付け、文のセルには付けない", async () => {
+    await show({ summary: SUMMARY, usage: MEASURED_USAGE });
+    const tables = screen.getAllByRole("table");
+    expect(tables.length).toBeGreaterThanOrEqual(3);
+    for (const t of tables) {
+      expect(t.classList.contains("data-table")).toBe(true);
+      expect(t.parentElement!.classList.contains("table-scroll")).toBe(true);
+    }
+    // 試験の表: 結果は .num、補足は .num でない
+    const row = within(region(/読み取りの試験/)).getByRole("row", { name: /市町村/ });
+    const cells = row.querySelectorAll("td");
+    expect(cells[0]!.classList.contains("num")).toBe(true);
+    expect(cells[1]!.classList.contains("num")).toBe(false);
+    // 費用の表: 金額は .num、『1 か月に N 事例まで』は .num でない
+    const cost = within(region(/計算/)).getAllByRole("table")[0]!;
+    const cr = cost.querySelectorAll("tbody tr")[0]!.querySelectorAll("td");
+    for (let i = 0; i < cr.length - 1; i++) expect(cr[i]!.classList.contains("num"), cr[i]!.textContent ?? "").toBe(true);
+    expect(cr[cr.length - 1]!.classList.contains("num")).toBe(false);
+    expect(cr[cr.length - 1]!.textContent).toContain("事例まで");
+  });
 });

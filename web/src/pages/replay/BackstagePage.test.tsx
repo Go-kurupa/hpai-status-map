@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import backstageJson from "../../../../data/replay/backstage.json";
 import scenarioJson from "../../../../data/replay/scenario.json";
 import usageJson from "../../../../data/replay/measured-usage.json";
-import BackstagePage from "./BackstagePage";
+import BackstagePage, { detailText } from "./BackstagePage";
 
 afterEach(() => {
   cleanup();
@@ -154,12 +154,17 @@ describe("舞台裏の画面（測った後）", () => {
     expect(readers.textContent).toContain("主の読み手");
     expect(readers.textContent).toContain("別の読み手");
     const checks = section("検査");
-    expect(checks.textContent).toContain("radius_sentence");
+    expect(checks.textContent).toContain("半径が区域の文にある");
+    expect(checks.textContent).not.toMatch(/[a-z]+_[a-z_]+/);
+    expect(checks.textContent).not.toMatch(/radiiKm|primaryDate|stageEvents|row\d/);
     const demo = section("入れ替えた値");
     expect(demo.textContent).toContain("1km");
     expect(demo.textContent).toContain("米子市");
     expect(demo.textContent).toContain("落としました");
     expect(demo.textContent).toContain("確認中に回します");
+    expect(demo.textContent).not.toMatch(/quote_exists|compare|radius_sentence/);
+    expect(demo.textContent).toContain("二つの読み手が食い違い、確認中に回します。");
+    expect(demo.textContent).toContain("検査（半径が区域の文にある）が落としました。");
     expect(within(demo).getAllByRole("listitem").length).toBeGreaterThanOrEqual(2);
   });
 
@@ -174,6 +179,15 @@ describe("舞台裏の画面（測った後）", () => {
     expect(marks[0]!.textContent).toContain("日付");
     expect(marks[0]!.textContent).toContain(reason);
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
+  });
+
+  it("知らない項目は、落とした項目にも照合の停止にも名前を出さない", async () => {
+    const e0 = entry({ droppedOptional: ["estimates"], verifyStopped: { fields: ["estimates"], reason: "理由です" } });
+    await show({ backstage: { ...MEASURED, entries: [e0] }, usage: MEASURED_USAGE });
+    const text = section("検査").textContent ?? "";
+    expect(text).not.toContain("estimates");
+    expect(text).not.toContain("任意の項目で落としたもの");
+    expect(text).toContain("理由です。");
   });
 
   it("費用: 実測のトークン数と、推定費用は『推定』と分かる形", async () => {
@@ -223,6 +237,74 @@ describe("舞台裏の画面（実物の data/replay/）", () => {
     });
     // 止めた文書は『載せません』と出し、通った文書の数と合う
     expect(within(section("検査")).getAllByText(/必須の項目が通らなかったので、載せません/)).toHaveLength(stopped.length);
+  });
+});
+
+describe("detailText（検査に落ちた理由を日本語にする）", () => {
+  it("項目と識別子を日本語にし、rowN は捨て、（注）は残す", () => {
+    expect(detailText("radiiKm: row0:radius_not_in_sentence（任意の項目。落として続行）")).toBe("区域の半径: 半径が区域の文の中にありません（任意の項目。落として続行）");
+    expect(detailText("stageEvents: row0:date_not_in_quote（任意の項目。落として続行）")).toBe("段階の日付: 日付が引用の中にありません（任意の項目。落として続行）");
+    expect(detailText("primaryDate: date_not_in_quote（必須の項目）")).toBe("日付: 日付が引用の中にありません（必須の項目）");
+  });
+  it("複数の部分は ' / ' でつなぎ、置き換えた結果が同じものは 1 回にまとめる", () => {
+    expect(detailText("radiiKm: row0:radius_not_in_sentence（任意の項目。落として続行） / radiiKm: row1:radius_not_in_sentence（任意の項目。落として続行）")).toBe(
+      "区域の半径: 半径が区域の文の中にありません（任意の項目。落として続行）",
+    );
+    expect(detailText("primaryDate: date_not_in_quote（必須の項目） / headCount: culled_count_not_flock_size（任意の項目。落として続行）")).toBe(
+      "日付: 日付が引用の中にありません（必須の項目） / 羽数: 引用の数は処分の数で、飼養の羽数ではありません（任意の項目。落として続行）",
+    );
+  });
+  it("知らない識別子は『検査に落ちました』。知らない項目は項目名を出さない", () => {
+    expect(detailText("headCount: something_new（必須の項目）")).toBe("羽数: 検査に落ちました（必須の項目）");
+    expect(detailText("unknownField: row2:something_new（任意の項目）")).toBe("検査に落ちました（任意の項目）");
+  });
+  it("項目の後ろに対象の接頭が付く形（estimates）も、英語を出さない", () => {
+    expect(detailText("estimates: shipment:estimates_disagree（任意の項目。落として続行）")).toBe("検査に落ちました（任意の項目。落として続行）");
+    expect(detailText("primaryDate: shipment:estimates_disagree（必須の項目）")).toBe("日付: 検査に落ちました（必須の項目）");
+    expect(detailText("形に合わない foo_bar です")).toBe("検査に落ちました");
+  });
+  it("日本語だけの detail はそのまま", () => {
+    expect(detailText("問題なし")).toBe("問題なし");
+  });
+  it("表の 17 個の識別子はすべて日本語に置き換わる", () => {
+    const codes = [
+      "after_announcement", "before_previous_stage", "conflicts_with_known_stage", "culled_count_not_flock_size", "date_not_in_quote", "kind_stage_mismatch",
+      "missing_quote", "missing_value", "name_not_unique_for_filled_prefecture", "no_text_layer", "not_in_prefecture", "out_of_season_or_invalid",
+      "prefecture_name_in_municipality", "quote_not_in_document", "radius_not_in_sentence", "stage_word_not_in_quote", "unknown_prefecture", "value_not_in_quote",
+    ];
+    for (const c of codes) {
+      const t = detailText(`prefecture: ${c}（必須の項目）`);
+      expect(t, c).not.toMatch(/[a-z]+_[a-z_]+/);
+      expect(t, c).not.toContain("検査に落ちました");
+    }
+  });
+  it("実物の backstage.json の detail をすべて通しても、英語の識別子と内部の項目名が残らない", () => {
+    const real = backstageJson as unknown as BackstageFile;
+    let n = 0;
+    for (const e of real.entries) {
+      for (const c of e.checks) {
+        const t = detailText(c.detail);
+        n += 1;
+        expect(t, c.detail).not.toMatch(/[a-z]+_[a-z_]+/);
+        expect(t, c.detail).not.toMatch(/primaryDate|radiiKm|stageEvents|row\d/);
+      }
+    }
+    expect(n).toBeGreaterThan(0);
+  });
+});
+
+describe("舞台裏の画面（実物の検査の一覧と、リンク）", () => {
+  it("検査の一覧に英語の識別子と内部の項目名が出ない", async () => {
+    await show({ backstage: backstageJson, usage: usageJson });
+    const t = section("検査").textContent ?? "";
+    expect(t).not.toMatch(/[a-z]+_[a-z_]+/);
+    expect(t).not.toMatch(/primaryDate|radiiKm|stageEvents|row\d/);
+  });
+  it("末尾に見本の農場で試すリンクがあり、リンクは .tap-link", async () => {
+    await show();
+    const sample = screen.getByRole("link", { name: "見本の農場で試す" });
+    expect(sample.getAttribute("href")).toBe("/sample");
+    for (const l of [sample, screen.getByRole("link", { name: "再現にもどる" }), screen.getByRole("link", { name: /試験の結果を見る/ })]) expect(l.classList.contains("tap-link")).toBe(true);
   });
 });
 

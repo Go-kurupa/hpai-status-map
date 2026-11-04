@@ -59,6 +59,37 @@ const show = () =>
     </MemoryRouter>,
   );
 
+describe("戻る道と表の見た目", () => {
+  it("表は .data-table で .table-scroll に入り、件数のセルは .num", async () => {
+    stub(SUMMARY);
+    show();
+    const table = await screen.findByRole("table");
+    expect(table.classList.contains("data-table")).toBe(true);
+    expect(table.parentElement!.classList.contains("table-scroll")).toBe(true);
+    for (const td of Array.from(table.querySelectorAll("tbody td"))) expect(td.classList.contains("num")).toBe(true);
+  });
+
+  it.each(["missing", "error", "ready"] as const)("%s の分岐の末尾に、地図にもどると試験の結果を見るがあり、.tap-link", async (r) => {
+    stub(r === "ready" ? SUMMARY : r);
+    const { container } = show();
+    await screen.findByRole(r === "ready" ? "table" : r === "error" ? "alert" : "heading", r === "missing" ? { name: /全国の傾向/ } : undefined);
+    const back = within(container).getAllByRole("link", { name: "地図にもどる" });
+    const results = within(container).getAllByRole("link", { name: "試験の結果を見る" });
+    expect(back).toHaveLength(1);
+    expect(results).toHaveLength(1);
+    expect(back[0]!.getAttribute("href")).toBe("/");
+    expect(results[0]!.getAttribute("href")).toBe("/results");
+    expect(back[0]!.classList.contains("tap-link")).toBe(true);
+    expect(results[0]!.classList.contains("tap-link")).toBe(true);
+  });
+
+  it("読み込み中にはリンクを足さない", () => {
+    stub(SUMMARY);
+    const { container } = show();
+    expect(within(container).queryByRole("link", { name: "地図にもどる" })).toBeNull();
+  });
+});
+
 describe("全国の傾向（/trends）", () => {
   it("集計があれば、全国の傾向であること、人が全件を確かめていないこと、時点を出す", async () => {
     stub(SUMMARY);

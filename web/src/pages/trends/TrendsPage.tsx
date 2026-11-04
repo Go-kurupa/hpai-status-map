@@ -2,9 +2,18 @@
 // 読むのは静的ファイル（/trends/summary.json）だけで、Claude も Firestore も呼ばない。
 // 事例や市町村と結びつけない【決定】。集計がまだなければ「準備中です」のまま。
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { Placeholder } from "../../ui/Placeholder";
 import MigrationSection from "./MigrationSection";
 import { parseTrendSummary, type TrendSummary } from "./types";
+
+function BackLinks() {
+  return (
+    <p>
+      <Link to="/" className="tap-link">地図にもどる</Link>　<Link to="/results" className="tap-link">試験の結果を見る</Link>
+    </p>
+  );
+}
 
 type Load = { s: "loading" } | { s: "none" } | { s: "failed" } | { s: "ready"; v: TrendSummary };
 
@@ -57,6 +66,7 @@ export default function TrendsPage() {
       <div>
         <Placeholder title="全国の傾向" />
         <MigrationSection />
+        <BackLinks />
       </div>
     );
   if (state.s === "failed")
@@ -65,6 +75,7 @@ export default function TrendsPage() {
         <h1>全国の傾向</h1>
         <p role="alert">集計を読み込めませんでした。時間をおいて開き直してください。</p>
         <MigrationSection />
+        <BackLinks />
       </div>
     );
 
@@ -82,7 +93,8 @@ export default function TrendsPage() {
         <section key={s.season}>
           <h2>{seasonLabel(s.season)}</h2>
           <p>読めた現地調査の概要: {s.surveyed} 件</p>
-          <table>
+          <div className="table-scroll">
+          <table className="data-table">
             <thead>
               <tr>
                 <th scope="col">項目</th>
@@ -94,12 +106,13 @@ export default function TrendsPage() {
               {s.items.map((i) => (
                 <tr key={i.key}>
                   <th scope="row">{i.label}</th>
-                  <td>{i.issueCount} 件</td>
-                  <td>{i.notMentionedCount} 件</td>
+                  <td className="num">{i.issueCount} 件</td>
+                  <td className="num">{i.notMentionedCount} 件</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </section>
       ))}
 
@@ -115,6 +128,7 @@ export default function TrendsPage() {
       </ul>
 
       <MigrationSection />
+      <BackLinks />
     </div>
   );
 }

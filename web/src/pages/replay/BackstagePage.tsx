@@ -103,6 +103,53 @@ const CHECK_LABEL: Readonly<Record<VerifyCheck, string>> = {
   year_completion: "年を補った日付が実在する",
 };
 
+// 検査に落ちた理由の画面表示。項目は FIELD_LABEL（stageEvents だけ別の表。FIELD_ORDER を変えないため）、識別子は下の表で日本語にする
+const DETAIL_FIELD_LABEL: Readonly<Record<string, string>> = { ...FIELD_LABEL, stageEvents: "段階の日付" };
+const DETAIL_CODE_LABEL: Readonly<Record<string, string>> = {
+  after_announcement: "日付が発表より後です",
+  before_previous_stage: "日付が前の段階より前です",
+  conflicts_with_known_stage: "分かっている段階と食い違います",
+  culled_count_not_flock_size: "引用の数は処分の数で、飼養の羽数ではありません",
+  date_not_in_quote: "日付が引用の中にありません",
+  kind_stage_mismatch: "文書の種類と段階が合いません",
+  missing_quote: "引用がありません",
+  missing_value: "値がありません",
+  name_not_unique_for_filled_prefecture: "市町村の名前だけでは県を決められません",
+  no_text_layer: "文書に文字の情報がありません",
+  not_in_prefecture: "市町村がその県にありません",
+  out_of_season_or_invalid: "シーズンの範囲の外か、実在しない日付です",
+  prefecture_name_in_municipality: "市町村の欄に県の名前が入っています",
+  quote_not_in_document: "引用が文書の中にありません",
+  radius_not_in_sentence: "半径が区域の文の中にありません",
+  stage_word_not_in_quote: "段階を示す語が引用の中にありません",
+  unknown_prefecture: "県を特定できません",
+  value_not_in_quote: "値が引用の中にありません",
+};
+const DETAIL_UNKNOWN = "検査に落ちました";
+// 『field: [rowN: / target:]code（注）』の形。形に合わない部分も、英字の識別子を含めば『検査に落ちました』にし、日本語だけの部分は変えない
+const DETAIL_PART = /^(?:([A-Za-z][A-Za-z0-9]*):\s*)?(?:[a-z][a-z0-9]*:\s*)*([a-z][a-z_]*)(（.*）)?$/u;
+
+/** 検査に落ちた理由（shared が作る英語の識別子まじりの文）を、画面の側で日本語にする。置き換えた結果が同じ部分は 1 回にまとめる */
+export function detailText(detail: string): string {
+  const out: string[] = [];
+  for (const part of detail.split(" / ")) {
+    const m = DETAIL_PART.exec(part.trim());
+    let text = /[a-z]+_[a-z_]+/.test(part) && !m ? DETAIL_UNKNOWN : part;
+    if (m) {
+      const field = m[1] ? DETAIL_FIELD_LABEL[m[1]] : undefined;
+      const code = DETAIL_CODE_LABEL[m[2]!] ?? DETAIL_UNKNOWN;
+      text = `${field ? `${field}: ` : ""}${code}${m[3] ?? ""}`;
+    }
+    if (!out.includes(text)) out.push(text);
+  }
+  return out.join(" / ");
+}
+
+/** 知らない項目は名前を出さず除く */
+function knownFields(fields: readonly string[]): string[] {
+  return fields.flatMap((f) => (DETAIL_FIELD_LABEL[f] ? [DETAIL_FIELD_LABEL[f]] : []));
+}
+
 function valueText(field: string, value: string): string {
   if (field === "kind") return KIND_LABEL[value] ?? value;
   if (field === "primaryStage") return STAGE_LABEL[value] ?? value;
@@ -152,7 +199,7 @@ function BackstageView({ scenario, backstage, usage }: Data) {
         <p className="replay-time">時点: {formatMeasuredAt(backstage.measuredAt)}</p>
         <p>AI が下書きし、プログラムが確かめる。ここは、再現に出てくる文書を事前に読んだ結果です。迷うものは載せず、運営者に知らせます。</p>
         <p className="replay-hint">
-          <Link to="/replay">再現にもどる</Link>
+          <Link to="/replay" className="tap-link">再現にもどる</Link>
         </p>
       </section>
 
@@ -171,18 +218,18 @@ function BackstageView({ scenario, backstage, usage }: Data) {
               <h3>{labelOf(e)}</h3>
               <p>
                 {e.verifyPass ? "必須の項目は通りました。" : "必須の項目が通らなかったので、載せません。"}
-                {e.droppedOptional.length > 0 ? `任意の項目で落としたもの: ${e.droppedOptional.map((f) => FIELD_LABEL[f] ?? f).join("、")}。` : ""}
+                {knownFields(e.droppedOptional).length > 0 ? `任意の項目で落としたもの: ${knownFields(e.droppedOptional).join("、")}。` : ""}
               </p>
               {e.verifyStopped ? (
                 <p className="backstage-stopped" data-testid="verify-stopped">
-                  <strong>照合で止めました（確認中に回しました）</strong>: {e.verifyStopped.fields.map((f) => FIELD_LABEL[f] ?? f).join("、")}。{e.verifyStopped.reason}。
+                  <strong>照合で止めました（確認中に回しました）</strong>: {knownFields(e.verifyStopped.fields).length > 0 ? `${knownFields(e.verifyStopped.fields).join("、")}。` : ""}{e.verifyStopped.reason}。
                   読み取りそのものは期待どおりでしたが、プログラムは確かめられない値を載せません。
                 </p>
               ) : null}
               <ul>
                 {e.checks.map((c) => (
                   <li key={c.check}>
-                    {CHECK_LABEL[c.check]}（{c.check}）: {c.pass ? "通りました" : `落ちました — ${c.detail}`}
+                    {CHECK_LABEL[c.check]}: {c.pass ? "通りました" : `落ちました — ${detailText(c.detail)}`}
                   </li>
                 ))}
               </ul>
@@ -204,7 +251,7 @@ function BackstageView({ scenario, backstage, usage }: Data) {
               return (
                 <li key={e.id}>
                   {labelOf(e)}: {FIELD_LABEL[d.field] ?? d.field}の「{d.before}」を「{d.after}」に入れ替えると、
-                  {d.rejectedBy === "compare" ? "二つの読み手が食い違い（compare）、確認中に回します。" : `検査（${d.rejectedBy}）が落としました。`}
+                  {d.rejectedBy === "compare" ? "二つの読み手が食い違い、確認中に回します。" : `検査（${CHECK_LABEL[d.rejectedBy] ?? "項目の検査"}）が落としました。`}
                   {d.rejectedBy === "radius_sentence" ? "半径は任意の項目なので、落として空にし、ほかの項目は通ります。" : ""}
                 </li>
               );
@@ -231,7 +278,7 @@ function BackstageView({ scenario, backstage, usage }: Data) {
 
       <Section title="試験の結果">
         <p>
-          <Link to="/results">試験の結果を見る</Link>
+          <Link to="/results" className="tap-link">試験の結果を見る</Link>　<Link to="/sample" className="tap-link">見本の農場で試す</Link>
         </p>
       </Section>
     </div>
