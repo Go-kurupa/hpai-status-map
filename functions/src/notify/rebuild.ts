@@ -4,7 +4,7 @@
 import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { diffDays } from "@hpai/shared/dates";
 import type { GeoStore } from "@hpai/shared/geo";
-import { HEALTH_STANDARD_SOURCE_URL, mortalityNotices, planCaseNotices, wildBirdNotices, type Notice, type SentNotice } from "@hpai/shared/notices";
+import { mortalityNotices, selfCheckDueNotice, planCaseNotices, wildBirdNotices, type Notice, type SentNotice } from "@hpai/shared/notices";
 import type { Case, Farm, IsoDate, WildBird } from "@hpai/shared/types";
 
 /** 読んだ記録。state は読んだときの状態（送る直前の読み直しと比べる）。 */
@@ -157,13 +157,7 @@ export async function rebuildNotice(ctx: RebuildContext, rec: QueueRec): Promise
     const due = (typeof farm.selfCheckDue === "object" && farm.selfCheckDue !== null ? farm.selfCheckDue : {})[subjectId];
     const date = isDay(due) ? due : null;
     if (date !== null && diffDays(ctx.today, date) > 0) return { kind: "drop" }; // 期限を過ぎた
-    return {
-      kind: "send",
-      notice: {
-        farmId, uid, subjectId, event, timing: "immediate", level: null, relationKind: null,
-        facts: { muniName: null, prefCode: null, date, sourceUrl: HEALTH_STANDARD_SOURCE_URL }, isCorrection: false,
-      },
-    };
+    return { kind: "send", notice: selfCheckDueNotice(farmId, uid, subjectId, date) };
   }
 
   if (event === "mortality_hit") {

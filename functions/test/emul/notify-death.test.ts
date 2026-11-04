@@ -431,6 +431,18 @@ describe("handleDeathWrite", () => {
     expect(await slotIds()).toEqual([]);
   });
 
+  it("2 つの実行が同時に後始末（settle）しても、両方の印が消えて枠が返る（トランザクションが重ならない）", async () => {
+    const r = "2026-11-05_h1";
+    await db.doc(`farms/f1/hitCounters/${TODAY}`).set({ recordIds: [r], delivered: {}, holders: { [r]: ["a", "b"] } });
+    await Promise.all([
+      settleHitSlot(db, "f1", r, { holder: "a", deliveredUids: [] }),
+      settleHitSlot(db, "f1", r, { holder: "b", deliveredUids: [] }),
+    ]);
+    const d = (await db.doc(`farms/f1/hitCounters/${TODAY}`).get()).data() as { holders: Record<string, string[]>; recordIds: string[] };
+    expect(d.holders[r] ?? []).toEqual([]); // 両方の印が消える（片方が上書きで復活しない）
+    expect(await slotIds()).toEqual([]); // 届いた会員がいないので、枠が返る
+  });
+
   it("上限で止めた知らせの箱への登録が失敗しても、記録は capped のままで、次の回に箱へ登録し直す", async () => {
     await seedFarm("f1", "u1");
     const { deps, mail } = makeDeps();

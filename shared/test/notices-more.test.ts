@@ -5,6 +5,10 @@ import { MORTALITY_TEXT } from "../src/mortality";
 import {
   HEALTH_STANDARD_SOURCE_URL,
   mortalityNotices,
+  normalizeRemindDays,
+  planSelfCheckDue,
+  SELF_CHECK_MAX_MONTHS_PER_RUN,
+  selfCheckMonthsOf,
   renderMorningDigest,
   renderNotice,
   selfCheckDueNotices,
@@ -256,5 +260,76 @@ describe("自己点検の期限と死亡率の基準の知らせの出典", () =
       expect(text).not.toContain("県の発表:");
       expect(text.indexOf("出典:")).toBeLessThan(text.indexOf(FIXED_TEXT.prefContactIsAuthority));
     }
+  });
+});
+
+describe("selfCheckDueNotices: 会員が書ける欄で、送る数を増やせない（N-1）", () => {
+  const SEVEN = { level1: true, level2: true, level3: true, morningDigest: true };
+  const farm = (selfCheckDue: unknown, selfCheckRemindDays: unknown, members = ["u1", "u2"]): F =>
+    farmWithId("f1", "u1", {
+      memberUids: members,
+      unsubscribedUids: [],
+      selfCheckDue: selfCheckDue as Record<string, string>,
+      notify: { ...SEVEN, selfCheckRemindDays } as Farm["notify"],
+    });
+  /** 年 1900〜2299 の 12 か月で 4800 キー。値はどれも実在する日付 */
+  const manyKeys = (day: string): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (let y = 1900; y < 2300; y++) for (let m = 1; m <= 12; m++) out[`${y}-${String(m).padStart(2, "0")}`] = day;
+    return out;
+  };
+
+  it("3100 を超えるキー・日数 100000 でも、1 回に出る期限の知らせは 会員 × 上限の月 以下", () => {
+    const due = { ...manyKeys("2026-11-05"), ...Object.fromEntries(selfCheckMonthsOf("2026-11-03").map((m) => [m, "2026-11-05"])) };
+    expect(Object.keys(due).length).toBeGreaterThan(3100);
+    const plan = planSelfCheckDue(farm(due, 100000), "2026-11-03", []);
+    expect(plan.notices.length).toBeLessThanOrEqual(SELF_CHECK_MAX_MONTHS_PER_RUN * 2);
+    expect(plan.notices.length).toBeGreaterThan(0);
+    // 今季の月だけ（会員が足したほかの年のキーは出ない）
+    expect(plan.notices.every((n) => selfCheckMonthsOf("2026-11-03").includes(n.subjectId))).toBe(true);
+    // 読み飛ばしたキーの数を返す（中身は返さない）
+    expect(plan.skipped).toBeGreaterThanOrEqual(4800 - 8);
+  });
+
+  it("普段の農場（今季の 8 か月分、日数 3）では、これまでどおり出る", () => {
+    const due = Object.fromEntries(selfCheckMonthsOf("2026-11-28").map((m) => [m, `${m}-30`.replace("-02-30", "-02-28").replace("-04-30", "-04-30")]));
+    const plan = planSelfCheckDue(farm(due, 3), "2026-11-28", []);
+    expect(plan.notices.map((n) => [n.uid, n.subjectId, n.facts.date])).toEqual([
+      ["u1", "2026-11", "2026-11-30"],
+      ["u2", "2026-11", "2026-11-30"],
+    ]);
+    expect(plan.skipped).toBe(0);
+  });
+
+  it("期限の早い順に上限の月まで。記録済みの月は上限に数えず、次の月が出る。months には記録済みも入る", () => {
+    const due = { "2026-10": "2026-11-04", "2026-11": "2026-11-05", "2026-12": "2026-11-06" };
+    const f = farm(due, 7, ["u1"]);
+    expect(planSelfCheckDue(f, "2026-11-03", []).notices.map((n) => n.subjectId)).toEqual(["2026-10", "2026-11"]);
+    const plan = planSelfCheckDue(f, "2026-11-03", ["2026-10"]);
+    expect(plan.notices.map((n) => n.subjectId)).toEqual(["2026-11", "2026-12"]);
+    expect(plan.months).toEqual(["2026-10", "2026-11", "2026-12"]);
+  });
+
+  it("壊れた値（数、入れ子、長い文字列、日付でない文字列）は例外にせず読み飛ばし、件数だけ数える", () => {
+    const due = { "2026-11": 5, "2026-12": { a: 1 }, "2027-01": "x".repeat(100000), "2027-02": "2027-13-45", "2027-03": null, "2027-04": ["2027-04-01"], "garbage": "2026-11-05", "2027-05": "2026-11-05" };
+    let plan!: ReturnType<typeof planSelfCheckDue>;
+    expect(() => (plan = planSelfCheckDue(farm(due, 7, ["u1"]), "2026-11-03", []))).not.toThrow();
+    expect(plan.notices.map((n) => n.subjectId)).toEqual(["2027-05"]);
+    expect(plan.skipped).toBe(7);
+  });
+
+  it("日数: 7 を超える整数は 7、整数でない値と負の値は 3、数でない値は出さない", () => {
+    expect([0, 1, 7, 8, 100000].map(normalizeRemindDays)).toEqual([0, 1, 7, 7, 7]);
+    expect([2.5, -1].map(normalizeRemindDays)).toEqual([3, 3]);
+    expect([null, undefined, "3", NaN, Infinity, {}].map(normalizeRemindDays)).toEqual([null, null, null, null, null, null]);
+    // 日数 100000 でも 7 日より先の期限は出ない
+    expect(planSelfCheckDue(farm({ "2026-12": "2026-12-01" }, 100000, ["u1"]), "2026-11-03", []).notices).toEqual([]);
+    expect(planSelfCheckDue(farm({ "2026-11": "2026-11-10" }, 100000, ["u1"]), "2026-11-03", []).notices).toHaveLength(1);
+  });
+
+  it("今季の月は 10 月から翌 5 月の 8 か月。6 月から 9 月も、その年の 10 月からを返す", () => {
+    expect(selfCheckMonthsOf("2026-11-03")).toEqual(["2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05"]);
+    expect(selfCheckMonthsOf("2027-02-01")).toEqual(selfCheckMonthsOf("2026-11-03"));
+    expect(selfCheckMonthsOf("2027-07-01")[0]).toBe("2027-10");
   });
 });

@@ -94,8 +94,10 @@ describe("/results（まだ何も測っていない）", () => {
     expect(region(/読み取りの試験/).textContent).toContain("未実測");
     expect(region(/再現 1 回分/).textContent).toContain("未計測");
     // 未実測でも『時点』と状態を出す（全画面に時点、§15）
-    expect(region(/読み取りの試験/).textContent).toContain("時点: まだ試験を実行していません");
+    expect(region(/読み取りの試験/).textContent).toContain("時点: 試験はまだ実行していません");
+    expect(region(/読み取りの試験/).textContent!.split("試験はまだ実行していません").length - 1).toBe(1); // 重ねて書かない
     expect(region(/再現 1 回分/).textContent).toContain("時点: 未計測");
+    expect(region(/再現 1 回分/).textContent!.split("未計測").length - 1).toBe(1);
     expect(calls.sort()).toEqual(["/evals/summary.json", "/replay/measured-usage.json"]);
   });
 
@@ -200,6 +202,7 @@ describe("/results（読めなかった）", () => {
     );
     await screen.findByText(/読めませんでした/);
     expect(screen.queryByText("試験はまだ実行していません")).toBeNull(); // 読めなかったことを「まだ実行していない」と混ぜない
+    expect(document.body.textContent).toContain("時点: 読み込めませんでした"); // 読めなかったときも『時点』の欄を出す
     stub({ summary: SUMMARY });
     fireEvent.click(screen.getByRole("button", { name: /もう一度/ }));
     await waitFor(() => expect(screen.getByText("24/24 件")).toBeTruthy());

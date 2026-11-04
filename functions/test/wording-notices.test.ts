@@ -13,32 +13,12 @@ import {
   type NoticeEvent,
 } from "@hpai/shared/notices";
 import type { Farm, Level, LevelReasonKind } from "@hpai/shared/types";
-import { normalizeForMatch } from "@hpai/shared/text";
-import { findForbiddenPhrases, FIXED_TEXT } from "@hpai/shared/wording";
+import { findWordingViolations, FIXED_TEXT } from "@hpai/shared/wording";
 import { unsubscribeUrlFor } from "../src/notify/dispatch";
+import { createRebuildContext, rebuildNotice, type QueueRec } from "../src/notify/rebuild";
 import { verifyUnsubscribe } from "../src/notify/unsubscribeSig";
 
 const SECRET = "test-unsubscribe-secret";
-/**
- * 過去の発生について言わないこと（設計書 §11 の表の「言わないこと」）。web/e2e/wording.helper.ts の PAST_NG_PATTERNS と同じ内容。
- * （helper は DOM の型を使う画面の試験の部品で、DOM の型のない tsconfig からは import できないので、写している）
- */
-const PAST_NG: ReadonlyArray<{ label: string; re: RegExp }> = [
-  { label: "また発生しやすい", re: /また発生しやすい/u },
-  { label: "この町も危ない", re: /この町も危ない/u },
-  { label: "隣町からうつる", re: /隣町からうつる/u },
-  { label: "危険地帯", re: /危険地帯/u },
-  { label: "ホットスポット", re: /ホットスポット/u },
-  { label: "X km 以内なら感染確率は Y%", re: /\d+(?:\.\d+)?km以内なら|感染確率は?\d+(?:\.\d+)?%/u },
-  { label: "発生の N 割は農場間", re: /発生の\d+割は農場間/u },
-];
-
-/** 禁句と過去の発生の NG の語。見つかった語の一覧 */
-function findWordingViolations(text: string): string[] {
-  const normalized = normalizeForMatch(text);
-  return [...findForbiddenPhrases(text), ...PAST_NG.filter((p) => p.re.test(normalized)).map((p) => p.label)];
-}
-
 const APP_URL = "https://app.example.test";
 const SOURCE = "https://www.pref.example.test/page/1.html";
 const urlOf = (n: Pick<Notice, "farmId" | "uid">) => unsubscribeUrlFor(n, { appUrl: APP_URL, unsubscribeSecret: SECRET });
@@ -202,5 +182,43 @@ describe("API の応答に添える文", () => {
   });
   it("省いた記録の注意、古さの注意にも禁句がない", () => {
     expect(findWordingViolations([DROPPED_NOTICE, staleNotice(90)].join("\n"))).toEqual([]);
+  });
+});
+
+describe("送り直しで作り直した知らせ（rebuildNotice）にも、出典の行がある", () => {
+  const farm: Farm & { id: string } = {
+    id: "f1", name: "架空の農場", memberUids: ["u1"], unsubscribedUids: [], meshCode: "52344160", muniCode: "33203", prefCode: "33",
+    frequentMuniCodes: [], production: "layer", housing: "windowless", kahoContact: "",
+    notify: { level1: true, level2: true, level3: true, morningDigest: true, selfCheckRemindDays: 3 },
+    selfCheckDue: { "2025-12": "2025-12-31" }, updatedAt: "2025-12-30T09:00:00+09:00",
+  };
+  // 農場と記録済みの有無は、メモの表に先に入れておく（Firestore には触らない）
+  const ctx = () => {
+    const c = createRebuildContext(undefined as never, undefined as never, "2025-12-30");
+    c.farms.set("f1", Promise.resolve({ kind: "ok", farm }));
+    c.answered.set("f1__2025-12", Promise.resolve(false));
+    return c;
+  };
+  const rec = (event: "self_check_due" | "mortality_hit", subjectId: string): QueueRec => ({
+    ref: undefined as never, id: "r1",
+    data: { farmId: "f1", uid: "u1", subjectId, event, timing: "immediate", state: "queued", queuedAt: "2025-12-30T06:00:00+09:00", sentAt: null },
+  });
+
+  it.each([
+    ["self_check_due", "2025-12"],
+    ["mortality_hit", "2025-12-30_h1"],
+  ] as const)("%s: 作り直した知らせの本文に『出典: 施行規則の URL』が出る", async (event, subjectId) => {
+    const out = await rebuildNotice(ctx(), rec(event, subjectId));
+    expect(out.kind).toBe("send");
+    if (out.kind !== "send") return;
+    const { text } = renderNotice(out.notice, ctxOf(out.notice));
+    expect(text).toContain(`出典: ${HEALTH_STANDARD_SOURCE_URL}`);
+    expect(findWordingViolations(text)).toEqual([]);
+  });
+
+  it("作り手（selfCheckDueNotices、mortalityNotices）が出す知らせと、作り直した知らせは、事実の欄が同じ", async () => {
+    const made = [...selfCheckDueNotices(farm, "2025-12-30", []), ...mortalityNotices(farm, "2025-12-30_h1", "2025-12-30")];
+    const rebuilt = [await rebuildNotice(ctx(), rec("self_check_due", "2025-12")), await rebuildNotice(ctx(), rec("mortality_hit", "2025-12-30_h1"))];
+    expect(rebuilt.map((r) => (r.kind === "send" ? r.notice.facts : null))).toEqual(made.map((n) => n.facts));
   });
 });

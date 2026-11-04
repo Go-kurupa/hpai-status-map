@@ -1,5 +1,6 @@
 // M-13: 朝のまとめ（runMorningDigest）と送り直し（runRetryFailed）。模擬環境（demo-hpai）。本物のメールは送らない。
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { SELF_CHECK_MAX_MONTHS_PER_RUN } from "@hpai/shared/notices";
 import type { Case, WildBird } from "@hpai/shared/types";
 import { db } from "../../src/admin";
 import { runMorningDigest } from "../../src/notify/digest";
@@ -224,6 +225,21 @@ describe("runMorningDigest: 期限の知らせ", () => {
     const { deps, mail } = makeDeps();
     await runMorningDigest(deps, fakeGeo());
     expect(mail.calls).toEqual([]);
+  });
+
+  it("会員が 3100 を超える月のキーと日数 100000 を書いても、1 日に出る期限の知らせは上限以下（N-1）", async () => {
+    await seedFarm("f1", "u1");
+    const due: Record<string, string> = {};
+    for (let y = 1900; y < 2300; y++) for (let m = 1; m <= 12; m++) due[`${y}-${String(m).padStart(2, "0")}`] = "2026-11-07";
+    for (const m of ["2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05"]) due[m] = "2026-11-07";
+    expect(Object.keys(due).length).toBeGreaterThan(3100);
+    await db.doc("farms/f1").update({ selfCheckDue: due, "notify.selfCheckRemindDays": 100000 });
+    const { deps, mail } = makeDeps();
+    await runMorningDigest(deps, fakeGeo());
+    expect(mail.sent.length).toBeGreaterThan(0);
+    expect(mail.sent.length).toBeLessThanOrEqual(SELF_CHECK_MAX_MONTHS_PER_RUN);
+    const dueRecords = Object.values(await sentNoticeDocs()).filter((d) => (d as { event: string }).event === "self_check_due");
+    expect(dueRecords.length).toBeLessThanOrEqual(SELF_CHECK_MAX_MONTHS_PER_RUN);
   });
 
   it("期限の知らせの送信で認証のエラーが出たら、朝の queued も failed にして、送らない", async () => {

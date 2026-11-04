@@ -10,6 +10,29 @@ export function findForbiddenPhrases(text: string): string[] {
 }
 
 /**
+ * 過去の発生について言わないこと（設計書 §11「過去の発生の文言」の「言わないこと」）。
+ * normalizeForMatch（NFKC、空白と改行の除去）の後の文字列に当てる。事実として言ってよい文
+ * （「10 km 以内の区域」「2 年前に隣町で発生しました（記録）」「水辺が近い農場に発生が多い傾向」など）は落とさない。
+ */
+export const PAST_NG_PATTERNS: ReadonlyArray<{ label: string; re: RegExp }> = [
+  { label: "また発生しやすい", re: /(?:また|再び)発生しやすい/u },
+  { label: "この町も危ない", re: /この町も危ない/u },
+  { label: "隣町からうつる", re: /隣町から(?:うつ[るりっ]|移[るりっ]|感染)/u },
+  { label: "危険地帯", re: /危険地帯/u },
+  { label: "ホットスポット", re: /ホットスポット/u },
+  // 距離で確率や安全度を言わない: 「X km 以内なら…」「感染確率は Y%」「半径 X km 以内では感染確率が高い」
+  { label: "X km 以内なら（距離による言い切り）", re: /\d+(?:\.\d+)?(?:km|キロ(?:メートル)?)以内(?:なら|であれば|ならば)/u },
+  { label: "感染確率", re: /感染確率/u },
+  { label: "発生の N 割は農場間", re: /発生の.{0,3}\d+割[はが]農場間/u },
+];
+
+/** 画面、メール、API の文面にある、禁句と過去の発生の NG の語。見つかった語の一覧（なければ空）。 */
+export function findWordingViolations(text: string): string[] {
+  const normalized = normalizeForMatch(text);
+  return [...findForbiddenPhrases(text), ...PAST_NG_PATTERNS.filter((p) => p.re.test(normalized)).map((p) => p.label)];
+}
+
+/**
  * 下書きの検査（drafts.ts）が見つけて落とす語。画面にもメールにも出さない検出用の語で、禁句の置き場の wording.ts に置く
  * （文言の総点検は wording.ts を走査の対象にしない）。
  */

@@ -12,27 +12,7 @@ import { buildChecklist } from "@hpai/shared/checklist";
 import { OFFICIAL_GUIDANCE } from "@hpai/shared/guidance/official";
 import type { ChecklistClass, FarmHousing, Level, Production } from "@hpai/shared/types";
 import { normalizeForMatch } from "@hpai/shared/text";
-import { findForbiddenPhrases } from "@hpai/shared/wording";
-
-/**
- * 過去の発生について言わないこと（設計書 §11 の表の「言わないこと」）。web/e2e/wording.helper.ts の PAST_NG_PATTERNS と同じ内容。
- * （helper は DOM の型を使う画面の試験の部品で、DOM の型のない tsconfig からは import できないので、写している）
- */
-const PAST_NG: ReadonlyArray<{ label: string; re: RegExp }> = [
-  { label: "また発生しやすい", re: /また発生しやすい/u },
-  { label: "この町も危ない", re: /この町も危ない/u },
-  { label: "隣町からうつる", re: /隣町からうつる/u },
-  { label: "危険地帯", re: /危険地帯/u },
-  { label: "ホットスポット", re: /ホットスポット/u },
-  { label: "X km 以内なら感染確率は Y%", re: /\d+(?:\.\d+)?km以内なら|感染確率は?\d+(?:\.\d+)?%/u },
-  { label: "発生の N 割は農場間", re: /発生の\d+割は農場間/u },
-];
-
-/** 禁句と過去の発生の NG の語。見つかった語の一覧 */
-function findWordingViolations(text: string): string[] {
-  const normalized = normalizeForMatch(text);
-  return [...findForbiddenPhrases(text), ...PAST_NG.filter((p) => p.re.test(normalized)).map((p) => p.label)];
-}
+import { findWordingViolations } from "@hpai/shared/wording";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const rel = (abs: string) => path.relative(ROOT, abs).split(path.sep).join("/");
@@ -169,5 +149,56 @@ describe("確認リスト: 義務と見直しの推奨を混ぜない", () => {
     // 禁句と過去の発生の NG の語がない（見出しと項目）
     const text = sections.flatMap((s) => [s.heading, ...s.items.flatMap((it) => [it.text, it.source.title, it.source.note ?? ""])]).join("\n");
     expect(findWordingViolations(text)).toEqual([]);
+  });
+});
+
+describe("過去の発生の NG の語の検出（shared/src/wording.ts の PAST_NG_PATTERNS）", () => {
+  it.each([
+    "発生の約8割は農場間",
+    "発生の8割が農場間",
+    "発生の 8 割は農場間です",
+    "10キロ以内なら",
+    "10 km 以内なら安心",
+    "半径10km以内では感染確率が高い",
+    "10km以内なら感染確率は30%",
+    "隣町からうつります",
+    "隣町からうつる",
+    "隣町から感染する",
+    "また発生しやすい",
+    "この町も危ない",
+    "発生の多い危険地帯",
+    "ホットスポットです",
+    "安全です",
+  ])("落とす: %s", (text) => {
+    expect(findWordingViolations(text).length, text).toBeGreaterThan(0);
+  });
+
+  it.each([
+    "10 km 以内の区域",
+    "発生農場から半径 3 km 以内は移動制限区域、3 km から 10 km は搬出制限区域です",
+    "2 年前に隣町で発生しました（記録）",
+    "過去の記録です。これからの発生を予測するものではありません",
+    "水辺が近い農場に発生が多い傾向があります",
+    "発生の8割",
+    "隣町から報告がありました",
+    "10km以内の農場は、県の連絡を確かめてください",
+    "件数が少なくても、シーズン中はどこでも感染のリスクがあります",
+  ])("落とさない: %s", (text) => {
+    expect(findWordingViolations(text), text).toEqual([]);
+  });
+});
+
+describe("過去のシーズンの時点（確認日）は、データの出典の文書の取得日と同じ", () => {
+  it("web/src/pages/map/texts.ts の pastAsOf の日付 = docs/data-sources.md「過去の事例」の取得日", () => {
+    const texts = fs.readFileSync(path.join(ROOT, "web", "src", "pages", "map", "texts.ts"), "utf8");
+    const shown = /pastAsOf:\s*"[^"]*確認日\s*(\d{4}-\d{2}-\d{2})/u.exec(texts)?.[1];
+    expect(shown, "texts.ts の pastAsOf の確認日").toBeDefined();
+
+    const doc = fs.readFileSync(path.join(ROOT, "docs", "data-sources.md"), "utf8");
+    const section = /^## 過去の事例[^\n]*\n([\s\S]*?)(?=^## |$(?![\s\S]))/mu.exec(doc)?.[1];
+    expect(section, "docs/data-sources.md の「過去の事例」の節").toBeDefined();
+    const fetched = /取得日:\s*(\d{4}-\d{2}-\d{2})/u.exec(section!)?.[1];
+    expect(fetched, "節の「取得日」").toBeDefined();
+    expect(shown).toBe(fetched);
   });
 });

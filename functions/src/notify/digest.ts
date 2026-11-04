@@ -3,7 +3,7 @@
 import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { jstDateOf, toJstIso } from "@hpai/shared/dates";
 import type { GeoStore } from "@hpai/shared/geo";
-import { renderMorningDigest, renderNotice, selfCheckDueNotices, type Notice, type NoticeEvent, type SentNotice } from "@hpai/shared/notices";
+import { renderMorningDigest, planSelfCheckDue, renderNotice, type Notice, type NoticeEvent, type SentNotice } from "@hpai/shared/notices";
 import type { Farm } from "@hpai/shared/types";
 import { codeOf, dispatchNotices, isMailStopError, markSent, noteMailStop, unsubscribeUrlFor, type NotifyDeps } from "./dispatch";
 import { capHitNotices, hitDateOf, reserveHitSlot, retryCapAlerts, settleHitSlot, type HitReservation } from "./hitSlots";
@@ -290,22 +290,26 @@ async function planSelfCheck(db: Firestore, today: string): Promise<Notice[]> {
   const farms = await db.collection("farms").get();
   const notices: Notice[] = [];
   let errors = 0;
+  let skipped = 0;
   const ctx = { db, answered: new Map<string, Promise<boolean>>() };
   for (const d of farms.docs) {
     try {
       const farm = { id: d.id, ...(d.data() as Farm) };
-      const candidates = selfCheckDueNotices(farm, today, []);
-      if (candidates.length === 0) continue;
+      const first = planSelfCheckDue(farm, today, []);
+      skipped += first.skipped;
+      if (first.months.length === 0) continue;
+      // 期間の中の月（今季の月だけ。最大 8）の記録済みを調べてから、上限を付けて作る
       const answered: string[] = [];
-      for (const month of new Set(candidates.map((n) => n.subjectId))) {
+      for (const month of first.months) {
         if (await isSelfCheckAnswered(ctx, d.id, month)) answered.push(month);
       }
-      notices.push(...selfCheckDueNotices(farm, today, answered));
+      notices.push(...planSelfCheckDue(farm, today, answered).notices);
     } catch (e) {
       errors += 1;
       console.error("[notify] この農場の期限の知らせを作れませんでした", { code: codeOf(e) });
     }
   }
+  if (skipped > 0) console.log("[notify] 期限の欄で読み飛ばしたものがあります", { count: skipped });
   if (errors > 0) console.error("[notify] 期限の知らせを作れなかった農場があります", { count: errors });
   return notices;
 }

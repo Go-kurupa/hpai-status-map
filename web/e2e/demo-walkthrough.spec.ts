@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page, type Request } from "@playwright/test";
 import { chooseTown, expectNoForbiddenText, prepare, TSUYAMA_CASE, waitForWord } from "./wording.helper";
@@ -13,8 +13,13 @@ type W = { __hpaiMap?: MapHandle };
 
 const ZONE = "区域に入っている可能性があります。県の連絡を確かめてください";
 
-/** 舞台裏の事前の読み取りが実測済みか。unmeasured の間、場面 7 は確かめられない（測ると有料の API を呼ぶ） */
+/**
+ * 場面 7 が確かめるのは、実測の結果だ。舞台裏の事前の読み取り（data/replay/backstage.json）か、読み取りの試験の結果
+ * （evals/results/summary.json）のどちらかが未実測の間は確かめられない（測ると有料の API を呼ぶ）。
+ */
 const BACKSTAGE_STATUS = (JSON.parse(readFileSync(resolve(process.cwd(), "..", "data", "replay", "backstage.json"), "utf8")) as { status: string }).status;
+const EVAL_SUMMARY_MEASURED = existsSync(resolve(process.cwd(), "..", "evals", "results", "summary.json"));
+const SCENE7_UNMEASURED = BACKSTAGE_STATUS === "unmeasured" || !EVAL_SUMMARY_MEASURED;
 
 test.use({ permissions: ["clipboard-read", "clipboard-write"] });
 
@@ -162,8 +167,8 @@ test.describe("デモの筋", () => {
   });
 
   test("場面 7: 入れ替えた値が落ち、/results に数字が出る", async ({ page }) => {
-    // 測定済み（status が unmeasured でない）になったら、この skip は外れて自動で効く
-    test.skip(BACKSTAGE_STATUS === "unmeasured", "有料の実測の前は確かめられない。X-26 の提出の確認表で、skip でないことを確かめる");
+    // 舞台裏と読み取りの試験の両方が測定済みになったら、この skip は外れて自動で効く
+    test.skip(SCENE7_UNMEASURED, "有料の実測の前は確かめられない。X-26 の提出の確認表で、skip でないことを確かめる");
     await prepare(page);
     await page.goto("/replay/backstage");
     await waitForWord(page, "入れ替えた値");

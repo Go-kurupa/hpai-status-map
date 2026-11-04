@@ -8,6 +8,7 @@ import { formatJaDate } from "./jaDate";
 import { relationToCase, wildBirdsNotifiable } from "./level";
 import { MORTALITY_TEXT } from "./mortality";
 import { PREFS } from "./pref";
+import { seasonOf } from "./season";
 import { GeoNotLoadedError, type GeoStore } from "./geo";
 import type { Case, CaseStage, Farm, FarmPoint, IsoDate, IsoDateTime, Level, LevelReasonKind, NotifySettings, PrefCode, WildBird } from "./types";
 import { FIXED_TEXT } from "./wording";
@@ -270,32 +271,94 @@ function isIsoDay(v: unknown): v is IsoDate {
   }
 }
 
-/**
- * 自己点検の期限の知らせ。期限の「selfCheckRemindDays 日前」から期限の日まで（両端を含む）、記録済みの月を除いて出す。
- * 二度送らないのは送る側（記録の create）。selfCheckRemindDays が null、欄 selfCheckDue がない、値が日付でない月は出さない。
- * 配信停止の会員には出さない。朝のまとめの設定は見ない。
- */
-export function selfCheckDueNotices(farm: Farm & { id: string }, today: IsoDate, answeredMonths: readonly string[]): Notice[] {
-  const days = farm.notify?.selfCheckRemindDays;
-  if (typeof days !== "number" || !Number.isFinite(days) || days < 0) return [];
-  const due = farm.selfCheckDue;
-  if (typeof due !== "object" || due === null || Array.isArray(due)) return [];
-  const uids = activeUids(farm);
-  if (uids === null || uids.length === 0) return [];
+/** 自己点検の期限、死亡率の基準の知らせの事実。2 つの知らせ（作り手と、送り直しの作り直し）が同じ形を使う。 */
+export function healthNoticeFacts(date: IsoDate | null): Notice["facts"] {
+  return { muniName: null, prefCode: null, date, sourceUrl: HEALTH_STANDARD_SOURCE_URL };
+}
 
-  const out: Notice[] = [];
-  for (const [month, date] of Object.entries(due)) {
-    if (!/^\d{4}-\d{2}$/.test(month) || !isIsoDay(date) || answeredMonths.includes(month)) continue;
-    const left = diffDays(date, today);
-    if (left < 0 || left > days) continue;
-    for (const uid of uids) {
-      out.push({
-        farmId: farm.id, uid, subjectId: month, event: "self_check_due", timing: "immediate", level: null, relationKind: null,
-        facts: { muniName: null, prefCode: null, date, sourceUrl: HEALTH_STANDARD_SOURCE_URL }, isCorrection: false,
-      });
+/** 自己点検の期限の知らせ 1 件。month は subjectId（YYYY-MM）、date は期限（読めなければ null）。 */
+export function selfCheckDueNotice(farmId: string, uid: string, month: string, date: IsoDate | null): Notice {
+  return { farmId, uid, subjectId: month, event: "self_check_due", timing: "immediate", level: null, relationKind: null, facts: healthNoticeFacts(date), isCorrection: false };
+}
+
+/** 画面の選択肢は 1、2、3、5、7 日前。最大はその 7。 */
+export const SELF_CHECK_REMIND_MAX_DAYS = 7;
+/** 値が壊れているときの日数（画面の既定と同じ 3 日前）。 */
+export const SELF_CHECK_REMIND_DEFAULT_DAYS = 3;
+/** 1 農場に 1 回の実行で出す期限の知らせの月の数。月のキーがいくつあっても、会員 1 人あたりこの数を超えない。 */
+export const SELF_CHECK_MAX_MONTHS_PER_RUN = 2;
+
+/**
+ * 期限の何日前から知らせるか。画面の選択肢（最大 7 日前）に丸める。
+ * - 数でない値、有限でない値: null（出さない。壊れた設定は送らない側に倒す）
+ * - 7 を超える整数: 7（画面で選べる最大。大きな値で期限のずっと前から出し続けない）
+ * - 整数でない値、負の値: 3（画面の既定）
+ */
+export function normalizeRemindDays(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  if (!Number.isInteger(v) || v < 0) return SELF_CHECK_REMIND_DEFAULT_DAYS;
+  return Math.min(v, SELF_CHECK_REMIND_MAX_DAYS);
+}
+
+/** 今季（6 月〜翌 5 月）の期限の月。10 月から翌年 5 月までの 8 か月（画面 seasonMonths と同じ）。 */
+export function selfCheckMonthsOf(today: IsoDate): string[] {
+  const season = seasonOf(today);
+  const months: string[] = [];
+  for (const m of [10, 11, 12]) months.push(`${season}-${String(m).padStart(2, "0")}`);
+  for (const m of [1, 2, 3, 4, 5]) months.push(`${season + 1}-${String(m).padStart(2, "0")}`);
+  return months;
+}
+
+export interface SelfCheckPlan {
+  notices: Notice[];
+  /** 今季の月で、今日が知らせる期間の中にある月（記録済みの月を含む。送る側が記録済みかを調べるのに使う） */
+  months: string[];
+  /** 読み飛ばした欄の数（今季の月でないキー、日付でない値）。中身は出さず、件数だけを記録する */
+  skipped: number;
+}
+
+/**
+ * 自己点検の期限の知らせの計画。期限の「selfCheckRemindDays 日前」から期限の日まで（両端を含む）、記録済みの月を除いて出す。
+ * - 対象は今季の月（10 月〜翌 5 月）のキーだけ。会員が書ける欄なので、ほかのキーはいくつあっても読み飛ばす（件数だけ数える）。
+ * - selfCheckRemindDays は 0〜7 に丸める（normalizeRemindDays）。
+ * - 1 回の実行で出す月は、期限の早い順に SELF_CHECK_MAX_MONTHS_PER_RUN まで。残りは翌日以降（記録は月ごとなので重ならない）。
+ * 二度送らないのは送る側（記録の create）。selfCheckRemindDays が null、欄 selfCheckDue がない、値が日付でない月は出さない。
+ * 配信停止の会員には出さない。朝のまとめの設定は見ない。壊れた欄で例外にしない。
+ */
+export function planSelfCheckDue(farm: Farm & { id: string }, today: IsoDate, answeredMonths: readonly string[]): SelfCheckPlan {
+  const none: SelfCheckPlan = { notices: [], months: [], skipped: 0 };
+  const days = normalizeRemindDays(farm.notify?.selfCheckRemindDays);
+  if (days === null) return none;
+  const due = farm.selfCheckDue;
+  if (typeof due !== "object" || due === null || Array.isArray(due)) return none;
+  const uids = activeUids(farm);
+  if (uids === null || uids.length === 0) return none;
+
+  const valid = selfCheckMonthsOf(today);
+  const keys = Object.keys(due);
+  let skipped = keys.filter((k) => !valid.includes(k)).length;
+  const inWindow: Array<{ month: string; date: IsoDate }> = [];
+  for (const month of valid) {
+    if (!Object.hasOwn(due, month)) continue;
+    const date: unknown = (due as Record<string, unknown>)[month];
+    if (!isIsoDay(date)) {
+      skipped += 1;
+      continue;
     }
+    const left = diffDays(date, today);
+    if (left >= 0 && left <= days) inWindow.push({ month, date });
   }
-  return out;
+  inWindow.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.month < b.month ? -1 : 1));
+
+  const months = inWindow.map((x) => x.month);
+  const send = inWindow.filter((x) => !answeredMonths.includes(x.month)).slice(0, SELF_CHECK_MAX_MONTHS_PER_RUN);
+  const notices = send.flatMap((x) => uids.map((uid) => selfCheckDueNotice(farm.id, uid, x.month, x.date)));
+  return { notices, months, skipped };
+}
+
+/** planSelfCheckDue の知らせだけ。 */
+export function selfCheckDueNotices(farm: Farm & { id: string }, today: IsoDate, answeredMonths: readonly string[]): Notice[] {
+  return planSelfCheckDue(farm, today, answeredMonths).notices;
 }
 
 /**
@@ -307,7 +370,7 @@ export function mortalityNotices(farm: Farm & { id: string }, recordId: string, 
   if (uids === null) return [];
   return uids.map((uid) => ({
     farmId: farm.id, uid, subjectId: recordId, event: "mortality_hit" as const, timing: "immediate" as const, level: null, relationKind: null,
-    facts: { muniName: null, prefCode: null, date, sourceUrl: HEALTH_STANDARD_SOURCE_URL }, isCorrection: false,
+    facts: healthNoticeFacts(date), isCorrection: false,
   }));
 }
 

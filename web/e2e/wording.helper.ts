@@ -1,34 +1,13 @@
 // 文言の試験の共通部品（X-20）。
 //   expectNoForbiddenText(page): 画面に出ている文字（本文、入力欄の中身、aria-label などの属性）に
-//     禁句（findForbiddenPhrases）と、過去の発生の NG の語（設計書 §11「過去の発生の文言」の右の列）がないことを確かめる。
+//     禁句と、過去の発生の NG の語（どちらも shared/src/wording.ts の findWordingViolations）（設計書 §11「過去の発生の文言」の右の列）がないことを確かめる。
 //   「読み込んでいます」の画面を調べて素通りしないよう、各経路で必ず出る語（時点など）を先に待つ（waitForWord）。
 // 試験の入口（window.__HPAI_FIXTURE__）は mode=e2e の build だけが読む。ここでは置くだけで、画面のコードは変えない。
 import { normalizeForMatch } from "@hpai/shared/text";
-import { findForbiddenPhrases } from "@hpai/shared/wording";
+import { findWordingViolations } from "@hpai/shared/wording";
 import type { Case } from "@hpai/shared/types";
 import type { Page } from "@playwright/test";
 import { installFixture } from "./fixtures";
-
-/**
- * 過去の発生について言わないこと（設計書 §11 の表の「言わないこと」）。
- * normalizeForMatch（NFKC、空白と改行の除去）の後の文字列に当てる。
- */
-export const PAST_NG_PATTERNS: ReadonlyArray<{ label: string; re: RegExp }> = [
-  { label: "また発生しやすい", re: /また発生しやすい/u },
-  { label: "この町も危ない", re: /この町も危ない/u },
-  { label: "隣町からうつる", re: /隣町からうつる/u },
-  { label: "危険地帯", re: /危険地帯/u },
-  { label: "ホットスポット", re: /ホットスポット/u },
-  { label: "X km 以内なら感染確率は Y%", re: /\d+(?:\.\d+)?km以内なら|感染確率は?\d+(?:\.\d+)?%/u },
-  { label: "発生の N 割は農場間", re: /発生の\d+割は農場間/u },
-];
-
-/** 画面の文字から、禁句と過去の発生の NG の語を探す。見つかった語の一覧（なければ空）。 */
-export function findWordingViolations(text: string): string[] {
-  const normalized = normalizeForMatch(text);
-  const past = PAST_NG_PATTERNS.filter((p) => p.re.test(normalized)).map((p) => p.label);
-  return [...findForbiddenPhrases(text), ...past];
-}
 
 /** 画面から集めた文字の 1 まとまり。どこにあったかを示すために出どころの名前を付ける */
 export interface CollectedText {
