@@ -321,6 +321,33 @@ describe("KnownPage（画面）", () => {
     }
   });
 
+  it("もくじは見出しの次にあり、最初の段落より前。行は全部 DOM にあり、畳まれていない", () => {
+    const { container } = show();
+    const shown = KNOWN_FINDINGS.filter((f) => f.verifiedOn !== null);
+    const h1 = container.querySelector("h1") as HTMLElement;
+    const nav = screen.getByRole("navigation", { name: "もくじ" });
+    expect(h1.nextElementSibling).toBe(nav);
+    const firstP = container.querySelector(".public-page > p") as HTMLElement;
+    expect(nav.compareDocumentPosition(firstP) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const f of shown) {
+      const li = container.querySelector(`li#${f.id}`) as HTMLElement;
+      expect(li, f.id).not.toBeNull();
+      expect(li.closest("details"), f.id).toBeNull();
+    }
+  });
+
+  it("0 件のときは、もくじを出さず『いまは準備中です』を出す", () => {
+    const { container } = show(<KnownView findings={[]} />);
+    expect(screen.queryByRole("navigation", { name: "もくじ" })).toBeNull();
+    expect(container.textContent).toContain("いまは準備中です");
+  });
+
+  it("もくじのリンクの高さは var(--tap)（public.css）", () => {
+    const css = readFileSync(path.resolve(import.meta.dirname, "public.css"), "utf8");
+    const rule = /\.guidance-toc a\s*\{([^}]*)\}/u.exec(css);
+    expect(rule?.[1]).toMatch(/min-height:\s*var\(--tap\)/u);
+  });
+
   it("限界は、複数の点があるとき箇条書きで出る", () => {
     const { container } = show();
     for (const f of KNOWN_FINDINGS) {

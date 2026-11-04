@@ -1,6 +1,8 @@
 import { OFFICIAL_GUIDANCE } from "@hpai/shared/guidance/official";
 import { findForbiddenPhrases } from "@hpai/shared/wording";
 import { cleanup, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
 import { PAGE_NOTES } from "./pageNotes";
@@ -131,6 +133,26 @@ describe("PublicPage", () => {
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
     expect(hrefs).toEqual(OFFICIAL_GUIDANCE.map((g) => `#${g.topic}`));
+  });
+
+  it("もくじは見出しの次にあり、最初の段落より前。節は全部 DOM にあり、畳まれていない", () => {
+    const { container } = show();
+    const h1 = container.querySelector("h1") as HTMLElement;
+    const nav = screen.getByRole("navigation", { name: "もくじ" });
+    expect(h1.nextElementSibling).toBe(nav);
+    const firstP = container.querySelector(".public-page > p") as HTMLElement;
+    expect(nav.compareDocumentPosition(firstP) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const g of OFFICIAL_GUIDANCE) {
+      const sec = container.querySelector(`section#${g.topic}`) as HTMLElement;
+      expect(sec, g.topic).not.toBeNull();
+      expect(sec.closest("details"), g.topic).toBeNull();
+    }
+  });
+
+  it("もくじのリンクの高さは var(--tap)（public.css）", () => {
+    const css = readFileSync(path.resolve(import.meta.dirname, "public.css"), "utf8");
+    const rule = /\.guidance-toc a\s*\{([^}]*)\}/u.exec(css);
+    expect(rule?.[1]).toMatch(/min-height:\s*var\(--tap\)/u);
   });
 
   // 「市場に出回ることはありません」（農林水産省）の文は残し、その直後に、防疫指針の卵の出荷の例外を、出典つきの注として添える（利用者の決定 Q-j の C）

@@ -16,6 +16,15 @@ export function PublicView({ reviewedOn }: { reviewedOn: IsoDate | null }) {
   return (
     <div className="public-page">
       <h1>鶏を飼っていない方へ</h1>
+      <nav aria-label="もくじ" className="guidance-toc">
+        <ul>
+          {OFFICIAL_GUIDANCE.map((g) => (
+            <li key={g.topic}>
+              <a href={`#${g.topic}`}>{g.heading}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
       <p>
         このページは、近くの養鶏場や、鳥インフルエンザのことで、ご近所の方からよく聞かれることを、国の文書にそって示したものです。
       </p>
@@ -29,16 +38,6 @@ export function PublicView({ reviewedOn }: { reviewedOn: IsoDate | null }) {
       ) : (
         <p className="guidance-review">文面を確認した日: {reviewedOn}</p>
       )}
-
-      <nav aria-label="もくじ" className="guidance-toc">
-        <ul>
-          {OFFICIAL_GUIDANCE.map((g) => (
-            <li key={g.topic}>
-              <a href={`#${g.topic}`}>{g.heading}</a>
-            </li>
-          ))}
-        </ul>
-      </nav>
 
       {OFFICIAL_GUIDANCE.map((g) => (
         <GuidanceSection key={g.topic} guidance={g} notes={PAGE_NOTES[g.topic]} statementNotes={STATEMENT_NOTES.filter((n) => n.topic === g.topic)}>

@@ -26,6 +26,17 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
   return (
     <div className="public-page known-page">
       <h1>分かっていること</h1>
+      {shown.length > 0 ? (
+        <nav aria-label="もくじ" className="guidance-toc known-toc">
+          <ul>
+            {shown.map((f) => (
+              <li key={f.id}>
+                <a href={`#${f.id}`}>{f.heading}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
       <p className="guidance-review">研究の知見です。決まりではありません。</p>
       <p>
         このページは、鳥インフルエンザについて、研究や国の報告書で分かっていることを、研究した地域と時期、確からしさ、言えないこととあわせて示したものです。
@@ -50,15 +61,6 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
         <p role="status">原本で確かめが終わった文から、順に載せます。いまは準備中です。</p>
       ) : (
         <>
-          <nav aria-label="もくじ" className="guidance-toc known-toc">
-            <ul>
-              {shown.map((f) => (
-                <li key={f.id}>
-                  <a href={`#${f.id}`}>{f.heading}</a>
-                </li>
-              ))}
-            </ul>
-          </nav>
           <ol className="known-list">
             {shown.map((f) => (
               <li key={f.id} id={f.id} data-role="finding" data-id={f.id} className="guidance-notes known-finding">
