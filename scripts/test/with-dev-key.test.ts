@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 function run(args: string[]) {
-  const env = { ...process.env, HOME: home };
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home };
   delete env.ANTHROPIC_API_KEY;
   return spawnSync("bash", [SCRIPT, ...args], { env, encoding: "utf8" });
 }
