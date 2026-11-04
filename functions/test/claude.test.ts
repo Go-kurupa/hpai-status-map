@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 import {
+  CASE_STAGES,
   READ_RESULT_JSON_SCHEMA,
   ReadResultSchema,
   SECOND_READ_RESULT_JSON_SCHEMA,
@@ -128,6 +129,15 @@ describe("JSON Schema", () => {
         expect(objects).toBeGreaterThan(2);
       });
 
+      it("enum を持つ項目は type が文字列 1 つだけ（type 配列と enum を並べると API が 400 を返す）", () => {
+        walk(schema, (o) => {
+          if (Array.isArray(o.enum)) {
+            expect(o.type).toBe("string");
+            expect(o.enum).not.toContain(null);
+          }
+        });
+      });
+
       it("数値と長さの制約を持たない", () => {
         const banned = ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength", "minItems", "maxItems", "pattern", "format"];
         walk(schema, (o) => {
@@ -177,11 +187,10 @@ describe("JSON Schema", () => {
     }
   });
 
-  it("kind の enum は 11 値、primaryStage は 7 値と null", () => {
+  it("kind の enum は 11 値、primaryStage は 7 値の文字列か null（anyOf）", () => {
     const props = (READ_RESULT_JSON_SCHEMA as Json).properties;
     expect(props.kind.enum).toHaveLength(11);
-    expect(props.primaryStage.enum).toHaveLength(8);
-    expect(props.primaryStage.enum).toContain(null);
+    expect(props.primaryStage.anyOf).toEqual([{ type: "string", enum: [...CASE_STAGES] }, { type: "null" }]);
   });
 });
 

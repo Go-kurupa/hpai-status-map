@@ -74,7 +74,7 @@ export const READ_RESULT_JSON_SCHEMA: JsonSchema = object({
     type: "array",
     items: object({ field: { type: "string", enum: [...FACT_FIELDS] }, value: string(), quote: string() }),
   },
-  primaryStage: { type: ["string", "null"], enum: [...CASE_STAGES, null] },
+  primaryStage: nullable({ type: "string", enum: [...CASE_STAGES] }),
   primaryDate: nullable(dateSchema()),
   primaryDateQuote: nullableString(),
   stageEvents: {
@@ -104,7 +104,7 @@ export const SECOND_READ_RESULT_JSON_SCHEMA: JsonSchema = object({
   multipleCases: { type: "boolean" },
   prefecture: nullableString(),
   municipality: nullableString(),
-  primaryStage: { type: ["string", "null"], enum: [...CASE_STAGES, null] },
+  primaryStage: nullable({ type: "string", enum: [...CASE_STAGES] }),
   primaryDate: nullable(dateSchema()),
   wildBirds: {
     type: "array",
