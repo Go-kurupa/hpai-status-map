@@ -92,3 +92,40 @@
 .area-sources {
   font-size: 0.9rem;
 }
+
+/* 分かっていること（W-10）。決まり（公式の文）とは別の見た目: 破線の枠（.guidance-notes）の中に、見出しと箇条書きを置く */
+.known-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.known-finding {
+  margin: 0 0 20px;
+  scroll-margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.known-heading {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+}
+.known-text {
+  margin: 0 0 10px;
+}
+.known-meta {
+  margin: 0 0 10px;
+}
+.known-limit h3 {
+  margin: 12px 0 4px;
+  font-size: 1rem;
+}
+.known-limit ul {
+  margin: 0 0 10px;
+  padding-left: 1.2em;
+}
+.known-limit li {
+  margin: 0 0 6px;
+}
+.known-finding .source-line {
+  margin: 0;
+  font-size: 0.9rem;
+}
