@@ -95,5 +95,6 @@ export function errorText(e: unknown): string {
     return list.length > 0 ? `${message}（候補: ${list.join("、")}）` : message;
   }
   if (code === "permission-denied" || code === "unauthenticated") return "運営者としてログインしていません。ログインし直してください。";
+  if (code === "not-found") return "見つかりません（消えたか、作り直されました）。ページを開き直して、確かめてください。";
   return "処理できませんでした。通信を確かめて、もう一度試してください。";
 }

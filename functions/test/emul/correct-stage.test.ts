@@ -144,9 +144,23 @@ describe("事例の状態", () => {
     await seed({ confirmState: "replay" });
     expect(await codeOf(run(req()))).toBe("failed-precondition");
   });
-  it("確認中の事例は拒否する", async () => {
-    await db.doc("cases/rev-d1").set({ ...realCase({ id: "rev-d1", confirmState: "reviewing", muniCode: null, muniName: null, stages: {} }) });
-    expect(await codeOf(run(req({ caseId: "rev-d1" })))).toBe("failed-precondition");
+  it("確認中の事例は、確認中という理由だけで拒否する（段階も日付の検査も通る形で置く）", async () => {
+    const rev = realCase({ id: "rev-d1", confirmState: "reviewing", stages: { confirmed: { date: "2025-12-19", time: null } } });
+    await db.doc("cases/rev-d1").set(rev);
+    let err: { code?: string; message?: string } = {};
+    try {
+      await run(req({ caseId: "rev-d1" }));
+    } catch (e) {
+      err = e as { code?: string; message?: string };
+    }
+    expect(err.code).toBe("failed-precondition"); // 書き込みの検査（RangeError）ではなく、確認中の検査で拒む
+    expect(err.message).toContain("確認中の事例と再現の事例は、日付を直せません");
+    expect(await getDoc("cases/rev-d1")).toEqual(rev);
+    expect(await listIds("reviewQueue")).toEqual([]);
+  });
+  it("文書の id に使えない事例の指定（. と .. と __x__）は、素の例外にならず invalid-argument", async () => {
+    await seed();
+    for (const caseId of [".", "..", "__x__"]) expect(await codeOf(run(req({ caseId })))).toBe("invalid-argument");
   });
   it("元の日付が、いまの事例と違えば（古い画面）拒否する", async () => {
     const before = await seed();
@@ -195,6 +209,35 @@ describe("直す", () => {
     deps = { ...deps, now: () => new Date(NOW.getTime() + 1000) };
     await run(req({ expectedDate: "2025-12-20", newDate: "2025-12-19" }));
     expect((await listIds("reviewQueue")).length).toBe(2);
+  });
+});
+
+describe("声かけ文の下書き（日付を保存した文）", () => {
+  const putDraft = () => db.doc(`caseDrafts/${CASE_ID}`).set({ caseId: CASE_ID, workerMessage: "12月19日に確定しました", source: "claude", createdAt: NOW_JST });
+  it("下書きの日付になる段階（確定）を直すと、下書きが消える（のこりは cases の書き込みの後で作り直される）", async () => {
+    await seed();
+    await putDraft();
+    await run(req({ stage: "confirmed", newDate: "2025-12-20" }));
+    expect(await getDoc(`caseDrafts/${CASE_ID}`)).toBeUndefined();
+  });
+  it("確定がなく疑いだけの事例は、疑いを直すと下書きが消える", async () => {
+    await seed({ stages: { suspected: { date: "2025-12-18", time: null } } });
+    await putDraft();
+    await run(req({ stage: "suspected", expectedDate: "2025-12-18", newDate: "2025-12-17" }));
+    expect(await getDoc(`caseDrafts/${CASE_ID}`)).toBeUndefined();
+  });
+  it("下書きの日付に関わらない段階（確定があるときの疑い、防疫措置の完了）を直すときは、消さない", async () => {
+    await seed();
+    await putDraft();
+    await run(req({ stage: "suspected", expectedDate: "2025-12-18", newDate: "2025-12-17" }));
+    await run(req({ stage: "control_done", expectedDate: "2025-12-21", newDate: "2025-12-22" }));
+    expect(await getDoc(`caseDrafts/${CASE_ID}`)).toMatchObject({ workerMessage: "12月19日に確定しました" });
+  });
+  it("拒否された訂正では消さない", async () => {
+    await seed();
+    await putDraft();
+    await codeOf(run(req({ newDate: "2025-12-17" }))); // 疑いより前の確定
+    expect(await getDoc(`caseDrafts/${CASE_ID}`)).toBeDefined();
   });
 });
 

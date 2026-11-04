@@ -193,7 +193,10 @@ export function parseResolveRequest(data: unknown): { ok: true; request: Resolve
 export function parseCorrectStageRequest(data: unknown): { ok: true; request: CorrectStageRequest } | { ok: false; message: string } {
   if (!isRecord(data)) return { ok: false, message: "リクエストの形が違います" };
   const { caseId, stage, expectedDate, newDate, reason } = data;
-  if (typeof caseId !== "string" || caseId === "" || caseId.length > 200 || caseId.includes("/")) return { ok: false, message: "事例の指定が違います" };
+  // Firestore の文書 id に使えないもの（空、/、"."、".."、__x__ の形）は、ここで断る（読みに行って素の例外にしない）
+  if (typeof caseId !== "string" || caseId === "" || caseId.length > 200 || caseId.includes("/") || caseId === "." || caseId === ".." || /^__.*__$/.test(caseId)) {
+    return { ok: false, message: "事例の指定が違います" };
+  }
   if (typeof stage !== "string" || !STAGES.has(stage)) return { ok: false, message: "段階が違います" };
   if (!realDate(expectedDate)) return { ok: false, message: "元の日付が違います" };
   if (!realDate(newDate)) return { ok: false, message: "新しい日付が違います" };

@@ -3,10 +3,12 @@
 // ここは、画面の確認の段を経た運営者だけが、理由つきで直せるようにする。claim はここで確かめる（画面の表示だけで守らない）。
 // 直すのは「すでにある段階の日付」だけ（段階を足したり消したりしない）。cases に書くのは upsertCaseIn だけ（契約 2.7）。
 // 直した記録（元の値、新しい値、理由、運営者、時刻）は reviewQueue に解決済みの項目として残す（cases は誰でも読めるので載せない）。
+// 声かけ文の下書き（caseDrafts）に古い日付が残らないよう、下書きの日付か段階が変わるときだけ同じトランザクションで消す。
 // 段階の増減がないので、事例の出来事（diffCaseEvents）は出ず、会員へのメールは出ない。解除の見込みは段階から表示のたびに計算するので、自然に変わる。
 import { randomBytes } from "node:crypto";
 import { HttpsError } from "firebase-functions/v2/https";
 import { jstDateOf, toJstIso } from "@hpai/shared/dates";
+import { draftFactsOf } from "@hpai/shared/drafts";
 import { checkStageDateFix } from "@hpai/shared/read/correctedCheck";
 import { parseCorrectStageRequest, type CorrectStageResponse, type StageCorrectionRecord } from "@hpai/shared/read/review";
 import type { Case } from "@hpai/shared/types";
@@ -63,7 +65,13 @@ export async function handleCorrectCaseStage(deps: ResolveDeps, caller: Caller |
         after: { date: req.newDate, time: stamp.time, confirmState: "operator" },
       },
     };
+    // 声かけ文の下書きは事例ごとに一度だけ作り、作り直さない。下書きの元になる日付か段階が変わるときだけ消す。
+    // 消すと、この書き込みの後の draftOnCaseWritten が新しい日付で作り直す（費用の止め線の内側）。
+    const factsBefore = draftFactsOf(c);
+    const factsAfter = draftFactsOf(next);
+    const draftChanged = factsBefore?.date !== factsAfter?.date || factsBefore?.stage !== factsAfter?.stage;
     upsertCaseIn(tx, next);
+    if (draftChanged) tx.delete(deps.db.doc(`caseDrafts/${c.id}`));
     tx.create(deps.db.doc(`reviewQueue/${recordId}`), record);
     return { ok: true, caseId: c.id, recordId };
   });

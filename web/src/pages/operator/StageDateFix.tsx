@@ -43,6 +43,8 @@ function FixForm({ cases, correct, now }: { cases: Case[]; correct: CorrectFn; n
   const [newDate, setNewDate] = useState("");
   const [reason, setReason] = useState("");
   const [step, setStep] = useState<"edit" | "confirm" | "busy" | "done">("edit");
+  /** 「確かめる」を押した時点の内容。確認の段の表示と送信は、一覧が途中で変わってもこれを使う */
+  const [fixed, setFixed] = useState<{ caseId: string; stage: CaseStage; expectedDate: string; newDate: string; label: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const locked = useRef(false);
 
@@ -57,6 +59,7 @@ function FixForm({ cases, correct, now }: { cases: Case[]; correct: CorrectFn; n
     setNewDate("");
     setReason("");
     setError(null);
+    setFixed(null);
     setStep("edit");
   }
 
@@ -66,16 +69,28 @@ function FixForm({ cases, correct, now }: { cases: Case[]; correct: CorrectFn; n
     const r = checkStageDateFix({ stage: stage as CaseStage, expectedDate: stamp.date, newDate }, { today, season: target.season, stages: target.stages });
     if (!r.ok) return setError(r.message);
     setError(null);
+    setFixed({ caseId: target.id, stage: stage as CaseStage, expectedDate: stamp.date, newDate, label: caseLabel(target) });
     setStep("confirm");
   }
 
+  // 確認の段の間に、一覧が更新されることがある。消えた、日付が変わった、は黙って戻さず文で知らせ、「直す」を止める
+  const liveStamp = fixed === null ? undefined : cases.find((c) => c.id === fixed.caseId)?.stages[fixed.stage];
+  const staleNote =
+    fixed === null || step !== "confirm"
+      ? null
+      : liveStamp === undefined
+        ? "この事例は、確かめた後に一覧から消えました。「やめる」を押して、開き直して確かめてください。"
+        : liveStamp.date !== fixed.expectedDate
+          ? `この段階の日付が、確かめた後に変わりました（いまは ${liveStamp.date}）。「やめる」を押して、もう一度確かめてください。`
+          : null;
+
   async function submit() {
-    if (locked.current || target === null || stamp === undefined || reason.trim() === "") return;
+    if (locked.current || fixed === null || staleNote !== null || reason.trim() === "") return;
     locked.current = true;
     setStep("busy");
     setError(null);
     try {
-      await correct({ caseId: target.id, stage: stage as CaseStage, expectedDate: stamp.date, newDate, reason: reason.trim() });
+      await correct({ caseId: fixed.caseId, stage: fixed.stage, expectedDate: fixed.expectedDate, newDate: fixed.newDate, reason: reason.trim() });
       setStep("done"); // 次に直すときは「続けて直す」から（同じ操作を 2 度送らない）
     } catch (e) {
       setError(errorText(e));
@@ -87,7 +102,7 @@ function FixForm({ cases, correct, now }: { cases: Case[]; correct: CorrectFn; n
   if (step === "done") {
     return (
       <>
-        <p role="status">直しました。事例の日付と、解除の見込みは新しい日付から計算し直されます。会員へのメールは送られません。</p>
+        <p role="status">直しました。解除の見込みは新しい日付から計算し直されます。声かけ文の下書きは、新しい日付で作り直されます。会員へのメールは送られません。</p>
         <div className="op-actions">
           <Button
             onClick={() => {
@@ -103,6 +118,8 @@ function FixForm({ cases, correct, now }: { cases: Case[]; correct: CorrectFn; n
   }
 
   const editing = step === "edit";
+  // 確認の段の途中で一覧が空になっても、フォームを消さない（消えたことを文で知らせる）
+  if (editing && cases.length === 0) return <p>今季の事例はまだありません。</p>;
   return (
     <form
       className="op-form"
@@ -159,15 +176,16 @@ function FixForm({ cases, correct, now }: { cases: Case[]; correct: CorrectFn; n
         {(id) => <input id={id} type="date" max={today} value={newDate} disabled={!editing || stamp === undefined} onChange={(e) => setNewDate(e.target.value)} />}
       </Field>
 
-      {!editing && target !== null && stamp !== undefined && (
+      {!editing && fixed !== null && (
         <div className="op-confirm">
           <p className="op-label">直す内容の確認</p>
           <ul>
-            <li>事例: {caseLabel(target)}</li>
-            <li>段階: {STAGE_LABELS[stage as CaseStage]}</li>
-            <li>元の日付: {stamp.date}</li>
-            <li>新しい日付: {newDate}</li>
+            <li>事例: {fixed.label}</li>
+            <li>段階: {STAGE_LABELS[fixed.stage]}</li>
+            <li>元の日付: {fixed.expectedDate}</li>
+            <li>新しい日付: {fixed.newDate}</li>
           </ul>
+          {staleNote !== null && <p role="alert" className="op-error">{staleNote}</p>}
           <p className="op-note">直すのは、この段階の日付だけです。直した記録（元の値、新しい値、理由、あなた、時刻）が残ります。会員へのメールは、この操作では送られません。</p>
           <Field label="理由（必須）">
             {(id) => <input id={id} value={reason} maxLength={MAX_CORRECTION_REASON} disabled={step === "busy"} onChange={(e) => setReason(e.target.value)} />}
@@ -183,7 +201,7 @@ function FixForm({ cases, correct, now }: { cases: Case[]; correct: CorrectFn; n
           </Button>
         ) : (
           <>
-            <Button variant="primary" disabled={step === "busy" || reason.trim() === ""} onClick={() => void submit()}>
+            <Button variant="primary" disabled={step === "busy" || reason.trim() === "" || staleNote !== null} onClick={() => void submit()}>
               直す
             </Button>
             <Button
@@ -205,7 +223,6 @@ function FixForm({ cases, correct, now }: { cases: Case[]; correct: CorrectFn; n
 function Body({ state, correct, now }: { state: CorrectableCasesState; correct: CorrectFn; now: () => Date }) {
   if (state.status === "loading") return <p>事例を読み込んでいます</p>;
   if (state.status === "error") return <p role="alert">事例を読み込めませんでした。ページを開き直してください。</p>;
-  if (state.cases.length === 0) return <p>今季の事例はまだありません。</p>;
   return <FixForm cases={state.cases} correct={correct} now={now} />;
 }
 

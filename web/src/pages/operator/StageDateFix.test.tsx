@@ -132,6 +132,47 @@ describe("確認の段", () => {
   });
 });
 
+describe("確かめた後に事例が変わったとき", () => {
+  it("確かめた時点の元の日付で送る（一覧の日付が途中で変わっても、新しい値を元として送らない）", async () => {
+    const view = setup();
+    fillAndCheck("confirmed", "2025-12-20");
+    fireEvent.change(screen.getByLabelText("理由（必須）"), { target: { value: "見直した" } });
+    // 一覧が更新され、確定の日付が 12/20 に変わった（別の人が直した）
+    view.rerender(<StageDateFix cases={ready(mkCase({ stages: { ...mkCase().stages, confirmed: { date: "2025-12-20", time: null } } }))} correct={view.correct} now={now} />);
+    expect(screen.getByText("元の日付: 2025-12-19")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("変わりました");
+    expect((screen.getByRole("button", { name: "直す" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(view.correct).not.toHaveBeenCalled();
+  });
+  it("事例が一覧から消えたら、黙って入力に戻らず、文で知らせて「直す」を押せなくする", () => {
+    const view = setup();
+    fillAndCheck("confirmed", "2025-12-20");
+    view.rerender(<StageDateFix cases={ready()} correct={view.correct} now={now} />);
+    expect(screen.getByRole("alert").textContent).toContain("一覧から消えました");
+    expect(screen.getByText("元の日付: 2025-12-19")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "直す" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "やめる" }));
+    expect(screen.getByText("今季の事例はまだありません。")).toBeTruthy(); // 一覧が空なら、そう言う
+  });
+  it("サーバーが「見つかりません」と返したら、通信の問題に見えない言葉で出す", async () => {
+    const correct = vi.fn().mockRejectedValue({ code: "functions/not-found", message: "Function failed" });
+    setup(ready(mkCase()), correct);
+    fillAndCheck("confirmed", "2025-12-20");
+    fireEvent.change(screen.getByLabelText("理由（必須）"), { target: { value: "見直した" } });
+    fireEvent.click(screen.getByRole("button", { name: "直す" }));
+    const text = (await screen.findByRole("alert")).textContent ?? "";
+    expect(text).toContain("消えたか、作り直されました");
+    expect(text).not.toContain("通信");
+  });
+  it("完了の文に、声かけ文の下書きが作り直されることを添える", async () => {
+    setup();
+    fillAndCheck("confirmed", "2025-12-20");
+    fireEvent.change(screen.getByLabelText("理由（必須）"), { target: { value: "見直した" } });
+    fireEvent.click(screen.getByRole("button", { name: "直す" }));
+    expect((await screen.findByRole("status")).textContent).toContain("声かけ文の下書きは、新しい日付で作り直されます");
+  });
+});
+
 describe("確認の段に進めない日付", () => {
   it.each([
     ["未来の日付", "confirmed", "2025-12-23", "未来"],

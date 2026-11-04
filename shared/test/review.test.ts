@@ -168,7 +168,7 @@ describe("parseCorrectStageRequest（段階の日付を直す入力）", () => {
     expect(parseCorrectStageRequest({ ...ok, reason: "  県の発表を見直した \n", extra: 1 })).toEqual({ ok: true, request: ok });
   });
   it("形が違えば理由つきで拒む", () => {
-    for (const bad of [null, [], "x", { ...ok, caseId: "" }, { ...ok, caseId: "a/b" }, { ...ok, stage: "x" }, { ...ok, expectedDate: "2025-13-01" }, { ...ok, newDate: "2025-02-30" }, { ...ok, newDate: 20251220 }, { ...ok, reason: "" }, { ...ok, reason: "  " }, { ...ok, reason: undefined }, { ...ok, reason: "あ".repeat(201) }]) {
+    for (const bad of [null, [], "x", { ...ok, caseId: "" }, { ...ok, caseId: "a/b" }, { ...ok, caseId: "." }, { ...ok, caseId: ".." }, { ...ok, caseId: "__x__" }, { ...ok, stage: "x" }, { ...ok, expectedDate: "2025-13-01" }, { ...ok, newDate: "2025-02-30" }, { ...ok, newDate: 20251220 }, { ...ok, reason: "" }, { ...ok, reason: "  " }, { ...ok, reason: undefined }, { ...ok, reason: "あ".repeat(201) }]) {
       const r = parseCorrectStageRequest(bad);
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.message).not.toBe("");
