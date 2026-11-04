@@ -385,7 +385,7 @@ npm run bundle -w functions && npx firebase emulators:exec --only firestore,auth
   - README: N03 は人の作業 8 の結果どおり。姫路の例外を書く。判定と AI の分担（§13）を書く。運営者と地域は利用者が入れる。
   - `submission-checklist.md`: 下の Step の順と `--pre-publish`。
 - [ ] **Step 4: 通ることを確かめる** 同じコマンド
-- [ ] **Step 5: 本番 deploy（Human、11/7 夜か 11/8 午前）** `npx tsx scripts/smoke-prod.ts --pre-publish` を通す（`VITE_OPERATOR_NAME` と確認日は build に入るので deploy の前に止める）。確認の後に `FB deploy --only firestore,storage,functions,hosting`、`npx tsx scripts/smoke-prod.ts`。`autoPublishEnabled` は I-06 の合格と確認の後だけ。
+- [ ] **Step 5: 本番 deploy（Human、11/7 夜か 11/8 午前）** `npx tsx scripts/smoke-prod.ts --pre-publish` を通す（`VITE_OPERATOR_NAME` と確認日は build に入るので deploy の前に止める）。確認の後に `FB deploy --only firestore,storage,functions,hosting`、`npx tsx scripts/smoke-prod.ts`。本番で Google ログインが通ること、`/` に `X-Frame-Options` と `X-Content-Type-Options` が付き `/__/auth/iframe` には付かないこと、配信停止の POST が Hosting の rewrite を通って関数に届くことを確かめる（X-23 の N-7、S-36）。`autoPublishEnabled` は I-06 の合格と確認の後だけ。
 - [ ] **Step 6: 本番の MCP（Human）** `claude mcp add --transport http hpai https://<project>.web.app/mcp` の後に「今週の岡山の状況は」。結果を `docs/mcp-usage.md` に足す。
 - [ ] **Step 7: 撮影（Human、11/8 正午までに開始）** `pw demo-walkthrough` の後に台本で 1 回通す（**場面 7 が skip でないこと**を確かめる。skip は舞台裏か評価が未実測のとき）。メールは送信先を作者に限る。MCP の場面は本番の接続で撮る。見返して、映さないものがなく、帯と「仮の地点」があり、数字が実測か明示されていることを確かめる。本物の発生が今週あれば §17 のとおり。**本番が正午までに動かなければ利用者に相談する。**
 - [ ] **Step 8: README を仕上げる** 本番と動画の URL を入れ、人の作業 9 の提出物と長さを照らす。`vt scripts readme demo-script`。
