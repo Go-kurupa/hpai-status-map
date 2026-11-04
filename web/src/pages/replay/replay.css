@@ -37,6 +37,10 @@
   border-color: var(--accent);
   color: var(--on-accent);
 }
+.replay-now {
+  font-weight: 700;
+  margin: 0 0 8px;
+}
 .replay-position {
   margin: 0;
   min-width: 4em;
@@ -58,7 +62,7 @@
   padding: 4px 12px;
   background: var(--surface);
   color: var(--fg);
-  border: 1px solid var(--line);
+  border: 1px solid var(--muted);
 }
 .replay-item[aria-pressed="true"] {
   border: 2px solid var(--accent);
@@ -77,6 +81,12 @@
 .replay-source {
   font-size: 0.9rem;
   margin: 0 0 8px;
+}
+.replay-source a {
+  display: inline-block;
+  min-height: var(--tap);
+  padding-block: 12px;
+  box-sizing: border-box;
 }
 
 /* 地図の見出しは『今季の発生状況』。再現では、再現の見出し（.replay-heading）を使う */

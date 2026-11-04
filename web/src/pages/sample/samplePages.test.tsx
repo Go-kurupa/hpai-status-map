@@ -121,8 +121,28 @@ describe("/sample（入口）", () => {
   it("/sample/todo と /sample/record へのリンクがある", async () => {
     mount("/sample");
     await screen.findByRole("heading", { level: 1, name: "見本の農場" });
-    expect(screen.getByRole("link", { name: /やること/ }).getAttribute("href")).toBe("/sample/todo");
+    expect(screen.getByRole("link", { name: /^やること$/ }).getAttribute("href")).toBe("/sample/todo");
     expect(screen.getByRole("link", { name: /記録/ }).getAttribute("href")).toBe("/sample/record");
+  });
+
+  it("入口の末尾に『去年の再現へ』（/replay）と『鶏を飼っていない方へ』（/public）のリンクがある", async () => {
+    mount("/sample");
+    await screen.findByRole("heading", { level: 1, name: "見本の農場" });
+    expect(screen.getByRole("link", { name: "去年の再現へ" }).getAttribute("href")).toBe("/replay");
+    expect(screen.getByRole("link", { name: "鶏を飼っていない方へ" }).getAttribute("href")).toBe("/public");
+  });
+
+  it("見本の帯は バッジ → 保存されない断り → 架空の文 → 時点 → nav の順。断りは畳まない", async () => {
+    mount("/sample/todo");
+    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
+    const band = document.querySelector(".sample-band")!;
+    const kids = [...band.children];
+    expect(kids[0]!.className).toBe("sample-badge");
+    expect(kids[1]!.textContent).toBe(SAMPLE_TEXT.notSent);
+    expect(kids[2]!.textContent).toContain("架空の農場です");
+    expect(kids[3]!.textContent).toContain("見本の時点");
+    expect(kids[4]!.tagName).toBe("NAV");
+    expect(kids[1]!.closest("details")).toBeNull();
   });
 
   it("読み込めなければ、そう書く（空の画面を出さない）。やり直せる", async () => {
@@ -131,6 +151,16 @@ describe("/sample（入口）", () => {
     expect(await screen.findByText(/見本のデータを読めませんでした/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "もう一度読む" })).toBeTruthy();
     expect(screen.queryByText(FIXED_TEXT.replayBanner)).toBeNull();
+  });
+});
+
+describe("/sample/todo（帯）", () => {
+  it("再現の帯の箇条書き（.replay-notes）は畳まず、4 文が出る", async () => {
+    mount("/sample/todo");
+    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
+    const notes = document.querySelector(".replay-notes")!;
+    expect(notes.closest("details")).toBeNull();
+    expect(notes.querySelectorAll("li").length).toBe(4);
   });
 });
 

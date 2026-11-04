@@ -21,6 +21,10 @@ export interface CollectedText {
  */
 export async function collectVisibleText(page: Page): Promise<CollectedText[]> {
   return page.evaluate(() => {
+    // 畳んだ中は innerText に入らないので、検査の前に全部開く
+    document.querySelectorAll("details").forEach((d) => {
+      d.open = true;
+    });
     const out: Array<{ from: string; text: string }> = [];
     out.push({ from: "タブの題", text: document.title });
     out.push({ from: "本文", text: document.body.innerText });

@@ -24,5 +24,7 @@ export const SAMPLE_TEXT = {
   entryRecord: "記録",
   entryRecordNote: "鶏舎ごとの死亡数と基準の計算、週と自己点検の報告文、消毒の記録",
   entryExamples: "死亡数の例: 鶏舎Aは基準に当たる例、鶏舎Bは当たらない例、鶏舎Cは記録が 21 日に満たない例です",
+  entryReplay: "去年の再現へ",
+  entryPublic: "鶏を飼っていない方へ",
   asOf: (day: string) => `見本の時点: ${day}（去年の再現の時計を、この日に合わせています）`,
 } as const;

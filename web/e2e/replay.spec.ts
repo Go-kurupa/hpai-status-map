@@ -28,7 +28,15 @@ async function open(page: Page, storage?: Record<string, string>) {
   await page.waitForFunction(() => !!(window as unknown as W).__hpaiMap?.getLayer("case-suspected"), undefined, { timeout: 20_000 });
 }
 
-const item = (page: Page, re: RegExp) => page.getByRole("list", { name: "日付の一覧" }).getByRole("button", { name: re });
+/** 日付の一覧は畳んである。閉じていたら『日付の一覧から選ぶ』を押して開いてから、ボタンを返す */
+async function openList(page: Page) {
+  const fold = page.locator("details.fold").filter({ has: page.locator('ol[aria-label="日付の一覧"]') });
+  if (!(await fold.evaluate((el) => (el as HTMLDetailsElement).open))) await fold.getByText("日付の一覧から選ぶ").click();
+}
+const item = async (page: Page, re: RegExp) => {
+  await openList(page);
+  return page.getByRole("list", { name: "日付の一覧" }).getByRole("button", { name: re });
+};
 const filterHas = (page: Page, layer: string, code: string) =>
   page.waitForFunction(([l, c]) => JSON.stringify((window as unknown as W).__hpaiMap!.getFilter(l!)).includes(c!), [layer, code], { timeout: 10_000 });
 
@@ -46,7 +54,7 @@ test.describe("去年の再現（/replay）", () => {
     await expect(page.getByText(ZONE)).toHaveCount(0);
 
     // 12/19（津山市の疑い。時刻の記載がないのでその日の終わり = 夜）
-    await item(page, /12 月 19 日.*津山市.*疑い/).click();
+    await (await item(page, /12 月 19 日.*津山市.*疑い/)).click();
     await expect(page.getByText(ZONE)).toBeVisible();
     await expect(page.getByText("再現の時点: 12 月 19 日（時刻の記載なし）")).toBeVisible();
     // 時刻の記載がないので、地図の時点は日付だけ。内部の 23:59:59 は DOM にも出さない。地図の h1 『今季』は隠し、再現の見出しを出す
@@ -61,16 +69,16 @@ test.describe("去年の再現（/replay）", () => {
     await expect(page.getByText(/実際には送りません/).first()).toBeVisible();
 
     // 12/20 確定、1/10 搬出制限の解除のあとも、移動制限が続く間は①のまま
-    await item(page, /12 月 20 日.*津山市.*確定/).click();
+    await (await item(page, /12 月 20 日.*津山市.*確定/)).click();
     await expect(page.getByText(ZONE)).toBeVisible();
     await expect(page.locator(".replay-scope .as-of").first()).toHaveText("12 月 20 日 9:00 時点"); // 09:00 は出典に時刻がある
     await filterHas(page, "case-confirmed", "33203");
-    await item(page, /1 月 10 日.*津山市.*搬出制限の解除/).click();
+    await (await item(page, /1 月 10 日.*津山市.*搬出制限の解除/)).click();
     await expect(page.getByText(ZONE)).toBeVisible();
     await expect(page.getByText("搬出制限は解除されました")).toBeVisible();
 
     // 1/21 津山市の移動制限の解除で、区域の文は消える（隣町になる）
-    await item(page, /1 月 21 日.*津山市.*移動制限の解除/).click();
+    await (await item(page, /1 月 21 日.*津山市.*移動制限の解除/)).click();
     await expect(page.getByText(ZONE)).toHaveCount(0);
     await expect(page.getByText("隣町で発生しました", { exact: true })).toBeVisible();
 
@@ -87,7 +95,7 @@ test.describe("去年の再現（/replay）", () => {
     await expect(page.getByText("1 / 14")).toBeVisible();
     await expect(page.getByRole("button", { name: "前へ" })).toBeEnabled();
     await filterHas(page, "case-confirmed", "31202");
-    await page.getByRole("button", { name: /はじまり/ }).click();
+    await (await item(page, /はじまり/)).click();
     await expect(page.getByText("0 / 14")).toBeVisible();
     await expect(page.getByRole("button", { name: "前へ" })).toBeDisabled();
   });
@@ -102,10 +110,10 @@ test.describe("去年の再現（/replay）", () => {
     const mine = JSON.stringify({ meshCode: "53331228", muniCode: "31202", frequentMuniCodes: [] });
     await open(page, { "hpai.spot.v1": mine });
     await page.getByRole("button", { name: "自分の町で見る" }).click();
-    await item(page, /12 月 2 日.*米子市.*確定/).click();
+    await (await item(page, /12 月 2 日.*米子市.*確定/)).click();
     await expect(page.getByText(ZONE)).toBeVisible();
     await expect(page.getByText("仮の地点で見ています", { exact: false })).toHaveCount(0);
-    await item(page, /12 月 28 日.*米子市.*移動制限の解除/).click();
+    await (await item(page, /12 月 28 日.*米子市.*移動制限の解除/)).click();
     await expect(page.getByText(ZONE)).toHaveCount(0);
     expect(await page.evaluate(() => window.localStorage.getItem("hpai.spot.v1"))).toBe(mine);
   });

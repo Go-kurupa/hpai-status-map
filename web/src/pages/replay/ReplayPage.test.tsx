@@ -34,6 +34,7 @@ vi.mock("../map/MapView", () => ({
 }));
 
 import ReplayPage from "./ReplayPage";
+import { eventLabel } from "./replayEngine";
 
 const scenario = scenarioJson as unknown as ReplayScenario;
 const ZONE = "区域に入っている可能性があります。県の連絡を確かめてください";
@@ -66,7 +67,12 @@ async function show(opts: { failScenario?: boolean } = {}) {
 }
 
 /** 出来事の一覧のボタン（『12 月 19 日 津山市 疑い』の形） */
-const item = (re: RegExp) => within(screen.getByRole("list", { name: "日付の一覧" })).getByRole("button", { name: re });
+const item = (re: RegExp) => {
+  // 日付の一覧は畳んである（ui/Fold）。閉じていたら開いてから探す
+  const fold = screen.getByRole("list", { name: "日付の一覧", hidden: true }).closest("details");
+  if (fold) fold.open = true;
+  return within(screen.getByRole("list", { name: "日付の一覧" })).getByRole("button", { name: re });
+};
 
 beforeEach(() => {
   seen.length = 0;
@@ -224,6 +230,47 @@ describe("ReplayPage", () => {
     expect(setItem).not.toHaveBeenCalled();
     expect(localStorage.length).toBe(0);
     expect(screen.queryByRole("button", { name: "地図で場所を合わせる" })).toBeNull();
+  });
+
+  it("次へで今の出来事の 1 行（replay-now）が eventLabel の文で出て、aria-live=polite はそこにある。位置の文 N / 14 は残り、aria-live は外れる", async () => {
+    await show();
+    await screen.findByTestId("map");
+    const now = () => document.querySelector(".replay-now") as HTMLElement;
+    expect(now().textContent).toBe("はじまり（最初の発表の前）");
+    expect(now().getAttribute("aria-live")).toBe("polite");
+    fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+    expect(now().textContent).toBe(eventLabel(scenario.events[0]!));
+    expect(now().getAttribute("aria-live")).toBe("polite");
+    const pos = screen.getByText(`1 / ${scenario.events.length}`);
+    expect(pos.getAttribute("aria-live")).toBeNull();
+  });
+
+  it("メールの枠は日付の一覧より前にある。日付の一覧は『日付の一覧から選ぶ』の畳みの中", async () => {
+    await show();
+    await screen.findByTestId("map");
+    fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+    fireEvent.click(item(/12 月 19 日.*津山市.*疑い/));
+    const mail = await screen.findByRole("region", { name: "このときメールが届く" });
+    const list = screen.getByRole("list", { name: "日付の一覧" });
+    expect(mail.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const fold = list.closest("details")!;
+    expect(fold.querySelector("summary")?.textContent).toBe("日付の一覧から選ぶ");
+  });
+
+  it("押せない案内の『地図』は / へのリンク。見本の農場で試すは /sample へのリンク", async () => {
+    await show();
+    await screen.findByTestId("map");
+    expect(screen.getByRole("link", { name: "地図" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("link", { name: "見本の農場で試す" }).getAttribute("href")).toBe("/sample");
+    expect(document.body.textContent).toContain("自分の町で見るには、地図で自分の場所を決めてください（この端末の中にだけ保存されます）。");
+  });
+
+  it("再現の帯の箇条書き（replay-notes）は畳まない（details の中にない）", async () => {
+    await show();
+    await screen.findByTestId("map");
+    const notes = document.querySelector(".replay-notes")!;
+    expect(notes).toBeTruthy();
+    expect(notes.closest("details")).toBeNull();
   });
 
   it("通信は 再現のデータと過去の記録 だけ。Firestore や Claude には出ない", async () => {

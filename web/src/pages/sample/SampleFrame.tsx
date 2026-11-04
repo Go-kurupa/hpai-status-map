@@ -54,11 +54,11 @@ function SampleBand({ data, nav }: { data: SampleFarmData; nav: boolean }) {
   return (
     <section className="sample-band" aria-label={SAMPLE_TEXT.title}>
       <p className="sample-badge">{SAMPLE_TEXT.badge}</p>
+      <p className="sample-note">{SAMPLE_TEXT.notSent}</p>
       <p>
         {SAMPLE_TEXT.fictional}。{SAMPLE_TEXT.member}
       </p>
       <p>{SAMPLE_TEXT.asOf(jaDayWithYear(data.today))}</p>
-      <p className="sample-note">{SAMPLE_TEXT.notSent}</p>
       {nav ? (
         <nav aria-label={SAMPLE_TEXT.navLabel} className="sample-nav">
           <Link to="/sample">{SAMPLE_TEXT.navEntry}</Link>

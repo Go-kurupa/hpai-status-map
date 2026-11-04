@@ -41,7 +41,12 @@ async function openReplay(page: Page) {
   await page.goto("/replay");
   await page.waitForFunction(() => !!(window as unknown as W).__hpaiMap?.getLayer("case-suspected"), undefined, { timeout: 20_000 });
 }
-const replayItem = (page: Page, re: RegExp) => page.getByRole("list", { name: "日付の一覧" }).getByRole("button", { name: re });
+/** 日付の一覧は畳んである。閉じていたら『日付の一覧から選ぶ』を押して開いてから、ボタンを返す */
+const replayItem = async (page: Page, re: RegExp) => {
+  const fold = page.locator("details.fold").filter({ has: page.locator('ol[aria-label="日付の一覧"]') });
+  if (!(await fold.evaluate((el) => (el as HTMLDetailsElement).open))) await fold.getByText("日付の一覧から選ぶ").click();
+  return page.getByRole("list", { name: "日付の一覧" }).getByRole("button", { name: re });
+};
 
 test.describe("デモの筋", () => {
   test("場面 2: 過去の 1 文が段階の色なしで出て、6 シーズンの件数が合い、12/19 の夜に津山に疑いが出る", async ({ page }) => {
@@ -67,7 +72,7 @@ test.describe("デモの筋", () => {
 
     // 再現を 12/19 の夜に進めると、津山の疑いが地図に出る
     await openReplay(page);
-    await replayItem(page, /12 月 19 日.*津山市.*疑い/).click();
+    await (await replayItem(page, /12 月 19 日.*津山市.*疑い/)).click();
     await expect(page.getByText(ZONE)).toBeVisible();
     await filterHas(page, "case-suspected", "33203");
     await expectNoForbiddenText(page);
@@ -77,7 +82,7 @@ test.describe("デモの筋", () => {
     await openReplay(page);
     await expect(page.getByRole("button", { name: "もし区域の近くの農場なら" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("仮の地点で見ています", { exact: false })).toBeVisible();
-    await replayItem(page, /12 月 20 日.*津山市.*確定/).click();
+    await (await replayItem(page, /12 月 20 日.*津山市.*確定/)).click();
     await expect(page.getByText(ZONE)).toBeVisible();
 
     // 見本の農場のやること（再現の仮の地点と同じ地点）。① なので求められることが最初から開く

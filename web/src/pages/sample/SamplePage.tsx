@@ -28,6 +28,16 @@ export default function SamplePage() {
         </li>
       </ul>
       <p>{SAMPLE_TEXT.entryExamples}</p>
+      <p>
+        <Link className="tap-link" to="/replay">
+          {SAMPLE_TEXT.entryReplay}
+        </Link>
+      </p>
+      <p>
+        <Link className="tap-link" to="/public">
+          {SAMPLE_TEXT.entryPublic}
+        </Link>
+      </p>
     </div>
   );
 }

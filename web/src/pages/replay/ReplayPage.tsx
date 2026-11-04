@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { Link } from "react-router";
 import { fetchHistory } from "../../data/history";
 import { loadSpot } from "../../data/spot";
+import { Fold } from "../../ui/Fold";
 import MapPage from "../map/MapPage";
 import { eventLabel, formatMonthDay } from "./replayEngine";
 import { ReplayDataSource } from "./ReplayDataSource";
@@ -95,6 +96,8 @@ function ReplayControls({
       <h1 className="replay-heading">去年の再現（2025 年シーズンの発生状況）</h1>
       <p className="replay-hint">
         <Link to="/replay/backstage">舞台裏（AI が読んだ結果と、プログラムの検査）を見る</Link>
+        {" / "}
+        <Link to="/sample">見本の農場で試す</Link>
       </p>
       <div role="group" aria-label="見る場所" className="replay-switch">
         <button type="button" className="btn" aria-pressed={view === "zone"} onClick={() => onView("zone")}>
@@ -104,13 +107,13 @@ function ReplayControls({
           自分の町で見る
         </button>
       </div>
-      {!canOwn ? <p className="replay-hint">自分の町で見るには、地図で自分の場所を決めてください（この端末の中にだけ保存されます）。</p> : null}
+      {!canOwn ? <p className="replay-hint">自分の町で見るには、<Link to="/">地図</Link>で自分の場所を決めてください（この端末の中にだけ保存されます）。</p> : null}
 
       <div className="replay-steps">
         <button type="button" className="btn" disabled={order === 0} onClick={() => seek(order - 1)}>
           前へ
         </button>
-        <p className="replay-position" aria-live="polite">
+        <p className="replay-position">
           {`${order} / ${total}`}
         </p>
         <button type="button" className="btn btn-primary" disabled={order === total} onClick={() => seek(order + 1)}>
@@ -118,21 +121,9 @@ function ReplayControls({
         </button>
       </div>
 
-      <ol className="replay-list" aria-label="日付の一覧">
-        <li>
-          <button type="button" className="replay-item" aria-pressed={order === 0} onClick={() => seek(0)}>
-            はじまり（最初の発表の前）
-          </button>
-        </li>
-        {scenario.events.map((e) => (
-          <li key={e.order}>
-            <button type="button" className="replay-item" aria-pressed={order === e.order} onClick={() => seek(e.order)}>
-              {eventLabel(e)}
-            </button>
-          </li>
-        ))}
-      </ol>
-
+      <p className="replay-now" aria-live="polite">
+        {current ? eventLabel(current) : "はじまり（最初の発表の前）"}
+      </p>
       {current ? (
         <p className="replay-source">
           {formatMonthDay(current.date)}の出来事の出典:{" "}
@@ -152,6 +143,23 @@ function ReplayControls({
       ) : null}
       {view === "zone" && current && !preview ? <p className="replay-hint">この出来事では、この地点にメールは届きません。</p> : null}
       {view === "own" ? <p className="replay-hint">自分の町では、メールの下書きは出しません。</p> : null}
+
+      <Fold summary="日付の一覧から選ぶ">
+        <ol className="replay-list" aria-label="日付の一覧">
+          <li>
+            <button type="button" className="replay-item" aria-pressed={order === 0} onClick={() => seek(0)}>
+              はじまり（最初の発表の前）
+            </button>
+          </li>
+          {scenario.events.map((e) => (
+            <li key={e.order}>
+              <button type="button" className="replay-item" aria-pressed={order === e.order} onClick={() => seek(e.order)}>
+                {eventLabel(e)}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </Fold>
     </div>
   );
 }
