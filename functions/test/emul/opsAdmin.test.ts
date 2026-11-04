@@ -243,6 +243,64 @@ describe("usage-status（読むだけ。--unpause が上限を越えたまま戻
   });
 });
 
+describe("watch-detail（入口ごとの確認の状態。読むだけ。ホスト名までで、パスも本文も返さない）", () => {
+  const row = (over: Partial<Source>): Source => ({
+    id: "x",
+    prefCode: "13",
+    url: "https://www.example.lg.jp/hidden-path/page?q=1",
+    kind: "pref_fixed",
+    confirmedOn: "2026-11-01",
+    note: "内部メモ",
+    group: 0,
+    enabled: true,
+    lastCheckedAt: null,
+    lastOkAt: null,
+    etag: "etag-value",
+    lastModified: null,
+    fingerprint: "fp-value",
+    failureCount: 0,
+    ...over,
+  });
+
+  it("まだ回っていない、成功、失敗を見分け、県・種類・ホストの順に並べる。パス、etag、指紋、メモは返さない", async () => {
+    await db.doc("sources/a").set(row({ id: "a", prefCode: "22", lastCheckedAt: "2026-11-04T17:32:00+09:00" }));
+    await db.doc("sources/b").set(row({ id: "b", prefCode: "13", group: 1 }));
+    await db.doc("sources/c").set(row({ id: "c", prefCode: "13", kind: "pref_rss", url: "https://rss.example.lg.jp/feed", lastCheckedAt: "2026-11-04T17:32:00+09:00", failureCount: 2 }));
+    await db.doc("sources/d").set(row({ id: "d", prefCode: null, kind: "maff_press", url: "https://www.maff.go.jp/j/press/", enabled: false }));
+
+    const res = await handleOp({ op: "watch-detail" });
+    expect(res).toEqual({
+      ok: true,
+      op: "watch-detail",
+      total: 4,
+      sources: [
+        { prefCode: null, kind: "maff_press", host: "www.maff.go.jp", group: 0, enabled: false, lastCheckedAt: null, failureCount: 0, result: "unchecked" },
+        { prefCode: "13", kind: "pref_fixed", host: "www.example.lg.jp", group: 1, enabled: true, lastCheckedAt: null, failureCount: 0, result: "unchecked" },
+        { prefCode: "13", kind: "pref_rss", host: "rss.example.lg.jp", group: 0, enabled: true, lastCheckedAt: "2026-11-04T17:32:00+09:00", failureCount: 2, result: "failing" },
+        { prefCode: "22", kind: "pref_fixed", host: "www.example.lg.jp", group: 0, enabled: true, lastCheckedAt: "2026-11-04T17:32:00+09:00", failureCount: 0, result: "ok" },
+      ],
+    });
+    const text = JSON.stringify(res);
+    for (const leak of ["hidden-path", "etag-value", "fp-value", "内部メモ", "q=1"]) expect(text).not.toContain(leak);
+  });
+
+  it("書き込まない。余計な項目は 400。入口が 0 件なら total 0", async () => {
+    expect(await handleOp({ op: "watch-detail" })).toEqual({ ok: true, op: "watch-detail", total: 0, sources: [] });
+    await db.doc("sources/a").set(row({ id: "a" }));
+    const before = (await db.doc("sources/a").get()).data();
+    await handleOp({ op: "watch-detail" });
+    expect((await db.doc("sources/a").get()).data()).toEqual(before);
+    expect((await rejection(handleOp({ op: "watch-detail", extra: 1 } as never))).status).toBe(400);
+  });
+
+  it("Bearer の内側にある（認証なしは 401 で、読まない）", async () => {
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    await serveOps({ method: "POST", get: () => undefined, body: { op: "watch-detail" } }, res as never, BEARER_VALUE);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ ok: false, error: "認証できません" });
+  });
+});
+
 describe("send-test-mail（運営者への試しの送信。宛先は設定の OPERATOR_EMAIL だけ）", () => {
   const NOW = new Date("2026-11-05T03:00:00Z"); // 日本時間 2026-11-05
   const OPERATOR = "operator@example.test";

@@ -25,6 +25,11 @@ describe("buildRequest（契約 1.7 の 4 操作）", () => {
     expect(() => buildRequest(["send-test-mail", "a@example.test"])).toThrow();
   });
 
+  it("watch-detail（引数なし）", () => {
+    expect(buildRequest(["watch-detail"])).toEqual({ op: "watch-detail" });
+    expect(() => buildRequest(["watch-detail", "--pref", "13"])).toThrow();
+  });
+
   it("seed-sources", () => {
     expect(buildRequest(["seed-sources"])).toEqual({ op: "seed-sources" });
   });

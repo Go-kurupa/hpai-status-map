@@ -4,6 +4,7 @@
 //   npx tsx scripts/ops.ts create-invite --kind signup --max-uses 5   # 平文のコードは 1 度だけ出る
 //   npx tsx scripts/ops.ts seed-sources
 //   npx tsx scripts/ops.ts set-setting <キー> <値>
+//   npx tsx scripts/ops.ts watch-detail   # 入口ごとの確認の状態（読むだけ。ホスト名まで）
 //   npx tsx scripts/ops.ts send-test-mail   # 運営者（OPERATOR_EMAIL）にだけ試しのメールを送る。1 日 5 回まで
 //   npx tsx scripts/ops.ts probe --permanent <tsv> --entrances <tsv>   # 全入口への到達試験（docs/reachability.md を更新）
 //   npx tsx scripts/ops.ts probe --from-sources
@@ -25,6 +26,7 @@ const USAGE = `使い方:
   ops.ts create-invite --kind signup --max-uses <回数>
   ops.ts seed-sources
   ops.ts set-setting <キー> <値>
+  ops.ts watch-detail
   ops.ts send-test-mail
   ops.ts probe --permanent <tsv> --entrances <tsv>
   ops.ts probe --from-sources`;
@@ -68,6 +70,10 @@ export function buildRequest(argv: string[]): OpRequest {
       const [key, raw] = positionals;
       if (positionals.length !== 2 || key === undefined || raw === undefined) throw new Error("<キー> <値> が要ります");
       return { op: "set-setting", key, value: parseValue(raw) };
+    }
+    case "watch-detail": {
+      parseArgs({ args: rest, options: {}, strict: true });
+      return { op: "watch-detail" };
     }
     case "send-test-mail": {
       parseArgs({ args: rest, options: {}, strict: true }); // 宛先は受け取らない

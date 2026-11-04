@@ -22,6 +22,7 @@ export type OpRequest =
   | { op: "seed-sources" }
   | { op: "set-setting"; key: string; value: unknown }
   | { op: "usage-status" }
+  | { op: "watch-detail" }
   | { op: "send-test-mail" };
 
 export type OpResult =
@@ -30,7 +31,21 @@ export type OpResult =
   | { ok: true; op: "seed-sources"; added: number; skipped: number; total: number }
   | { ok: true; op: "set-setting"; key: string; value: unknown }
   | { ok: true; op: "usage-status"; month: string; estimatedJpy: number; hardLimitJpy: number }
+  | { ok: true; op: "watch-detail"; total: number; sources: WatchDetailRow[] }
   | { ok: true; op: "send-test-mail"; sent: true };
+
+/** watch-detail の 1 行。入口ごとの確認の状態。URL のパスも、取得した中身も含まない。 */
+export interface WatchDetailRow {
+  prefCode: string | null;
+  kind: SourceKind;
+  host: string;
+  group: 0 | 1 | 2;
+  enabled: boolean;
+  lastCheckedAt: string | null;
+  failureCount: number;
+  /** unchecked（まだ回っていない）、ok、failing（失敗が続いている。理由の code は入口に保存していない）。 */
+  result: "unchecked" | "ok" | "failing";
+}
 
 /** 呼び出し側に返してよい失敗。message は固定の文で、入力の値を含めない。 */
 export class OpError extends Error {
@@ -58,6 +73,7 @@ const RequestSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("seed-sources") }).strict(),
   z.object({ op: z.literal("set-setting"), key: z.string().min(1).max(100), value: z.unknown() }).strict(),
   z.object({ op: z.literal("usage-status") }).strict(),
+  z.object({ op: z.literal("watch-detail") }).strict(),
   z.object({ op: z.literal("send-test-mail") }).strict(), // 宛先は受け取らない（設定の OPERATOR_EMAIL だけ）
 ]);
 
@@ -100,6 +116,8 @@ export async function handleOp(body: OpRequest, opts: OpOptions = {}): Promise<O
       return setSetting(req);
     case "usage-status":
       return usageStatus((opts.now ?? (() => new Date()))());
+    case "watch-detail":
+      return watchDetail();
     case "send-test-mail":
       return sendTestMail(opts);
   }
@@ -198,6 +216,34 @@ async function seedSources(sourcesPath: string | undefined): Promise<OpResult> {
 async function usageStatus(now: Date): Promise<OpResult> {
   const [settings, month] = await Promise.all([readRuntimeSettings(), readUsageMonth(now)]);
   return { ok: true, op: "usage-status", month: usageMonthKey(now), estimatedJpy: month.estimatedJpy, hardLimitJpy: settings.hardLimitJpy };
+}
+
+// ── watch-detail: 入口ごとの確認の状態を読むだけ。ホスト名までで、URL のパスも本文も返さない ──
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "(invalid)";
+  }
+}
+
+async function watchDetail(): Promise<OpResult> {
+  const snap = await db.collection("sources").get();
+  const sources = snap.docs
+    .map((d) => d.data() as Source)
+    .map((s): WatchDetailRow => ({
+      prefCode: s.prefCode,
+      kind: s.kind,
+      host: hostOf(s.url),
+      group: s.group,
+      enabled: s.enabled,
+      lastCheckedAt: s.lastCheckedAt,
+      failureCount: s.failureCount,
+      result: s.failureCount > 0 ? "failing" : s.lastCheckedAt === null ? "unchecked" : "ok",
+    }))
+    .sort((a, b) => (a.prefCode ?? "").localeCompare(b.prefCode ?? "") || a.kind.localeCompare(b.kind) || a.host.localeCompare(b.host));
+  return { ok: true, op: "watch-detail", total: sources.length, sources };
 }
 
 // ── send-test-mail: 運営者に 1 通だけ送る。宛先は OPERATOR_EMAIL 固定。1 日（日本時間）に 5 回まで ──
