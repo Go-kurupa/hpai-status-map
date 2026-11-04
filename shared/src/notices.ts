@@ -148,22 +148,31 @@ export const memberKeyOf = (farmId: string, uid: string): string => `${farmId}__
 export const REVIEWING_QUIET_DAYS = 14;
 
 /**
+ * 送ってから「すぐ」の知らせを送り直しの対象にするまでの待ち（分）。functions/src/notify/digest.ts の STALE_IMMEDIATE_MINUTES と同じ値
+ * （その値を変えたら、ここも合わせる。試験が突き合わせる）。この間の queued は、いま送っている最中とみなす。
+ */
+export const REVIEWING_QUEUED_GRACE_MINUTES = 10;
+
+/**
  * 同じ県の確認中が開いている間に、すでに確認中の知らせを受け取った会員（Q-m、利用者の決定 B）。
  * 確認中の続報（同じ県の追加の確認中の文書）は、この会員には送らない。画面の件数は事例の数なので、メールを送らなくても増える。
  * - openIds: 同じ県、同じ季の、いま開いている（cases にある）別の確認中の事例の id。
- * - 数えるのは、その事例への確認中の知らせで、queued、sent、failed の記録（送り直しが拾うので、重ねて送らない）。
- *   abandoned と capped は届いていないので数えない。
+ * - 数えるのは、その事例への確認中の知らせで、sent の記録と、REVIEWING_QUEUED_GRACE_MINUTES 分以内の queued（いま送っている最中）だけ。
+ *   failed と、それより古い queued は届いていない。数えると、送り直しの前にその事例が閉じたとき、続報も黙っていて 1 通も届かなくなる。
+ *   abandoned と capped も数えない。
  * - 知らせてから REVIEWING_QUIET_DAYS 日より古い記録、時刻が読めない記録は数えない（送る側に倒す）。
  */
 export function reviewingCoveredMembers(i: { openIds: ReadonlySet<string>; records: readonly SentNotice[]; now: Date }): Set<string> {
   const out = new Set<string>();
   if (i.openIds.size === 0) return out;
   const oldest = i.now.getTime() - REVIEWING_QUIET_DAYS * 86_400_000;
+  const graceFrom = i.now.getTime() - REVIEWING_QUEUED_GRACE_MINUTES * 60_000;
   for (const r of i.records) {
     if (r.event !== "reviewing" || !i.openIds.has(r.subjectId)) continue;
-    if (r.state !== "queued" && r.state !== "sent" && r.state !== "failed") continue;
+    if (r.state !== "queued" && r.state !== "sent") continue;
     const t = Date.parse(r.queuedAt);
     if (!Number.isFinite(t) || t < oldest) continue;
+    if (r.state === "queued" && t < graceFrom) continue;
     out.add(memberKeyOf(r.farmId, r.uid));
   }
   return out;

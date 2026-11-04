@@ -3,11 +3,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { makeReviewingCase } from "@hpai/shared/cases";
-import { planCaseNotices } from "@hpai/shared/notices";
+import { planCaseNotices, REVIEWING_QUEUED_GRACE_MINUTES } from "@hpai/shared/notices";
 import { hasOutbreakWords } from "@hpai/shared/read/publish";
 import type { Case } from "@hpai/shared/types";
 import { db } from "../../src/admin";
 import { dispatchNotices, noteMailStop } from "../../src/notify/dispatch";
+import { STALE_IMMEDIATE_MINUTES } from "../../src/notify/digest";
 import { handleCaseWrite } from "../../src/notify/onCaseWritten";
 import { extractPdfText } from "../../src/watch/extract";
 import { describeFixture } from "../helpers/fixtures";
@@ -303,6 +304,95 @@ describe("handleCaseWrite: 確認中の続報は 1 通だけ（Q-m）", () => {
     const b = makeDeps({ now: () => d15 });
     await arrive(b.deps, revIn("d3", "33", d15));
     expect(b.mail.sent).toHaveLength(2);
+  });
+
+  it("1 通目が failed のまま続報が来たら、その会員に送る（数えるのは sent と、いま送っている最中の queued だけ）", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    await arrive(deps, revIn("d1", "33"));
+    expect(mail.sent).toHaveLength(2);
+    await db.doc(`sentNotices/${idOf("f1", "u1", revIn("d1", "33"), "reviewing")}`).update({ state: "failed", sentAt: null });
+    await arrive(deps, revIn("d2", "33"));
+    expect(mail.sent.filter((m) => m.to === "u1@example.test")).toHaveLength(2);
+    expect(mail.sent.filter((m) => m.to === "u2@example.test")).toHaveLength(1);
+  });
+
+  it("「いま送っている最中」の 10 分は、送り直しが queued を拾う待ち（digest.ts）と同じ値", () => {
+    expect(REVIEWING_QUEUED_GRACE_MINUTES).toBe(STALE_IMMEDIATE_MINUTES);
+  });
+
+  it("10 分をこえて queued のままの記録は数えない。10 分以内の queued は数える", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    await arrive(deps, revIn("d1", "33"));
+    const queuedAt = (min: number) => new Date(NOW.getTime() - min * 60_000).toISOString();
+    await db.doc(`sentNotices/${idOf("f1", "u1", revIn("d1", "33"), "reviewing")}`).update({ state: "queued", sentAt: null, queuedAt: queuedAt(30) });
+    await db.doc(`sentNotices/${idOf("f2", "u2", revIn("d1", "33"), "reviewing")}`).update({ state: "queued", sentAt: null, queuedAt: queuedAt(5) });
+    await arrive(deps, revIn("d2", "33"));
+    expect(mail.sent.filter((m) => m.to === "u1@example.test")).toHaveLength(2);
+    expect(mail.sent.filter((m) => m.to === "u2@example.test")).toHaveLength(1);
+  });
+
+  it("ほぼ同時に書かれた 2 件の確認中は、会員 1 人あたり 1〜2 通（2 通を超えない）", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    const a = revIn("d1", "33");
+    const b = revIn("d2", "33");
+    await Promise.all([db.doc(`cases/${a.id}`).set(a), db.doc(`cases/${b.id}`).set(b)]);
+    await Promise.all([handleCaseWrite(deps, null, a, fakeGeo()), handleCaseWrite(deps, null, b, fakeGeo())]);
+    for (const to of ["u1@example.test", "u2@example.test"]) {
+      const n = mail.sent.filter((m) => m.to === to).length;
+      expect(n).toBeGreaterThanOrEqual(1);
+      expect(n).toBeLessThanOrEqual(2);
+    }
+    expect(mail.sent.filter((m) => m.to === "u3@example.test" || m.to === "u4@example.test")).toHaveLength(0);
+  });
+
+  it("前季の rev- と、その知らせの記録（14 日以内）があっても、今季の確認中では 1 通出る", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    const old = { ...revIn("old1", "33"), season: 2025 };
+    await db.doc(`cases/${old.id}`).set(old);
+    for (const [farmId, uid] of [["f1", "u1"], ["f2", "u2"]] as const) {
+      await db.doc(`sentNotices/${idOf(farmId, uid, old, "reviewing")}`).set({ farmId, uid, subjectId: old.id, event: "reviewing", timing: "immediate", state: "sent", queuedAt: NOW.toISOString(), sentAt: NOW.toISOString() });
+    }
+    await arrive(deps, revIn("d1", "33"));
+    expect(mail.sent.map((m) => m.to).sort()).toEqual(["u1@example.test", "u2@example.test"]);
+  });
+
+  it("開いている確認中が 31 件以上あっても、30 件ずつに分けて記録を読む（31 件目以降の記録も見る）", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    const ids: string[] = [];
+    for (let i = 0; i < 35; i++) {
+      const c = revIn(`x${String(i).padStart(2, "0")}`, "33");
+      ids.push(c.id);
+      await db.doc(`cases/${c.id}`).set(c);
+    }
+    // 知らせの記録は、並びの最後の確認中（2 つ目のかたまり）にだけある
+    const last = ids.sort().at(-1)!;
+    await db.doc(`sentNotices/f1__u1__${last}__reviewing`).set({ farmId: "f1", uid: "u1", subjectId: last, event: "reviewing", timing: "immediate", state: "sent", queuedAt: NOW.toISOString(), sentAt: NOW.toISOString() });
+    await arrive(deps, revIn("new", "33"));
+    expect(mail.sent.map((m) => m.to)).toEqual(["u2@example.test"]); // u1 は知らせ済みなので黙り、u2 には送る
+  });
+
+  it("開いている確認中が 200 件を超えたら、読むのをやめて送る側に倒す", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    const batch = db.batch();
+    for (let i = 0; i < 205; i++) {
+      const c = revIn(`y${String(i).padStart(3, "0")}`, "33");
+      batch.set(db.doc(`cases/${c.id}`), c);
+    }
+    await batch.commit();
+    await db.doc("sentNotices/f1__u1__rev-y000__reviewing").set({ farmId: "f1", uid: "u1", subjectId: "rev-y000", event: "reviewing", timing: "immediate", state: "sent", queuedAt: NOW.toISOString(), sentAt: NOW.toISOString() });
+    const logs = captureLogs();
+    try {
+      await arrive(deps, revIn("new", "33"));
+    } finally {
+      logs.restore();
+    }
+    expect(mail.sent.map((m) => m.to).sort()).toEqual(["u1@example.test", "u2@example.test"]);
   });
 
   it("開いている確認中を調べる読み込みが失敗しても、送る側に倒す", async () => {

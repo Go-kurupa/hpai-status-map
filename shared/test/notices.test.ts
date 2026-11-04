@@ -1,7 +1,7 @@
 // M-02: 誰にいつ知らせるかを決める純粋な部分。メールは送らない。
 import { describe, expect, it } from "vitest";
 import { distanceToMuniKm, GeoNotLoadedError } from "../src/geo";
-import { diffCaseEvents, eventDateOf, farmPoint, memberKeyOf, noticeDocId, planCaseNotices, reviewingCoveredMembers, REVIEWING_QUIET_DAYS, timingFor, type Notice, type NoticeEvent, type SentNotice } from "../src/notices";
+import { diffCaseEvents, eventDateOf, farmPoint, memberKeyOf, noticeDocId, planCaseNotices, reviewingCoveredMembers, REVIEWING_QUEUED_GRACE_MINUTES, REVIEWING_QUIET_DAYS, timingFor, type Notice, type NoticeEvent, type SentNotice } from "../src/notices";
 import type { Case, Farm } from "../src/types";
 import { makeGeo } from "./fixtures/geo";
 import { boxEastOfMesh, caseFixture, FAR_B, farmWithId, fakeGeo, GEO_A, GEO_B, GEO_C, GEO_D, IN_A, IN_D } from "./helpers/mFixtures";
@@ -268,6 +268,21 @@ describe("planCaseNotices: 確認中の続報（Q-m）", () => {
     const out = planCaseNotices({ event: "confirmed", caseDoc: caseFixture(), farms: farms(), geo: geo(), alreadySent: [], reviewingCovered: covered });
     expect(table(out)).toEqual({ f1: "immediate/1", f2: "morning/2", f3: "morning/3" });
   });
+  it("reviewingCovered を渡しても、否定（訂正）と解除の知らせは減らない", () => {
+    const covered = new Set([memberKeyOf("f1", "u1"), memberKeyOf("f2", "u2"), memberKeyOf("f3", "u3")]);
+    const neg = suspectedCase({ negation: "negated", negatedAt: "2026-11-06T09:00:00+09:00" });
+    const prior = [sent("f1", "u1", neg.id, "suspected"), sent("f2", "u2", neg.id, "suspected")];
+    const base = { caseDoc: neg, farms: farms(), geo: geo(), alreadySent: prior };
+    expect(planCaseNotices({ ...base, event: "negated" })).toEqual(planCaseNotices({ ...base, event: "negated", reviewingCovered: covered }));
+    expect(planCaseNotices({ ...base, event: "negated", reviewingCovered: covered }).filter((n) => n.isCorrection)).toHaveLength(2);
+    const lifted = caseFixture({ stages: { confirmed: stage("2026-11-01"), shipment_lifted: stage("2026-11-04"), movement_lifted: stage("2026-11-05") } });
+    for (const event of ["shipment_lifted", "movement_lifted"] as const) {
+      const lb = { event, caseDoc: lifted, farms: farms(), geo: geo(), alreadySent: [] as SentNotice[] };
+      const withCovered = planCaseNotices({ ...lb, reviewingCovered: covered });
+      expect(withCovered).toEqual(planCaseNotices(lb));
+    }
+    expect(planCaseNotices({ event: "movement_lifted", caseDoc: lifted, farms: farms(), geo: geo(), alreadySent: [], reviewingCovered: covered }).length).toBeGreaterThan(0);
+  });
 });
 
 describe("reviewingCoveredMembers: 同じ県の確認中が開いている間に、すでに知らせた会員", () => {
@@ -278,8 +293,13 @@ describe("reviewingCoveredMembers: 同じ県の確認中が開いている間に
   it("開いている確認中の知らせが届いた（sent）会員を返す", () => {
     expect([...run([rec("f1", "u1", "rev-d1")])]).toEqual([memberKeyOf("f1", "u1")]);
   });
-  it("queued と failed も数える（送り直しが拾う。ここで重ねて送らない）", () => {
-    expect(run([rec("f1", "u1", "rev-d1", { state: "queued" }), rec("f2", "u2", "rev-d1", { state: "failed" })]).size).toBe(2);
+  it("queued は 10 分以内だけ数える（いま送っている最中）。10 分をこえた queued は数えない（送り直しの対象で、届くかわからない）", () => {
+    const at = (min: number) => new Date(NOW.getTime() - min * 60_000).toISOString();
+    expect(run([rec("f1", "u1", "rev-d1", { state: "queued", queuedAt: at(5) }), rec("f2", "u2", "rev-d1", { state: "queued", queuedAt: at(REVIEWING_QUEUED_GRACE_MINUTES) })]).size).toBe(2);
+    expect(run([rec("f1", "u1", "rev-d1", { state: "queued", queuedAt: at(REVIEWING_QUEUED_GRACE_MINUTES + 1) })]).size).toBe(0);
+  });
+  it("failed は数えない（届いていない。送り直しの前に事例が閉じると、1 通も届かなくなるため）", () => {
+    expect(run([rec("f1", "u1", "rev-d1", { state: "failed", queuedAt: new Date(NOW.getTime() - 60_000).toISOString() })]).size).toBe(0);
   });
   it("abandoned と capped は数えない（届いていない）", () => {
     expect(run([rec("f1", "u1", "rev-d1", { state: "abandoned" }), rec("f2", "u2", "rev-d1", { state: "capped" })]).size).toBe(0);

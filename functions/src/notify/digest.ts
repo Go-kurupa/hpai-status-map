@@ -10,7 +10,7 @@ import { capHitNotices, hitDateOf, reserveHitSlot, retryCapAlerts, settleHitSlot
 import { createRebuildContext, isSelfCheckAnswered, loadSubjects, rebuildNotice, type QueueRec } from "./rebuild";
 
 /** 送ってから「すぐ」の知らせを拾うまでの待ち（分）。onCaseWritten が送っている間に拾わない。 */
-const STALE_IMMEDIATE_MINUTES = 10;
+export const STALE_IMMEDIATE_MINUTES = 10;
 /** この日数より古い記録は送らない（認証が長く止まった後に、古い疑い、確定、基準の知らせを一斉に送らない）。 */
 export const MAX_RETRY_AGE_DAYS = 14;
 /** 記録のせいで失敗した回数がこれに達したら諦める。 */

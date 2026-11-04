@@ -17,6 +17,8 @@ export const MAX_EVENT_AGE_DAYS = 14;
 
 /** Firestore の in の上限。 */
 const IN_LIMIT = 30;
+/** 開いている確認中をこれより多く読まない（超えたら、黙らせずに送る）。 */
+const OPEN_REVIEWING_MAX = 200;
 
 /**
  * 同じ県の確認中が開いている間に、すでに確認中の知らせを受け取った会員（Q-m）。「開いている」は cases にある別の確認中の事例（同じ県、同じ季）。
@@ -24,7 +26,9 @@ const IN_LIMIT = 30;
  */
 async function coveredByOpenReviewing(deps: NotifyDeps, after: Case): Promise<Set<string>> {
   try {
-    const open = await deps.db.collection("cases").where("confirmState", "==", "reviewing").where("prefCode", "==", after.prefCode).get();
+    // 要る項目（季）だけ読む。多すぎるときは読むのをやめて送る側に倒す
+    const open = await deps.db.collection("cases").where("confirmState", "==", "reviewing").where("prefCode", "==", after.prefCode).select("season").limit(OPEN_REVIEWING_MAX + 1).get();
+    if (open.size > OPEN_REVIEWING_MAX) return new Set();
     const openIds = open.docs.filter((d) => d.id !== after.id && (d.data() as Case).season === after.season).map((d) => d.id);
     if (openIds.length === 0) return new Set();
     const records: SentNotice[] = [];

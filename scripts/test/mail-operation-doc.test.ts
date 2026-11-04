@@ -28,10 +28,15 @@ describe("docs/mail-operation.md", () => {
     expect(doc).toContain("広告又は宣伝を行うための手段として送信をする電子メール"); // 定義の原文
   });
 
-  it("通数は M-02 の実測（5 人で 115 通、20 人で 460 通）で、計画の 480 通は残さない", () => {
-    expect(doc).toContain("115 通");
-    expect(doc).toContain("460 通");
-    expect(doc).not.toContain("20 人なら 480"); // 置き換えた計画の値を、現在の見積もりとして書かない
+  it("確認中のメールは「最初の 1 通だけ」と「14 日」の決まりがある。古い見積もりを今の見積もりとして書かない", () => {
+    expect(doc).toContain("最初の 1 通だけ");
+    expect(doc).toContain("14 日");
+    // 決まりの前の実測（23 通、115 通、460 通）は、その行に「決まりの前」か「参考」がある
+    const lines = doc.split("\n").filter((l) => /(23|115|460) 通/.test(l));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const l of lines) expect(l).toMatch(/決まりの前|参考/);
+    // 決まりの前の言い方を、今の見積もりとして残さない
+    for (const old of ["20 人なら 480", "量の既定", "招待が 5 人なら", "招待が 20 人なら", "未実測"]) expect(doc).not.toContain(old);
   });
 
   it("SMTP だけの上限は未確認と書く。アプリパスワードの条件がある", () => {
