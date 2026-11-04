@@ -230,6 +230,42 @@ describe("runSmokeProd（終了コード）", () => {
     expect(f.calls).toHaveLength(0);
   });
 
+  it.each([
+    "https://hpai-test.web.app",
+    "https://hpai-test.firebaseapp.com",
+    "https://asia-northeast1-hpai-test.cloudfunctions.net",
+    "https://hpai-abc-an.a.run.app",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+  ])("--base-url に許す: %s", async (u) => {
+    const f = fake();
+    const { code } = await run(["--base-url", u, "--internal-mcp-url", INTERNAL], { fetch: f.fetch });
+    expect(code).toBe(0);
+  });
+
+  it.each([
+    "https://evil.example",
+    "https://hpai-test.web.app.evil.example",
+    "https://evilweb.app",
+    "https://web.app",
+    "https://example.com/hpai-test.web.app",
+    "https://user@evil.example/",
+    "http://hpai-test.web.app",
+    "ftp://hpai-test.web.app",
+  ])("--base-url に許さない: %s（ネットワークへ出ない）", async (u) => {
+    const f = fake();
+    const { code } = await run(["--base-url", u, "--internal-mcp-url", INTERNAL], { fetch: f.fetch });
+    expect(code).toBe(2);
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("--internal-mcp-url も、関数の URL（.cloudfunctions.net、.run.app）かローカルに限る", async () => {
+    const f = fake();
+    expect((await run(["--base-url", BASE, "--internal-mcp-url", "https://evil.example/mcpInternal"], { fetch: f.fetch })).code).toBe(2);
+    expect((await run(["--base-url", BASE, "--internal-mcp-url", "https://hpai-test.web.app/mcpInternal"], { fetch: f.fetch })).code).toBe(2);
+    expect(f.calls).toHaveLength(0);
+  });
+
   it("知らない引数は 2", async () => {
     expect((await run(["--nope"])).code).toBe(2);
   });
@@ -250,6 +286,10 @@ const HIDE = "33,01,02";
 const GUIDE = "shared/src/guidance/official.ts";
 const PRIVACY = "web/src/pages/privacy/privacyNotice.ts";
 const REVIEW = "docs/official-text-review.md";
+const README = "README.md";
+const MCP_DOC = "docs/mcp-usage.md";
+const AREA = "テスト用の農場と地域-MARKER";
+const block = (...lines: string[]) => `# t\n<!-- 運営者と地域: ここから -->\n${lines.map((l) => `${l}\n`).join("")}<!-- 運営者と地域: ここまで -->\n`;
 
 function put(rel: string, text: string) {
   const file = path.join(root, rel);
@@ -266,96 +306,161 @@ function ready() {
   put(REVIEW, "| `OFFICIAL_GUIDANCE_REVIEWED_ON` | 2026-11-07 |\n");
   put("web/.env.production", `VITE_OPERATOR_NAME=${OPERATOR}\n`);
   put("functions/.env.hpai-test", "GMAIL_USER=a\nAGENT_EVAL_HIDE_PREFS=\n");
+  put(README, block(AREA));
+  put(MCP_DOC, "claude mcp add --transport http hpai https://example.web.app/mcp\n");
 }
 
 describe("runPrePublishChecks", () => {
-  it("整っていれば、5 つの確認がすべて通る", () => {
+  it("整っていれば、7 つの確認がすべて通る", () => {
     ready();
-    const r = runPrePublishChecks(root);
-    expect(r).toHaveLength(5);
+    const r = runPrePublishChecks(root, {});
+    expect(r).toHaveLength(7);
     expect(failed(r)).toEqual([]);
   });
 
   it("OFFICIAL_GUIDANCE_REVIEWED_ON が null なら落ちる", () => {
     ready();
     put(GUIDE, guide(null));
-    const names = failed(runPrePublishChecks(root)).map((x) => x.name);
+    const names = failed(runPrePublishChecks(root, {})).map((x) => x.name);
     expect(names.some((n) => n.includes("OFFICIAL_GUIDANCE_REVIEWED_ON") && !n.includes(REVIEW))).toBe(true);
   });
 
   it("docs/official-text-review.md に同じ日付がなければ落ちる（別の日付でも落ちる）", () => {
     ready();
     put(REVIEW, "| `OFFICIAL_GUIDANCE_REVIEWED_ON` | `null` |\n");
-    expect(failed(runPrePublishChecks(root)).map((x) => x.name)).toEqual([expect.stringContaining(REVIEW)]);
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining(REVIEW)]);
     put(REVIEW, "確認した日: 2026-11-06\n");
-    expect(failed(runPrePublishChecks(root)).map((x) => x.name)).toEqual([expect.stringContaining(REVIEW)]);
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining(REVIEW)]);
   });
 
   it("OFFICIAL_GUIDANCE_REVIEWED_ON が null のとき、記録の文書の日付の確認も落ちる（値がなければ照らせない）", () => {
     ready();
     put(GUIDE, guide(null));
-    const names = failed(runPrePublishChecks(root)).map((x) => x.name);
+    const names = failed(runPrePublishChecks(root, {})).map((x) => x.name);
     expect(names.some((n) => n.includes(REVIEW))).toBe(true);
   });
 
   it("PRIVACY_REVIEWED_ON が null なら落ちる", () => {
     ready();
     put(PRIVACY, privacy(null));
-    expect(failed(runPrePublishChecks(root)).map((x) => x.name)).toEqual([expect.stringContaining("PRIVACY_REVIEWED_ON")]);
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining("PRIVACY_REVIEWED_ON")]);
   });
 
   it("VITE_OPERATOR_NAME がない、空、空白だけ、引用符だけ、のどれでも落ちる", () => {
     for (const text of ["", "VITE_OPERATOR_NAME=\n", "VITE_OPERATOR_NAME=   \n", 'VITE_OPERATOR_NAME=""\n', "# VITE_OPERATOR_NAME=x\n", "OTHER=1\n"]) {
       ready();
       put("web/.env.production", text);
-      expect(failed(runPrePublishChecks(root)).map((x) => x.name), JSON.stringify(text)).toEqual([expect.stringContaining("VITE_OPERATOR_NAME")]);
+      expect(failed(runPrePublishChecks(root, {})).map((x) => x.name), JSON.stringify(text)).toEqual([expect.stringContaining("VITE_OPERATOR_NAME")]);
     }
     ready();
     fs.rmSync(path.join(root, "web/.env.production"));
-    expect(failed(runPrePublishChecks(root)).map((x) => x.name)).toEqual([expect.stringContaining("VITE_OPERATOR_NAME")]);
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining("VITE_OPERATOR_NAME")]);
   });
 
   it("VITE_OPERATOR_NAME は引用符つきでも export つきでも、値があれば通る", () => {
     for (const text of [`VITE_OPERATOR_NAME="${OPERATOR}"\n`, `VITE_OPERATOR_NAME='${OPERATOR}'\n`, `export VITE_OPERATOR_NAME=${OPERATOR}\n`]) {
       ready();
       put("web/.env.production", text);
-      expect(failed(runPrePublishChecks(root)), text).toEqual([]);
+      expect(failed(runPrePublishChecks(root, {})), text).toEqual([]);
     }
   });
 
   it("本番用の設定（.env.production.local）が空で上書きしていれば落ちる", () => {
     ready();
     put("web/.env.production.local", "VITE_OPERATOR_NAME=\n");
-    expect(failed(runPrePublishChecks(root)).map((x) => x.name)).toEqual([expect.stringContaining("VITE_OPERATOR_NAME")]);
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining("VITE_OPERATOR_NAME")]);
   });
 
   it("AGENT_EVAL_HIDE_PREFS に値があれば落ちる。空なら通る。模擬環境の設定は見ない", () => {
     ready();
     put("functions/.env.hpai-test", `AGENT_EVAL_HIDE_PREFS=${HIDE}\n`);
-    const r = runPrePublishChecks(root);
+    const r = runPrePublishChecks(root, {});
     expect(failed(r).map((x) => x.name)).toEqual([expect.stringContaining("AGENT_EVAL_HIDE_PREFS")]);
     // 模擬環境の設定と、模擬環境だけの .env.local は、本番の deploy に載らないので見ない
     ready();
     put("functions/.env.demo-hpai", `AGENT_EVAL_HIDE_PREFS=${HIDE}\n`);
     put("functions/.env.local", `AGENT_EVAL_HIDE_PREFS=${HIDE}\n`);
-    expect(failed(runPrePublishChecks(root))).toEqual([]);
+    expect(failed(runPrePublishChecks(root, {}))).toEqual([]);
     // 共通の .env にあれば本番にも載る
     put("functions/.env", `AGENT_EVAL_HIDE_PREFS="${HIDE}"\n`);
-    expect(failed(runPrePublishChecks(root)).map((x) => x.name)).toEqual([expect.stringContaining("AGENT_EVAL_HIDE_PREFS")]);
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining("AGENT_EVAL_HIDE_PREFS")]);
   });
 
   it("ファイルが読めないときは、通さず落とす（黙って通らない）", () => {
-    const r = runPrePublishChecks(root);
-    expect(r).toHaveLength(5);
-    // 4 つ（確認日 2 つ、記録の文書、運営者名）は落ちる。設定の値を隠す確認だけは、設定のファイルがなければ「値なし」で通る
+    const r = runPrePublishChecks(root, {});
+    expect(r).toHaveLength(7);
+    // 6 つ（確認日 2 つ、記録の文書、運営者名、運営者と地域、URL の印）は落ちる。設定の値を隠す確認だけは、設定のファイルがなければ「値なし」で通る
     expect(failed(r).map((x) => x.name).join("\n")).not.toContain("AGENT_EVAL_HIDE_PREFS");
-    expect(failed(r)).toHaveLength(4);
+    expect(failed(r)).toHaveLength(6);
   });
 
   it("日付の形でない値は、入っているとは数えない", () => {
     ready();
     put(GUIDE, 'export const OFFICIAL_GUIDANCE_REVIEWED_ON: IsoDate | null = "確認済み";\n');
-    expect(failed(runPrePublishChecks(root)).length).toBeGreaterThanOrEqual(1);
+    expect(failed(runPrePublishChecks(root, {})).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("確認日は OFFICIAL_GUIDANCE_REVIEWED_ON を含む行の中だけで照らす（別の行の同じ日付では通らない）", () => {
+    ready();
+    put(REVIEW, "| `OFFICIAL_GUIDANCE_REVIEWED_ON` | `null` |\n| 作者と共同経営者の確認 | 2026-11-07 |\n");
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining(REVIEW)]);
+    put(REVIEW, "前置き 2026-11-07\n| `OFFICIAL_GUIDANCE_REVIEWED_ON` | 2026-11-07 |\n");
+    expect(failed(runPrePublishChecks(root, {}))).toEqual([]);
+    put(REVIEW, "OFFICIAL_GUIDANCE_REVIEWED_ON は 2026-11-07 に入れた\n");
+    expect(failed(runPrePublishChecks(root, {}))).toEqual([]);
+  });
+
+  it("README の運営者と地域の囲みに、空でない 1 行がなければ落ちる", () => {
+    for (const text of ["# t\n", block(), block("", "  "), block("<!-- ここに入れる -->"), `# t\n<!-- 運営者と地域: ここまで -->\n${AREA}\n<!-- 運営者と地域: ここから -->\n`, `<!-- 運営者と地域: ここから -->\n${AREA}\n`]) {
+      ready();
+      put(README, text);
+      expect(failed(runPrePublishChecks(root, {})).map((x) => x.name), JSON.stringify(text)).toEqual([expect.stringContaining("運営者と地域")]);
+    }
+    ready();
+    fs.rmSync(path.join(root, README));
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual(expect.arrayContaining([expect.stringContaining("運営者と地域")]));
+  });
+
+  it("README と docs/mcp-usage.md に <本番の URL> と <サイトの URL> が残っていれば落ちる", () => {
+    for (const [file, text] of [
+      [README, `${block(AREA)}claude mcp add --transport http hpai https://<本番の URL>/mcp\n`],
+      [MCP_DOC, "curl 'https://<サイトの URL>/api/v1/cases'\n"],
+      [MCP_DOC, "https://<本番の URL>/mcp\n"],
+    ] as const) {
+      ready();
+      put(file, text);
+      const bad = failed(runPrePublishChecks(root, {}));
+      expect(bad.map((x) => x.name), file).toEqual([expect.stringContaining("<本番の URL>")]);
+      expect(bad[0]!.detail).toContain(file);
+    }
+  });
+
+  it("引用符のない値の行末コメントは値に入れない。空の値にコメントだけが付いても空", () => {
+    ready();
+    put("web/.env.production", "VITE_OPERATOR_NAME= # あとで入れる\n");
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining("VITE_OPERATOR_NAME")]);
+    put("web/.env.production", `VITE_OPERATOR_NAME=${OPERATOR} # 運営者\n`);
+    expect(failed(runPrePublishChecks(root, {}))).toEqual([]);
+    put("web/.env.production", 'VITE_OPERATOR_NAME="名前 # 付き"\n');
+    expect(failed(runPrePublishChecks(root, {}))).toEqual([]);
+    ready();
+    put("functions/.env.hpai-test", "AGENT_EVAL_HIDE_PREFS= # 空\n");
+    expect(failed(runPrePublishChecks(root, {}))).toEqual([]);
+    put("functions/.env.hpai-test", `AGENT_EVAL_HIDE_PREFS=${HIDE} # 受け入れの試験\n`);
+    expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining("AGENT_EVAL_HIDE_PREFS")]);
+  });
+
+  it("シェルに export された環境変数も見る（ファイルより強い）。値は表示しない", () => {
+    ready();
+    fs.rmSync(path.join(root, "web/.env.production"));
+    expect(failed(runPrePublishChecks(root, { VITE_OPERATOR_NAME: OPERATOR })), "シェルだけに運営者名").toEqual([]);
+    ready();
+    expect(failed(runPrePublishChecks(root, { VITE_OPERATOR_NAME: "" })).map((x) => x.name), "空で上書き").toEqual([expect.stringContaining("VITE_OPERATOR_NAME")]);
+    ready();
+    const bad = failed(runPrePublishChecks(root, { AGENT_EVAL_HIDE_PREFS: HIDE }));
+    expect(bad.map((x) => x.name)).toEqual([expect.stringContaining("AGENT_EVAL_HIDE_PREFS")]);
+    expect(JSON.stringify(bad)).not.toContain(HIDE);
+    expect(failed(runPrePublishChecks(root, { AGENT_EVAL_HIDE_PREFS: "" }))).toEqual([]);
   });
 
   it("結果の文に、設定の値（運営者名、県の一覧）を出さない。落ちたときも同じ", () => {
@@ -363,7 +468,7 @@ describe("runPrePublishChecks", () => {
     put("functions/.env.hpai-test", `AGENT_EVAL_HIDE_PREFS=${HIDE}\n`);
     for (const state of ["ready", "broken"]) {
       if (state === "broken") put("web/.env.production", `VITE_OPERATOR_NAME=\nOTHER=${OPERATOR}\n`);
-      const text = JSON.stringify(runPrePublishChecks(root));
+      const text = JSON.stringify(runPrePublishChecks(root, {}));
       expect(text, state).not.toContain(OPERATOR);
       expect(text, state).not.toContain(HIDE);
     }

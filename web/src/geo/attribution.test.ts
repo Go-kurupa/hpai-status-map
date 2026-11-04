@@ -46,6 +46,13 @@ describe("MAP_ATTRIBUTION", () => {
     expect(DOC).toContain(VMAP0_NOTICE);
   });
 
+  it("N03 の出典は、加工の表示（形の簡略化、政令市の区の統合、隣り合いの計算）を含み、docs/data-sources.md の「出典（表示する文）」と同じ", () => {
+    const plain = (s: string) => s.replace(/<[^>]*>/g, "");
+    const n03 = plain(MAP_ATTRIBUTION[2]!);
+    expect(n03).toBe("国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、形の簡略化、政令市の区の統合、隣り合いの計算を行って作成");
+    expect(DOC).toContain(`**出典（表示する文）:** ${n03}`);
+  });
+
   it("docs/data-sources.md の地理院タイルの節に、画面と同じ 3 つの出典の文がある", () => {
     const start = DOC.indexOf("## 地理院タイル");
     const end = DOC.indexOf("\n## ", start + 1);

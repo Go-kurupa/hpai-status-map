@@ -27,16 +27,29 @@ export interface SmokeProdDeps {
   env: Record<string, string | undefined>;
 }
 
-/** https か、ローカルの http だけ許す。 */
-function allowedUrl(raw: string): boolean {
+const normalizeHost = (h: string): string => h.toLowerCase().replace(/\.+$/u, "");
+const endsWithSub = (host: string, suffix: string): boolean => host.endsWith(suffix) && host.length > suffix.length;
+
+/**
+ * 確認の送り先として許す URL。https で、ホスト名が許す末尾で終わるものと、ローカルの http だけ。
+ * 資格情報つきの URL（user@host）は断る。
+ */
+function allowedUrl(raw: string, suffixes: readonly string[]): boolean {
+  let u: URL;
   try {
-    const u = new URL(raw);
-    if (u.protocol === "https:") return true;
-    return u.protocol === "http:" && (u.hostname === "localhost" || u.hostname === "127.0.0.1");
+    u = new URL(raw);
   } catch {
     return false;
   }
+  if (u.username !== "" || u.password !== "") return false;
+  const host = normalizeHost(u.hostname);
+  if (u.protocol === "https:") return suffixes.some((suffix) => endsWithSub(host, suffix));
+  return u.protocol === "http:" && (host === "localhost" || host === "127.0.0.1");
 }
+
+/** 本番の画面の URL（Hosting）と、関数の URL。 */
+const BASE_SUFFIXES = [".web.app", ".firebaseapp.com", ".cloudfunctions.net", ".run.app"] as const;
+const INTERNAL_SUFFIXES = [".cloudfunctions.net", ".run.app"] as const;
 
 function show(results: readonly SmokeResult[], write: (s: string) => void) {
   for (const r of results) write(`${r.pass ? "PASS" : "FAIL"}  ${r.name}  ${r.detail}\n`);
@@ -58,7 +71,7 @@ export async function runSmokeProd(argv: string[], deps: SmokeProdDeps): Promise
   }
 
   if (values["pre-publish"]) {
-    const results = runPrePublishChecks(deps.root);
+    const results = runPrePublishChecks(deps.root, deps.env);
     show(results, deps.write);
     return allPassed(results) ? 0 : 1;
   }
@@ -70,9 +83,9 @@ export async function runSmokeProd(argv: string[], deps: SmokeProdDeps): Promise
   }
   const baseUrl = values["base-url"] ?? `https://${project}.web.app`;
   const internalUrl = values["internal-mcp-url"] ?? `https://asia-northeast1-${project}.cloudfunctions.net/mcpInternal`;
-  for (const [name, url] of [["--base-url", baseUrl], ["--internal-mcp-url", internalUrl]] as const) {
-    if (!allowedUrl(url)) {
-      deps.write(`${name} は https:// で始まる URL にしてください（ローカルの確認は http://localhost か http://127.0.0.1 だけ）\n`);
+  for (const [name, url, suffixes] of [["--base-url", baseUrl, BASE_SUFFIXES], ["--internal-mcp-url", internalUrl, INTERNAL_SUFFIXES]] as const) {
+    if (!allowedUrl(url, suffixes)) {
+      deps.write(`${name} は https:// で始まる ${suffixes.join("、")} のどれかの URL にしてください（ローカルの確認は http://localhost か http://127.0.0.1 だけ）\n`);
       return 2;
     }
   }

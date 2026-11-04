@@ -4,9 +4,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { findWordingViolations } from "@hpai/shared/wording";
+import { MAP_ATTRIBUTION } from "../../web/src/geo/attribution";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
+
+/** 運営者と地域は、対の印で囲む。囲みの中に利用者が 1 行を入れる（農場名と地域を出す決定）。 */
+const OPERATOR_BEGIN = "<!-- 運営者と地域: ここから -->";
+const OPERATOR_END = "<!-- 運営者と地域: ここまで -->";
+/** 囲み（印を含む）を除いた README。地名の禁止は、ここにだけかける。 */
+const outsideOperator = readme.replace(new RegExp(`${OPERATOR_BEGIN}[\\s\\S]*?${OPERATOR_END}`, "u"), "");
+const plain = (html: string) => html.replace(/<[^>]*>/gu, "");
 
 /** `## <題>` から次の `## ` の手前まで。題は一部の一致でよい。 */
 function section(titlePart: string): string {
@@ -38,12 +46,53 @@ describe("README: 最初の節（審査員が登録なしで触れる入口）",
   });
 });
 
-describe("README: 運営者と地域は利用者が入れる", () => {
-  it("印だけを置く", () => {
-    expect(readme).toContain("<!-- 運営者と地域は利用者が入れる -->");
+describe("README: 冒頭の 3 行（画面の表の前）", () => {
+  const head = readme.slice(0, readme.indexOf("|"));
+  it("誰の、どんな課題を、どう解決するか、が表より前にある", () => {
+    expect(head).toMatch(/- \*\*誰の\*\*/u);
+    expect(head).toMatch(/- \*\*どんな課題を\*\*/u);
+    expect(head).toMatch(/- \*\*どう解決するか\*\*/u);
   });
-  it("農場名と地域の名前を書かない（題材の説明にも）", () => {
-    expect(readme).not.toMatch(/西粟倉|津山|岡山|美作|真庭/u);
+  it("まだ起きていないことを、事実のように書かない（毎朝開く、使い続けます）", () => {
+    expect(readme).not.toMatch(/毎朝開く|使い続けます|使い続ける/u);
+  });
+});
+
+describe("README: 運営者と地域（利用者が入れる）", () => {
+  it("対の印がそれぞれ 1 つあり、順に並ぶ", () => {
+    expect(readme.split(OPERATOR_BEGIN)).toHaveLength(2);
+    expect(readme.split(OPERATOR_END)).toHaveLength(2);
+    expect(readme.indexOf(OPERATOR_BEGIN)).toBeLessThan(readme.indexOf(OPERATOR_END));
+  });
+  it("囲みの外に、農場名と地域の名前を書かない（題材の説明にも）。囲みの中は利用者が決める", () => {
+    expect(outsideOperator).not.toMatch(/西粟倉|津山|岡山|美作|真庭/u);
+  });
+});
+
+describe("README: 公開した後に残らない書き方", () => {
+  it("作業の文（入ります、入れます、利用者が入れる）が、見える文にない（コメントを除く）", () => {
+    const visible = readme.replace(/<!--[\s\S]*?-->/gu, "");
+    expect(visible).not.toMatch(/印のところ|入ります。|利用者が入れ|公開の時に入れ/u);
+  });
+});
+
+describe("README: ライセンス", () => {
+  const sec = section("ライセンス");
+  const license = fs.readFileSync(path.join(ROOT, "LICENSE"), "utf8");
+  it("LICENSE がある。MIT の全文で、著作権者は Go Hatomi", () => {
+    expect(license).toMatch(/^MIT License\n/u);
+    expect(license).toContain("Copyright (c) 2026 Go Hatomi");
+    expect(license).toContain("Permission is hereby granted, free of charge, to any person obtaining a copy");
+    expect(license).toContain('THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND');
+  });
+  it("README から LICENSE へのリンクがある", () => {
+    expect(sec).toContain("(LICENSE)");
+  });
+  it("コードは MIT。外部のデータはそれぞれの条件に従う。外部のデータの表へのリンクがある", () => {
+    expect(sec).toContain("MIT");
+    expect(sec).toMatch(/それぞれの条件に従/u);
+    expect(sec).toContain("(#外部のデータと素材)");
+    for (const w of ["地図", "国のデータ", "地理院タイル"]) expect(sec, w).toContain(w);
   });
 });
 
@@ -119,6 +168,11 @@ describe("README: 費用", () => {
     expect(sec).toMatch(/枠があるうちは[^\n]*枠から出/u);
     expect(sec).toMatch(/枠の後[^\n]*エージェント[^\n]*`usage`/u);
   });
+  it("止める線の金額（10,000 円で読み取りを止める。8,000 円で進捗の読み取りと下書き。通知は 3,000 円）", () => {
+    expect(sec).toContain("月 10,000 円で読み取りを止める");
+    expect(sec).toContain("8,000 円で進捗の読み取りと下書きを止める");
+    expect(sec).toContain("予算の通知は 3,000 円");
+  });
   it("費用の記録へのリンクがある", () => {
     expect(sec).toContain("(docs/cost.md)");
   });
@@ -180,6 +234,16 @@ describe("README: 外部のデータと素材", () => {
     expect(readme).not.toMatch(/(不要と確認|手続きは不要|申請不要)/u);
     expect(readme).not.toMatch(/手続き.{0,6}不要/u);
   });
+  it("画面の出典の文（MAP_ATTRIBUTION）と、README の文が一致する。N03 は加工の表示を含む", () => {
+    const n03 = plain(MAP_ATTRIBUTION[2]!);
+    expect(readme).toContain(n03);
+    for (const w of ["形の簡略化", "政令市の区の統合", "隣り合いの計算"]) expect(n03, w).toContain(w);
+    expect(n03).toContain("国土交通省 国土数値情報");
+    expect(readme).toContain(plain(MAP_ATTRIBUTION[0]!));
+    expect(readme).toContain(MAP_ATTRIBUTION[1]!);
+    const doc = fs.readFileSync(path.join(ROOT, "docs", "data-sources.md"), "utf8");
+    expect(doc).toContain(n03);
+  });
   it("地理院タイル: 出所の明示（Vector Map Level 0）と、画像を保存しないこと", () => {
     const r = row("地理院タイル")!;
     expect(readme).toContain("Vector Map Level 0");
@@ -217,6 +281,13 @@ describe("README: 外部のデータと素材", () => {
         expect(fs.existsSync(path.join(ROOT, p)), `${r[0]}: ${p}`).toBe(true);
       }
     }
+  });
+});
+
+describe("README: 年の併記", () => {
+  it("『去年 12 月』の書き方をしない（2025 年 12 月と書く）", () => {
+    expect(readme).not.toMatch(/去年 12 月/u);
+    expect(readme).toContain("2025 年 12 月");
   });
 });
 

@@ -133,20 +133,49 @@ function reviewedOn(text: string | null, name: string): string | null | undefine
   return ISO_DATE.test(m[2] ?? "") ? m[2]! : undefined;
 }
 
-/** .env の 1 行から値（引用符を外したもの）。KEY の行でなければ undefined。 */
+/**
+ * .env の行から値（引用符を外したもの）。KEY の行でなければ undefined。
+ * 引用符のない値は、行末のコメント（空白の後の # 以降）を値に入れない。引用符のある値は、閉じ引用符までが値。
+ */
 function envValue(text: string, key: string): string | undefined {
   let found: string | undefined;
   for (const raw of text.split(/\r?\n/u)) {
     const m = new RegExp(`^\\s*(?:export\\s+)?${key}\\s*=\\s*(.*)$`, "u").exec(raw);
     if (!m) continue;
-    let v = m[1]!.trim();
-    if ((v.startsWith('"') && v.endsWith('"') && v.length >= 2) || (v.startsWith("'") && v.endsWith("'") && v.length >= 2)) v = v.slice(1, -1);
-    found = v.trim();
+    const v = m[1]!.trim();
+    const quote = v[0];
+    if ((quote === '"' || quote === "'") && v.indexOf(quote, 1) > 0) {
+      found = v.slice(1, v.indexOf(quote, 1)).trim();
+    } else if (v.startsWith("#")) {
+      found = "";
+    } else {
+      found = v.replace(/\s+#.*$/u, "").trim();
+    }
   }
   return found;
 }
 
-export function runPrePublishChecks(root: string): SmokeResult[] {
+const OPERATOR_BEGIN = "<!-- 運営者と地域: ここから -->";
+const OPERATOR_END = "<!-- 運営者と地域: ここまで -->";
+const URL_PLACEHOLDERS = ["<本番の URL>", "<サイトの URL>"] as const;
+
+/** README の運営者と地域の囲みの中に、空でも、コメントだけでもない行があるか。 */
+function operatorLineFilled(readme: string | null): boolean | undefined {
+  if (readme === null) return undefined;
+  const from = readme.indexOf(OPERATOR_BEGIN);
+  const to = readme.indexOf(OPERATOR_END);
+  if (from < 0 || to < 0 || to < from) return false;
+  return readme
+    .slice(from + OPERATOR_BEGIN.length, to)
+    .split(/\r?\n/u)
+    .some((l) => l.trim() !== "" && !l.trim().startsWith("<!--"));
+}
+
+/**
+ * 公開の前に、人が入れるべき値が入っているか。ファイルとシェルの環境変数（env。既定は process.env）を読む。
+ * 値は表示しない（有無と、ファイル名だけ）。
+ */
+export function runPrePublishChecks(root: string, env: Record<string, string | undefined> = process.env): SmokeResult[] {
   const rel = (...p: string[]) => path.join(root, ...p);
   const guideOn = reviewedOn(readIfExists(rel("shared", "src", "guidance", "official.ts")), "OFFICIAL_GUIDANCE_REVIEWED_ON");
   const privacyOn = reviewedOn(readIfExists(rel("web", "src", "pages", "privacy", "privacyNotice.ts")), "PRIVACY_REVIEWED_ON");
@@ -158,18 +187,20 @@ export function runPrePublishChecks(root: string): SmokeResult[] {
     detail: guideOn === undefined ? "読めないか、形が違います" : guideOn === null ? "null のままです（作者と共同経営者の確認の後に入れる）" : "確認日あり",
   });
 
+  // 同じ確認日は、OFFICIAL_GUIDANCE_REVIEWED_ON を含む行の中だけで探す（ほかの行の日付では照らさない）
   const review = readIfExists(rel("docs", "official-text-review.md"));
+  const reviewDated = typeof guideOn === "string" && review !== null && review.split(/\r?\n/u).some((l) => l.includes("OFFICIAL_GUIDANCE_REVIEWED_ON") && l.includes(guideOn));
   out.push({
-    name: "docs/official-text-review.md に OFFICIAL_GUIDANCE_REVIEWED_ON と同じ確認日がある",
-    pass: typeof guideOn === "string" && review !== null && review.includes(guideOn),
+    name: "docs/official-text-review.md の OFFICIAL_GUIDANCE_REVIEWED_ON の行に、同じ確認日がある",
+    pass: reviewDated,
     detail:
       typeof guideOn !== "string"
         ? "照らす確認日がありません"
         : review === null
           ? "文書を読めません"
-          : review.includes(guideOn)
+          : reviewDated
             ? "同じ日付あり"
-            : "同じ日付がありません",
+            : "その行に同じ日付がありません",
   });
 
   out.push({
@@ -185,10 +216,12 @@ export function runPrePublishChecks(root: string): SmokeResult[] {
     const v = text === null ? undefined : envValue(text, "VITE_OPERATOR_NAME");
     if (v !== undefined) operator = v;
   }
+  // シェルに export された値は、ファイルより強い（空でも上書きする）
+  if (env.VITE_OPERATOR_NAME !== undefined) operator = env.VITE_OPERATOR_NAME.trim();
   out.push({
     name: "VITE_OPERATOR_NAME に値がある",
     pass: operator !== undefined && operator !== "",
-    detail: operator === undefined ? "web/.env.production にありません" : operator === "" ? "空です" : "値あり（値は表示しません）",
+    detail: operator === undefined ? "web/.env.production にも、シェルの環境変数にもありません" : operator === "" ? "空です" : "値あり（値は表示しません）",
   });
 
   // 本番の deploy に載る設定: functions/.env と functions/.env.<project>。模擬環境（demo-）、.env.local、見本は載らない
@@ -204,10 +237,31 @@ export function runPrePublishChecks(root: string): SmokeResult[] {
     const v = text === null ? undefined : envValue(text, "AGENT_EVAL_HIDE_PREFS");
     if (v !== undefined && v !== "") hiding.push(f);
   }
+  if ((env.AGENT_EVAL_HIDE_PREFS ?? "").trim() !== "") hiding.push("シェルの環境変数");
   out.push({
     name: "AGENT_EVAL_HIDE_PREFS に値がない（本番の設定）",
     pass: hiding.length === 0,
     detail: hiding.length === 0 ? "値なし" : `値があります: ${hiding.join("、")}（値は表示しません）`,
+  });
+
+  const readme = readIfExists(rel("README.md"));
+  const filled = operatorLineFilled(readme);
+  out.push({
+    name: "README の運営者と地域の囲みに 1 行がある",
+    pass: filled === true,
+    detail: filled === undefined ? "README を読めません" : filled ? "1 行あり（内容は表示しません）" : "囲みがないか、囲みの中が空です（農場名と地域の 1 行を入れる）",
+  });
+
+  const left: string[] = [];
+  for (const f of ["README.md", path.join("docs", "mcp-usage.md")]) {
+    const text = readIfExists(rel(f));
+    if (text === null) left.push(`${f}（読めません）`);
+    else if (URL_PLACEHOLDERS.some((p) => text.includes(p))) left.push(f.split(path.sep).join("/"));
+  }
+  out.push({
+    name: "README と docs/mcp-usage.md に <本番の URL>、<サイトの URL> が残っていない",
+    pass: left.length === 0,
+    detail: left.length === 0 ? "残っていません" : `残っています: ${left.join("、")}`,
   });
 
   return out;

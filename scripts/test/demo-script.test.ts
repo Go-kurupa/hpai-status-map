@@ -79,10 +79,11 @@ describe("docs/demo-script.md", () => {
     expect(doc).toMatch(/MCP[^\n]*本番/u);
   });
 
-  it("農場名と地域の名前を書かない（試験名の中の市名を除く）", () => {
-    const withoutTitles = [...specTitles.values()].reduce((t, title) => t.replaceAll(title, ""), doc);
-    expect(withoutTitles).not.toMatch(/西粟倉|津山|岡山|美作|真庭/u);
-    expect(doc).not.toMatch(/西粟倉/u);
+  it("まだ起きていないことを、事実のように書かない（使い続けます）。去年 12 月には 2025 年 12 月を併記する", () => {
+    expect(doc).not.toMatch(/使い続けます|使い続ける/u);
+    for (const m of doc.matchAll(/去年 12 月/gu)) {
+      expect(doc.slice(m.index!, m.index! + 30), "去年 12 月").toContain("2025 年 12 月");
+    }
   });
 
   it("禁句、効果の数字、内部の言葉、電話番号の形がない", () => {

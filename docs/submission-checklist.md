@@ -10,8 +10,8 @@
 
 | 箇所 | 場所 | 入れるもの |
 |---|---|---|
-| 運営者と地域 | `README.md` の `<!-- 運営者と地域は利用者が入れる -->` の印のところ | 農場名と地域の 1 行（共同経営者は了承済み） |
-| 本番の URL | `README.md` の `<!-- 本番の URL は利用者が入れる -->` の印のところ。`claude mcp add` の例の `<本番の URL>` | 本番の URL |
+| 運営者と地域 | `README.md` の `<!-- 運営者と地域: ここから -->` と `<!-- 運営者と地域: ここまで -->` の間 | 農場名と地域の 1 行（共同経営者は了承済み）。囲みの外には地名を書かない試験があり、囲みの中は検査の対象外 |
+| 本番の URL | `README.md` の `<!-- 本番の URL は利用者が入れる -->` の近く。`README.md` と `docs/mcp-usage.md` に残っている `<本番の URL>` と `<サイトの URL>` のすべて | 本番の URL（`--pre-publish` が、残っていれば止める） |
 | 動画の URL | `README.md`（動画の掲載の後） | 動画の URL |
 | 運営者名 | `web/.env.production` の `VITE_OPERATOR_NAME` | 運営者の名前（build に入るので、deploy の前に入れる） |
 | 確認日 | `shared/src/guidance/official.ts` の `OFFICIAL_GUIDANCE_REVIEWED_ON`、`web/src/pages/privacy/privacyNotice.ts` の `PRIVACY_REVIEWED_ON`、`docs/official-text-review.md` | 作者と共同経営者が文面を確認した日（Claude は代わりに入れない） |
@@ -28,8 +28,12 @@ npx tsx scripts/smoke-prod.ts --pre-publish
 - `OFFICIAL_GUIDANCE_REVIEWED_ON` が null
 - `docs/official-text-review.md` に、同じ確認日がない
 - `PRIVACY_REVIEWED_ON` が null
-- 値のある `VITE_OPERATOR_NAME` がない
-- 値のある `AGENT_EVAL_HIDE_PREFS` がある（本番の設定のファイル）
+- 値のある `VITE_OPERATOR_NAME` がない（`web/.env.production` か、シェルの環境変数）
+- 値のある `AGENT_EVAL_HIDE_PREFS` がある（本番の設定のファイルと、シェルの環境変数）
+- README の運営者と地域の囲みに、空でない 1 行がない
+- `README.md` か `docs/mcp-usage.md` に `<本番の URL>`、`<サイトの URL>` が残っている
+
+`OFFICIAL_GUIDANCE_REVIEWED_ON` の確認日は、`docs/official-text-review.md` の、その名前を含む行の中の日付と照らします。`VITE_OPERATOR_NAME` は、シェルの環境変数があればファイルより優先します。
 
 `VITE_OPERATOR_NAME` と確認日は build に入るので、**deploy の前**にここで止めます。
 

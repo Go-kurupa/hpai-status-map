@@ -57,7 +57,7 @@ claude mcp add --transport http hpai https://<サイトの URL>/mcp
 
 本番に触れずに、手元の模擬環境で MCP を試します。
 
-1. 模擬環境の設定のファイルを置きます（契約 4.1 の「模擬環境（`demo-hpai`）」）。`functions/.secret.local` と `functions/.env.demo-hpai` に仮の値を入れる作業です。どちらも公開されません。
+1. 模擬環境の設定のファイルを置きます（模擬環境のプロジェクト名は `demo-hpai`）。`functions/.secret.local` と `functions/.env.demo-hpai` に仮の値を入れる作業です。どちらも公開されません。
 2. 関数を束ねます。模擬環境は束ねた `functions/lib/index.js` を読むので、コードを変えるたびにやり直します。
    ```
    npm run bundle -w functions

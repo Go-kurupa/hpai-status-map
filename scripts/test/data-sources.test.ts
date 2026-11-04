@@ -30,8 +30,8 @@ describe("docs/data-sources.md の N03 の節", () => {
     expect(sec).not.toMatch(/手続き.{0,6}不要/);
   });
 
-  it("簡略化の値と、0.85km が半対角と 30m を覆うこと（§19）がある", () => {
-    for (const s of ["1.5%", "interval=30", "0.85km", "30m", "§19"]) expect(sec).toContain(s);
+  it("簡略化の値と、0.85km が半対角と 30m を覆うこと（限界）がある", () => {
+    for (const s of ["1.5%", "interval=30", "0.85km", "30m", "限界"]) expect(sec).toContain(s);
   });
 
   it("2 つの節（出典と加工／利用条件）に分かれ、加工済みの出典の文がある", () => {
@@ -57,5 +57,43 @@ describe("docs/data-sources.md の地理院タイルの節", () => {
   });
   it("アクセス数の上限は未確認と書く", () => {
     expect(sec).toMatch(/アクセス数.{0,20}未確認/);
+  });
+});
+
+describe("docs/data-sources.md の国と県の公開文書の利用条件", () => {
+  const sec = section("国と県の公開文書の利用条件");
+  it("農林水産省、環境省、厚生労働省は公共データ利用規約（第1.0版）（PDL1.0）。確かめた URL と日付がある", () => {
+    expect(sec).toContain("公共データ利用規約（第1.0版）（PDL1.0）");
+    for (const url of ["https://www.maff.go.jp/j/use/link.html", "https://www.env.go.jp/mail.html", "https://www.mhlw.go.jp/chosakuken/index.html"]) {
+      expect(sec, url).toContain(url);
+    }
+    expect(sec.match(/確かめた日 2026-11-04/gu)?.length ?? 0).toBeGreaterThanOrEqual(5);
+  });
+  it("出典の記載、加工の記載、国が作ったかのように見せないこと、を書く", () => {
+    for (const s of ["出典", "加工したこと", "あたかも国"]) expect(sec, s).toContain(s);
+  });
+  it("e-Gov のサイトの利用規約は未確認。条文は著作権法第 13 条", () => {
+    expect(sec).toMatch(/e-Gov[^\n]*利用規約[^\n]*未確認/u);
+    expect(sec).toContain("著作権法第 13 条");
+    expect(sec).toContain("https://laws.e-gov.go.jp/");
+  });
+  it("県のサイトポリシー: 確かめた 1 県の記述と、ほかの県は未確認", () => {
+    expect(sec).toContain("https://www.pref.okayama.jp/page/detail-4318.html");
+    expect(sec).toMatch(/ほかの県は未確認/u);
+  });
+  it("CC BY との互換や、政府標準利用規約への準拠、とは書かない（どのページも言っていない）", () => {
+    expect(sec).not.toMatch(/互換(性)?(が|は)?(ある|あります|です)/u);
+    expect(sec).toMatch(/CC BY との互換については何も書いていない/u);
+    expect(sec).toMatch(/互換を前提にしない/u);
+  });
+});
+
+describe("docs/data-sources.md と docs/mcp-usage.md に内部の言葉がない", () => {
+  const mcp = fs.readFileSync(path.resolve(import.meta.dirname, "..", "..", "docs", "mcp-usage.md"), "utf8");
+  it.each([
+    ["data-sources.md", doc],
+    ["mcp-usage.md", mcp],
+  ])("%s", (_n, text) => {
+    expect(text).not.toMatch(/契約 \d|設計書 ?§|§\d|人の作業|索引 Q|\b[FIMWX]-\d{2}\b/u);
   });
 });

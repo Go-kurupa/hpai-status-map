@@ -122,13 +122,11 @@ describe("docs/data-sources.md の節「見回り先の未確認の点」", () =
     expect(sec).toContain("95900");
     expect(sec).toMatch(/富山[\s\S]{0,40}20260309|20260309[\s\S]{0,40}富山/);
     expect(sec).toMatch(/再利用/);
-    // 発生時に常設ページや RSS が動くか（§9.2）
+    // 発生時に常設ページや RSS が動くか
     expect(sec).toMatch(/発生時[\s\S]{0,30}RSS|RSS[\s\S]{0,30}発生時/);
-    expect(sec).toContain("§9.2");
-    // 福岡と福井は国で補う（索引 Q8）
+    // 福岡と福井は国で補う
     expect(sec).toMatch(/福岡と福井/);
     expect(sec).toContain("国の発表で補う");
-    expect(sec).toContain("Q8");
   });
 
   it("クラウドからの到達が未測定の点を書く（開発機で届いてもクラウドからは別）", () => {
