@@ -320,23 +320,24 @@ describe("/settings/farm", () => {
 });
 
 describe("/settings/farm（WebGL2 が使えない端末）", () => {
+  // 全体を並べて回すと部品の読み込みが 1 秒を超えることがあるので、待ち時間を延ばす（確かめる中身は同じ）
   it("案内の文は地図をおす操作ではなく、代わりのボタンに合う。押すと町の中心あたりのマス目で保存できる", async () => {
     noWebgl.value = true;
     farm = null;
     mount("/settings/farm");
-    const save = await screen.findByRole("button", { name: "地点を保存" });
+    const save = await screen.findByRole("button", { name: "地点を保存" }, { timeout: 5000 });
     expect(screen.getByText(TEXT.meshPickMuniFirst)).toBeTruthy();
     expect(screen.queryByText(/地図がその町に寄ります/)).toBeNull();
 
     fireEvent.change(screen.getByLabelText("都道府県"), { target: { value: "13" } });
-    fireEvent.change(await screen.findByLabelText("市町村"), { target: { value: "13101" } });
-    expect(await screen.findByText(TEXT.meshPressCenter)).toBeTruthy();
+    fireEvent.change(await screen.findByLabelText("市町村", {}, { timeout: 5000 }), { target: { value: "13101" } });
+    expect(await screen.findByText(TEXT.meshPressCenter, {}, { timeout: 5000 })).toBeTruthy();
     expect(screen.queryByText(/地図で、農場のあたりをおしてください/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: TEXT.meshUseCenter }));
-    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false), { timeout: 5000 });
     fireEvent.click(save);
-    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1), { timeout: 5000 });
     expect(saveFarm).toHaveBeenCalledWith({ meshCode: latLngToMesh3(CHIYODA.center[1], CHIYODA.center[0]), muniCode: "13101", prefCode: "13" });
     expect(findWordingViolations(TEXT.meshPickMuniFirst + TEXT.meshPressCenter)).toEqual([]);
   });
