@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import fs from "node:fs";
+import path from "node:path";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataSourceProvider } from "../../data/context";
@@ -102,5 +104,31 @@ describe("PosterPage", () => {
     const a = screen.getByRole("link", { name: /鶏を飼っていない方へ/ });
     expect(a.getAttribute("href")).toBe("/public");
     expect(screen.getByTestId("poster-sheet").contains(a)).toBe(false);
+  });
+});
+
+describe("poster.css（画面の幅が狭いとき）", () => {
+  const css = fs.readFileSync(path.join(import.meta.dirname, "poster.css"), "utf8");
+
+  it("@media screen and (max-width: 840px) の中に --poster-h がある", () => {
+    const m = css.match(/@media screen and \(max-width: 840px\)\s*\{([\s\S]*?\})\s*\}/);
+    expect(m).not.toBeNull();
+    expect(m![1]).toContain("--poster-h");
+  });
+
+  it("既定の 3 つの値が残る", () => {
+    expect(css).toMatch(/--poster-h:\s*90pt/);
+    expect(css).toMatch(/--poster-sub:\s*40pt/);
+    expect(css).toMatch(/--poster-body:\s*24pt/);
+  });
+
+  it("画面用の本文は 14.4px を下限にする", () => {
+    const m = css.match(/@media screen and \(max-width: 840px\)\s*\{([\s\S]*?\})\s*\}/);
+    expect(m![1]).toMatch(/--poster-body:\s*max\(4vw,\s*14\.4px\)/);
+  });
+
+  it(".poster-sheet に letter-spacing: 0 がある", () => {
+    const rule = css.match(/\.poster-sheet\s*\{[^}]*\}/)![0];
+    expect(rule).toMatch(/letter-spacing:\s*0\s*;/);
   });
 });

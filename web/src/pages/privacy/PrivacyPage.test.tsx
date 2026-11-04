@@ -186,6 +186,49 @@ describe("PrivacyPage", () => {
   });
 });
 
+describe("もくじと戻る道", () => {
+  it("もくじのリンク数が節の数と同じで、href が各節の id を指す", () => {
+    const { container } = renderPage();
+    const nav = screen.getByRole("navigation", { name: "もくじ" });
+    const links = within(nav).getAllByRole("link");
+    expect(links).toHaveLength(PRIVACY_NOTICE.length);
+    links.forEach((a, i) => {
+      expect(a.textContent).toBe(PRIVACY_NOTICE[i]!.heading);
+      const id = a.getAttribute("href")!.replace(/^#/, "");
+      expect(id).not.toBe("");
+      const section = container.querySelector(`section[id="${id}"]`);
+      expect(section?.querySelector("h2")?.textContent).toBe(PRIVACY_NOTICE[i]!.heading);
+    });
+  });
+
+  it("もくじは最初の h2 より前にある", () => {
+    renderPage();
+    const nav = screen.getByRole("navigation", { name: "もくじ" });
+    const h2 = screen.getAllByRole("heading", { level: 2 })[0]!;
+    expect(nav.compareDocumentPosition(h2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("末尾に『地図にもどる』があり、href は /", () => {
+    renderPage();
+    const link = screen.getByRole("link", { name: "地図にもどる" });
+    expect(link.getAttribute("href")).toBe("/");
+    expect(link.className).toContain("tap-link");
+  });
+
+  it("消し方のリンク 2 本は tap-link", () => {
+    renderPage();
+    expect(screen.getByRole("link", { name: /配信停止/ }).className).toContain("tap-link");
+    expect(screen.getByRole("link", { name: /全データの削除/ }).className).toContain("tap-link");
+  });
+
+  it("privacy.css に幅、もくじ、スクロール余白の規則がある", () => {
+    const css = fs.readFileSync(path.join(import.meta.dirname, "privacy.css"), "utf8");
+    expect(css).toMatch(/\.privacy\s*\{[^}]*max-width:\s*44rem/);
+    expect(css).toMatch(/\.privacy-toc a\s*\{[^}]*min-height:\s*var\(--tap\)/);
+    expect(css).toMatch(/\.privacy section\s*\{[^}]*scroll-margin-top:\s*8px/);
+  });
+});
+
 describe("確認日", () => {
   it("PRIVACY_REVIEWED_ON が null なら『文面は確認中です』と『確認日はまだありません』を出す", () => {
     renderPage(<PrivacyContent reviewedOn={null} />);

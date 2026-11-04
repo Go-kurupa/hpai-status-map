@@ -1,5 +1,6 @@
 import type { IsoDate } from "@hpai/shared/types";
 import { Link } from "react-router";
+import "./privacy.css";
 import { PRIVACY_NOTICE, PRIVACY_REVIEWED_ON } from "./privacyNotice";
 
 /** 運営者名はビルド時の環境変数だけから読む（ソースに書かない）。空や空白だけは未設定として扱う */
@@ -29,8 +30,17 @@ export function PrivacyContent({ reviewedOn }: { reviewedOn: IsoDate | null }) {
       <h1>プライバシー</h1>
       <p>この作品が何を集め、どこに保存し、どう消せるかの説明です。</p>
       <ReviewStatus reviewedOn={reviewedOn} />
-      {PRIVACY_NOTICE.map((section) => (
-        <section key={section.heading}>
+      <nav aria-label="もくじ" className="privacy-toc">
+        <ul>
+          {PRIVACY_NOTICE.map((section, i) => (
+            <li key={section.heading}>
+              <a href={`#privacy-${i}`}>{section.heading}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      {PRIVACY_NOTICE.map((section, i) => (
+        <section key={section.heading} id={`privacy-${i}`}>
           <h2>{section.heading}</h2>
           {section.paragraphs.map((p) => (
             <p key={p}>{p}</p>
@@ -43,15 +53,20 @@ export function PrivacyContent({ reviewedOn }: { reviewedOn: IsoDate | null }) {
           {section.heading === "消し方" ? (
             <ul>
               <li>
-                <Link to="/settings/notify">配信停止と知らせの設定</Link>
+                <Link to="/settings/notify" className="tap-link">配信停止と知らせの設定</Link>
               </li>
               <li>
-                <Link to="/record">全データの削除（記録の画面）</Link>
+                <Link to="/record" className="tap-link">全データの削除（記録の画面）</Link>
               </li>
             </ul>
           ) : null}
         </section>
       ))}
+      <p>
+        <Link to="/" className="tap-link">
+          地図にもどる
+        </Link>
+      </p>
     </div>
   );
 }

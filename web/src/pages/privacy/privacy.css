@@ -1,0 +1,15 @@
+.privacy {
+  max-width: 44rem;
+}
+.privacy-toc ul {
+  list-style: none;
+  padding: 0;
+}
+.privacy-toc a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+.privacy section {
+  scroll-margin-top: 8px;
+}
