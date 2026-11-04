@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
 import { createMemoryRouter, matchRoutes, RouterProvider } from "react-router";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { routes } from "./routes";
 
 afterEach(cleanup);
@@ -105,5 +105,20 @@ describe("公開の画面に Firebase を載せない", () => {
     expect(src).not.toMatch(/^\s*import\s+["']firebase\//m);
     // firebase.ts 自体を静的に読んでも、公開の画面に Firebase が載る
     expect(src).not.toMatch(/^\s*(?:import|export)\s+(?!type\b)[^;"']*?from\s+["'](?:\.{1,2}\/)+firebase["']/m);
+  });
+});
+
+describe("予期しない例外", () => {
+  it("画面が投げても、英語の既定の画面ではなく、案内の文とトップへのリンクが出る", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const Boom = () => {
+      throw new Error("GPUInitializationError: WebGL2 is required to display this map");
+    };
+    const root = routes[0]!;
+    const router = createMemoryRouter([{ path: "/", element: root.element, errorElement: root.errorElement, children: [{ index: true, element: <Boom /> }] }], { initialEntries: ["/"] });
+    render(<RouterProvider router={router} />);
+    expect(await screen.findByText(/表示中に問題が起きました。ページを開き直してください/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /トップ/ }).getAttribute("href")).toBe("/");
+    expect(document.body.textContent).not.toMatch(/Unexpected Application Error|GPUInitializationError|WebGL/);
   });
 });

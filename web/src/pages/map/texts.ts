@@ -79,6 +79,9 @@ export const TEXT = {
   listBirdsAria: "野鳥の一覧",
   listBirdsHeading: "野鳥",
   listSource: "出典",
+  // 地図が描けない端末（WebGL2 がない、初期化に失敗）
+  mapUnsupported: "この端末やブラウザでは地図を表示できません。下の一覧と知らせは、そのまま使えます。",
+  mapUnsupportedHint: "ブラウザの設定で、ハードウェアアクセラレーション（ハードウェアの描画の設定）がオンか、ご確認ください。ブラウザを最新にすると直ることもあります。",
   // 凡例（W-06）
   legendAria: "地図の見方",
 } as const;

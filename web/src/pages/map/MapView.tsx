@@ -9,6 +9,7 @@ import { AttributionControl, Marker, MlMap } from "../../geo/maplibre";
 import { applyView, applyWildBirds, type ViewTarget } from "./applyView";
 import { hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
 import { baseStyle, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
+import { TEXT } from "./texts";
 import { badgeStates, JAPAN_BOUNDS, MUNI_ZOOM, type SeasonView } from "./seasonView";
 
 export interface MapViewProps {
@@ -42,6 +43,7 @@ export default function MapView(props: MapViewProps) {
   const [ready, setReady] = useState(false);
   const [geo, setGeo] = useState<{ store: Geo; anchors: Anchors } | null>(null);
   const [failed, setFailed] = useState(false);
+  const [unsupported, setUnsupported] = useState(false); // WebGL2 が使えない、または地図の初期化に失敗
   const [unplaced, setUnplaced] = useState(0);
   const updateBadges = useRef<(() => void) | null>(null);
 
@@ -50,18 +52,25 @@ export default function MapView(props: MapViewProps) {
     const box = boxRef.current;
     if (!box) return;
     let cancelled = false;
-    const map = new MlMap({
-      container: box,
-      style: baseStyle(),
-      bounds: JAPAN_BOUNDS,
-      fitBoundsOptions: FIT,
-      minZoom: 3,
-      maxZoom: 13,
-      dragRotate: false,
-      pitchWithRotate: false,
-      touchPitch: false,
-      attributionControl: false, // 既定は幅が狭いと畳むので、全文を出す自前の部品を足す
-    });
+    let map: MlMap;
+    try {
+      map = new MlMap({
+        container: box,
+        style: baseStyle(),
+        bounds: JAPAN_BOUNDS,
+        fitBoundsOptions: FIT,
+        minZoom: 3,
+        maxZoom: 13,
+        dragRotate: false,
+        pitchWithRotate: false,
+        touchPitch: false,
+        attributionControl: false, // 既定は幅が狭いと畳むので、全文を出す自前の部品を足す
+      });
+    } catch {
+      // WebGL2 が使えない端末では、ここで投げる。画面全体を落とさず、地図の枠に代わりの文を出す
+      setUnsupported(true);
+      return;
+    }
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
     map.addControl(new AttributionControl({ compact: false, customAttribution: MAP_ATTRIBUTION }), "bottom-right");
@@ -219,7 +228,13 @@ export default function MapView(props: MapViewProps) {
 
   return (
     <div className="map-wrap">
-      <div ref={boxRef} className="map-canvas" role="region" aria-label="発生状況の地図" />
+      <div ref={boxRef} className="map-canvas" role="region" aria-label="発生状況の地図" hidden={unsupported} />
+      {unsupported ? (
+        <div className="map-error" role="alert">
+          <p>{TEXT.mapUnsupported}</p>
+          <p>{TEXT.mapUnsupportedHint}</p>
+        </div>
+      ) : null}
       {failed ? (
         <p className="map-error" role="alert">
           地図の形を読み込めませんでした。ページを読み込み直してください。それまで地図に色がなくても、発生がないとは言えません。

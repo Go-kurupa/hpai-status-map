@@ -8,6 +8,7 @@ import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { loadWebGeoStore } from "../../geo/loadGeo";
 import { MlMap } from "../../geo/maplibre";
 import { baseStyle } from "../map/mapStyle";
+import { TEXT } from "../map/texts";
 import { insideMuniBox, pickToFarmPatch } from "./farmForm";
 import "./settings.css";
 
@@ -48,23 +49,30 @@ export function MeshPicker({ muni, onPick }: { muni: MuniEntry | null; onPick: (
   latest.current = { muni, onPick };
   const [pickedMesh, setPickedMesh] = useState<MeshCode | null>(null);
   const [outside, setOutside] = useState(false);
+  const [unsupported, setUnsupported] = useState(false);
 
   // 1) 地図を作る（1 度だけ）。回転と傾きはできない
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
-    const map = new MlMap({
-      container: box,
-      style: baseStyle(),
-      center: JAPAN_CENTER,
-      zoom: 4,
-      minZoom: 3,
-      maxZoom: 15,
-      dragRotate: false,
-      pitchWithRotate: false,
-      touchPitch: false,
-      attributionControl: false, // 出典は下の欄に全文を出す
-    });
+    let map: MlMap;
+    try {
+      map = new MlMap({
+        container: box,
+        style: baseStyle(),
+        center: JAPAN_CENTER,
+        zoom: 4,
+        minZoom: 3,
+        maxZoom: 15,
+        dragRotate: false,
+        pitchWithRotate: false,
+        touchPitch: false,
+        attributionControl: false, // 出典は下の欄に全文を出す
+      });
+    } catch {
+      setUnsupported(true); // WebGL2 が使えない端末。画面を落とさず、代わりの文を出す
+      return;
+    }
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
     mapRef.current = map;
@@ -159,7 +167,13 @@ export function MeshPicker({ muni, onPick }: { muni: MuniEntry | null; onPick: (
 
   return (
     <div>
-      <div ref={boxRef} className="picker-canvas" role="region" aria-label="農場の地点を選ぶ地図" />
+      <div ref={boxRef} className="picker-canvas" role="region" aria-label="農場の地点を選ぶ地図" hidden={unsupported} />
+      {unsupported ? (
+        <div className="settings-error" role="alert">
+          <p>この端末やブラウザでは地図を表示できません。地図で選ぶ以外の項目は、そのまま入力できます。</p>
+          <p>{TEXT.mapUnsupportedHint}</p>
+        </div>
+      ) : null}
       {outside ? (
         <p className="settings-error" role="alert">
           選んだ市町村の外です。地図で、選んだ町の中をおしてください。

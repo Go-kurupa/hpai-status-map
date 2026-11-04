@@ -7,6 +7,7 @@ import { createDataSource } from "./data/source";
 import { SpotProvider } from "./data/spotContext";
 import { createFirestoreRecordStore } from "./pages/auth/firestoreRecordStore";
 import { AppShell } from "./ui/AppShell";
+import { RouteError } from "./ui/RouteError";
 
 const MapPage = lazy(() => import("./pages/map/MapPage"));
 const PublicPage = lazy(() => import("./pages/public/PublicPage"));
@@ -66,6 +67,7 @@ export const routes: RouteObject[] = [
   {
     path: "/",
     element: <Root />,
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <MapPage /> },
       { path: "public", element: <PublicPage /> },
