@@ -141,6 +141,17 @@ describe("MapPage", () => {
     expect(btn.textContent).not.toContain("0 件");
   });
 
+  it("今季 0 件で町が未選択なら、riskAnywhere は「0 件」の札のすぐ前にある", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    const risk = await screen.findByText(FIXED_TEXT.riskAnywhere);
+    expect(risk.nextElementSibling?.className).toBe("stat-row");
+    expect(risk.nextElementSibling?.textContent).toContain("0 件");
+  });
+
   it("今季 0 件が届いたら riskAnywhere を出す。禁句はない", async () => {
     const r = rig();
     show(r);

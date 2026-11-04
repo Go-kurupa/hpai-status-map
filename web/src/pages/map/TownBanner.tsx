@@ -73,7 +73,7 @@ export function TownBanner(p: TownBannerProps) {
     now = (
       <p className="state-wait" role="status">
         {TEXT.loading}
-        {p.slow ? <> {TEXT.slowLoad}</> : null}
+        {p.slow ? <span className="slow-load">{TEXT.slowLoad}</span> : null}
       </p>
     );
   } else {

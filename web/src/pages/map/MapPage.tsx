@@ -231,6 +231,10 @@ export default function MapPage() {
           。件数にはまだ入れていません。
         </p>
       ) : null}
+      {/* 札の「0 件」だけが先に読まれないよう、札のすぐ前に置く */}
+      {view.isCurrent && view.loaded && view.total === 0 && !townLine.line?.details.includes(FIXED_TEXT.riskAnywhere) ? (
+        <p className="map-notice">{FIXED_TEXT.riskAnywhere}</p>
+      ) : null}
       {view.isCurrent && ds.mode !== "replay" && currentBar ? (
         <div className="stat-row">
           <div className="stat">
@@ -293,9 +297,6 @@ export default function MapPage() {
       )}
 
       {!view.isCurrent && view.loaded ? <p className="map-notice">{FIXED_TEXT.pastDisclaimer}</p> : null}
-      {view.isCurrent && view.loaded && view.total === 0 && !townLine.line?.details.includes(FIXED_TEXT.riskAnywhere) ? (
-        <p className="map-notice">{FIXED_TEXT.riskAnywhere}</p>
-      ) : null}
       {view.undatedCases > 0 ? <p className="map-note">日付のない事例が {view.undatedCases} 件あり、月の棒には入っていません。</p> : null}
 
       <MonthBars months={view.months} loaded={view.loaded} allUnchecked={view.isCurrent && noneConfirmed} />

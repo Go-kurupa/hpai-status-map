@@ -42,10 +42,12 @@ export interface ReplayFrameProps {
   /** 見る地点。null は仮の地点（defaultSpot）。どちらも読み取り専用で、端末には書かない */
   spot: FarmPoint | null;
   recordStore?: RecordStore;
+  /** 再現の帯より前に置くもの（見本の断りを最初の画面に入れる） */
+  lead?: ReactNode;
   children: ReactNode;
 }
 
-export function ReplayFrame({ scenario, dataSource, spot, recordStore, children }: ReplayFrameProps) {
+export function ReplayFrame({ scenario, dataSource, spot, recordStore, lead, children }: ReplayFrameProps) {
   const order = useSyncExternalStore(dataSource.subscribeOrder, dataSource.currentOrder);
   const fixed = spot ?? scenario.defaultSpot;
   const tentative = isDefaultSpot(scenario, spot);
@@ -57,6 +59,7 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, children 
     <DataSourceProvider value={dataSource}>
       <RecordStoreProvider value={recordStore ?? EMPTY_RECORD_STORE}>
         <SpotProvider fixed={fixed}>
+          {lead}
           <section className="replay-band" aria-label="去年の再現">
             <p className="replay-banner">{FIXED_TEXT.replayBanner}</p>
             <p className="replay-title">{scenario.title}</p>

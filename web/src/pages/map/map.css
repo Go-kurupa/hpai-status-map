@@ -26,7 +26,7 @@
 }
 @media (max-width: 40rem) {
   .map-box {
-    --map-h: clamp(300px, 46vh, 480px);
+    --map-h: clamp(300px, 40vh, 480px);
   }
 }
 .map-canvas {
@@ -527,6 +527,13 @@
 .compare-table td.num {
   width: 30%;
 }
+/* 「確認できていません」が 1 行に伸びて列が切れないよう、この表では数の列も折り返す */
+.compare-table.data-table td.num {
+  white-space: normal;
+}
+.slow-load {
+  display: block;
+}
 .compare-table caption {
   padding: 4px 0;
   text-align: left;
@@ -570,7 +577,7 @@
   }
   .map-page > .map-box {
     grid-column: 1;
-    grid-row: span 7;
+    grid-row: span 12; /* 右の列の子の数（最大 8）より多く取る */
   }
   .map-page > .map-box ~ * {
     grid-column: 2;

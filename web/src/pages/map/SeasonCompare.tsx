@@ -74,7 +74,7 @@ export function SeasonCompare(p: SeasonCompareProps) {
               </>
             ) : null}
           </p>
-          <div className="table-scroll">
+          <div className="table-scroll" tabIndex={0}>
           <table className="compare-table data-table">
             <caption>シーズンごとの件数（{md}までと、シーズンの合計）</caption>
             <thead>
@@ -111,7 +111,7 @@ export function SeasonCompare(p: SeasonCompareProps) {
           </table>
           </div>
 
-          <div className="table-scroll">
+          <div className="table-scroll" tabIndex={0}>
           <table className="compare-table data-table compare-months">
             <caption>月ごとの件数（過去 {rows.length} シーズンの合計）</caption>
             <thead>

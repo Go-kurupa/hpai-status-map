@@ -50,11 +50,19 @@ function jaDayWithYear(d: string): string {
   return `${d.slice(0, 4)}年${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
 }
 
+/** 見本の見出しと「保存されない」の断り。再現の帯より前に置き、最初の画面に入れる */
+function SampleLead() {
+  return (
+    <section className="sample-band sample-lead" aria-label={SAMPLE_TEXT.badge}>
+      <p className="sample-badge">{SAMPLE_TEXT.badge}</p>
+      <p className="sample-note">{SAMPLE_TEXT.notSent}</p>
+    </section>
+  );
+}
+
 function SampleBand({ data, nav }: { data: SampleFarmData; nav: boolean }) {
   return (
     <section className="sample-band" aria-label={SAMPLE_TEXT.title}>
-      <p className="sample-badge">{SAMPLE_TEXT.badge}</p>
-      <p className="sample-note">{SAMPLE_TEXT.notSent}</p>
       <p>
         {SAMPLE_TEXT.fictional}。{SAMPLE_TEXT.member}
       </p>
@@ -104,7 +112,7 @@ function SampleReady({ scenario: loaded, data, nav, children }: Loaded & { nav: 
     };
   });
   return (
-    <ReplayFrame scenario={env.scenario} dataSource={env.dataSource} spot={env.spot} recordStore={env.recordStore}>
+    <ReplayFrame scenario={env.scenario} dataSource={env.dataSource} spot={env.spot} recordStore={env.recordStore} lead={<SampleLead />}>
       <SampleBand data={data} nav={nav} />
       {children(data)}
     </ReplayFrame>

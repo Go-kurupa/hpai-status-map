@@ -132,17 +132,19 @@ describe("/sample（入口）", () => {
     expect(screen.getByRole("link", { name: "鶏を飼っていない方へ" }).getAttribute("href")).toBe("/public");
   });
 
-  it("見本の帯は バッジ → 保存されない断り → 架空の文 → 時点 → nav の順。断りは畳まない", async () => {
+  it("見本の見出しと保存されない断りは再現の帯より前。帯は 架空の文 → 時点 → nav の順。断りは畳まない", async () => {
     mount("/sample/todo");
     await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
-    const band = document.querySelector(".sample-band")!;
-    const kids = [...band.children];
-    expect(kids[0]!.className).toBe("sample-badge");
-    expect(kids[1]!.textContent).toBe(SAMPLE_TEXT.notSent);
-    expect(kids[2]!.textContent).toContain("架空の農場です");
-    expect(kids[3]!.textContent).toContain("見本の時点");
-    expect(kids[4]!.tagName).toBe("NAV");
-    expect(kids[1]!.closest("details")).toBeNull();
+    const lead = document.querySelector(".sample-lead")!;
+    expect(lead.children[0]!.className).toBe("sample-badge");
+    expect(lead.children[1]!.textContent).toBe(SAMPLE_TEXT.notSent);
+    expect(lead.children[1]!.closest("details")).toBeNull();
+    const replayBand = document.querySelector(".replay-band")!;
+    expect(lead.compareDocumentPosition(replayBand) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const kids = [...document.querySelector(".sample-band:not(.sample-lead)")!.children];
+    expect(kids[0]!.textContent).toContain("架空の農場です");
+    expect(kids[1]!.textContent).toContain("見本の時点");
+    expect(kids[2]!.tagName).toBe("NAV");
   });
 
   it("読み込めなければ、そう書く（空の画面を出さない）。やり直せる", async () => {
