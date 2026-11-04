@@ -1,6 +1,9 @@
 import { findForbiddenPhrases, findWordingViolations } from "@hpai/shared/wording";
 import type { Case, HistoryCase, Season, WatchStatus } from "@hpai/shared/types";
-import { cleanup, render, screen } from "@testing-library/react";
+import { createGeoStore } from "@hpai/shared/geo";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataSourceProvider } from "../../data/context";
@@ -17,11 +20,21 @@ vi.mock("../../geo/maplibre", () => {
   }
   return { MlMap, AttributionControl: class {}, Marker: class {} };
 });
-vi.mock("../../geo/loadGeo", () => ({
-  loadWebGeoStore: () => Promise.reject(new Error("unused")),
-  loadJapanTopo: () => Promise.reject(new Error("unused")),
-  loadPrefAnchors: () => Promise.reject(new Error("unused")),
-}));
+// 代わりの地図が読む形は、実データを fs から読む偽に替える
+vi.mock("../../geo/loadGeo", () => {
+  const dir = path.resolve(import.meta.dirname, "../../../../data/geo");
+  const read = (f: string) => JSON.parse(readFileSync(path.join(dir, f), "utf8")) as unknown;
+  const store = createGeoStore({
+    index: read("muni-index.json") as Parameters<typeof createGeoStore>[0]["index"],
+    adjacency: read("adjacency.json") as Parameters<typeof createGeoStore>[0]["adjacency"],
+    loadPrefTopo: async (p) => read(`pref/${p}.topo.json`),
+  });
+  return {
+    loadWebGeoStore: () => Promise.resolve(store),
+    loadJapanTopo: () => Promise.resolve(read("japan.topo.json")),
+    loadPrefAnchors: () => Promise.resolve(read("pref-anchors.json")),
+  };
+});
 
 import MapPage from "./MapPage";
 
@@ -44,30 +57,48 @@ const ds: DataSource = {
   loadHistory: () => Promise.resolve([] as HistoryCase[]),
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
+
+function mount() {
+  return render(
+    <MemoryRouter>
+      <DataSourceProvider value={ds}>
+        <SpotProvider>
+          <MapPage />
+        </SpotProvider>
+      </DataSourceProvider>
+    </MemoryRouter>,
+  );
+}
 
 describe("WebGL2 が使えない端末", () => {
-  it("画面が落ちず、地図の枠に代わりの文と案内が出て、地図以外の内容が見える", async () => {
+  it("画面が落ちず、境の線だけの代わりの地図と 1 行の注記が出て、地図以外の内容も見える", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    render(
-      <MemoryRouter>
-        <DataSourceProvider value={ds}>
-          <SpotProvider>
-            <MapPage />
-          </SpotProvider>
-        </DataSourceProvider>
-      </MemoryRouter>,
-    );
-    const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain(TEXT.mapUnsupported);
-    expect(alert.textContent).toContain(TEXT.mapUnsupportedHint);
+    mount();
+    const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    expect(within(map).getAllByRole("button")).toHaveLength(47);
+    expect(screen.getByText(TEXT.svgMapNote, { exact: false })).toBeTruthy();
     // 地図以外（シーズンの棒、見回りの確認、固定のリンク）が残っている
     expect(screen.getByRole("button", { name: /今季/ })).toBeTruthy();
     expect(screen.getByTestId("watch-line")).toBeTruthy();
-    // 禁句と英語のエラー名は出さない
+    // 禁句と英語のエラー名は出さない。ブラウザの設定を変えてもらう案内も出さない
     const text = document.body.textContent ?? "";
     expect(findForbiddenPhrases(text)).toEqual([]);
-    expect(findWordingViolations(TEXT.mapUnsupported + TEXT.mapUnsupportedHint)).toEqual([]);
-    expect(text).not.toMatch(/WebGL|GPUInitializationError/);
+    expect(findWordingViolations(TEXT.svgMapNote)).toEqual([]);
+    expect(text).not.toMatch(/WebGL|GPUInitializationError|ハードウェアアクセラレーション/);
+  });
+
+  it("「町を選ぶ」の後、県を押して市町村を押すと、その町が自分の町になる", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mount();
+    const japan = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    fireEvent.click(screen.getByRole("button", { name: TEXT.myTown }));
+    fireEvent.click(within(japan).getByRole("button", { name: /^岡山県/ }));
+    const muni = await screen.findByRole("group", { name: /岡山県の市町村/ });
+    fireEvent.click(await within(muni).findByRole("button", { name: /^西粟倉村/ }));
+    expect((await screen.findByText("西粟倉村", { selector: "strong" })).textContent).toBe("西粟倉村");
   });
 });

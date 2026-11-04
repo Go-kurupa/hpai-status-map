@@ -24,6 +24,13 @@ export const PAINT = {
   hatchMuted: "hatch-muted",
 } as const;
 
+/** 斜線の画像の id と、その線の色。MapView が画像を登録し、代わりの地図（SvgMap）が同じ色の模様を作る */
+export const HATCH_COLORS: ReadonlyArray<readonly [id: string, color: string]> = [
+  [PAINT.hatchCurrent, PAINT.current],
+  [PAINT.hatchPast, PAINT.past],
+  [PAINT.hatchMuted, PAINT.muted],
+];
+
 export const IMAGE_IDS = { birdScreening: "bird-screening", birdConfirmed: "bird-confirmed" } as const;
 
 export const OVERLAY_SOURCE_IDS = ["muni", "pref", "wild-birds"] as const;

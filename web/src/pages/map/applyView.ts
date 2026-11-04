@@ -19,20 +19,54 @@ export interface ViewState {
   nearMuniCodes: readonly MuniCode[];
 }
 
-export function applyView(map: ViewTarget, s: ViewState): void {
+/**
+ * 地図の塗り分けの決まり。MapLibre の層（applyView）と、WebGL がない端末の代わりの地図（SvgMap）の両方がこれを使う。
+ * 決まりはここだけに書く。
+ */
+export interface ViewStyle {
+  suspectedMuniCodes: readonly MuniCode[];
+  confirmedMuniCodes: readonly MuniCode[];
+  /** 斜線の灰色を引く県 */
+  unwatchedPrefCodes: readonly PrefCode[];
+  myMuniCodes: readonly MuniCode[];
+  nearMuniCodes: readonly MuniCode[];
+  /** 野鳥の印を出すか */
+  showWildBirds: boolean;
+  /** 確定の塗りの色 */
+  confirmedColor: string;
+  /** 疑いの斜線の画像の id（mapStyle の HATCH_COLORS で色が分かる） */
+  suspectedHatch: string;
+}
+
+export function viewStyle(s: ViewState): ViewStyle {
   const { view } = s;
-  map.setFilter("case-suspected", codeFilter("c", view.suspectedMuniCodes));
-  map.setFilter("case-confirmed", codeFilter("c", view.confirmedMuniCodes));
-  // 過去の記録は閉じた記録なので、今日の見回りの失敗は重ねない
-  map.setFilter("pref-unwatched", codeFilter("p", view.isCurrent ? s.failedPrefCodes : []));
-  map.setFilter("my-town", codeFilter("c", s.myMuniCode ? [s.myMuniCode] : []));
-  map.setFilter("near-line", codeFilter("c", s.nearMuniCodes));
-  // 野鳥の記録は今季だけ。過去のシーズンでは層の filter で隠す（点の source は替えない）
-  map.setFilter("wild-bird-screening", wildBirdFilter("screening_positive", view.isCurrent));
-  map.setFilter("wild-bird-confirmed", wildBirdFilter("hpai_confirmed", view.isCurrent));
-  // 今季は段階の色、過去は段階を表さない事実の色（設計書 §15）
-  map.setPaintProperty("case-confirmed", "fill-color", view.isCurrent ? PAINT.current : PAINT.past);
-  map.setPaintProperty("case-suspected", "fill-pattern", view.isCurrent ? PAINT.hatchCurrent : PAINT.hatchPast);
+  return {
+    suspectedMuniCodes: view.suspectedMuniCodes,
+    confirmedMuniCodes: view.confirmedMuniCodes,
+    // 過去の記録は閉じた記録なので、今日の見回りの失敗は重ねない
+    unwatchedPrefCodes: view.isCurrent ? s.failedPrefCodes : [],
+    myMuniCodes: s.myMuniCode ? [s.myMuniCode] : [],
+    nearMuniCodes: s.nearMuniCodes,
+    // 野鳥の記録は今季だけ
+    showWildBirds: view.isCurrent,
+    // 今季は段階の色、過去は段階を表さない事実の色（設計書 §15）
+    confirmedColor: view.isCurrent ? PAINT.current : PAINT.past,
+    suspectedHatch: view.isCurrent ? PAINT.hatchCurrent : PAINT.hatchPast,
+  };
+}
+
+export function applyView(map: ViewTarget, s: ViewState): void {
+  const st = viewStyle(s);
+  map.setFilter("case-suspected", codeFilter("c", st.suspectedMuniCodes));
+  map.setFilter("case-confirmed", codeFilter("c", st.confirmedMuniCodes));
+  map.setFilter("pref-unwatched", codeFilter("p", st.unwatchedPrefCodes));
+  map.setFilter("my-town", codeFilter("c", st.myMuniCodes));
+  map.setFilter("near-line", codeFilter("c", st.nearMuniCodes));
+  // 過去のシーズンでは層の filter で隠す（点の source は替えない）
+  map.setFilter("wild-bird-screening", wildBirdFilter("screening_positive", st.showWildBirds));
+  map.setFilter("wild-bird-confirmed", wildBirdFilter("hpai_confirmed", st.showWildBirds));
+  map.setPaintProperty("case-confirmed", "fill-color", st.confirmedColor);
+  map.setPaintProperty("case-suspected", "fill-pattern", st.suspectedHatch);
 }
 
 export interface WildBirdFeature {

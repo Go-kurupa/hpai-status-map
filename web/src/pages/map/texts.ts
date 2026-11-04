@@ -79,9 +79,23 @@ export const TEXT = {
   listBirdsAria: "野鳥の一覧",
   listBirdsHeading: "野鳥",
   listSource: "出典",
-  // 地図が描けない端末（WebGL2 がない、初期化に失敗）
-  mapUnsupported: "この端末やブラウザでは地図を表示できません。下の一覧と知らせは、そのまま使えます。",
-  mapUnsupportedHint: "ブラウザの設定で、ハードウェアアクセラレーション（ハードウェアの描画の設定）がオンか、ご確認ください。ブラウザを最新にすると直ることもあります。",
+  // 地図が描けない端末（WebGL2 がない、初期化に失敗）の、境の線だけの代わりの地図（SvgMap）
+  svgMapNote: "代わりの地図（境の線だけ）を表示しています。",
+  svgMapAria: "発生状況の地図（都道府県）",
+  svgPrefHint: "県を押すと、その県の市町村の図になります。",
+  svgBack: "全国の図へ戻る",
+  svgUnwatched: "見回りで確認できていません",
+  svgReviewing: "確認中の発表があります",
+  svgSuspected: "疑い",
+  svgConfirmed: "確定",
+  svgNear: "隣の町",
+  svgPrefList: "県の一覧から選ぶ",
+  svgMuniList: "市町村の一覧から選ぶ",
+  svgLoading: "地図の形を読み込んでいます",
+  // 農場の地点（MeshPicker）を、地図なしで決める。座標は送らず、約 1km のマス目と町のコードだけを使う
+  meshNoMap: "この端末では地図を表示できないため、選んだ市町村の中心あたりの約 1km のマス目で登録できます。",
+  meshUseCenter: "市町村の中心あたりのマス目を使う",
+  meshCenterPicked: "市町村の中心あたりのマス目を選びました。",
   // 凡例（W-06）
   legendAria: "地図の見方",
 } as const;

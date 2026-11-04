@@ -1,14 +1,14 @@
 import { PREFS } from "@hpai/shared/pref";
 import type { MuniCode, PrefCode, WildBird } from "@hpai/shared/types";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { feature, mesh } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { AttributionControl, Marker, MlMap } from "../../geo/maplibre";
 import { applyView, applyWildBirds, type ViewTarget } from "./applyView";
-import { hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
-import { baseStyle, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
+import { HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
+import { baseStyle, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
 import { TEXT } from "./texts";
 import { badgeStates, JAPAN_BOUNDS, MUNI_ZOOM, type SeasonView } from "./seasonView";
 
@@ -29,6 +29,8 @@ type Anchors = Awaited<ReturnType<typeof loadPrefAnchors>>;
 type Bounds = [number, number, number, number];
 
 const FIT = { padding: 8 } as const;
+// WebGL2 が使えない端末の、境の線だけの代わりの地図。必要なときだけ別の chunk で読む
+const SvgMap = lazy(() => import("./SvgMap"));
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 
 /**
@@ -67,7 +69,7 @@ export default function MapView(props: MapViewProps) {
         attributionControl: false, // 既定は幅が狭いと畳むので、全文を出す自前の部品を足す
       });
     } catch {
-      // WebGL2 が使えない端末では、ここで投げる。画面全体を落とさず、地図の枠に代わりの文を出す
+      // WebGL2 が使えない端末では、ここで投げる。画面全体を落とさず、境の線だけの代わりの地図（SvgMap）を出す
       setUnsupported(true);
       return;
     }
@@ -87,12 +89,8 @@ export default function MapView(props: MapViewProps) {
         const prefOf = (g: { properties?: unknown }) => (g.properties as { p?: string } | null | undefined)?.p;
         const prefBorders = mesh(topo as Topology, obj, (a, b) => a === b || prefOf(a) !== prefOf(b));
 
-        for (const [id, color] of [
-          [PAINT.hatchCurrent, PAINT.current],
-          [PAINT.hatchPast, PAINT.past],
-          [PAINT.hatchMuted, PAINT.muted],
-        ] as const) {
-          map.addImage(id, hatchImage(hexToRgb(color)), { pixelRatio: 2 });
+        for (const [id, color] of HATCH_COLORS) {
+          map.addImage(id, hatchImage(hexToRgb(color)), { pixelRatio: HATCH_PIXEL_RATIO });
         }
         map.addImage(IMAGE_IDS.birdScreening, ringImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
         map.addImage(IMAGE_IDS.birdConfirmed, squareImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
@@ -230,10 +228,19 @@ export default function MapView(props: MapViewProps) {
     <div className="map-wrap">
       <div ref={boxRef} className="map-canvas" role="region" aria-label="発生状況の地図" hidden={unsupported} />
       {unsupported ? (
-        <div className="map-error" role="alert">
-          <p>{TEXT.mapUnsupported}</p>
-          <p>{TEXT.mapUnsupportedHint}</p>
-        </div>
+        <Suspense fallback={<p role="status">{TEXT.svgLoading}</p>}>
+          <SvgMap
+            view={props.view}
+            wildBirds={props.wildBirds}
+            failedPrefCodes={props.failedPrefCodes}
+            myMuniCode={props.myMuniCode}
+            nearMuniCodes={props.nearMuniCodes}
+            focus={props.focus}
+            onSelectMuni={props.onSelectMuni}
+            onUnplaced={setUnplaced}
+            onFailed={() => setFailed(true)}
+          />
+        </Suspense>
       ) : null}
       {failed ? (
         <p className="map-error" role="alert">

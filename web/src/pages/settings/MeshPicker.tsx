@@ -9,6 +9,7 @@ import { loadWebGeoStore } from "../../geo/loadGeo";
 import { MlMap } from "../../geo/maplibre";
 import { baseStyle } from "../map/mapStyle";
 import { TEXT } from "../map/texts";
+import { Button } from "../../ui/Button";
 import { insideMuniBox, pickToFarmPatch } from "./farmForm";
 import "./settings.css";
 
@@ -50,6 +51,7 @@ export function MeshPicker({ muni, onPick }: { muni: MuniEntry | null; onPick: (
   const [pickedMesh, setPickedMesh] = useState<MeshCode | null>(null);
   const [outside, setOutside] = useState(false);
   const [unsupported, setUnsupported] = useState(false);
+  const [centerPicked, setCenterPicked] = useState(false);
 
   // 1) 地図を作る（1 度だけ）。回転と傾きはできない
   useEffect(() => {
@@ -70,7 +72,7 @@ export function MeshPicker({ muni, onPick }: { muni: MuniEntry | null; onPick: (
         attributionControl: false, // 出典は下の欄に全文を出す
       });
     } catch {
-      setUnsupported(true); // WebGL2 が使えない端末。画面を落とさず、代わりの文を出す
+      setUnsupported(true); // WebGL2 が使えない端末。画面を落とさず、町の中心あたりのマス目を使うボタンを出す
       return;
     }
     map.touchZoomRotate.disableRotation();
@@ -122,6 +124,7 @@ export function MeshPicker({ muni, onPick }: { muni: MuniEntry | null; onPick: (
   useEffect(() => {
     setPickedMesh(null);
     setOutside(false);
+    setCenterPicked(false);
     const map = mapRef.current;
     const target = latest.current.muni;
     if (!map || !target) return;
@@ -169,9 +172,21 @@ export function MeshPicker({ muni, onPick }: { muni: MuniEntry | null; onPick: (
     <div>
       <div ref={boxRef} className="picker-canvas" role="region" aria-label="農場の地点を選ぶ地図" hidden={unsupported} />
       {unsupported ? (
-        <div className="settings-error" role="alert">
-          <p>この端末やブラウザでは地図を表示できません。地図で選ぶ以外の項目は、そのまま入力できます。</p>
-          <p>{TEXT.mapUnsupportedHint}</p>
+        <div className="picker-fallback">
+          <p className="settings-note">{TEXT.meshNoMap}</p>
+          <Button
+            disabled={!muni}
+            onClick={() => {
+              if (!muni) return;
+              // 索引の町の中心（[経度, 緯度]）をマス目に直す。座標はここで捨て、マス目と町のコードだけを渡す
+              const patch = pickToFarmPatch({ lat: muni.center[1], lng: muni.center[0] }, muni);
+              setCenterPicked(true);
+              onPick(patch);
+            }}
+          >
+            {TEXT.meshUseCenter}
+          </Button>
+          {centerPicked ? <p role="status">{TEXT.meshCenterPicked}</p> : null}
         </div>
       ) : null}
       {outside ? (
@@ -179,12 +194,14 @@ export function MeshPicker({ muni, onPick }: { muni: MuniEntry | null; onPick: (
           選んだ市町村の外です。地図で、選んだ町の中をおしてください。
         </p>
       ) : null}
-      <p className="picker-attribution">
-        {MAP_ATTRIBUTION.map((html, i) => (
-          // 出典の文は geo/attribution.ts の固定の文（外からの入力を含まない）
-          <span key={i} className="picker-attribution-item" dangerouslySetInnerHTML={{ __html: html }} />
-        ))}
-      </p>
+      {unsupported ? null : (
+        <p className="picker-attribution">
+          {MAP_ATTRIBUTION.map((html, i) => (
+            // 出典の文は geo/attribution.ts の固定の文（外からの入力を含まない）
+            <span key={i} className="picker-attribution-item" dangerouslySetInnerHTML={{ __html: html }} />
+          ))}
+        </p>
+      )}
     </div>
   );
 }

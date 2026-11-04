@@ -420,3 +420,86 @@
 .case-notes li {
   margin: 0 0 4px;
 }
+
+/* WebGL2 が使えない端末の、境の線だけの代わりの地図（SvgMap）。線の色と太さは SvgMap が mapStyle の層から渡す */
+.svg-map-wrap {
+  min-width: 0;
+}
+.svg-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: var(--map-h, 640px);
+  border: 2px solid var(--fg);
+  background: var(--soft);
+  touch-action: manipulation;
+}
+.svg-area {
+  fill: var(--surface, #ffffff);
+  stroke: none;
+}
+.svg-area.is-pressable {
+  cursor: pointer;
+}
+.svg-area.is-pressable:hover {
+  fill: #e6eef5;
+}
+.svg-area:focus-visible {
+  outline: none;
+  stroke: #00639b;
+  stroke-width: 4px;
+  vector-effect: non-scaling-stroke;
+}
+.svg-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+.svg-pref-line,
+.svg-muni-line,
+.svg-near-line,
+.svg-mine-line {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+.svg-badge {
+  font-size: 28px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: var(--lv1, #b3261e);
+  stroke: #ffffff;
+  stroke-width: 6px;
+  paint-order: stroke;
+}
+.svg-badge.is-past {
+  fill: var(--lv4, #4a4f57);
+}
+.svg-back {
+  min-height: 44px;
+  margin: 0 0 8px;
+}
+.svg-list {
+  margin: 8px 0 0;
+}
+.svg-list summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 700;
+}
+.svg-list [role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.svg-list .btn {
+  min-height: 44px;
+}
+.svg-map-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}

@@ -22,11 +22,17 @@ function put(img: RgbaImage, x: number, y: number, [r, g, b]: Rgb): void {
   img.data[i + 3] = 255;
 }
 
+/** 斜線の周期と線の太さ（画素）。代わりの地図（SvgMap）の SVG の模様も同じ数を使う */
+export const HATCH_PERIOD = 12;
+export const HATCH_STRIPE = 3;
+/** 地図に登録するときの画素の比（addImage の pixelRatio）。1 画素は 1 / HATCH_PIXEL_RATIO の CSS の px */
+export const HATCH_PIXEL_RATIO = 2;
+
 /**
  * 右上がりの斜線。周期 12 画素の中の 3 画素が線で、繰り返しても継ぎ目が出ない。
  * 疑い（--lv1 の線）と、確認できていない県（--muted の線）に使う。
  */
-export function hatchImage(color: Rgb, period = 12, stripe = 3): RgbaImage {
+export function hatchImage(color: Rgb, period = HATCH_PERIOD, stripe = HATCH_STRIPE): RgbaImage {
   const img = blank(period);
   for (let y = 0; y < period; y++) {
     for (let x = 0; x < period; x++) {
