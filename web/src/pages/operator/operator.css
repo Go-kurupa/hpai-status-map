@@ -60,3 +60,12 @@
   gap: 12px;
   margin: 8px 0 0;
 }
+.op-confirm {
+  padding: 8px 12px;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+}
+.op-confirm ul {
+  margin: 0 0 8px;
+  padding-left: 1.2em;
+}

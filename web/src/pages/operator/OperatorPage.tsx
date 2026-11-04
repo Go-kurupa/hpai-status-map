@@ -1,7 +1,7 @@
 // 運営者の画面 /operator（I-07）。確かめられなかった読み取り、入口の提案、見回りの警告を、運営者が 1 件ずつ決める。
 // 「AI は下書き、人が確かめて確定する」の人の側。operator の claim がなければ一覧を出さない（サーバーも claim を確かめる）。
 import type { MuniEntry } from "@hpai/shared/geo";
-import type { ResolveRequest, ResolveResponse, ReviewDetail } from "@hpai/shared/read/review";
+import type { CorrectStageRequest, CorrectStageResponse, ResolveRequest, ResolveResponse, ReviewDetail } from "@hpai/shared/read/review";
 import type { MuniCode } from "@hpai/shared/types";
 import { Link, useLocation } from "react-router";
 import { loadWebGeoStore } from "../../geo/loadGeo";
@@ -9,8 +9,10 @@ import { AsOf } from "../../ui/AsOf";
 import { keptSearch } from "../auth/emailLink";
 import { AlertItem } from "./AlertItem";
 import { DocumentItem } from "./DocumentItem";
-import { getDetailCall, resolveCall, runAgentCall } from "./operatorCalls";
+import { correctCall, getDetailCall, resolveCall, runAgentCall } from "./operatorCalls";
 import { ProposalItem } from "./ProposalItem";
+import { StageDateFix } from "./StageDateFix";
+import type { CorrectableCasesState } from "./useCorrectableCases";
 import { useReviewQueue, type ReviewQueueState } from "./useReviewQueue";
 import "./operator.css";
 
@@ -20,6 +22,9 @@ export interface OperatorProps {
   resolve?: (req: ResolveRequest) => Promise<ResolveResponse>;
   getDetail?: (itemId: string) => Promise<ReviewDetail>;
   runAgent?: () => Promise<void>;
+  /** 試験用: 段階の日付を直せる事例（渡さなければ Firestore を購読する） */
+  cases?: CorrectableCasesState;
+  correct?: (req: CorrectStageRequest) => Promise<CorrectStageResponse>;
   loadMunis?: () => Promise<Readonly<Record<MuniCode, MuniEntry>>>;
   now?: () => Date;
 }
@@ -27,7 +32,7 @@ export interface OperatorProps {
 const loadMuniIndex = async () => (await loadWebGeoStore()).index;
 const systemNow = () => new Date();
 
-function View({ queue, resolve = resolveCall, getDetail = getDetailCall, runAgent = runAgentCall, loadMunis = loadMuniIndex, now = systemNow }: OperatorProps & { queue: ReviewQueueState }) {
+function View({ queue, resolve = resolveCall, getDetail = getDetailCall, runAgent = runAgentCall, cases, correct = correctCall, loadMunis = loadMuniIndex, now = systemNow }: OperatorProps & { queue: ReviewQueueState }) {
   const location = useLocation();
 
   if (queue.status === "loading") return <p role="status">確かめています</p>;
@@ -69,6 +74,7 @@ function View({ queue, resolve = resolveCall, getDetail = getDetailCall, runAgen
           })}
         </>
       )}
+      <StageDateFix cases={cases} correct={correct} now={now} />
     </section>
   );
 }

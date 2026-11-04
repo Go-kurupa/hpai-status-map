@@ -1,5 +1,5 @@
 // 運営者の画面から呼ぶ Cloud Functions（onCall）。lazy の chunk だけが import する。
-import type { ResolveRequest, ResolveResponse, ReviewDetail } from "@hpai/shared/read/review";
+import type { CorrectStageRequest, CorrectStageResponse, ResolveRequest, ResolveResponse, ReviewDetail } from "@hpai/shared/read/review";
 import { httpsCallable } from "firebase/functions";
 import { getFirebase } from "../../firebase";
 
@@ -21,4 +21,11 @@ export async function getDetailCall(itemId: string): Promise<ReviewDetail> {
 export async function runAgentCall(): Promise<void> {
   const { functions } = await getFirebase();
   await httpsCallable<Record<string, never>, unknown>(functions, "runEntranceAgent")({});
+}
+
+/** 事例にすでにある段階の日付を直す（運営者だけ。サーバーが claim、理由、日付の検査をする）。失敗は例外 */
+export async function correctCall(req: CorrectStageRequest): Promise<CorrectStageResponse> {
+  const { functions } = await getFirebase();
+  const res = await httpsCallable<CorrectStageRequest, CorrectStageResponse>(functions, "correctCaseStage")(req);
+  return res.data;
 }

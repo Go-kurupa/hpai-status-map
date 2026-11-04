@@ -29,7 +29,7 @@ export interface Caller {
 }
 
 /** 運営者でなければ投げる。claim は request.auth.token から（クライアントの申告ではない）。 */
-function assertOperator(caller: Caller | null): asserts caller is Caller {
+export function assertOperator(caller: Caller | null): asserts caller is Caller {
   if (!caller) throw new HttpsError("unauthenticated", "ログインしてください");
   if (!caller.operator) throw new HttpsError("permission-denied", "運営者だけが使えます");
 }

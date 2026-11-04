@@ -3,7 +3,7 @@
 // 引用（Quoted.quote）はここへ出さない（§9.4）。画面に渡す詳細は値と検査の結果だけ。
 import { addDays } from "../dates";
 import { PREFS } from "../pref";
-import type { CaseStage, IsoDate, MuniCode, PrefCode } from "../types";
+import type { CaseStage, ConfirmState, IsoDate, IsoDateTime, MuniCode, PrefCode } from "../types";
 import type { DocumentKind, DocumentRecord, MandatoryField, ReadDate, ReviewItem, VerifyCheck } from "./types";
 
 /** 運営者が直して載せる値。市町村は N03 にあるコードで、県の中から選ぶ。 */
@@ -48,6 +48,48 @@ export interface ReviewDetail {
   issues: Array<{ field: string; check: VerifyCheck; mandatory: boolean }>;
   mismatches: MandatoryField[];
   error: string | null;
+}
+
+/**
+ * 事例にすでにある段階の日付を、運営者が直す（Q-n）。箱の項目に結びつかないので resolveReviewItem とは別の呼び出し（correctCaseStage）。
+ * expectedDate は画面が見ていた元の日付。事例がその間に変わっていたら直さない（古い画面で正しい値を上書きしない）。
+ */
+export interface CorrectStageRequest {
+  caseId: string;
+  stage: CaseStage;
+  expectedDate: IsoDate;
+  newDate: IsoDate;
+  reason: string;
+}
+
+export interface CorrectStageResponse {
+  ok: true;
+  caseId: string;
+  /** 直した記録（reviewQueue の解決済みの項目）の id */
+  recordId: string;
+}
+
+/** 理由の長さの上限。 */
+export const MAX_CORRECTION_REASON = 200;
+
+/**
+ * 直した記録。reviewQueue に、解決済み（resolvedAt あり）の項目として残す。運営者だけが読める。
+ * 未解決の箱（resolvedAt == null）には出ない。cases には載せない（誰でも読めるため）。
+ */
+export interface StageCorrectionRecord {
+  id: string;
+  kind: "stage_correction";
+  createdAt: IsoDateTime;
+  resolvedAt: IsoDateTime;
+  resolvedBy: string;
+  resolvedAction: "correct_stage_date";
+  caseId: string;
+  stage: CaseStage;
+  reason: string;
+  resolution: {
+    before: { date: IsoDate; time: string | null; confirmState: ConfirmState };
+    after: { date: IsoDate; time: string | null; confirmState: ConfirmState };
+  };
 }
 
 /** 知らせの言葉（固定）。項目の message は画面に出さない。 */
@@ -145,6 +187,19 @@ export function parseResolveRequest(data: unknown): { ok: true; request: Resolve
     return { ok: true, request: { itemId, action } as ResolveRequest };
   }
   return { ok: false, message: "操作が違います" };
+}
+
+/** correctCaseStage の入力を検査する。形が違えば理由つきで ok:false。余計な項目は読み捨てる。理由は前後の空白を除く。 */
+export function parseCorrectStageRequest(data: unknown): { ok: true; request: CorrectStageRequest } | { ok: false; message: string } {
+  if (!isRecord(data)) return { ok: false, message: "リクエストの形が違います" };
+  const { caseId, stage, expectedDate, newDate, reason } = data;
+  if (typeof caseId !== "string" || caseId === "" || caseId.length > 200 || caseId.includes("/")) return { ok: false, message: "事例の指定が違います" };
+  if (typeof stage !== "string" || !STAGES.has(stage)) return { ok: false, message: "段階が違います" };
+  if (!realDate(expectedDate)) return { ok: false, message: "元の日付が違います" };
+  if (!realDate(newDate)) return { ok: false, message: "新しい日付が違います" };
+  if (typeof reason !== "string" || reason.trim() === "") return { ok: false, message: "理由を入れてください" };
+  if (reason.trim().length > MAX_CORRECTION_REASON) return { ok: false, message: `理由は ${MAX_CORRECTION_REASON} 字までで入れてください` };
+  return { ok: true, request: { caseId, stage: stage as CaseStage, expectedDate, newDate, reason: reason.trim() } };
 }
 
 // ── 詳細 ──

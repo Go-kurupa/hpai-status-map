@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actionsFor, ALERT_TEXT, parseResolveRequest, reviewDetailOf } from "../src/read/review";
+import { actionsFor, ALERT_TEXT, parseCorrectStageRequest, parseResolveRequest, reviewDetailOf } from "../src/read/review";
 import type { DocumentRecord, ReadResult, ReviewItem } from "../src/read/types";
 import { findForbiddenPhrases } from "../src/wording";
 
@@ -159,5 +159,22 @@ describe("reviewDetailOf", () => {
   it("長すぎる文字は切る", () => {
     const d = reviewDetailOf(doc({ primary: { ...primary, birdUse: q("あ".repeat(500)) } }));
     expect(d.birdUse!.length).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("parseCorrectStageRequest（段階の日付を直す入力）", () => {
+  const ok = { caseId: "33203-2025-12-18-1", stage: "confirmed", expectedDate: "2025-12-19", newDate: "2025-12-20", reason: "県の発表を見直した" };
+  it("正しい入力を通し、理由の前後の空白を除き、余計な項目を読み捨てる", () => {
+    expect(parseCorrectStageRequest({ ...ok, reason: "  県の発表を見直した \n", extra: 1 })).toEqual({ ok: true, request: ok });
+  });
+  it("形が違えば理由つきで拒む", () => {
+    for (const bad of [null, [], "x", { ...ok, caseId: "" }, { ...ok, caseId: "a/b" }, { ...ok, stage: "x" }, { ...ok, expectedDate: "2025-13-01" }, { ...ok, newDate: "2025-02-30" }, { ...ok, newDate: 20251220 }, { ...ok, reason: "" }, { ...ok, reason: "  " }, { ...ok, reason: undefined }, { ...ok, reason: "あ".repeat(201) }]) {
+      const r = parseCorrectStageRequest(bad);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.message).not.toBe("");
+    }
+  });
+  it("理由の上限ちょうどは通る", () => {
+    expect(parseCorrectStageRequest({ ...ok, reason: "あ".repeat(200) }).ok).toBe(true);
   });
 });
