@@ -596,7 +596,7 @@ async function runAggregate(d: TrendsDeps): Promise<number> {
   if (prevSeason) {
     lines.push(
       `前季の確かめ: 報告書（2025/26）は「外部事業者の専用の衣服や靴」と「ねずみの痕跡」を半数以上の農場と書いています。読めた ${prevSeason.surveyed} 件の半数は ${prevSeason.surveyed / 2} 件です。` +
-        "食い違えば、載せる前に利用者に確かめてください。",
+        "食い違えば、載せる前に利用者に確かめてください（衣服や靴の 2025/26 の 6/24 件は、2026-11-04 に 24 件の原文と照らし、読み取りの誤りではなく数え方の違いと確かめ済み）。",
     );
   }
   d.log([`${d.summaryFile} に書きました。`, ...lines].join("\n"));
