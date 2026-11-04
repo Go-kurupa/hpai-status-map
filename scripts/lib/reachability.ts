@@ -6,7 +6,7 @@ import { toJstIso } from "@hpai/shared/dates";
 import { PREFS } from "@hpai/shared/pref";
 import type { IsoDateTime, SourceSeed } from "@hpai/shared/types";
 import type { ProbeRow, ProbeVerdict } from "../../functions/src/probe/run";
-import { isAllowedOpsUrl, urlRefused } from "./opsUrl";
+import { PROJECT_REFUSED, functionUrl, isAllowedOpsUrl, urlRefused } from "./opsUrl";
 import { buildProbeTargets, targetsFromSources } from "./probe-targets";
 
 const EXPECTED_NATIONAL_TITLES = 24;
@@ -205,13 +205,12 @@ export async function runProbe(argv: string[], io: ProbeIo): Promise<number> {
     return 2;
   }
 
-  const url =
-    io.env.PROBE_URL ??
-    (io.env.FIREBASE_PROJECT ? `https://asia-northeast1-${io.env.FIREBASE_PROJECT}.cloudfunctions.net/probeEntrances` : null);
-  if (!url) {
-    io.write("FIREBASE_PROJECT（または PROBE_URL）を設定してください\n");
+  const target = functionUrl(io.env.PROBE_URL, io.env.FIREBASE_PROJECT, "probeEntrances");
+  if (!target.ok) {
+    io.write(target.reason === "bad_project" ? `${PROJECT_REFUSED}\n` : "FIREBASE_PROJECT（または PROBE_URL）を設定してください\n");
     return 2;
   }
+  const url = target.url;
   const token = io.readToken();
   if (!token) {
     io.write("~/.config/hpai/ops-token がありません。bash scripts/set-ops-token.sh を先に実行してください\n");
@@ -246,6 +245,7 @@ export async function runProbe(argv: string[], io: ProbeIo): Promise<number> {
   try {
     res = await io.fetch(url, {
       method: "POST",
+      redirect: "error", // 別のホストへ転送されても Bearer を渡さない
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
       body: JSON.stringify({ targets }),
     });

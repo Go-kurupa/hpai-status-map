@@ -18,6 +18,8 @@ export interface AgentHeartbeat {
   lastAuthedCallAt: IsoDateTime | null;
   /** 費用を足した実行の id。同じ実行を 2 度足さない。 */
   countedRunIds: string[];
+  /** 最悪値で数えた実行の id（終わっていない、または費用が測れないまま数えたもの）。終わったことが分かるまで見直し、失敗の知らせだけを出す（M-1）。 */
+  guessedRunIds?: string[];
   /** 費用の上限で定期実行を止めた月（YYYY-MM）。同じ月、同じ上限では 2 度止めない。 */
   pausedMonth?: string;
   /** 止めたときの上限（円）。運営者が上限を上げて戻したら、同じ月でも新しい上限で止め直せるようにする（S-13）。 */
@@ -89,7 +91,12 @@ export interface RunsClient {
       retrieve(sessionId: string): Promise<SessionRecord>;
       events: { list(sessionId: string, params: { types: ["session.status_idle"]; order: "desc" }): AsyncIterable<IdleEventRecord> };
     };
-    deployments: { pause(deploymentId: string): Promise<unknown>; run(deploymentId: string, params: null, options: { maxRetries: number }): Promise<unknown> };
+    deployments: {
+      pause(deploymentId: string): Promise<unknown>;
+      run(deploymentId: string, params: null, options: { maxRetries: number }): Promise<unknown>;
+      /** 状態（active か paused）を読む。止め直しの前に、すでに止まっていないかを確かめる（I-3）。無い場合は、状態を確かめられないものとして扱う。 */
+      retrieve?(deploymentId: string): Promise<{ status?: string }>;
+    };
   };
 }
 
@@ -100,6 +107,7 @@ const COST_WAIT_MS = 3 * 24 * 60 * 60 * 1000;
 export const MAX_SESSION_COST_CENTS = 100;
 const MAX_RUNS = 200;
 const MAX_COUNTED_IDS = 500;
+const MAX_GUESSED_IDS = 100;
 const MANUAL_RUN_COOLDOWN_MS = 5 * 60 * 1000;
 
 export interface CheckDeps {
@@ -123,6 +131,8 @@ interface RunInspection {
   costSettled: boolean;
   /** 最悪値で確定した（費用が測れないまま待ちきった）。 */
   costGuessed: boolean;
+  /** すでに費用を数えた実行（M-1）。失敗の知らせだけを見直し、費用は足さない。 */
+  alreadyCounted?: boolean;
 }
 
 /** 作成から COST_WAIT_MS たった（作成日時が読めないときも、たったものとして扱う）。 */
@@ -189,25 +199,31 @@ export async function handleCheckAgentRuns(deps: CheckDeps): Promise<CheckResult
   const now = deps.now();
   const settings = await readRuntimeSettings();
   const stateRef = db.doc("usage/agent");
-  const counted = new Set(((await stateRef.get()).data() as Partial<AgentHeartbeat> | undefined)?.countedRunIds ?? []);
+  const state0 = (await stateRef.get()).data() as Partial<AgentHeartbeat> | undefined;
+  const counted = new Set(state0?.countedRunIds ?? []);
+  const guessed = new Set(state0?.guessedRunIds ?? []);
 
   const inspected: RunInspection[] = [];
   let seen = 0;
   for await (const run of client.beta.deploymentRuns.list({ deployment_id: deploymentId, "created_at[gte]": new Date(now.getTime() - LOOKBACK_MS).toISOString() })) {
     if (++seen > MAX_RUNS) break;
-    if (counted.has(run.id)) continue;
+    // 数え済みの実行は読み直さない。ただし、最悪値で数えたものは、終わったことが分かるまで見直す（失敗で終わったら知らせる。費用は足さない）。
+    if (counted.has(run.id) && !guessed.has(run.id)) continue;
     const v = await inspect(client, run, now);
-    if (v !== null) inspected.push(v);
+    if (v !== null) inspected.push(counted.has(run.id) ? { ...v, alreadyCounted: true } : v);
   }
-  const views = inspected.map((i) => i.view);
 
   // 失敗は、費用がまだ測れていなくても知らせる（id は実行ごとで、何度走っても 1 件）。
-  const failures = detectAgentRunFailures(views);
-  for (const f of failures) {
-    await enqueueReview({ id: reviewAlertId("agent_run_failed", f.key), kind: "alert", alert: "agent_run_failed", prefCode: null, caseId: null, message: f.message }, now);
+  // 数え済みの実行は、すでに箱にあれば何もしない（create なので 2 度は入らない）。新しく入ったものだけ数える。
+  let failureCount = 0;
+  for (const i of inspected) {
+    for (const f of detectAgentRunFailures([i.view])) {
+      const created = await enqueueReview({ id: reviewAlertId("agent_run_failed", f.key), kind: "alert", alert: "agent_run_failed", prefCode: null, caseId: null, message: f.message }, now);
+      if (!i.alreadyCounted || created) failureCount++;
+    }
   }
-  // 費用が測れないまま待ちきった実行は、最悪値で足すことを知らせる。
-  for (const g of inspected.filter((i) => i.costGuessed)) {
+  // 費用が測れないまま待ちきった実行は、最悪値で足すことを知らせる（数え済みのものは、数えたときに知らせた）。
+  for (const g of inspected.filter((i) => i.costGuessed && i.alreadyCounted !== true)) {
     const key = g.view.runId.replace(/[^A-Za-z0-9_-]/g, "_");
     await enqueueReview(
       {
@@ -222,22 +238,38 @@ export async function handleCheckAgentRuns(deps: CheckDeps): Promise<CheckResult
     );
   }
 
+  // 見直した最悪値の実行のうち、終わったと分かったものは控えから外す（失敗の知らせは上で出した）。
+  const resolved = inspected.filter((i) => i.alreadyCounted === true && i.view.finished).map((i) => i.view.runId);
+  if (resolved.length > 0) {
+    await stateRef.set({ guessedRunIds: (state0?.guessedRunIds ?? []).filter((id) => !resolved.includes(id)) }, { merge: true });
+  }
+
   // 数える。取引の中で数え済みの id をもう一度読み、足すのは費用が確定した未計上の実行だけ。
-  const settled = inspected.filter((i) => i.costSettled).map((i) => i.view);
+  const settled = inspected.filter((i) => i.costSettled && i.alreadyCounted !== true).map((i) => i.view);
+  const guessedNow = new Set(inspected.filter((i) => i.costGuessed && i.alreadyCounted !== true).map((i) => i.view.runId));
   const monthRef = db.doc(`usage/${usageMonthKey(now)}`);
   const added = await db.runTransaction(async (tx) => {
-    const ids = ((await tx.get(stateRef)).data() as Partial<AgentHeartbeat> | undefined)?.countedRunIds ?? [];
+    const cur = (await tx.get(stateRef)).data() as Partial<AgentHeartbeat> | undefined;
+    const ids = cur?.countedRunIds ?? [];
     const have = new Set(ids);
     const fresh = settled.filter((v) => !have.has(v.runId));
     if (fresh.length === 0) return { n: 0, jpy: 0 };
     const jpy = fresh.reduce((sum, v) => sum + agentCostJpy(v.listCostCents, settings.jpyPerUsd), 0);
-    tx.set(stateRef, { countedRunIds: [...ids, ...fresh.map((v) => v.runId)].slice(-MAX_COUNTED_IDS) }, { merge: true });
+    const newGuessed = fresh.map((v) => v.runId).filter((id) => guessedNow.has(id));
+    tx.set(
+      stateRef,
+      {
+        countedRunIds: [...ids, ...fresh.map((v) => v.runId)].slice(-MAX_COUNTED_IDS),
+        ...(newGuessed.length > 0 ? { guessedRunIds: [...(cur?.guessedRunIds ?? []), ...newGuessed].slice(-MAX_GUESSED_IDS) } : {}),
+      },
+      { merge: true },
+    );
     if (jpy > 0) tx.set(monthRef, { estimatedJpy: FieldValue.increment(jpy) }, { merge: true });
     return { n: fresh.length, jpy };
   });
 
   const paused = await pauseIfOverLimit(deps, now, settings.hardLimitJpy);
-  return { counted: added.n, addedJpy: added.jpy, failures: failures.length, paused };
+  return { counted: added.n, addedJpy: added.jpy, failures: failureCount, paused };
 }
 
 /** 今月の費用が止める線以上なら、定期実行を止めて運営者に知らせる。同じ月、同じ上限では 1 回だけ。止めたら true。 */
@@ -251,6 +283,31 @@ async function pauseIfOverLimit(deps: CheckDeps, now: Date, hardLimitJpy: number
   // 同じ月でも、止めたときと上限が違うなら（運営者が上げて戻した後）止め直す。上限の記録がない古い文書は、月だけで見る。
   const alreadyPaused = state?.pausedMonth === key;
   if (alreadyPaused && (state?.pausedLimitJpy === undefined || state.pausedLimitJpy === hardLimitJpy)) return false;
+
+  // 止め直しの枝（同じ月で上限だけ違う）は、運営者が上限を上げただけで戻していないこともある。止まっているものに pause を呼ばないよう、先に状態を見る。
+  if (alreadyPaused) {
+    const status = await deploymentStatus(deps);
+    if (status !== "active") {
+      // paused なら止める操作は要らない。読めなければ、勝手に pause を呼ばない。どちらも記録を更新し、知らせは上限ごとに 1 回だけ。
+      const verified = status === "paused";
+      await enqueueReview(
+        {
+          id: reviewAlertId("agent_run_failed", verified ? `paused-${key}-jpy${hardLimitJpy}` : `pause-unverified-${key}-jpy${hardLimitJpy}`),
+          kind: "alert",
+          alert: "agent_run_failed",
+          prefCode: null,
+          caseId: null,
+          message: verified
+            ? `今月の費用が上限（${hardLimitJpy}円）に達しましたが、入口を直すエージェントの定期実行はすでに止まっているので、止める操作はしていません。`
+            : `今月の費用が上限（${hardLimitJpy}円）に達しましたが、入口を直すエージェントの定期実行が止まっているかを確かめられなかったので、止める操作はしていません。状態を確かめて、動いていれば手で止めてください。`,
+        },
+        now,
+      );
+      await stateRef.set({ pausedMonth: key, pausedLimitJpy: hardLimitJpy }, { merge: true });
+      logger.warn("agent deployment pause skipped: already paused or status unknown", { verified });
+      return false;
+    }
+  }
 
   // 止めるのが先。止められなければ例外のまま終わり、次の回にやり直す。
   await deps.client.beta.deployments.pause(deps.deploymentId);
@@ -268,6 +325,18 @@ async function pauseIfOverLimit(deps: CheckDeps, now: Date, hardLimitJpy: number
   await stateRef.set({ pausedMonth: key, pausedLimitJpy: hardLimitJpy }, { merge: true });
   logger.warn("agent deployment paused: monthly cost limit");
   return true;
+}
+
+/** deployment の状態。retrieve が無い、または失敗したら "unknown"（原因の文はログにも出さない）。 */
+async function deploymentStatus(deps: CheckDeps): Promise<"active" | "paused" | "unknown"> {
+  const retrieve = deps.client.beta.deployments.retrieve;
+  if (retrieve === undefined) return "unknown";
+  try {
+    const status = (await retrieve.call(deps.client.beta.deployments, deps.deploymentId)).status;
+    return status === "active" || status === "paused" ? status : "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 // ── 運営者の画面のボタン（I-07）──

@@ -69,6 +69,7 @@ describe("runOps", () => {
     expect(sent[0]!.url).toBe("https://asia-northeast1-demo-test.cloudfunctions.net/opsAdmin");
     expect(sent[0]!.init.method).toBe("POST");
     expect((sent[0]!.init.headers as Record<string, string>).authorization).toBe(`Bearer ${FAKE}`);
+    expect(sent[0]!.init.redirect).toBe("error"); // 転送された先に Bearer を渡さない
     expect(JSON.parse(sent[0]!.init.body as string)).toEqual({ op: "seed-sources" });
     expect(out.join("")).toContain("added");
     expect(out.join("")).not.toContain(FAKE);
@@ -96,7 +97,9 @@ describe("runOps", () => {
   describe("OPS_URL の scheme（S-11。Bearer を平文で出さない）", () => {
     it("https は通す。ローカルの模擬環境だけ http://localhost と http://127.0.0.1 を通す", async () => {
       for (const url of [
-        "https://example.test/opsAdmin",
+        "https://asia-northeast1-demo-test.cloudfunctions.net/opsAdmin",
+        "https://opsadmin-abc123-an.a.run.app/",
+        "HTTPS://Asia-Northeast1-Demo-Test.CloudFunctions.NET./opsAdmin", // 大文字と末尾のドットは正規化して比べる
         "http://localhost:5001/demo-hpai/asia-northeast1/opsAdmin",
         "http://127.0.0.1:5001/demo-hpai/asia-northeast1/opsAdmin",
       ]) {
@@ -111,6 +114,14 @@ describe("runOps", () => {
     it("それ以外の http、別の scheme、URL でない値、ローカルに見せかけたホストは、送らずに止まる。値は出さない", async () => {
       for (const url of [
         "http://example.test/opsAdmin",
+        "https://example.test/opsAdmin", // https でも、関数のホストでなければ断る
+        "https://evil.example/.cloudfunctions.net",
+        "https://cloudfunctions.net/opsAdmin", // 前に名前がない
+        "https://evilcloudfunctions.net/opsAdmin",
+        "https://x.cloudfunctions.net.evil.example/opsAdmin",
+        "https://x.run.app.evil.example/opsAdmin",
+        "https://demo@evil.example/opsAdmin",
+        "http://x.cloudfunctions.net/opsAdmin", // http は模擬環境のホストだけ
         "http://192.168.0.5:5001/opsAdmin",
         "http://localhost.example.test/opsAdmin",
         "http://127.0.0.1.example.test/opsAdmin",
@@ -130,8 +141,46 @@ describe("runOps", () => {
       }
     });
 
+    // I-1: 既定の URL は FIREBASE_PROJECT から組む。形の外の値でホストが変わらないようにする
+    const BAD_PROJECTS = ["x@evil.example#", "evil.example", "demo-test.evil.example", "a/b", "A", "-demo", "demo test", "a".repeat(64), "demo-test\n"];
+
+    it("FIREBASE_PROJECT が形の外（x@evil.example# など）なら、組まずに止まる。runOps、usage-status、probe の 3 つの経路すべて", async () => {
+      for (const project of BAD_PROJECTS) {
+        const a = deps({ status: 200, body: { ok: true } });
+        a.d.env = { FIREBASE_PROJECT: project };
+        expect(await runOps(["seed-sources"], a.d), project).toBe(2);
+        expect(a.sent, project).toHaveLength(0);
+        expect(a.out.join(""), project).toContain("FIREBASE_PROJECT");
+
+        const b = deps({ status: 200, body: { ok: true } });
+        b.d.env = { FIREBASE_PROJECT: project };
+        expect(await runOps(["probe", "--from-sources"], b.d), project).toBe(2);
+        expect(b.sent, project).toHaveLength(0);
+        expect(b.out.join(""), project).toContain("FIREBASE_PROJECT");
+
+        let called = 0;
+        const usage = await fetchUsageStatus({
+          env: { FIREBASE_PROJECT: project },
+          readToken: () => FAKE,
+          fetch: (async () => {
+            called++;
+            return new Response("{}");
+          }) as typeof fetch,
+        });
+        expect(usage, project).toBeNull();
+        expect(called, project).toBe(0);
+      }
+    });
+
+    it("OPS_URL を指定していれば、FIREBASE_PROJECT の形は見ない（URL の検査だけ）", async () => {
+      const { sent, d } = deps({ status: 200, body: { ok: true, op: "seed-sources" } });
+      d.env = { OPS_URL: "https://asia-northeast1-demo-test.cloudfunctions.net/opsAdmin", FIREBASE_PROJECT: "x@evil.example#" };
+      expect(await runOps(["seed-sources"], d)).toBe(0);
+      expect(sent[0]!.url).toBe("https://asia-northeast1-demo-test.cloudfunctions.net/opsAdmin");
+    });
+
     it("probe の PROBE_URL も同じ検査を通す。http の別のホストは、送らずに止まる", async () => {
-      for (const url of ["http://example.test/probeEntrances", "ftp://example.test/probeEntrances", "example.test/probeEntrances"]) {
+      for (const url of ["http://example.test/probeEntrances", "https://example.test/probeEntrances", "ftp://example.test/probeEntrances", "example.test/probeEntrances"]) {
         const { out, sent, d } = deps({ status: 200, body: { ok: true } });
         d.env = { PROBE_URL: url };
         expect(await runOps(["probe", "--from-sources"], d), url).toBe(2);
@@ -167,11 +216,12 @@ describe("fetchUsageStatus（setup-agent --unpause が今月の費用を読む�
     expect(sent).toHaveLength(1);
     expect(sent[0]!.url).toBe("https://asia-northeast1-demo-test.cloudfunctions.net/opsAdmin");
     expect((sent[0]!.init.headers as Record<string, string>).authorization).toBe(`Bearer ${FAKE}`);
+    expect(sent[0]!.init.redirect).toBe("error"); // 転送された先に Bearer を渡さない
     expect(JSON.parse(sent[0]!.init.body as string)).toEqual({ op: "usage-status" });
   });
 
-  it("URL がない、https でない OPS_URL、控えがないときは、送らずに null（Bearer を平文で出さない）", async () => {
-    for (const over of [{ env: {} }, { env: { OPS_URL: "http://example.test/opsAdmin" } }, { token: null }]) {
+  it("URL がない、https でない・関数のホストでない OPS_URL、控えがないときは、送らずに null（Bearer を平文で出さない）", async () => {
+    for (const over of [{ env: {} }, { env: { OPS_URL: "http://example.test/opsAdmin" } }, { env: { OPS_URL: "https://example.test/opsAdmin" } }, { token: null }]) {
       const { sent, d } = io(over);
       expect(await fetchUsageStatus(d)).toBeNull();
       expect(sent).toHaveLength(0);

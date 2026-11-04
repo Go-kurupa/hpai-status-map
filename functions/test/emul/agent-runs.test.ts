@@ -37,9 +37,22 @@ interface Fake {
   idle: Record<string, string>;
 }
 
-function makeClient(f: Fake) {
-  const pause = vi.fn(async () => ({}));
+/** deployments.retrieve の振る舞い。ok は本物のように状態を返す（pause すると paused になる）、throws は失敗、absent は SDK にない場合。 */
+type RetrieveMode = "ok" | "throws" | "absent";
+
+function makeClient(f: Fake, mode: RetrieveMode = "ok") {
+  const deployment = { status: "active" };
+  // 本物のように、止まっているものへの pause はエラーにする（再呼び出しを試験が見つけられるように）
+  const pause = vi.fn(async () => {
+    if (deployment.status === "paused") throw new Error("already paused");
+    deployment.status = "paused";
+    return {};
+  });
   const run = vi.fn(async () => ({}));
+  const retrieveDeployment = vi.fn(async (_id: string) => {
+    if (mode === "throws") throw new Error("api down");
+    return { status: deployment.status };
+  });
   const retrieve = vi.fn(async (id: string): Promise<SessionRecord> => f.sessions[id] as SessionRecord);
   const client: RunsClient = {
     beta: {
@@ -59,10 +72,20 @@ function makeClient(f: Fake) {
             })(),
         },
       },
-      deployments: { pause, run },
+      deployments: { pause, run, ...(mode === "absent" ? {} : { retrieve: retrieveDeployment }) },
     },
   };
-  return { client, pause, run, retrieve };
+  return {
+    client,
+    pause,
+    run,
+    retrieve,
+    retrieveDeployment,
+    /** 運営者が setup-agent --unpause で戻した、という状態の変更 */
+    setDeploymentStatus: (status: "active" | "paused") => {
+      deployment.status = status;
+    },
+  };
 }
 
 const finished = (cents: string | null): SessionRecord => ({ status: "idle", usage: { list_cost: cents === null ? null : { amount: cents } } });
@@ -200,6 +223,51 @@ describe("checkAgentRuns の費用", () => {
     ]);
   });
 
+  it("M-1: 最悪値で数えた後に refusal や budget_reached で終わった実行も、失敗を 1 回だけ知らせる。費用は二重に足さない", async () => {
+    const fake: Fake = {
+      runs: [{ created_at: OLD_RUN, id: "drun_late", session_id: "ses_late", error: null }],
+      sessions: { ses_late: { status: "running" } },
+      idle: {},
+    };
+    const f = makeClient(fake);
+    expect(await check(f.client)).toMatchObject({ counted: 1, addedJpy: 150, failures: 0 }); // 3 日たっても終わらず、最悪値で数える
+    expect(await counted()).toEqual(["drun_late"]);
+    // その後、セッションが budget_reached で終わった
+    fake.sessions.ses_late = finished("100");
+    fake.idle = { ses_late: "budget_reached" };
+    expect(await check(f.client)).toMatchObject({ counted: 0, addedJpy: 0, failures: 1 });
+    expect(await month()).toBe(150); // 二重に足さない
+    expect(await counted()).toEqual(["drun_late"]);
+    expect((await queue()).map((i) => i.id).sort()).toEqual(["alert-agent_run_failed-cost-unknown-drun_late", "alert-agent_run_failed-drun_late"]);
+    expect(await check(f.client)).toMatchObject({ counted: 0, failures: 0 }); // 2 度は知らせない
+    expect((await queue()).length).toBe(2);
+    expect(await month()).toBe(150);
+  });
+
+  it("M-1: 数え済みで失敗でない実行（end_turn）は、見直しても何も増えない", async () => {
+    const f = makeClient({ runs: [{ created_at: RECENT, id: "drun_ok", session_id: "ses_ok", error: null }], sessions: { ses_ok: finished("100") }, idle: { ses_ok: "end_turn" } });
+    await check(f.client);
+    await check(f.client);
+    expect(await month()).toBe(150);
+    expect((await queue()).length).toBe(0);
+    expect(f.retrieve).toHaveBeenCalledTimes(1); // 最悪値でない数え済みの実行は、セッションを読み直さない
+  });
+
+  it("M-1: 最悪値で数えた実行が、終わるまで見直され、終わったら見直しを止める（セッションを読み続けない）", async () => {
+    const fake: Fake = { runs: [{ created_at: OLD_RUN, id: "drun_slow", session_id: "ses_slow", error: null }], sessions: { ses_slow: { status: "running" } }, idle: {} };
+    const f = makeClient(fake);
+    await check(f.client);
+    await check(f.client);
+    expect(f.retrieve).toHaveBeenCalledTimes(2); // まだ終わっていない間は、毎回見る
+    fake.sessions.ses_slow = finished("100");
+    fake.idle = { ses_slow: "end_turn" };
+    expect(await check(f.client)).toMatchObject({ counted: 0, failures: 0 });
+    expect(f.retrieve).toHaveBeenCalledTimes(3);
+    await check(f.client);
+    expect(f.retrieve).toHaveBeenCalledTimes(3); // 終わったと分かった後は読まない
+    expect(await month()).toBe(150);
+  });
+
   it("測れていない間も、失敗（refusal）は知らせる。費用は待つ", async () => {
     const f = makeClient({
       runs: [{ created_at: RECENT, id: "drun_r", session_id: "ses_r", error: null }],
@@ -292,7 +360,8 @@ describe("checkAgentRuns の費用の上限（hardLimitJpy 10,000 円）", () =>
     await db.doc("usage/2026-11").set({ estimatedJpy: 10600 });
     const f = makeClient({ runs: [], sessions: {}, idle: {} });
     expect((await check(f.client)).paused).toBe(true); // 上限 10,000 円で止まる
-    // 運営者が上限を 12,000 円に上げ、setup-agent --unpause で戻した（API 側の状態はこの試験の外）
+    // 運営者が上限を 12,000 円に上げ、setup-agent --unpause で戻した
+    f.setDeploymentStatus("active");
     await db.doc("usage/settings").set({ ...DEFAULT_RUNTIME_SETTINGS, hardLimitJpy: 12000 });
     expect((await check(f.client)).paused).toBe(false); // 10,600 円は新しい上限の手前
     await db.doc("usage/2026-11").set({ estimatedJpy: 12100 });
@@ -302,6 +371,58 @@ describe("checkAgentRuns の費用の上限（hardLimitJpy 10,000 円）", () =>
     expect(f.pause).toHaveBeenCalledTimes(2);
     const ids = (await queue()).map((i) => i.id).sort();
     expect(ids).toEqual(["alert-agent_run_failed-paused-2026-11", "alert-agent_run_failed-paused-2026-11-jpy12000"]);
+  });
+
+  describe("I-3: 止め直しの枝は、止まっているものに pause をもう一度呼ばない", () => {
+    const stateOf = async () => (await db.doc("usage/agent").get()).data() as { pausedMonth?: string; pausedLimitJpy?: number };
+    const alertIds = async () => (await queue()).map((i) => i.id).sort();
+    /** 上限 10,000 円で 1 回止めた後、運営者が上限を 12,000 円に上げ（戻さずに）、費用が 12,100 円になった状態 */
+    async function pausedThenRaised(mode: RetrieveMode) {
+      await db.doc("usage/2026-11").set({ estimatedJpy: 10600 });
+      const f = makeClient({ runs: [], sessions: {}, idle: {} }, mode);
+      f.setDeploymentStatus("active");
+      expect((await check(f.client)).paused).toBe(true); // 最初の 1 回は pause を呼ぶ（この枝は retrieve を使わない）
+      await db.doc("usage/settings").set({ ...DEFAULT_RUNTIME_SETTINGS, hardLimitJpy: 12000 });
+      await db.doc("usage/2026-11").set({ estimatedJpy: 12100 });
+      return f;
+    }
+
+    it("すでに paused なら pause を呼ばず（呼ぶと投げる偽物でも落ちない）、記録と知らせだけを更新する", async () => {
+      const f = await pausedThenRaised("ok");
+      expect(f.pause).toHaveBeenCalledTimes(1);
+      const r = await check(f.client);
+      expect(r.paused).toBe(false); // 止める操作はしていない
+      expect(f.pause).toHaveBeenCalledTimes(1);
+      expect(f.retrieveDeployment).toHaveBeenCalledWith(DEPLOYMENT);
+      expect(await stateOf()).toMatchObject({ pausedMonth: "2026-11", pausedLimitJpy: 12000 });
+      expect(await alertIds()).toEqual(["alert-agent_run_failed-paused-2026-11", "alert-agent_run_failed-paused-2026-11-jpy12000"]);
+      await check(f.client); // 同じ上限では何も増えない
+      expect(f.retrieveDeployment).toHaveBeenCalledTimes(1);
+      expect((await queue()).length).toBe(2);
+    });
+
+    it("状態が active なら（運営者が戻した後）、これまでどおり pause を呼ぶ", async () => {
+      const f = await pausedThenRaised("ok");
+      f.setDeploymentStatus("active");
+      expect((await check(f.client)).paused).toBe(true);
+      expect(f.pause).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(["throws", "absent"] as const)("retrieve が%s（状態を確かめられない）なら pause を呼ばず、記録だけ更新し、確かめられなかった旨を 1 回だけ箱に出す", async (mode) => {
+      const f = await pausedThenRaised(mode);
+      const r = await check(f.client);
+      expect(r.paused).toBe(false);
+      expect(f.pause).toHaveBeenCalledTimes(1);
+      expect(await stateOf()).toMatchObject({ pausedMonth: "2026-11", pausedLimitJpy: 12000 });
+      const unverified = (await queue()).filter((i) => i.id.includes("unverified"));
+      expect(unverified).toHaveLength(1);
+      expect(unverified[0]).toMatchObject({ kind: "alert", alert: "agent_run_failed" });
+      expect(unverified[0]!.id).not.toMatch(/0\d*-\d+-\d+/); // 公開前の検査が電話番号と読む形にしない
+      await check(f.client);
+      await check(f.client);
+      expect((await queue()).filter((i) => i.id.includes("unverified"))).toHaveLength(1); // 何度走っても 1 回
+      expect(f.pause).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("新しい実行がなくても、すでに上限以上なら止める", async () => {

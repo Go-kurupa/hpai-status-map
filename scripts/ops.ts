@@ -14,7 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { OpRequest } from "../functions/src/ops/handlers";
-import { isAllowedOpsUrl, urlRefused } from "./lib/opsUrl";
+import { PROJECT_REFUSED, functionUrl, isAllowedOpsUrl, urlRefused } from "./lib/opsUrl";
 import { runProbe } from "./lib/reachability";
 
 export { isAllowedOpsUrl };
@@ -108,13 +108,12 @@ export async function runOps(argv: string[], deps: OpsDeps): Promise<number> {
     deps.write(`${(e as Error).message}\n${USAGE}\n`);
     return 2;
   }
-  const url =
-    deps.env.OPS_URL ??
-    (deps.env.FIREBASE_PROJECT ? `https://asia-northeast1-${deps.env.FIREBASE_PROJECT}.cloudfunctions.net/opsAdmin` : null);
-  if (!url) {
-    deps.write("FIREBASE_PROJECT（または OPS_URL）を設定してください\n");
+  const target = functionUrl(deps.env.OPS_URL, deps.env.FIREBASE_PROJECT, "opsAdmin");
+  if (!target.ok) {
+    deps.write(target.reason === "bad_project" ? `${PROJECT_REFUSED}\n` : "FIREBASE_PROJECT（または OPS_URL）を設定してください\n");
     return 2;
   }
+  const url = target.url;
   if (!isAllowedOpsUrl(url)) {
     // 値は出さない（URL に何が入っているか分からない）。Bearer を平文で出さないため、送らずに止まる。
     deps.write(`${urlRefused("OPS_URL")}\n`);
@@ -130,6 +129,7 @@ export async function runOps(argv: string[], deps: OpsDeps): Promise<number> {
   try {
     res = await deps.fetch(url, {
       method: "POST",
+      redirect: "error", // 別のホストへ転送されても Bearer を渡さない
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -165,15 +165,15 @@ export interface UsageStatus {
  * Bearer を付ける直前に、URL の scheme を検査する（OPS_URL と同じ）。値は出さない。
  */
 export async function fetchUsageStatus(deps: Pick<OpsDeps, "env" | "readToken" | "fetch">): Promise<UsageStatus | null> {
-  const url =
-    deps.env.OPS_URL ??
-    (deps.env.FIREBASE_PROJECT ? `https://asia-northeast1-${deps.env.FIREBASE_PROJECT}.cloudfunctions.net/opsAdmin` : null);
-  if (!url || !isAllowedOpsUrl(url)) return null;
+  const target = functionUrl(deps.env.OPS_URL, deps.env.FIREBASE_PROJECT, "opsAdmin");
+  if (!target.ok || !isAllowedOpsUrl(target.url)) return null;
+  const url = target.url;
   const token = deps.readToken();
   if (!token) return null;
   try {
     const res = await deps.fetch(url, {
       method: "POST",
+      redirect: "error",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
       body: JSON.stringify({ op: "usage-status" } satisfies OpRequest),
     });

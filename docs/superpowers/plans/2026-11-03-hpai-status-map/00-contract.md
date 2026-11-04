@@ -51,7 +51,7 @@ Hosting は `web/dist`。rewrite: `/api/v1/**` → `api`、`/mcp` → `mcp`、`/
 
 ### 1.7 本番のデータを手元から触る道
 
-サービスアカウントの鍵を置かない【計】。`opsAdmin`（F-02）に集め、`scripts/ops.ts` が `~/.config/hpai/ops-token` を読んで呼ぶ（表示しない）。
+サービスアカウントの鍵を置かない【計】。`opsAdmin`（F-02）に集め、`scripts/ops.ts` が `~/.config/hpai/ops-token` を読んで呼ぶ（表示しない）。呼び先は https で、ホスト名が `.cloudfunctions.net` か `.run.app` のものだけ（`scripts/lib/opsUrl.ts`。模擬環境の `http://localhost` と `http://127.0.0.1` は除く）。既定の URL は `FIREBASE_PROJECT`（小文字の英数字とハイフンだけ）から組み、リダイレクトでは転送しない。
 
 | 操作 | 内容 |
 |---|---|
@@ -59,6 +59,7 @@ Hosting は `web/dist`。rewrite: `/api/v1/**` → `api`、`/mcp` → `mcp`、`/
 | `create-invite --kind signup --max-uses 5` | 平文を 1 度だけ返す。保存は `invites/{sha256(code.trim()) の 16 進小文字}` |
 | `seed-sources` | 同梱の `data/sources.json` から足す。既存を上書きしない |
 | `set-setting <キー> <値>` | `usage/settings`。無ければ `DEFAULT_RUNTIME_SETTINGS` で作る |
+| `usage-status`（`{ op: "usage-status" }`。読むだけで何も書かない。`opsAdmin` の Bearer の内側） | 今月（日本時間）の費用と止める線を返す。返す値は `{ ok: true, op: "usage-status", month: "YYYY-MM", estimatedJpy, hardLimitJpy }` の 3 つだけ（Secret も個人情報もない）。`setup-agent.ts --unpause` が、費用が上限以上のときに戻さないために呼ぶ。`scripts/ops.ts` の `fetchUsageStatus` が読む |
 | `probe --permanent <tsv> --entrances <tsv>`、`probe --from-sources` | `probeEntrances` を呼び `docs/reachability.md` を更新 |
 
 ## 2. 型と Firestore

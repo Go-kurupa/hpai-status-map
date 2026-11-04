@@ -187,6 +187,7 @@ describe("runProbe（ops.ts probe の中身）", () => {
     expect(String(url)).toBe("https://asia-northeast1-demo-proj.cloudfunctions.net/probeEntrances");
     expect(init!.method).toBe("POST");
     expect((init!.headers as Record<string, string>).authorization).toBe(`Bearer ${TOKEN}`);
+    expect(init!.redirect).toBe("error"); // 転送された先に Bearer を渡さない
     const sent = JSON.parse(String(init!.body)) as { targets: ProbeTarget[] };
     expect(sent.targets.some((t) => t.url === "https://www.pref.okayama.jp/a.html" && t.dev?.hasWord === true)).toBe(true);
     expect(sent.targets.filter((t) => t.kind === "maff_arc")).toHaveLength(7);
