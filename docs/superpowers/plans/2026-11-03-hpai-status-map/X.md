@@ -387,10 +387,10 @@ npm run bundle -w functions && npx firebase emulators:exec --only firestore,auth
 - [ ] **Step 4: 通ることを確かめる** 同じコマンド
 - [ ] **Step 5: 本番 deploy（Human、11/7 夜か 11/8 午前）** `npx tsx scripts/smoke-prod.ts --pre-publish` を通す（`VITE_OPERATOR_NAME` と確認日は build に入るので deploy の前に止める）。確認の後に `FB deploy --only firestore,storage,functions,hosting`、`npx tsx scripts/smoke-prod.ts`。`autoPublishEnabled` は I-06 の合格と確認の後だけ。
 - [ ] **Step 6: 本番の MCP（Human）** `claude mcp add --transport http hpai https://<project>.web.app/mcp` の後に「今週の岡山の状況は」。結果を `docs/mcp-usage.md` に足す。
-- [ ] **Step 7: 撮影（Human、11/8 正午までに開始）** `pw demo-walkthrough` の後に台本で 1 回通す。メールは送信先を作者に限る。MCP の場面は本番の接続で撮る。見返して、映さないものがなく、帯と「仮の地点」があり、数字が実測か明示されていることを確かめる。本物の発生が今週あれば §17 のとおり。**本番が正午までに動かなければ利用者に相談する。**
+- [ ] **Step 7: 撮影（Human、11/8 正午までに開始）** `pw demo-walkthrough` の後に台本で 1 回通す（**場面 7 が skip でないこと**を確かめる。skip は舞台裏か評価が未実測のとき）。メールは送信先を作者に限る。MCP の場面は本番の接続で撮る。見返して、映さないものがなく、帯と「仮の地点」があり、数字が実測か明示されていることを確かめる。本物の発生が今週あれば §17 のとおり。**本番が正午までに動かなければ利用者に相談する。**
 - [ ] **Step 8: README を仕上げる** 本番と動画の URL を入れ、人の作業 9 の提出物と長さを照らす。`vt scripts readme demo-script`。
 - [ ] **Step 9: Commit** `docs: README とデモの台本、提出の手順を追加する`
-- [ ] **Step 10: 公開（Human）** `npx tsx scripts/smoke-prod.ts --pre-publish` と `bash .claude/hooks/public-precommit.sh --all-tracked` を通す。確認の後に push し、公開にする。
+- [ ] **Step 10: 公開（Human）** `npx tsx scripts/smoke-prod.ts --pre-publish` と `bash .claude/hooks/public-precommit.sh --all-tracked` を通す。`REQUIRE_BUILD=1` で no-fixture の試験を回し、README と全国の傾向の文言の試験が skip でないことを確かめる。`--all-tracked` は作業ツリーだけを見るので、**全履歴の追加行も鍵・トークン・個人のメールの形で検査する**（場所だけを出す。X-23 の N-8）。`.claude/settings.json` と `.gitignore` の守りの設定が HEAD に入っていることを確かめる（X-23 の N-4）。確認の後に push し、公開にする。
 - [ ] **Step 11: 手順の確認（Human）** 登録なしの別のブラウザで README の手順を上から試す。
 - [ ] **Step 12: 提出（Human、18:00 を目標）** 動画を掲載して提出し、時刻と受付の表示を手元に残す。
 
