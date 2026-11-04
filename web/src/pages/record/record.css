@@ -89,10 +89,16 @@
   gap: 8px;
   min-height: var(--tap);
   margin-right: 16px;
+  cursor: pointer;
 }
 .self-choice input {
-  width: 24px;
-  height: 24px;
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  flex: none;
+}
+.death-result-focus:focus {
+  outline: none;
 }
 .copy-box textarea {
   width: 100%;

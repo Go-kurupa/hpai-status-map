@@ -6,7 +6,7 @@ import { formatJaDate } from "@hpai/shared/jaDate";
 import { computeMortality, MORTALITY_TEXT, toMortalityDays, type MortalityResult } from "@hpai/shared/mortality";
 import { buildWeeklyDeathReport, EXCLUSION_LABELS } from "@hpai/shared/reports";
 import type { DeathRecord, ExclusionKind, Farm, House, IsoDate } from "@hpai/shared/types";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useDataSource, useRecordStore } from "../../data/context";
 import { Button } from "../../ui/Button";
@@ -101,6 +101,21 @@ function ResultView({ shown, farm }: { shown: Shown; farm: FarmWithId }) {
       ) : null}
       {result.status === "evaluated" ? <Evaluated shown={shown} result={result} contact={contact} /> : null}
     </section>
+  );
+}
+
+/** 保存したら画面をこの枠へ動かし、フォーカスを移す。先頭に「記録しました」を出す */
+function ResultFrame({ shown, farm }: { shown: Shown; farm: FarmWithId }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.scrollIntoView?.({ block: "start" });
+    ref.current?.focus?.({ preventScroll: true });
+  }, [shown]);
+  return (
+    <div ref={ref} tabIndex={-1} className="death-result-focus">
+      <p role="status">{RECORD_TEXT.saved}</p>
+      <ResultView shown={shown} farm={farm} />
+    </div>
   );
 }
 
@@ -275,10 +290,22 @@ function DeathsBody({ farm }: { farm: FarmWithId }) {
       setError(RECORD_TEXT.dateRange);
       return;
     }
-    const n = house.empty ? 0 : parseCount(count);
-    if (n === null || n > house.flockSize) {
-      setError(MORTALITY_TEXT.invalidInput);
-      return;
+    let n = 0;
+    if (!house.empty) {
+      if (count.trim() === "") {
+        setError(RECORD_TEXT.deathsEmpty);
+        return;
+      }
+      const parsed = parseCount(count);
+      if (parsed === null) {
+        setError(RECORD_TEXT.deathsNotNumber);
+        return;
+      }
+      if (parsed > house.flockSize) {
+        setError(RECORD_TEXT.deathsOverFlock(house.flockSize));
+        return;
+      }
+      n = parsed;
     }
     const exclusion: DeathRecord["exclusion"] = house.empty
       ? { kind: "empty", note: "" }
@@ -297,11 +324,15 @@ function DeathsBody({ farm }: { farm: FarmWithId }) {
       const fresh = await store.listDeaths(from, today);
       setDeaths(fresh);
       setShown(compute(fresh, house.id, entered));
+      setCount("");
+      setReason("");
     } catch {
       setError(RECORD_TEXT.readFailed); // 保存はできている。計算に使う記録だけ読めなかった
     }
     setBusy(false);
   }
+
+  const existing = house.empty ? undefined : deaths.find((d) => d.date === date && d.houseId === house.id);
 
   const recent = deaths
     .filter((d) => d.houseId === house.id)
@@ -317,6 +348,8 @@ function DeathsBody({ farm }: { farm: FarmWithId }) {
           value={house.id}
           onChange={(e) => {
             setHouseId(e.target.value);
+            setCount("");
+            setReason("");
             clearShown();
           }}
         >
@@ -335,6 +368,7 @@ function DeathsBody({ farm }: { farm: FarmWithId }) {
           max={today}
           onChange={(e) => {
             setDate(e.target.value);
+            setReason("");
             clearShown();
           }}
         />
@@ -342,6 +376,7 @@ function DeathsBody({ farm }: { farm: FarmWithId }) {
           <p role="status">{RECORD_TEXT.houseEmpty}</p>
         ) : (
           <>
+            {existing ? <p role="status">{RECORD_TEXT.deathsExisting(existing.deaths)}</p> : null}
             <label htmlFor={`${id}-deaths`}>{RECORD_TEXT.deathsLabel}</label>
             <input
               id={`${id}-deaths`}
@@ -382,7 +417,7 @@ function DeathsBody({ farm }: { farm: FarmWithId }) {
         {error ? <p role="alert">{error}</p> : null}
       </div>
 
-      {shown ? <ResultView shown={shown} farm={farm} /> : null}
+      {shown ? <ResultFrame shown={shown} farm={farm} /> : null}
       <p className="record-symptoms">{MORTALITY_TEXT.symptoms}</p>
 
       <section aria-label={RECORD_TEXT.recentHeading}>

@@ -28,6 +28,7 @@ function SelfCheckBody({ farm }: { farm: Farm & { id: string } }) {
   const [saved, setSaved] = useState(false);
   const [failed, setFailed] = useState(false);
   const [readFailed, setReadFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let off = false;
@@ -37,6 +38,7 @@ function SelfCheckBody({ farm }: { farm: Farm & { id: string } }) {
         for (const r of rows) {
           if (r.kind === "self_inspection" && r.month === month) setAnswers({ ...BLANK, ...r.answers });
         }
+        setLoaded(true);
       },
       () => {
         if (!off) setReadFailed(true);
@@ -58,7 +60,7 @@ function SelfCheckBody({ farm }: { farm: Farm & { id: string } }) {
   }
 
   async function save() {
-    if (busy) return;
+    if (busy || !loaded) return;
     setBusy(true);
     setFailed(false);
     try {
@@ -95,13 +97,13 @@ function SelfCheckBody({ farm }: { farm: Farm & { id: string } }) {
             ] as const
           ).map(([v, text]) => (
             <label key={text} className="self-choice">
-              <input type="radio" name={`self-${it.no}`} checked={answers[it.no] === v} onChange={() => pick(it.no, v)} />
+              <input type="radio" name={`self-${it.no}`} checked={answers[it.no] === v} disabled={!loaded} onChange={() => pick(it.no, v)} />
               {text}
             </label>
           ))}
         </fieldset>
       ))}
-      <Button variant="primary" disabled={busy} onClick={() => void save()}>
+      <Button variant="primary" disabled={busy || !loaded} onClick={() => void save()}>
         {busy ? RECORD_TEXT.saving : RECORD_TEXT.selfSave}
       </Button>
       {saved ? <p role="status">{RECORD_TEXT.saved}</p> : null}

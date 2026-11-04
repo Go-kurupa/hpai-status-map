@@ -4,6 +4,7 @@ import { addDays } from "@hpai/shared/dates";
 import { MORTALITY_TEXT } from "@hpai/shared/mortality";
 import { SELF_CHECK_SOURCE_NOTE } from "@hpai/shared/reports";
 import { findForbiddenPhrases } from "@hpai/shared/wording";
+import { readFileSync } from "node:fs";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -193,18 +194,89 @@ describe("DeathsPanel 入力", () => {
     expect(saveDeath.mock.calls[0]?.[0]).toEqual({ date: TODAY, houseId: "h1", deaths: 3, flockSizeAt: 100, exclusion: null });
   });
 
-  it("文字、負の数、小数、羽数を超える値は保存せず『入力を確かめてください』", async () => {
+  it("入力の誤りを 3 つに分けて文で知らせ、保存しない（空欄、数字以外、羽数超え）", async () => {
     mount(<DeathsPanel />);
     await ready();
-    for (const bad of ["abc", "-1", "1.5", "101", ""]) {
-      setValue("死亡数", bad);
-      fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.save }));
-      expect(await screen.findByText(MORTALITY_TEXT.invalidInput)).toBeTruthy();
+    const cases: Array<[string, string]> = [
+      ["", RECORD_TEXT.deathsEmpty],
+      ["abc", RECORD_TEXT.deathsNotNumber],
+      ["-1", RECORD_TEXT.deathsNotNumber],
+      ["1.5", RECORD_TEXT.deathsNotNumber],
+      ["101", RECORD_TEXT.deathsOverFlock(100)],
+    ];
+    for (const [bad, text] of cases) {
       cleanup();
       mount(<DeathsPanel />);
       await ready();
+      setValue("死亡数", bad);
+      fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.save }));
+      expect((await screen.findByRole("alert")).textContent).toBe(text);
     }
     expect(saveDeath).not.toHaveBeenCalled();
+  });
+
+  it("誤りの文の中身（0 と入れる案内、羽数の n）", () => {
+    expect(RECORD_TEXT.deathsEmpty).toBe("死亡数を入れてください。死亡がない日は 0 と入れます");
+    expect(RECORD_TEXT.deathsNotNumber).toBe("死亡数は 0 以上の整数で入れてください");
+    expect(RECORD_TEXT.deathsOverFlock(100)).toBe("死亡数が飼養羽数（100 羽）を超えています");
+    expect(RECORD_TEXT.deathsExisting(3)).toBe("この日は 3 羽で記録済みです。入れ直すと置き換わります");
+  });
+
+  it("保存したら数と理由が空になり、結果は残る", async () => {
+    mount(<DeathsPanel />);
+    await ready();
+    setValue("除外の理由", "equipment");
+    setValue("死亡数", "4");
+    fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.save }));
+    await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
+    expect((screen.getByLabelText("死亡数") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("除外の理由") as HTMLSelectElement).value).toBe("");
+  });
+
+  it("鶏舎を切り替えると数と理由が空になる", async () => {
+    houses = [h1, { ...h1, id: "h2", name: "2 号舎" }];
+    mount(<DeathsPanel />);
+    await ready();
+    setValue("除外の理由", "disaster");
+    setValue("死亡数", "5");
+    setValue("鶏舎", "h2");
+    expect((screen.getByLabelText("死亡数") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("除外の理由") as HTMLSelectElement).value).toBe("");
+  });
+
+  it("日付を切り替えると理由が空になる", async () => {
+    mount(<DeathsPanel />);
+    await ready();
+    setValue("除外の理由", "disaster");
+    setValue("日付", addDays(TODAY, -1));
+    expect((screen.getByLabelText("除外の理由") as HTMLSelectElement).value).toBe("");
+  });
+
+  it("その日と鶏舎に記録があれば『記録済み』を入力の上に出し、なければ出さない", async () => {
+    deaths = [rec(TODAY, 3, { flockSizeAt: 100 })];
+    mount(<DeathsPanel />);
+    await ready();
+    const note = screen.getByText(RECORD_TEXT.deathsExisting(3));
+    expect(note.getAttribute("role")).toBe("status");
+    const input = screen.getByLabelText("死亡数");
+    expect(note.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    setValue("日付", addDays(TODAY, -1));
+    expect(screen.queryByText(RECORD_TEXT.deathsExisting(3))).toBeNull();
+  });
+
+  it("保存したら結果の枠へ動かして focus を移し、先頭に『記録しました』を出す", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    mount(<DeathsPanel />);
+    await recordDeaths("3");
+    const saved = await screen.findByText(RECORD_TEXT.saved);
+    expect(saved.getAttribute("role")).toBe("status");
+    const frame = saved.closest(".death-result-focus") as HTMLElement;
+    expect(frame).toBeTruthy();
+    expect(frame.getAttribute("tabindex")).toBe("-1");
+    expect(frame.firstElementChild).toBe(saved);
+    await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start" }));
+    expect(document.activeElement).toBe(frame);
   });
 
   it("全角の数字も受ける", async () => {
@@ -432,9 +504,57 @@ describe("DeathsPanel 週の報告文", () => {
   });
 });
 
+async function selfReady() {
+  const btn = await screen.findByRole("button", { name: RECORD_TEXT.selfSave });
+  await waitFor(() => expect((btn as HTMLButtonElement).disabled).toBe(false));
+}
+
 describe("SelfCheckPanel", () => {
   beforeEach(() => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: vi.fn(async () => {}) }, configurable: true });
+  });
+
+  it("読み込み中はラジオも保存も disabled で、読み終えると押せる", async () => {
+    let release: (v: Array<CheckRecord & { id: string }>) => void = () => {};
+    store = { ...store, listChecks: vi.fn(() => new Promise((r) => { release = r as typeof release; })) } as unknown as RecordStore;
+    mount(<SelfCheckPanel />);
+    const btn = (await screen.findByRole("button", { name: RECORD_TEXT.selfSave })) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    const radios = screen.getAllByRole("radio") as HTMLInputElement[];
+    expect(radios.length).toBe(21);
+    expect(radios.every((r) => r.disabled)).toBe(true);
+    release([]);
+    await waitFor(() => expect(btn.disabled).toBe(false));
+    expect(radios.every((r) => !r.disabled)).toBe(true);
+  });
+
+  it("読み込みに失敗したら保存は disabled のまま。saveCheck は呼ばれない", async () => {
+    store = { ...store, listChecks: vi.fn(async () => { throw new Error("読めません"); }) } as unknown as RecordStore;
+    mount(<SelfCheckPanel />);
+    expect((await screen.findByRole("alert")).textContent).toBe(RECORD_TEXT.readFailed);
+    const btn = screen.getByRole("button", { name: RECORD_TEXT.selfSave }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    fireEvent.click(btn);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(saveCheck).not.toHaveBeenCalled();
+  });
+
+  it("ラベルの文字を押すとその答えが選ばれる", async () => {
+    mount(<SelfCheckPanel />);
+    await selfReady();
+    const g = screen.getByRole("group", { name: /^17 / });
+    fireEvent.click(within(g).getByText("×"));
+    expect((within(g).getByLabelText("×") as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("ラジオは 48px の押す部分（record.css）", () => {
+    const css = readFileSync("web/src/pages/record/record.css", "utf-8");
+    const m = css.match(/\.self-choice input\s*\{([^}]*)\}/);
+    expect(m).toBeTruthy();
+    const body = m?.[1] ?? "";
+    expect(body).toMatch(/width:\s*48px/);
+    expect(body).toMatch(/height:\s*48px/);
+    expect(css).toMatch(/\.death-result-focus:focus\s*\{\s*outline:\s*none/);
   });
 
   it("農場がなければ保存を出さず /settings/farm へ案内する", async () => {
@@ -447,7 +567,7 @@ describe("SelfCheckPanel", () => {
 
   it("7 項目を番号つきの ○× で保存し、コピーできる。送信のボタンはない", async () => {
     mount(<SelfCheckPanel />);
-    await screen.findByRole("button", { name: RECORD_TEXT.selfSave });
+    await selfReady();
     for (const no of ["17", "18", "19", "22", "23", "25", "27"]) {
       expect(screen.getByRole("group", { name: new RegExp(`^${no} `) })).toBeTruthy();
     }
