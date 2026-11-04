@@ -96,8 +96,12 @@ service cloud.firestore {
           // 画面は今季と前季の 16 件に絞って保存する。余裕を見て 40 件まで。キーは YYYY-MM、値は YYYY-MM-DD だけ（C-1）。
           // キーと値の join は、文字列でない値があると評価の誤りになり、拒否される
           && d.selfCheckDue is map && d.selfCheckDue.size() <= 40
-          && d.selfCheckDue.keys().join(',').matches('^([0-9]{4}-[0-9]{2}(,[0-9]{4}-[0-9]{2}){0,39})?$')
-          && d.selfCheckDue.values().join(',').matches('^([0-9]{4}-[0-9]{2}-[0-9]{2}(,[0-9]{4}-[0-9]{2}-[0-9]{2}){0,39})?$');
+          && d.selfCheckDue.keys().join(',').matches('^([0-9]{4}-(0[1-9]|1[0-2])(,[0-9]{4}-(0[1-9]|1[0-2])){0,39})?$')
+          && d.selfCheckDue.values().join(',').matches('^([0-9]{4}-[0-9]{2}-[0-9]{2}(,[0-9]{4}-[0-9]{2}-[0-9]{2}){0,39})?$')
+          // コンマで 1 つのキーや値に詰めた形を止める。結合した長さが「件数 × 1 件の長さ + コンマ」に一致しなければ落ちる
+          && (d.selfCheckDue.size() == 0
+              || (d.selfCheckDue.keys().join(',').size() == d.selfCheckDue.size() * 8 - 1
+                  && d.selfCheckDue.values().join(',').size() == d.selfCheckDue.size() * 11 - 1));
       }
 
       allow read: if signedIn() && request.auth.uid in resource.data.memberUids;
@@ -136,11 +140,12 @@ service cloud.firestore {
       }
 
       match /deaths/{deathId} {
+        // houseId は 100 字まで。死亡数の id は {date}_{houseId} で 10 + 1 + 100 = 111 字になり、記録の id の上限 128 字に収まる
         function deathOk() {
           let r = request.resource.data;
           return r.keys().hasOnly(['date', 'houseId', 'deaths', 'flockSizeAt', 'exclusion'])
             && r.date is string && r.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-            && r.houseId is string && r.houseId.size() >= 1 && r.houseId.size() <= 128
+            && r.houseId is string && r.houseId.size() >= 1 && r.houseId.size() <= 100
             && (r.get('exclusion', null) == null
                 || (r.exclusion is map
                     && r.exclusion.keys().hasOnly(['kind', 'note'])

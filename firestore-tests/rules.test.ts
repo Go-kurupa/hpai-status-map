@@ -561,6 +561,16 @@ describe("selfCheckDue と frequentMuniCodes の中身（C-1）", () => {
     await assertFails(put({ selfCheckDue: { "2026-11\n": "2026-11-20" } }));
   });
 
+  it("selfCheckDue: コンマで 1 つに詰めた形と、13 月などの月は落ちる", async () => {
+    await assertFails(put({ selfCheckDue: { "2026-11,2026-12": "2026-11-20" } }));
+    await assertFails(put({ selfCheckDue: { "2026-11": "2026-11-20,2026-12-20" } }));
+    await assertFails(put({ selfCheckDue: { "2026-11,2026-12": "2026-11-20,2026-12-20" } }));
+    await assertFails(put({ selfCheckDue: { "2026-11,2026-12,2027-01": "2026-11-20", "2027-02": "2026-11-20" } }));
+    await assertFails(put({ selfCheckDue: { "2026-13": "2026-11-20" } }));
+    await assertFails(put({ selfCheckDue: { "2026-00": "2026-11-20" } }));
+    await assertSucceeds(put({ selfCheckDue: { "2026-12": "2026-11-20", "2027-01": "2026-12-20" } }));
+  });
+
   it("selfCheckDue: 空の {}、1 件、40 件ちょうどは通り、41 件は落ちる。作成時の {} も通る", async () => {
     const months = (n: number) =>
       Object.fromEntries(Array.from({ length: n }, (_, i) => [`${2000 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`, "2026-11-20"]));
@@ -592,6 +602,16 @@ describe("selfCheckDue と frequentMuniCodes の中身（C-1）", () => {
     await assertFails(put({ frequentMuniCodes: [13101] }));
     await assertFails(put({ frequentMuniCodes: ["13101", "1310"] }));
     await assertFails(put({ frequentMuniCodes: ["13101", null] }));
+  });
+
+  it("frequentMuniCodes: 20 件の正しい並びのどの位置を悪い値に替えても落ちる", async () => {
+    const good = Array.from({ length: 20 }, (_, i) => String(13101 + i));
+    await assertSucceeds(put({ frequentMuniCodes: good }));
+    for (let i = 0; i < 20; i++) {
+      for (const bad of ["bad", 13101, null, geo]) {
+        await assertFails(put({ frequentMuniCodes: good.map((m, j) => (j === i ? bad : m)) }));
+      }
+    }
   });
 
   it("frequentMuniCodes: 空、1 件、20 件ちょうどは通り、21 件は落ちる。作成時の [] も通る", async () => {
@@ -651,6 +671,13 @@ describe("数の上限、空の名前、記録の id の長さ（M-1）", () => 
     await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ name: "" })));
     await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026-11-04", itemId: "" }));
     await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ houseId: "" })));
+  });
+
+  it("houseId は 100 字まで。100 字でも、死亡数の id（日付_houseId）が 128 字に収まって保存できる", async () => {
+    const db = alice();
+    const h100 = "h".repeat(100);
+    await assertSucceeds(setDoc(doc(db, `farms/f1/deaths/2026-11-04_${h100}`), death({ date: "2026-11-04", houseId: h100 })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ houseId: "h".repeat(101) })));
   });
 
   it("記録の id が 128 字を超えると落ちる", async () => {
