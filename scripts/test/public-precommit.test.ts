@@ -451,6 +451,11 @@ describe("読めない指定は止める（fail-closed）", () => {
     ["git commit --pathspec-from list.txt -m x", "pathspec_from_file"],
     ["git add --al && git commit -m x", "git_add_all"],
     ["git add --upd && git commit -m x", "git_add_all"],
+    ["git add --al && git commit -m x", "git_add_all"],
+    ["git add --u && git commit -m x", "git_add_all"],
+    ["git add --no-ignore-removal x && git commit -m x", "git_add_all"],
+    ["git --config-env=alias.ci=V ci -m x", "git_config_override"],
+    ["export GIT_CONFIG_COUNT=1; git ci -m x", "git_env"],
   ];
   for (const [cmd, name] of BAD) {
     it(`止める: ${cmd}`, () => {

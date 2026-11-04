@@ -499,6 +499,11 @@ function analyze(cmd, state, found, depth) {
       if (t === "-C" && toks[j + 1] !== undefined) {
         dir = path.resolve(dir, toks[j + 1]);
         j += 2;
+      } else if (t.startsWith("--config-env")) {
+        // --config-env も -c と同じく設定を書き換えられる
+        odd.push("git_config_override");
+        found.flags.add("git_config_override");
+        j += t.includes("=") ? 1 : 2;
       } else if (t === "-c" && toks[j + 1] !== undefined) {
         // -c は別名や読み込む設定を書き換えられるので、commit と add では止める
         odd.push("git_config_override");
@@ -554,8 +559,7 @@ function analyze(cmd, state, found, depth) {
       let endOpts = false;
       for (const a of args) {
         if (!endOpts && a === "--") endOpts = true;
-        else if (!endOpts && isAbbrevOf(a, "--all", 4)) all = true;
-        else if (!endOpts && isAbbrevOf(a, "--update", 4)) all = true;
+        else if (!endOpts && (isAbbrevOf(a, "--all", 3) || isAbbrevOf(a, "--update", 3) || isAbbrevOf(a, "--no-ignore-removal", 6))) all = true;
         else if (!endOpts && a === "--force") force = true;
         else if (!endOpts && a.startsWith("--")) continue;
         else if (!endOpts && a.startsWith("-") && a.length > 1) {
@@ -630,9 +634,10 @@ function main() {
   const project = (process.env.CLAUDE_PROJECT_DIR && topOf(process.env.CLAUDE_PROJECT_DIR)) || topOf(base);
   const found = { commits: [], adds: [], flags: new Set() };
   analyze(command, { cwd: base, project }, found, 0);
+  // export GIT_DIR=… のように、git の前の代入以外でも索引、作業ツリー、設定は変えられる。
+  // commit と読めなかった形（別名など）でも、git を呼ぶなら止める
+  if (/\bGIT_(DIR|INDEX_FILE|WORK_TREE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|COMMON_DIR|NAMESPACE|CONFIG\w*)\b/.test(command) && /\bgit\b/.test(command)) found.flags.add("git_env");
   if (!found.commits.length && !found.flags.size) return;
-  // export GIT_DIR=… のように、git の前の代入以外でも索引と作業ツリーは変えられる
-  if (/\bGIT_(DIR|INDEX_FILE|WORK_TREE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|COMMON_DIR|NAMESPACE|CONFIG\w*)\b/.test(command)) found.flags.add("git_env");
   armed = true;
   for (const f of found.flags) add("(command)", 0, f);
 
