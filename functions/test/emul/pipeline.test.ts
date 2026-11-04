@@ -245,7 +245,7 @@ describe("事例への流し込み", () => {
     await setSettings({ autoPublishEnabled: true });
     await db.doc("cases/33203-2025-12-20-1").set(realCase());
     const s1: Scenario = { ...tsuyamaConfirmed(), kind: "control_done", stage: "control_done", month: 12, day: 23, sentence: sentenceOf({ muni: "津山市", month: 12, day: 23, tail: "防疫措置を完了しました。" }) };
-    await seedDoc({ id: "d1", title: TITLE, text: bodyOf(TITLE, s1.sentence) });
+    await seedDoc({ id: "d1", title: TITLE, text: bodyOf(TITLE, s1.sentence), fetchedAt: "2025-12-23T12:00:00+09:00" });
     let called = 0;
     const out = await readDocument("d1", { client: agreeing(s1).client, geo, now: () => NOW, afterJudge: async () => void called++ });
     expect(called).toBe(1);

@@ -156,7 +156,7 @@ describe("後の段階と迷い", () => {
     await setSettings({ autoPublishEnabled: true });
     const sentence = "令和7年12月30日、岡山県津山市の養鶏場の周辺区域について、移動制限を解除します。";
     const s: Scenario = { kind: "zone_lifted", stage: "movement_lifted", pref: "岡山県", muni: "津山市", month: 12, day: 30, sentence };
-    await seedDoc({ id: "d1", title: "移動制限区域を解除しました", text: bodyOf("移動制限区域を解除しました", sentence) });
+    await seedDoc({ id: "d1", title: "移動制限区域を解除しました", text: bodyOf("移動制限区域を解除しました", sentence) , fetchedAt: "2025-12-30T12:00:00+09:00" });
     expect(await run("d1", agreeing(s).client)).toMatchObject({ readState: "review_private", caseId: null });
     expect(await listIds("cases")).toEqual([]);
     expect((await getDoc("documents/d1"))?.reasons).toEqual(["no_case_for_stage"]);
@@ -168,7 +168,7 @@ describe("後の段階と迷い", () => {
     await db.doc("cases/33203-2025-12-21-1").set(realCase({ id: "33203-2025-12-21-1", stages: { confirmed: { date: "2025-12-21", time: null } } }));
     const sentence = "令和7年12月30日、岡山県津山市の養鶏場の周辺区域について、移動制限を解除します。発生農場の防疫措置は完了しています。";
     const s: Scenario = { kind: "zone_lifted", stage: "movement_lifted", pref: "岡山県", muni: "津山市", month: 12, day: 30, sentence };
-    await seedDoc({ id: "d1", title: "高病原性鳥インフルエンザの移動制限区域を解除しました", text: bodyOf("高病原性鳥インフルエンザの移動制限区域を解除しました", sentence) });
+    await seedDoc({ id: "d1", title: "高病原性鳥インフルエンザの移動制限区域を解除しました", text: bodyOf("高病原性鳥インフルエンザの移動制限区域を解除しました", sentence) , fetchedAt: "2025-12-30T12:00:00+09:00" });
     expect(await run("d1", agreeing(s).client)).toMatchObject({ readState: "review_public" });
     expect(await listIds("cases")).toEqual(["33203-2025-12-20-1", "33203-2025-12-21-1", "rev-d1"]);
     expect((await getDoc("documents/d1"))?.reasons).toEqual(["ambiguous_case"]);
