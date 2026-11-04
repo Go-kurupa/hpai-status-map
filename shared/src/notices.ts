@@ -309,6 +309,16 @@ export function selfCheckMonthsOf(today: IsoDate): string[] {
   return months;
 }
 
+/**
+ * 知らせの対象にする月のキー。今季の 8 か月に加えて、6〜9 月のあいだは前のシーズンの 5 月分も入れる。
+ * 5 月分の期限は 6 月 2〜6 日に来るが、シーズンは 6 月 1 日に替わる。今季の月だけにすると、この数日の知らせが落ちる。
+ */
+export function selfCheckTargetMonthsOf(today: IsoDate): string[] {
+  const months = selfCheckMonthsOf(today);
+  const month = Number(today.slice(5, 7));
+  return month >= 6 && month <= 9 ? [`${today.slice(0, 4)}-05`, ...months] : months;
+}
+
 export interface SelfCheckPlan {
   notices: Notice[];
   /** 今季の月で、今日が知らせる期間の中にある月（記録済みの月を含む。送る側が記録済みかを調べるのに使う） */
@@ -322,10 +332,16 @@ export interface SelfCheckPlan {
  * - 対象は今季の月（10 月〜翌 5 月）のキーだけ。会員が書ける欄なので、ほかのキーはいくつあっても読み飛ばす（件数だけ数える）。
  * - selfCheckRemindDays は 0〜7 に丸める（normalizeRemindDays）。
  * - 1 回の実行で出す月は、期限の早い順に SELF_CHECK_MAX_MONTHS_PER_RUN まで。残りは翌日以降（記録は月ごとなので重ならない）。
+ *   記録済み（answeredMonths）と、送り済み（sentMonths。呼ぶ側が sentNotices から渡す）の月は、上限に数えない。
  * 二度送らないのは送る側（記録の create）。selfCheckRemindDays が null、欄 selfCheckDue がない、値が日付でない月は出さない。
  * 配信停止の会員には出さない。朝のまとめの設定は見ない。壊れた欄で例外にしない。
  */
-export function planSelfCheckDue(farm: Farm & { id: string }, today: IsoDate, answeredMonths: readonly string[]): SelfCheckPlan {
+export function planSelfCheckDue(
+  farm: Farm & { id: string },
+  today: IsoDate,
+  answeredMonths: readonly string[],
+  sentMonths: readonly string[] = [],
+): SelfCheckPlan {
   const none: SelfCheckPlan = { notices: [], months: [], skipped: 0 };
   const days = normalizeRemindDays(farm.notify?.selfCheckRemindDays);
   if (days === null) return none;
@@ -334,7 +350,7 @@ export function planSelfCheckDue(farm: Farm & { id: string }, today: IsoDate, an
   const uids = activeUids(farm);
   if (uids === null || uids.length === 0) return none;
 
-  const valid = selfCheckMonthsOf(today);
+  const valid = selfCheckTargetMonthsOf(today);
   const keys = Object.keys(due);
   let skipped = keys.filter((k) => !valid.includes(k)).length;
   const inWindow: Array<{ month: string; date: IsoDate }> = [];
@@ -351,7 +367,7 @@ export function planSelfCheckDue(farm: Farm & { id: string }, today: IsoDate, an
   inWindow.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.month < b.month ? -1 : 1));
 
   const months = inWindow.map((x) => x.month);
-  const send = inWindow.filter((x) => !answeredMonths.includes(x.month)).slice(0, SELF_CHECK_MAX_MONTHS_PER_RUN);
+  const send = inWindow.filter((x) => !answeredMonths.includes(x.month) && !sentMonths.includes(x.month)).slice(0, SELF_CHECK_MAX_MONTHS_PER_RUN);
   const notices = send.flatMap((x) => uids.map((uid) => selfCheckDueNotice(farm.id, uid, x.month, x.date)));
   return { notices, months, skipped };
 }

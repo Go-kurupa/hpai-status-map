@@ -9,6 +9,7 @@ import {
   planSelfCheckDue,
   SELF_CHECK_MAX_MONTHS_PER_RUN,
   selfCheckMonthsOf,
+  selfCheckTargetMonthsOf,
   renderMorningDigest,
   renderNotice,
   selfCheckDueNotices,
@@ -331,5 +332,68 @@ describe("selfCheckDueNotices: 会員が書ける欄で、送る数を増やせ�
     expect(selfCheckMonthsOf("2026-11-03")).toEqual(["2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05"]);
     expect(selfCheckMonthsOf("2027-02-01")).toEqual(selfCheckMonthsOf("2026-11-03"));
     expect(selfCheckMonthsOf("2027-07-01")[0]).toBe("2027-10");
+  });
+});
+
+describe("selfCheckDueNotices: 退行と境目（2-I-1、2-M-1、2-M-2、2-M-3）", () => {
+  const SEVEN = { level1: true, level2: true, level3: true, morningDigest: true };
+  const farm = (selfCheckDue: unknown, selfCheckRemindDays: unknown = 3): F =>
+    farmWithId("f1", "u1", {
+      memberUids: ["u1"],
+      unsubscribedUids: [],
+      selfCheckDue: selfCheckDue as Record<string, string>,
+      notify: { ...SEVEN, selfCheckRemindDays } as Farm["notify"],
+    });
+
+  it("2-I-1: 5 月分の期限は 6 月 2〜6 日に来る。6 月 1 日にシーズンが替わっても、前のシーズンの 5 月分を落とさない", () => {
+    const f = farm({ "2027-05": "2027-06-03" }, 3);
+    for (const today of ["2027-06-01", "2027-06-02", "2027-06-03"]) {
+      expect(planSelfCheckDue(f, today, []).notices.map((n) => [n.subjectId, n.facts.date]), today).toEqual([["2027-05", "2027-06-03"]]);
+    }
+    // 期限の翌日（6/4）は出さない。期間の外（6/1 から 3 日より先の期限）も出さない
+    expect(planSelfCheckDue(f, "2027-06-04", []).notices).toEqual([]);
+    expect(planSelfCheckDue(farm({ "2027-05": "2027-06-06" }, 3), "2027-06-02", []).notices).toEqual([]);
+    expect(planSelfCheckDue(farm({ "2027-05": "2027-06-06" }, 3), "2027-06-03", []).notices).toHaveLength(1);
+    // 5 月 31 日までは今季の 5 月分として、これまでどおり
+    expect(planSelfCheckDue(farm({ "2027-05": "2027-06-02" }, 3), "2027-05-31", []).notices).toHaveLength(1);
+  });
+
+  it("2-I-1: 前のシーズンの 5 月分は 6〜9 月だけ対象。10 月以降と、前の年の 5 月分は対象にしない", () => {
+    expect(selfCheckTargetMonthsOf("2027-06-01")).toEqual(["2027-05", ...selfCheckMonthsOf("2027-06-01")]);
+    expect(selfCheckTargetMonthsOf("2027-09-30")[0]).toBe("2027-05");
+    expect(selfCheckTargetMonthsOf("2027-10-01")).toEqual(selfCheckMonthsOf("2027-10-01"));
+    expect(selfCheckTargetMonthsOf("2027-03-15")).toEqual(selfCheckMonthsOf("2027-03-15"));
+    // 6 月でも、2 年前の 5 月分（2026-05）は対象にしない
+    expect(planSelfCheckDue(farm({ "2026-05": "2027-06-03" }, 3), "2027-06-02", []).notices).toEqual([]);
+  });
+
+  it("2-M-1: 送り済みの月は枠に数えない。3 つの月の期限が近いとき、3 つ目の月が出る", () => {
+    const f = farm({ "2026-10": "2026-11-04", "2026-11": "2026-11-05", "2026-12": "2026-11-06" }, 7);
+    expect(planSelfCheckDue(f, "2026-11-03", []).notices.map((n) => n.subjectId)).toEqual(["2026-10", "2026-11"]);
+    const next = planSelfCheckDue(f, "2026-11-03", [], ["2026-10", "2026-11"]);
+    expect(next.notices.map((n) => n.subjectId)).toEqual(["2026-12"]);
+    expect(next.months).toEqual(["2026-10", "2026-11", "2026-12"]);
+    // 記録済み（answered）と送り済み（sent）が混ざっても、残りの月から上限まで
+    const mixed = planSelfCheckDue(f, "2026-11-03", ["2026-10"], ["2026-11"]);
+    expect(mixed.notices.map((n) => n.subjectId)).toEqual(["2026-12"]);
+  });
+
+  it("2-M-2: 期限の早い順に並べる。日付が月の順と逆なら、日付の順（11 月分が 12/10、12 月分が 12/3）", () => {
+    const f = farm({ "2026-11": "2026-12-10", "2026-12": "2026-12-03" }, 7);
+    const plan = planSelfCheckDue(f, "2026-12-03", []);
+    expect(plan.notices.map((n) => n.subjectId)).toEqual(["2026-12", "2026-11"]);
+    expect(plan.months).toEqual(["2026-12", "2026-11"]);
+    // 同じ日付なら月の順
+    const same = planSelfCheckDue(farm({ "2026-12": "2026-12-05", "2026-11": "2026-12-05" }, 7), "2026-12-03", []);
+    expect(same.notices.map((n) => n.subjectId)).toEqual(["2026-11", "2026-12"]);
+  });
+
+  it("2-M-3: 日数が null や数でないときは、何も出さず、月も読み飛ばしの数も 0（早く戻る）", () => {
+    const junk = { "2026-11": "2026-11-05", garbage: "x", "1999-01": "1999-01-05" };
+    for (const days of [null, "3", NaN, Infinity]) {
+      expect(planSelfCheckDue(farm(junk, days), "2026-11-03", [])).toEqual({ notices: [], months: [], skipped: 0 });
+    }
+    // 日数が数なら、同じ欄から出る
+    expect(planSelfCheckDue(farm(junk, 3), "2026-11-03", []).notices).toHaveLength(1);
   });
 });
