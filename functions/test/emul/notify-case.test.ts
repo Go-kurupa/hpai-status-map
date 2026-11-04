@@ -195,6 +195,145 @@ describe("handleCaseWrite: 確認中", () => {
   });
 });
 
+// ── 確認中の続報（Q-m の B: 同じ県の確認中が開いている間は、最初の 1 通だけ）──
+describe("handleCaseWrite: 確認中の続報は 1 通だけ（Q-m）", () => {
+  const revIn = (id: string, prefCode: string, now: Date = NOW) => makeReviewingCase({ documentId: id, season: 2026, prefCode, sourceUrl: `https://example.test/pdf/${id}` }, now);
+  /** onCaseWritten と同じ順: 事例を cases に書いてから、書き込みの処理を呼ぶ。 */
+  async function arrive(deps: ReturnType<typeof makeDeps>["deps"], c: Case): Promise<void> {
+    await db.doc(`cases/${c.id}`).set(c);
+    await handleCaseWrite(deps, null, c, fakeGeo());
+  }
+  const closeRev = (id: string) => db.doc(`cases/${id}`).delete();
+  const reviewingDocs = async () => Object.keys(await sentNoticeDocs()).filter((k) => k.endsWith("__reviewing"));
+
+  it("同じ県の確認中の文書が続けて来ても、会員 1 人に確認中のメールは 1 通。記録も増えない", async () => {
+    await seedFour(); // f1、f2 は 33 県
+    const { deps, mail } = makeDeps();
+    for (let i = 1; i <= 6; i++) await arrive(deps, revIn(`d${i}`, "33"));
+    expect(mail.sent.map((m) => m.to).sort()).toEqual(["u1@example.test", "u2@example.test"]);
+    expect(await reviewingDocs()).toEqual([idOf("f1", "u1", revIn("d1", "33"), "reviewing"), idOf("f2", "u2", revIn("d1", "33"), "reviewing")].sort());
+  });
+
+  it("確認中が開いている間でも、疑い、確定は今までどおり届く（① すぐ、②③ 朝の記録）", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    await arrive(deps, revIn("d1", "33"));
+    await arrive(deps, revIn("d2", "33"));
+    expect(mail.sent).toHaveLength(2); // 確認中の 1 通ずつ
+    const c = caseFixture({ stages: { confirmed: stage("2026-11-04") } });
+    await db.doc(`cases/${c.id}`).set(c);
+    await handleCaseWrite(deps, null, c, fakeGeo());
+    expect(mail.sent.filter((m) => m.subject.startsWith("【確定】")).map((m) => m.to)).toEqual(["u1@example.test"]);
+    const docs = await sentNoticeDocs();
+    expect(docs[idOf("f2", "u2", c, "confirmed")]).toMatchObject({ state: "queued", timing: "morning" });
+    expect(docs[idOf("f3", "u3", c, "confirmed")]).toMatchObject({ state: "queued", timing: "morning" });
+  });
+
+  it("確認中が閉じた（rev- が消えた）後に、同じ県で新しい確認中が開いたら、また 1 通届く", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    await arrive(deps, revIn("d1", "33"));
+    await arrive(deps, revIn("d2", "33"));
+    expect(mail.sent).toHaveLength(2);
+    await closeRev("rev-d1");
+    await closeRev("rev-d2");
+    await arrive(deps, revIn("d3", "33"));
+    await arrive(deps, revIn("d4", "33"));
+    expect(mail.sent).toHaveLength(4);
+    expect(mail.sent.map((m) => m.to).sort()).toEqual(["u1@example.test", "u1@example.test", "u2@example.test", "u2@example.test"]);
+  });
+
+  it("知らせた確認中が閉じて、知らせていない別の確認中が開いたままなら、次の文書で 1 通送る（減らさない側）", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    await arrive(deps, revIn("d1", "33"));
+    await arrive(deps, revIn("d2", "33"));
+    await closeRev("rev-d1"); // d1 が閉じても d2 は開いている。ただし知らせた d1 は閉じたので、数え直す
+    await arrive(deps, revIn("d3", "33"));
+    // 知らせの元になった d1 は閉じ、d2 には知らせていないので、d3 は新しい 1 通として届く（減らさない側）
+    expect(mail.sent).toHaveLength(4);
+    await arrive(deps, revIn("d4", "33"));
+    expect(mail.sent).toHaveLength(4); // d3 の知らせが開いているので黙る
+  });
+
+  it("別の県の確認中は、県ごとに 1 通ずつ届く", async () => {
+    await seedFour(); // f1、f2 は 33 県、f3、f4 は 34 県
+    const { deps, mail } = makeDeps();
+    await arrive(deps, revIn("a1", "33"));
+    await arrive(deps, revIn("b1", "34"));
+    await arrive(deps, revIn("a2", "33"));
+    await arrive(deps, revIn("b2", "34"));
+    expect(mail.sent.map((m) => m.to).sort()).toEqual(["u1@example.test", "u2@example.test", "u3@example.test", "u4@example.test"]);
+    expect(mail.sent.filter((m) => m.subject.includes("岡山県"))).toHaveLength(2);
+    expect(mail.sent.filter((m) => m.subject.includes("広島県"))).toHaveLength(2);
+  });
+
+  it("確認中が開いた後に入った会員は、続報の最初の 1 通を受け取る（すでに知らせた会員には送らない）", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    await arrive(deps, revIn("d1", "33"));
+    expect(mail.sent).toHaveLength(2);
+    await seedFarm("f5", "u5", { meshCode: IN_A, muniCode: GEO_A, prefCode: "33" });
+    await arrive(deps, revIn("d2", "33"));
+    expect(mail.sent.map((m) => m.to)).toEqual(["u1@example.test", "u2@example.test", "u5@example.test"]);
+  });
+
+  it("知らせた記録が abandoned（届いていない）なら、続報で送る", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    await arrive(deps, revIn("d1", "33"));
+    await db.doc(`sentNotices/${idOf("f1", "u1", revIn("d1", "33"), "reviewing")}`).update({ state: "abandoned" });
+    await arrive(deps, revIn("d2", "33"));
+    expect(mail.sent.filter((m) => m.to === "u1@example.test")).toHaveLength(2);
+    expect(mail.sent.filter((m) => m.to === "u2@example.test")).toHaveLength(1);
+  });
+
+  it("最初の 1 通から 14 日をこえて開いたままなら、続報でもう一度送る（古い確認中で新しい発表を黙らせない）", async () => {
+    await seedFour();
+    const first = makeDeps();
+    await arrive(first.deps, revIn("d1", "33"));
+    expect(first.mail.sent).toHaveLength(2);
+    // 13 日後: 黙る
+    const d13 = new Date(NOW.getTime() + 13 * 86_400_000);
+    const a = makeDeps({ now: () => d13 });
+    await arrive(a.deps, revIn("d2", "33", d13));
+    expect(a.mail.sent).toHaveLength(0);
+    // 15 日後: 送る
+    const d15 = new Date(NOW.getTime() + 15 * 86_400_000);
+    const b = makeDeps({ now: () => d15 });
+    await arrive(b.deps, revIn("d3", "33", d15));
+    expect(b.mail.sent).toHaveLength(2);
+  });
+
+  it("開いている確認中を調べる読み込みが失敗しても、送る側に倒す", async () => {
+    await seedFour();
+    const { deps, mail } = makeDeps();
+    await arrive(deps, revIn("d1", "33"));
+    const realDb = deps.db;
+    const failing = new Proxy(realDb, {
+      get(t, k, r) {
+        if (k === "collection") {
+          return (name: string) => {
+            if (name === "cases") throw new Error("読み込みの失敗");
+            return t.collection(name);
+          };
+        }
+        const v = Reflect.get(t, k, r);
+        return typeof v === "function" ? v.bind(t) : v;
+      },
+    });
+    const logs = captureLogs();
+    try {
+      const c = revIn("d2", "33");
+      await db.doc(`cases/${c.id}`).set(c);
+      await handleCaseWrite({ ...deps, db: failing as typeof realDb }, null, c, fakeGeo());
+    } finally {
+      logs.restore();
+    }
+    expect(mail.sent).toHaveLength(4);
+  });
+});
+
 describe("handleCaseWrite: 解除", () => {
   it("①②③ は朝（queued）、④ なし", async () => {
     await seedFour();
@@ -389,10 +528,10 @@ describe("dispatchNotices: 送信", () => {
   });
 });
 
-// ── 通数（索引 Q3 の既定 A: 文書ごとに送る）──
+// ── 通数（Q-m の B: 同じ県の確認中が開いている間は最初の 1 通だけ。以前の既定 A は文書ごとに送って 23 通）──
 const FIX = path.resolve(import.meta.dirname, "../../../data/private/fixtures/okayama");
 describeFixture("岡山の 1 事例の控え（通数）", [path.join(FIX, "1013219.html"), path.join(FIX, "pdf")], () => {
-  it("hasOutbreakWords が true の本数だけ rev- の事例を流すと、同じ農場の会員 1 人に同じ通数が届く", async () => {
+  it("hasOutbreakWords が true の本数だけ rev- の事例を流しても、同じ農場の会員 1 人に確認中のメールは 1 通", async () => {
     const html = fs.readFileSync(path.join(FIX, "1013219.html"), "utf8");
     const docs = [...html.matchAll(/<a\b[^>]*href="([^"]+\.pdf)"[^>]*>(.*?)<\/a>/gsu)].map((m) => ({
       file: m[1]!.split("/").pop()!,
@@ -421,10 +560,12 @@ describeFixture("岡山の 1 事例の控え（通数）", [path.join(FIX, "1013
     const geo = fakeGeo();
     for (const [i] of flagged.entries()) {
       const rev = makeReviewingCase({ documentId: `okayama-${i}`, season: 2026, prefCode: "33", sourceUrl: `https://example.test/pdf/${i}` }, NOW);
+      await db.doc(`cases/${rev.id}`).set(rev); // onCaseWritten と同じ順: 事例を書いてから処理する
       await handleCaseWrite(deps, null, rev, geo);
     }
-    expect(mail.sent).toHaveLength(flagged.length);
+    // Q-m（利用者の決定 B）: 同じ県の確認中が開いている間は最初の 1 通だけ。23 本が続けて来ても会員 1 人に 1 通（直す前は 23 通）
+    expect(mail.sent).toHaveLength(1);
     expect(new Set(mail.sent.map((m) => m.to))).toEqual(new Set(["u1@example.test"]));
-    expect(Object.keys(await sentNoticeDocs())).toHaveLength(flagged.length);
+    expect(Object.keys(await sentNoticeDocs())).toHaveLength(1);
   });
 });

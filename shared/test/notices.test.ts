@@ -1,7 +1,7 @@
 // M-02: 誰にいつ知らせるかを決める純粋な部分。メールは送らない。
 import { describe, expect, it } from "vitest";
 import { distanceToMuniKm, GeoNotLoadedError } from "../src/geo";
-import { diffCaseEvents, eventDateOf, farmPoint, noticeDocId, planCaseNotices, timingFor, type Notice, type NoticeEvent, type SentNotice } from "../src/notices";
+import { diffCaseEvents, eventDateOf, farmPoint, memberKeyOf, noticeDocId, planCaseNotices, reviewingCoveredMembers, REVIEWING_QUIET_DAYS, timingFor, type Notice, type NoticeEvent, type SentNotice } from "../src/notices";
 import type { Case, Farm } from "../src/types";
 import { makeGeo } from "./fixtures/geo";
 import { boxEastOfMesh, caseFixture, FAR_B, farmWithId, fakeGeo, GEO_A, GEO_B, GEO_C, GEO_D, IN_A, IN_D } from "./helpers/mFixtures";
@@ -251,6 +251,56 @@ describe("planCaseNotices: 確認中", () => {
   });
   it("距離を計算しない（県を読む前の GeoStore でも落ちない）", () => {
     expect(() => planCaseNotices({ event: "reviewing", caseDoc: rev(), farms: farms(), geo: fakeGeo(), alreadySent: [] })).not.toThrow();
+  });
+});
+
+describe("planCaseNotices: 確認中の続報（Q-m）", () => {
+  const rev = () => caseFixture({ id: "rev-d2", prefCode: "33", muniCode: null, muniName: null, stages: {}, confirmState: "reviewing", sourceUrls: ["https://example.test/pdf2"] });
+  it("reviewingCovered に入った会員には出さない。入っていない会員には出す", () => {
+    const out = planCaseNotices({ event: "reviewing", caseDoc: rev(), farms: farms(), geo: geo(), alreadySent: [], reviewingCovered: new Set([memberKeyOf("f1", "u1")]) });
+    expect(table(out)).toEqual({ f2: "immediate/null" });
+  });
+  it("reviewingCovered を渡さなければ今までどおり全員に出す（減らさない側）", () => {
+    expect(table(planCaseNotices({ event: "reviewing", caseDoc: rev(), farms: farms(), geo: geo(), alreadySent: [] }))).toEqual({ f1: "immediate/null", f2: "immediate/null" });
+  });
+  it("reviewingCovered は確認中だけに効く。疑いと確定は止めない", () => {
+    const covered = new Set([memberKeyOf("f1", "u1"), memberKeyOf("f2", "u2"), memberKeyOf("f3", "u3")]);
+    const out = planCaseNotices({ event: "confirmed", caseDoc: caseFixture(), farms: farms(), geo: geo(), alreadySent: [], reviewingCovered: covered });
+    expect(table(out)).toEqual({ f1: "immediate/1", f2: "morning/2", f3: "morning/3" });
+  });
+});
+
+describe("reviewingCoveredMembers: 同じ県の確認中が開いている間に、すでに知らせた会員", () => {
+  const NOW = new Date("2026-11-10T03:00:00Z");
+  const rec = (farmId: string, uid: string, subjectId: string, over: Partial<SentNotice> = {}): SentNotice => ({ ...sent(farmId, uid, subjectId, "reviewing"), queuedAt: "2026-11-09T10:00:00+09:00", ...over });
+  const run = (records: SentNotice[], open = ["rev-d1"]) => reviewingCoveredMembers({ openIds: new Set(open), records, now: NOW });
+
+  it("開いている確認中の知らせが届いた（sent）会員を返す", () => {
+    expect([...run([rec("f1", "u1", "rev-d1")])]).toEqual([memberKeyOf("f1", "u1")]);
+  });
+  it("queued と failed も数える（送り直しが拾う。ここで重ねて送らない）", () => {
+    expect(run([rec("f1", "u1", "rev-d1", { state: "queued" }), rec("f2", "u2", "rev-d1", { state: "failed" })]).size).toBe(2);
+  });
+  it("abandoned と capped は数えない（届いていない）", () => {
+    expect(run([rec("f1", "u1", "rev-d1", { state: "abandoned" }), rec("f2", "u2", "rev-d1", { state: "capped" })]).size).toBe(0);
+  });
+  it("閉じた確認中（開いている id にない）の知らせは数えない", () => {
+    expect(run([rec("f1", "u1", "rev-closed")]).size).toBe(0);
+  });
+  it("確認中以外の知らせは数えない", () => {
+    expect(run([rec("f1", "u1", "rev-d1", { event: "confirmed" })]).size).toBe(0);
+  });
+  it(`知らせてから ${REVIEWING_QUIET_DAYS} 日より古ければ数えない（開いたままの古い確認中で、新しい発生を黙らせない）`, () => {
+    const edge = new Date(NOW.getTime() - REVIEWING_QUIET_DAYS * 86_400_000).toISOString();
+    const old = new Date(NOW.getTime() - REVIEWING_QUIET_DAYS * 86_400_000 - 1000).toISOString();
+    expect(run([rec("f1", "u1", "rev-d1", { queuedAt: edge })]).size).toBe(1);
+    expect(run([rec("f1", "u1", "rev-d1", { queuedAt: old })]).size).toBe(0);
+  });
+  it("時刻が読めない記録は数えない（減らさない側）", () => {
+    expect(run([rec("f1", "u1", "rev-d1", { queuedAt: "x" })]).size).toBe(0);
+  });
+  it("開いている確認中がなければ空", () => {
+    expect(run([rec("f1", "u1", "rev-d1")], []).size).toBe(0);
   });
 });
 

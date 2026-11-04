@@ -76,7 +76,7 @@ export function noticeDocId(farmId: string, uid: string, subjectId: string, even
 
 /**
  * 事例の書き込みで出る出来事。
- * - 再現（replay）は出さない。確認中は最初の 1 回だけ。
+ * - 再現（replay）は出さない。確認中は事例ごとに最初の 1 回だけ（同じ県の確認中が開いている間の続報は、宛先を planCaseNotices が絞る）。
  * - 否定が確定したら negated だけ（その書き込みの段階の追加は出さない）。否定済みの事例の更新は出さない。
  * - 確定と疑いが同時に現れたら confirmed だけ。control_done、culling_done の追加は出さない。
  */
@@ -138,6 +138,37 @@ export function eventDateOf(event: NoticeEvent, c: Case): IsoDate | null {
   }
 }
 
+/** 会員（農場と uid の組）の印。 */
+export const memberKeyOf = (farmId: string, uid: string): string => `${farmId}__${uid}`;
+
+/**
+ * 確認中の知らせを黙らせる期間（日）。最初の 1 通から、これより長く開いたままの確認中は、続報を黙らせる理由にしない。
+ * 開いたまま忘れられた確認中のせいで、新しい発表の最初の 1 通まで止まらないようにする（減らさない側）。
+ */
+export const REVIEWING_QUIET_DAYS = 14;
+
+/**
+ * 同じ県の確認中が開いている間に、すでに確認中の知らせを受け取った会員（Q-m、利用者の決定 B）。
+ * 確認中の続報（同じ県の追加の確認中の文書）は、この会員には送らない。画面の件数は事例の数なので、メールを送らなくても増える。
+ * - openIds: 同じ県、同じ季の、いま開いている（cases にある）別の確認中の事例の id。
+ * - 数えるのは、その事例への確認中の知らせで、queued、sent、failed の記録（送り直しが拾うので、重ねて送らない）。
+ *   abandoned と capped は届いていないので数えない。
+ * - 知らせてから REVIEWING_QUIET_DAYS 日より古い記録、時刻が読めない記録は数えない（送る側に倒す）。
+ */
+export function reviewingCoveredMembers(i: { openIds: ReadonlySet<string>; records: readonly SentNotice[]; now: Date }): Set<string> {
+  const out = new Set<string>();
+  if (i.openIds.size === 0) return out;
+  const oldest = i.now.getTime() - REVIEWING_QUIET_DAYS * 86_400_000;
+  for (const r of i.records) {
+    if (r.event !== "reviewing" || !i.openIds.has(r.subjectId)) continue;
+    if (r.state !== "queued" && r.state !== "sent" && r.state !== "failed") continue;
+    const t = Date.parse(r.queuedAt);
+    if (!Number.isFinite(t) || t < oldest) continue;
+    out.add(memberKeyOf(r.farmId, r.uid));
+  }
+  return out;
+}
+
 /** 解除の知らせの宛先は、解除の前の関係（区域の中にいた農場）で決める。解除の後の関係だと、半径の内にいた農場が落ちる。 */
 function relationBasis(event: CaseEvent, c: Case): Case {
   if ((event === "shipment_lifted" || event === "movement_lifted") && c.stages.movement_lifted !== undefined) {
@@ -152,7 +183,8 @@ function relationBasis(event: CaseEvent, c: Case): Case {
  * - 疑い、確定、否定、解除: 段階（relationToCase）と農場の設定で決める。morning は morningDigest でも切る。
  * - 否定で、同じ事例の疑いか確定の送れた（sent）記録のある会員は、isCorrection:true。
  *   今は ④ でも、設定を切っていても届く（朝）。受け取っていない会員は isCorrection:false で、設定に従う。
- * - 確認中: 同じ県の農場へすぐ。設定で止めず、段階を持たない。
+ * - 確認中: 同じ県の農場へすぐ。設定で止めず、段階を持たない。reviewingCovered に入った会員（同じ県の確認中が開いている間に、
+ *   すでに確認中の知らせを受け取った会員。reviewingCoveredMembers で求める）には出さない。渡さなければ全員に出す。
  * - 搬出制限の解除は、同じ事例の移動制限がもう解除されているなら出さない（移動制限の解除が先に伝わる）。
  * 読めない農場（会員か配信停止の欄が配列でない）は送らない側に倒す。位置が壊れた農場はその農場だけ飛ばす。
  */
@@ -162,6 +194,7 @@ export function planCaseNotices(i: {
   farms: ReadonlyArray<Farm & { id: string }>;
   geo: GeoStore;
   alreadySent: readonly SentNotice[];
+  reviewingCovered?: ReadonlySet<string>;
 }): Notice[] {
   const { event, caseDoc, farms, geo } = i;
   if (!isCaseEvent(event)) throw new RangeError(`事例の出来事ではありません: ${event}`);
@@ -188,6 +221,7 @@ export function planCaseNotices(i: {
       if (farm.prefCode !== caseDoc.prefCode) continue;
       for (const uid of uids) {
         if (recorded.has(noticeDocId(farm.id, uid, caseDoc.id, event))) continue;
+        if (i.reviewingCovered?.has(memberKeyOf(farm.id, uid))) continue;
         out.push({ farmId: farm.id, uid, subjectId: caseDoc.id, event, timing: "immediate", level: null, relationKind: null, facts, isCorrection: false });
       }
       continue;

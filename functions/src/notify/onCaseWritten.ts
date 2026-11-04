@@ -4,7 +4,7 @@ import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import type { GeoStore } from "@hpai/shared/geo";
 import { diffDays, jstDateOf } from "@hpai/shared/dates";
 import { currentSeason } from "@hpai/shared/season";
-import { diffCaseEvents, eventDateOf, planCaseNotices, type Notice, type SentNotice } from "@hpai/shared/notices";
+import { diffCaseEvents, eventDateOf, planCaseNotices, reviewingCoveredMembers, type Notice, type SentNotice } from "@hpai/shared/notices";
 import type { Case, Farm } from "@hpai/shared/types";
 import { db } from "../admin";
 import { loadGeoStore } from "../geo/loadGeo";
@@ -14,6 +14,30 @@ import { sendMail } from "./send";
 
 /** 段階の日付がこれより古い変化は知らせない（日数）。 */
 export const MAX_EVENT_AGE_DAYS = 14;
+
+/** Firestore の in の上限。 */
+const IN_LIMIT = 30;
+
+/**
+ * 同じ県の確認中が開いている間に、すでに確認中の知らせを受け取った会員（Q-m）。「開いている」は cases にある別の確認中の事例（同じ県、同じ季）。
+ * 読み込みが失敗したら空にする（続報を黙らせず、送る側に倒す）。同時に書かれた 2 件は互いの記録がまだないので、どちらも送る（多いほうに倒れる）。
+ */
+async function coveredByOpenReviewing(deps: NotifyDeps, after: Case): Promise<Set<string>> {
+  try {
+    const open = await deps.db.collection("cases").where("confirmState", "==", "reviewing").where("prefCode", "==", after.prefCode).get();
+    const openIds = open.docs.filter((d) => d.id !== after.id && (d.data() as Case).season === after.season).map((d) => d.id);
+    if (openIds.length === 0) return new Set();
+    const records: SentNotice[] = [];
+    for (let k = 0; k < openIds.length; k += IN_LIMIT) {
+      const snap = await deps.db.collection("sentNotices").where("subjectId", "in", openIds.slice(k, k + IN_LIMIT)).get();
+      for (const d of snap.docs) records.push(d.data() as SentNotice);
+    }
+    return reviewingCoveredMembers({ openIds: new Set(openIds), records, now: deps.now() });
+  } catch (e) {
+    console.error("[notify] 開いている確認中を読めないので、確認中の知らせを黙らせずに送ります", { code: typeof e === "object" && e !== null && "code" in e ? String((e as { code: unknown }).code).slice(0, 40) : "unknown" });
+    return new Set();
+  }
+}
 
 /**
  * 事例の変化から出る出来事ごとに宛先を決め、まとめて dispatchNotices に渡す。
@@ -39,8 +63,10 @@ export async function handleCaseWrite(deps: NotifyDeps, before: Case | null, aft
   const farms = (await deps.db.collection("farms").get()).docs.map((d) => ({ id: d.id, ...(d.data() as Farm) }));
   const alreadySent = (await deps.db.collection("sentNotices").where("subjectId", "==", after.id).get()).docs.map((d) => d.data() as SentNotice);
 
+  // 確認中は、同じ県の確認中が開いている間は最初の 1 通だけ（Q-m）。確定、区域の知らせなどは減らさない
+  const reviewingCovered = events.includes("reviewing") ? await coveredByOpenReviewing(deps, after) : undefined;
   const notices: Notice[] = [];
-  for (const event of events) notices.push(...planCaseNotices({ event, caseDoc: after, farms, geo, alreadySent }));
+  for (const event of events) notices.push(...planCaseNotices({ event, caseDoc: after, farms, geo, alreadySent, reviewingCovered }));
   if (notices.length > 0) await dispatchNotices(deps, notices);
 }
 
