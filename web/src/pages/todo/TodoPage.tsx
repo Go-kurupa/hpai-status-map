@@ -2,6 +2,7 @@
 // リマインドにとどめる。義務（いつも、区域に入っていれば）と、見直しの推奨（確かめておくとよいこと）は見た目も言葉も分ける。
 // 会員でなくても開ける（RequireMember で包まない）。記録（やった）は農場が読めているときだけ。
 import { ZONE_AUTHORITY_NOTE, buildChecklist, shortReminder, type ChecklistItem } from "@hpai/shared/checklist";
+import { STANDARD_NUMBER_NOTE } from "@hpai/shared/checklist/items";
 import { useState } from "react";
 import { Link } from "react-router";
 import { SURVEILLANCE_NOTE } from "../map/texts";
@@ -16,12 +17,28 @@ import { levelOf, useTodoData } from "./useTodoData";
 import { WorkerMessagePanel } from "./WorkerMessagePanel";
 import "./todo.css";
 
+const ZONE_FIRST = ["if_in_zone", "always", "good_to_check"] as const;
+
+/** 段階 1 だけ、区域に入っていれば求められることを先に出す。shared の順は変えず、画面の側で並べ替える */
+export function orderSections<T extends { class: string }>(level: number, sections: T[]): T[] {
+  if (level !== 1) return sections;
+  const rank = (c: string) => {
+    const i = (ZONE_FIRST as readonly string[]).indexOf(c);
+    return i < 0 ? ZONE_FIRST.length : i;
+  };
+  return [...sections].sort((a, b) => rank(a.class) - rank(b.class));
+}
+
+const hasNumberNote = (item: ChecklistItem) => item.source.note?.includes(STANDARD_NUMBER_NOTE) ?? false;
+
+const itemNote = (item: ChecklistItem) => item.source.note?.replace(STANDARD_NUMBER_NOTE, "").trim() ?? "";
+
 function ItemRow({ item, log }: { item: ChecklistItem; log: ReturnType<typeof useDisinfectionLog> | null }) {
   return (
     <li>
       <p>{item.text}</p>
       <SourceLine title={item.source.title} url={item.source.url} />
-      {item.source.note ? <p className="todo-note">{item.source.note}</p> : null}
+      {itemNote(item) ? <p className="todo-note">{itemNote(item)}</p> : null}
       {item.disinfectionLoggable && log ? <DoneButton itemId={item.id} label={item.text} log={log} /> : null}
     </li>
   );
@@ -38,7 +55,7 @@ export default function TodoPage() {
   const open = openedByUser ?? level === 1;
 
   const farmInfo = farm.status === "ready" ? farm.farm : null;
-  const sections = buildChecklist({ level, production: farmInfo?.production ?? null, housing: farmInfo?.housing ?? null });
+  const sections = orderSections(level, buildChecklist({ level, production: farmInfo?.production ?? null, housing: farmInfo?.housing ?? null }));
   const lifts = state.status === "ready" ? state.result.lifts : [];
   const lines = state.status === "ready" || state.status === "no_spot" ? shortReminder(level) : [];
 
@@ -81,8 +98,13 @@ export default function TodoPage() {
       {state.status !== "loading" && state.status !== "failed" ? (
         <>
           <p>
-            <Link to="../record/self-check" relative="path">
+            <Link to="../record/self-check" relative="path" className="tap-link">
               {TODO_TEXT.selfCheckLink}
+            </Link>
+          </p>
+          <p>
+            <Link to="../record/disinfection" relative="path" className="tap-link">
+              {TODO_TEXT.disinfectionLink}
             </Link>
           </p>
           <Button aria-expanded={open} onClick={() => setOpened(!open)}>
@@ -91,8 +113,10 @@ export default function TodoPage() {
           {open ? (
             <div className="todo-details">
               <FarmGuide farm={farm} />
+              {farm.status === "ready" ? <p className="todo-note">{TODO_TEXT.doneNoUndo}</p> : null}
               {sections.map((s) => (
                 <ClassBlock key={s.class} cls={s.class} heading={s.heading}>
+                  {s.items.some(hasNumberNote) ? <p className="todo-note">{STANDARD_NUMBER_NOTE}</p> : null}
                   {s.class === "if_in_zone" ? <p>{ZONE_AUTHORITY_NOTE}</p> : null}
                   <ul className="todo-items">
                     {s.items.map((item) => (

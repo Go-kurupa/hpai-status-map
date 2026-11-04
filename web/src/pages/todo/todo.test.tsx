@@ -36,7 +36,9 @@ const authState = vi.hoisted(() => ({
 }));
 vi.mock("../auth/useAuthUser", () => ({ useAuthUser: () => authState.value }));
 
-import TodoPage from "./TodoPage";
+import TodoPage, { orderSections } from "./TodoPage";
+import { STANDARD_NUMBER_NOTE } from "@hpai/shared/checklist/items";
+import { buildChecklist } from "@hpai/shared/checklist";
 
 const dataDir = (...p: string[]) => path.resolve(import.meta.dirname, "../../../../data/geo", ...p);
 function freshGeo(): GeoStore {
@@ -518,6 +520,89 @@ describe("リンク", () => {
     expect(link.getAttribute("href")).toBe("/sample/record/self-check");
     await screen.findByRole("region", { name: "解除の見込み" });
     for (const a of container.querySelectorAll("a[href]")) expect(a.getAttribute("href")!.startsWith("/record")).toBe(false);
+  });
+});
+
+describe("消毒への道、段階 1 の並び、番号の注意", () => {
+  it("/todo の消毒のリンクは /record/disinfection、/sample/todo では /sample/record/disinfection", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const link = await screen.findByRole("link", { name: "消毒の記録を開く" });
+    expect(link.getAttribute("href")).toBe("/record/disinfection");
+    expect(link.className).toContain("tap-link");
+    expect(screen.getByRole("link", { name: "今月の自己点検を開く" }).className).toContain("tap-link");
+    cleanup();
+    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }), path: "/sample/todo" });
+    const sample = await screen.findByRole("link", { name: "消毒の記録を開く" });
+    expect(sample.getAttribute("href")).toBe("/sample/record/disinfection");
+    await screen.findByRole("region", { name: "解除の見込み" });
+    for (const a of container.querySelectorAll("a[href]")) expect(a.getAttribute("href")!.startsWith("/record")).toBe(false);
+  });
+
+  it("orderSections: 段階 1 だけ if_in_zone、always、good_to_check の順。ほかは shared のまま", () => {
+    const base = { production: null, housing: null } as const;
+    const names = (l: 1 | 2 | 3 | 4) => orderSections(l, buildChecklist({ level: l, ...base })).map((s) => s.class);
+    expect(names(1)).toEqual(["if_in_zone", "always", "good_to_check"]);
+    for (const l of [2, 3, 4] as const) expect(names(l)).toEqual(buildChecklist({ level: l, ...base }).map((s) => s.class));
+  });
+
+  it("段階 1 では『区域に入っていれば』が『いつも求められていること』より前", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
+    await screen.findByRole("region", { name: "解除の見込み" });
+    const hs = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent ?? "");
+    const zone = hs.findIndex((t) => /区域に入っていれば/.test(t));
+    const always = hs.findIndex((t) => /いつも求められていること/.test(t));
+    expect(zone).toBeGreaterThanOrEqual(0);
+    expect(zone).toBeLessThan(always);
+  });
+
+  it("段階 4 と 2 の並びは今のまま（いつも、確かめておくとよいこと）", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [inTottori()] }) });
+    await screen.findByText("近くの町で発表がありました。県の発表を確かめましょう");
+    openMore();
+    const hs = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent ?? "");
+    expect(hs.findIndex((t) => /いつも求められていること/.test(t))).toBeLessThan(hs.findIndex((t) => /確かめておくとよいこと/.test(t)));
+  });
+
+  it("段階 1 で番号の注意は枠ごとに 1 回。項目の番号と条文の位置は項目に残る", async () => {
+    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
+    await screen.findByRole("region", { name: "解除の見込み" });
+    for (const block of container.querySelectorAll(".class-block")) {
+      const notes = Array.from(block.querySelectorAll("p")).filter((p) => p.textContent === STANDARD_NUMBER_NOTE);
+      const hasStd = Array.from(block.querySelectorAll(".todo-items > li")).length > 0 && notes.length > 0;
+      expect(notes.length).toBeLessThanOrEqual(1);
+      if (hasStd) expect(block.querySelectorAll(".todo-items .todo-note").length).toBeGreaterThan(0);
+    }
+    expect(container.textContent!.split(STANDARD_NUMBER_NOTE).length - 1).toBeGreaterThanOrEqual(1);
+    const items = buildChecklist({ level: 1, production: null, housing: null }).flatMap((s) => s.items);
+    const stdItems = items.filter((i) => i.source.note?.includes(STANDARD_NUMBER_NOTE));
+    expect(stdItems.length).toBeGreaterThan(0);
+    const blocksWithStd = new Set(buildChecklist({ level: 1, production: null, housing: null }).filter((s) => s.items.some((i) => i.source.note?.includes(STANDARD_NUMBER_NOTE))).map((s) => s.class));
+    expect(container.textContent!.split(STANDARD_NUMBER_NOTE).length - 1).toBe(blocksWithStd.size);
+    const i17 = items.find((i) => i.id === "always-17")!;
+    const position = i17.source.note!.replace(STANDARD_NUMBER_NOTE, "").trim();
+    expect(position.length).toBeGreaterThan(0);
+    expect(container.textContent).toContain(position);
+  });
+
+  it("農場が読めているとき『くわしく』の中に取り消しがない旨が出る。農場がなければ出ない", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    await screen.findByText("今月の自己点検を確かめましょう");
+    openMore();
+    expect(await screen.findByText(TODO_TEXT.doneNoUndo)).toBeTruthy();
+    cleanup();
+    farm = null;
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    await screen.findByText("今月の自己点検を確かめましょう");
+    openMore();
+    await screen.findByText(/農場を設定すると記録できます/);
+    expect(screen.queryByText(TODO_TEXT.doneNoUndo)).toBeNull();
+  });
+
+  it("DisinfectionPanel: panelLead の次に doneNoUndo が出る", async () => {
+    const { container } = mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
+    const lead = await screen.findByText(TODO_TEXT.panelLead);
+    expect(lead.nextElementSibling?.textContent).toBe(TODO_TEXT.doneNoUndo);
+    expect(container.textContent).toContain(TODO_TEXT.doneNoUndo);
   });
 });
 

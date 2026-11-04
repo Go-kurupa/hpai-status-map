@@ -24,7 +24,7 @@
 }
 .todo-note {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 .lift-region {
   margin: 0 0 16px;

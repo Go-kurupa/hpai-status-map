@@ -28,6 +28,7 @@ export function DisinfectionPanel() {
     <section className="disinfection-panel">
       <h1>{TODO_TEXT.panelTitle}</h1>
       <p>{TODO_TEXT.panelLead}</p>
+      <p className="todo-note">{TODO_TEXT.doneNoUndo}</p>
       <FarmGuide farm={farm} />
       {todo.state.status === "loading" ? <p role="status">{TODO_TEXT.loading}</p> : null}
       {todo.state.status === "failed" ? <p role="alert">{TODO_TEXT.panelLevelFailed}</p> : null}
