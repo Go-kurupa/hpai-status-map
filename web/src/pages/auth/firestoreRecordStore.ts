@@ -103,7 +103,8 @@ function createStore(getSession: () => Promise<Session>, opts: StoreOptions): Re
       if (typeof meshCode !== "string" || typeof muniCode !== "string" || typeof prefCode !== "string") {
         throw new Error("地点を選んでから保存してください");
       }
-      const ref = fs.doc(fs.collection(s.db, "farms"));
+      // 農場の id は作る人の uid（ルールが farmId == uid を要る。1 会員が農場をいくつも作れないようにする）
+      const ref = fs.doc(s.db, "farms", s.uid);
       const created: Farm = {
         name: "",
         memberUids: [s.uid],

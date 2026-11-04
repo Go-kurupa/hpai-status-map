@@ -98,7 +98,7 @@ describe("農場", () => {
     const farm = await store.getFarm();
     expect(farm).not.toBeNull();
     const { id, ...data } = farm!;
-    expect(id).toMatch(/\S/);
+    expect(id).toBe("alice"); // ルールが farmId == uid を要る（1 会員が農場をいくつも作れない）
     expect(data).toEqual({
       name: "",
       memberUids: ["alice"],
@@ -114,6 +114,22 @@ describe("農場", () => {
       selfCheckDue: {},
       updatedAt: NOW_ISO,
     } satisfies Farm);
+  });
+
+  it("別の人が同じ地点で作っても、農場は人ごとに 1 つ（id が uid）", async () => {
+    await storeOf(asMember("alice"), "alice").saveFarm(POINT);
+    await storeOf(asMember("bob"), "bob").saveFarm(POINT);
+    expect((await storeOf(asMember("alice"), "alice").getFarm())?.id).toBe("alice");
+    expect((await storeOf(asMember("bob"), "bob").getFarm())?.id).toBe("bob");
+    expect(await rawFarmCount()).toBe(2);
+  });
+
+  it("農場の招待で他の人の農場に入った人は、saveFarm で自分の農場を増やさず、その農場を更新する", async () => {
+    await seed(async (admin) => setDoc(doc(admin, "farms/alice"), farmFixture("alice", { memberUids: ["alice", "carol"] })));
+    const store = storeOf(asMember("carol"), "carol");
+    await store.saveFarm({ ...POINT, name: "共同" });
+    expect(await rawFarmCount()).toBe(1);
+    expect((await rawData("farms/alice"))?.name).toBe("共同");
   });
 
   it("地点（meshCode）なしでは農場を作らない", async () => {

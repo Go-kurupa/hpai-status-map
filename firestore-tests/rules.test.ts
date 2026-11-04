@@ -164,19 +164,19 @@ describe("書き込み: 農場", () => {
   });
 
   it("作成は member が要る", async () => {
-    await assertSucceeds(setDoc(doc(memberOnly(), "farms/f3"), farm("carol")));
+    await assertSucceeds(setDoc(doc(memberOnly(), "farms/carol"), farm("carol")));
     const noClaim = env.authenticatedContext("dave").firestore();
-    await assertFails(setDoc(doc(noClaim, "farms/f4"), farm("dave")));
-    await assertFails(setDoc(doc(anon(), "farms/f5"), farm("x")));
-    await assertFails(setDoc(doc(operator(), "farms/f6"), farm("op")));
+    await assertFails(setDoc(doc(noClaim, "farms/dave"), farm("dave")));
+    await assertFails(setDoc(doc(anon(), "farms/x"), farm("x")));
+    await assertFails(setDoc(doc(operator(), "farms/op"), farm("op")));
   });
 
   it("作成で memberUids に他人、unsubscribedUids が空でないと落ちる", async () => {
     const db = memberOnly();
-    await assertFails(setDoc(doc(db, "farms/f3"), farm("carol", { memberUids: ["carol", "bob"] })));
-    await assertFails(setDoc(doc(db, "farms/f3"), farm("carol", { memberUids: ["bob"] })));
-    await assertFails(setDoc(doc(db, "farms/f3"), farm("carol", { memberUids: [] })));
-    await assertFails(setDoc(doc(db, "farms/f3"), farm("carol", { unsubscribedUids: ["carol"] })));
+    await assertFails(setDoc(doc(db, "farms/carol"), farm("carol", { memberUids: ["carol", "bob"] })));
+    await assertFails(setDoc(doc(db, "farms/carol"), farm("carol", { memberUids: ["bob"] })));
+    await assertFails(setDoc(doc(db, "farms/carol"), farm("carol", { memberUids: [] })));
+    await assertFails(setDoc(doc(db, "farms/carol"), farm("carol", { unsubscribedUids: ["carol"] })));
   });
 
   it("更新で memberUids と unsubscribedUids を変えられない", async () => {
@@ -216,7 +216,7 @@ describe("書き込み: 農場", () => {
 
   it("hasOnly: Farm にないキーを持てない", async () => {
     await assertFails(updateDoc(doc(alice(), "farms/f1"), { extra: 1 }));
-    await assertFails(setDoc(doc(memberOnly(), "farms/f3"), farm("carol", { extra: 1 })));
+    await assertFails(setDoc(doc(memberOnly(), "farms/carol"), farm("carol", { extra: 1 })));
   });
 
   it("hasOnly: houses / deaths / checks にないキーを持てない", async () => {
@@ -232,7 +232,7 @@ describe("地点と入力者", () => {
     const db = alice();
     for (const key of ["lat", "lng", "latitude", "longitude", "address"]) {
       await assertFails(updateDoc(doc(db, "farms/f1"), { [key]: key === "address" ? "どこか" : 35.1 }));
-      await assertFails(setDoc(doc(memberOnly(), "farms/f3"), farm("carol", { [key]: key === "address" ? "どこか" : 35.1 })));
+      await assertFails(setDoc(doc(memberOnly(), "farms/carol"), farm("carol", { [key]: key === "address" ? "どこか" : 35.1 })));
     }
   });
 
@@ -241,7 +241,7 @@ describe("地点と入力者", () => {
     await assertSucceeds(updateDoc(doc(db, "farms/f1"), { meshCode: "53394611" }));
     for (const bad of ["5339461", "533946111", "abcdefgh", "5339461a", "", "5339 461"]) {
       await assertFails(updateDoc(doc(db, "farms/f1"), { meshCode: bad }));
-      await assertFails(setDoc(doc(memberOnly(), "farms/f3"), farm("carol", { meshCode: bad })));
+      await assertFails(setDoc(doc(memberOnly(), "farms/carol"), farm("carol", { meshCode: bad })));
     }
     await assertFails(updateDoc(doc(db, "farms/f1"), { meshCode: 53394611 }));
   });
@@ -282,7 +282,7 @@ describe("数の型（§8）", () => {
   });
 
   it("production、housing の null は通る", async () => {
-    await assertSucceeds(setDoc(doc(memberOnly(), "farms/f3"), farm("carol", { production: null, housing: null })));
+    await assertSucceeds(setDoc(doc(memberOnly(), "farms/carol"), farm("carol", { production: null, housing: null })));
     await assertSucceeds(updateDoc(doc(alice(), "farms/f1"), { production: null, housing: null }));
   });
 });
@@ -340,5 +340,189 @@ describe("公開と非公開", () => {
         await assertFails(setDoc(doc(db, p), { a: 1 }));
       }
     }
+  });
+});
+
+// 公開前のセキュリティ確認（S-18、N-1、N-2）。画面を通さず SDK から書いても、入れ子の中身まで縛られる
+describe("入れ子の中身（S-18）", () => {
+  const notifyOf = (over: Record<string, unknown> = {}) => ({
+    level1: true,
+    level2: true,
+    level3: true,
+    morningDigest: true,
+    selfCheckRemindDays: null,
+    ...over,
+  });
+
+  it("notify の中に緯度経度や知らないキーを入れられない", async () => {
+    const db = alice();
+    for (const extra of [{ lat: 35.1 }, { lng: 135.2 }, { latitude: 35.1, longitude: 135.2 }, { address: "どこか" }, { x: { lat: 35.1 } }]) {
+      await assertFails(updateDoc(doc(db, "farms/f1"), { notify: notifyOf(extra) }));
+      await assertFails(setDoc(doc(memberOnly(), "farms/carol"), farm("carol", { notify: notifyOf(extra) })));
+    }
+  });
+
+  it("selfCheckDue、production、housing、frequentMuniCodes に、緯度経度を入れた入れ子を入れられない", async () => {
+    const db = alice();
+    const geo = { lat: 35.1, lng: 135.2 };
+    await assertFails(updateDoc(doc(db, "farms/f1"), { production: geo }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { housing: geo }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { frequentMuniCodes: geo }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { selfCheckDue: "2026-11" }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { name: geo }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { kahoContact: geo }));
+  });
+
+  it("鶏舎、死亡数、点検の入れ子にも、緯度経度や知らないキーを入れられない", async () => {
+    const db = alice();
+    const geo = { lat: 35.1, lng: 135.2 };
+    await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ name: geo })));
+    await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ birdType: geo })));
+    await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ empty: "no" })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: { kind: "other", note: "", ...geo } })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: geo })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ houseId: geo })));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/x"), { kind: "disinfection", date: "2026-11-04", itemId: geo }));
+    await assertFails(
+      setDoc(doc(db, "farms/f1/checks/x"), { kind: "self_inspection", date: "2026-11-04", month: "2026-11", answers: { "17": "ok", ...geo } }),
+    );
+  });
+});
+
+describe("期限の知らせの数（N-1）", () => {
+  it("selfCheckRemindDays が 100000 だと落ちる。0〜7 の整数と null は通る", async () => {
+    const db = alice();
+    const withDays = (v: unknown) => ({ level1: true, level2: true, level3: true, morningDigest: true, selfCheckRemindDays: v });
+    await assertFails(updateDoc(doc(db, "farms/f1"), { notify: withDays(100000) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { notify: withDays(8) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { notify: withDays(-1) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { notify: withDays(2.5) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { notify: withDays("3") }));
+    await assertFails(setDoc(doc(memberOnly(), "farms/carol"), farm("carol", { notify: withDays(100000) })));
+    for (const ok of [null, 0, 1, 3, 7]) await assertSucceeds(updateDoc(doc(db, "farms/f1"), { notify: withDays(ok) }));
+  });
+
+  it("selfCheckDue が 400 件だと落ちる。1 季分（8 件）と、2 季分の余裕は通る", async () => {
+    const db = alice();
+    const months = (n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`${2000 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`, "2026-11-20"]));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { selfCheckDue: months(400) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { selfCheckDue: months(41) }));
+    await assertFails(setDoc(doc(memberOnly(), "farms/carol"), farm("carol", { selfCheckDue: months(400) })));
+    await assertSucceeds(updateDoc(doc(db, "farms/f1"), { selfCheckDue: months(8) }));
+    await assertSucceeds(updateDoc(doc(db, "farms/f1"), { selfCheckDue: months(16) }));
+  });
+});
+
+describe("農場は 1 会員 1 つ（N-2）", () => {
+  it("農場の id が自分の uid でないと作れない。自分の uid の id なら作れる", async () => {
+    const db = memberOnly();
+    await assertFails(setDoc(doc(db, "farms/f9"), farm("carol")));
+    await assertFails(setDoc(doc(db, "farms/f10"), farm("carol")));
+    await assertSucceeds(setDoc(doc(db, "farms/carol"), farm("carol")));
+  });
+
+  it("2 つ目の農場（別の id）を作れない", async () => {
+    // 自分の uid の農場は 1 つだけ作れ、別の id でもう 1 つは作れない。
+    // 限界: すでに招待で他の農場（f1）の会員になっている人が、自分の uid の農場を作ることは、ルールでは止められない
+    // （別の文書の memberUids を探せない）。画面は先に自分の農場を探して更新するので作らない。招待の側（redeemInvite）は
+    // 別の農場に入っている人を断る。
+    const db = alice();
+    await assertSucceeds(setDoc(doc(db, "farms/alice"), farm("alice")));
+    await assertFails(setDoc(doc(db, "farms/alice2"), farm("alice")));
+    await assertFails(setDoc(doc(db, "farms/f2x"), farm("alice")));
+  });
+
+  it("他人の uid の id の農場を、自分の会員として作れない", async () => {
+    await assertFails(setDoc(doc(memberOnly(), "farms/bob"), farm("carol")));
+  });
+});
+
+describe("画面と同じ形の保存は通り、外れた値は落ちる", () => {
+  it("農場: 列挙、桁、長さ、件数の境目", async () => {
+    const db = alice();
+    for (const v of ["layer", "broiler", null]) await assertSucceeds(updateDoc(doc(db, "farms/f1"), { production: v }));
+    for (const v of ["windowless", "open", "free_range", null]) await assertSucceeds(updateDoc(doc(db, "farms/f1"), { housing: v }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { production: "duck" }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { housing: "cage" }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { production: 1 }));
+
+    await assertSucceeds(updateDoc(doc(db, "farms/f1"), { name: "あ".repeat(60), kahoContact: "あ".repeat(300) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { name: "あ".repeat(61) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { kahoContact: "あ".repeat(301) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { updatedAt: "x".repeat(41) }));
+
+    const munis = (n: number) => Array.from({ length: n }, (_, i) => String(13101 + i));
+    await assertSucceeds(updateDoc(doc(db, "farms/f1"), { frequentMuniCodes: munis(20) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { frequentMuniCodes: munis(21) }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { frequentMuniCodes: "13101" }));
+
+    // 町のコードは 5 桁で、先頭 2 桁が県のコードと一致する
+    await assertSucceeds(updateDoc(doc(db, "farms/f1"), { muniCode: "13101", prefCode: "13" }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { muniCode: "13101", prefCode: "33" }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { muniCode: "1310", prefCode: "13" }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { muniCode: "33001", prefCode: "3" }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { muniCode: 33001 }));
+  });
+
+  it("農場: 2 季分の期限の保存（画面は 1 季 8 か月）と、知らせの全部の組が通る", async () => {
+    const db = alice();
+    const season = (y: number) => [10, 11, 12].map((m) => `${y}-${m}`).concat([1, 2, 3, 4, 5].map((m) => `${y + 1}-0${m}`));
+    const due = Object.fromEntries([...season(2026), ...season(2027)].map((m) => [m.replace(/-(\d)$/, "-0$1"), "2026-11-20"]));
+    await assertSucceeds(updateDoc(doc(db, "farms/f1"), { selfCheckDue: due }));
+    for (const days of [1, 2, 3, 5, 7]) {
+      await assertSucceeds(
+        updateDoc(doc(db, "farms/f1"), {
+          notify: { level1: false, level2: true, level3: false, morningDigest: true, selfCheckRemindDays: days },
+        }),
+      );
+    }
+    // 知らせの項目が欠けたり、bool でなかったりすると落ちる
+    await assertFails(updateDoc(doc(db, "farms/f1"), { notify: { level1: true, level2: true, level3: true, morningDigest: true } }));
+    await assertFails(
+      updateDoc(doc(db, "farms/f1"), { notify: { level1: "yes", level2: true, level3: true, morningDigest: true, selfCheckRemindDays: null } }),
+    );
+    await assertFails(updateDoc(doc(db, "farms/f1"), { notify: null }));
+    await assertFails(updateDoc(doc(db, "farms/f1"), { notify: "all" }));
+  });
+
+  it("鶏舎: 画面の鳥の種類（日本語）と長さの境目", async () => {
+    const db = alice();
+    for (const t of ["採卵鶏", "肉用鶏", "種鶏", "あひる", "うずら", "その他"]) {
+      await assertSucceeds(setDoc(doc(db, "farms/f1/houses/h2"), house({ birdType: t })));
+    }
+    await assertSucceeds(setDoc(doc(db, "farms/f1/houses/h2"), house({ name: "あ".repeat(40) })));
+    await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ name: "あ".repeat(41) })));
+    await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ birdType: "あ".repeat(21) })));
+    await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ name: 1 })));
+  });
+
+  it("死亡数: 除外の種類と注記、日付の形", async () => {
+    const db = alice();
+    for (const kind of ["disease", "equipment", "temperature", "disaster", "empty", "other"]) {
+      await assertSucceeds(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: { kind, note: "" } })));
+    }
+    await assertSucceeds(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: { kind: "other", note: "あ".repeat(300) } })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: { kind: "other", note: "あ".repeat(301) } })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: { kind: "bogus", note: "" } })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: { note: "" } })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: "other" })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ date: "2026-11-3" })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ date: 20261103 })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ houseId: "h".repeat(129) })));
+  });
+
+  it("点検: 消毒と自己点検の形、答えの値", async () => {
+    const db = alice();
+    const answers = { "17": "ok", "18": "ng", "19": null, "22": "ok", "23": "ok", "25": "ok", "27": "ok" };
+    await assertSucceeds(setDoc(doc(db, "farms/f1/checks/s1"), { kind: "self_inspection", date: "2026-11-04", month: "2026-11", answers }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/s1"), { kind: "self_inspection", date: "2026-11-04", month: "2026-11", answers: { "17": "maybe" } }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/s1"), { kind: "self_inspection", date: "2026-11-04", month: "2026-11", answers: { "99": "ok" } }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/s1"), { kind: "self_inspection", date: "2026-11-04", month: "2026-1", answers }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/s1"), { kind: "self_inspection", date: "2026-11-04", answers }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/s1"), { kind: "self_inspection", date: "2026-11-04", month: "2026-11", answers: "ok" }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026-11-04", itemId: "i".repeat(65) }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026-11-04" }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "unknown", date: "2026-11-04", itemId: "i" }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026/11/04", itemId: "i" }));
   });
 });

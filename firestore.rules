@@ -46,18 +46,50 @@ service cloud.firestore {
 
     // 農場。memberUids と unsubscribedUids はサーバーの管理に近いので会員でも変えられない
     match /farms/{farmId} {
+      // 入れ子の中身まで縛る（S-18）。画面を通さず SDK から書いても、緯度経度や大きな値を入れられない
+      function optStr(v, n) {
+        return v is string && v.size() <= n;
+      }
+      // 知らせの設定。selfCheckRemindDays は画面の選択（1、2、3、5、7）に余裕を足して 0〜7 の整数か null
+      function notifyOk(n) {
+        return n is map
+          && n.keys().hasOnly(['level1', 'level2', 'level3', 'morningDigest', 'selfCheckRemindDays'])
+          && n.keys().hasAll(['level1', 'level2', 'level3', 'morningDigest', 'selfCheckRemindDays'])
+          && n.level1 is bool && n.level2 is bool && n.level3 is bool && n.morningDigest is bool
+          && (n.selfCheckRemindDays == null
+              || (n.selfCheckRemindDays is int && n.selfCheckRemindDays >= 0 && n.selfCheckRemindDays <= 7));
+      }
       function farmShapeOk() {
-        return request.resource.data.keys().hasOnly([
+        let d = request.resource.data;
+        return d.keys().hasOnly([
             'name', 'memberUids', 'unsubscribedUids', 'meshCode', 'muniCode', 'prefCode',
             'frequentMuniCodes', 'production', 'housing', 'kahoContact', 'notify',
             'selfCheckDue', 'updatedAt'
           ])
-          && request.resource.data.meshCode is string
-          && request.resource.data.meshCode.matches('^[0-9]{8}$');
+          && d.keys().hasAll(['memberUids', 'unsubscribedUids', 'meshCode', 'muniCode', 'prefCode', 'notify', 'selfCheckDue'])
+          && d.meshCode is string && d.meshCode.matches('^[0-9]{8}$')
+          && d.muniCode is string && d.muniCode.matches('^[0-9]{5}$')
+          && d.prefCode is string && d.prefCode.matches('^[0-9]{2}$')
+          && d.muniCode[0:2] == d.prefCode
+          && d.memberUids is list && d.unsubscribedUids is list
+          && optStr(d.get('name', ''), 60)
+          && optStr(d.get('kahoContact', ''), 300)
+          && optStr(d.get('updatedAt', ''), 40)
+          // 画面は 20 件まで（MAX_FREQUENT_MUNIS）
+          && (!('frequentMuniCodes' in d) || (d.frequentMuniCodes is list && d.frequentMuniCodes.size() <= 20))
+          && (d.get('production', null) == null || (d.production is string && d.production in ['layer', 'broiler']))
+          && (d.get('housing', null) == null
+              || (d.housing is string && d.housing in ['windowless', 'open', 'free_range']))
+          && notifyOk(d.notify)
+          // 画面は 1 季 8 か月分。2 季目の保存（前の季の分が残る）を壊さないよう 40 件まで。キーと値の形は、読む側（サーバー）が日付だけ使う
+          && d.selfCheckDue is map && d.selfCheckDue.size() <= 40;
       }
 
       allow read: if signedIn() && request.auth.uid in resource.data.memberUids;
+      // 農場の id は作る人の uid にする（N-2）。1 会員が id を変えて農場をいくつも作れないようにする。
+      // 招待で他の農場に入る人は、サーバー（redeemInvite）が memberUids に足すので、ここを通らない
       allow create: if isMemberClaim()
+        && farmId == request.auth.uid
         && farmShapeOk()
         && request.resource.data.memberUids == [request.auth.uid]
         && request.resource.data.unsubscribedUids == [];
@@ -70,9 +102,13 @@ service cloud.firestore {
 
       match /houses/{houseId} {
         function houseOk() {
-          return request.resource.data.keys().hasOnly(['name', 'birdType', 'flockSize', 'empty'])
-            && request.resource.data.flockSize is int
-            && request.resource.data.flockSize >= 0;
+          let h = request.resource.data;
+          return h.keys().hasOnly(['name', 'birdType', 'flockSize', 'empty'])
+            && h.name is string && h.name.size() <= 40
+            && h.birdType is string && h.birdType.size() <= 20
+            && h.empty is bool
+            && h.flockSize is int
+            && h.flockSize >= 0;
         }
         allow read: if isFarmMember(farmId);
         allow create, update: if isFarmMember(farmId) && houseOk();
@@ -81,11 +117,20 @@ service cloud.firestore {
 
       match /deaths/{deathId} {
         function deathOk() {
-          return request.resource.data.keys().hasOnly(['date', 'houseId', 'deaths', 'flockSizeAt', 'exclusion'])
-            && request.resource.data.deaths is int
-            && request.resource.data.deaths >= 0
-            && request.resource.data.flockSizeAt is int
-            && request.resource.data.flockSizeAt >= 0;
+          let r = request.resource.data;
+          return r.keys().hasOnly(['date', 'houseId', 'deaths', 'flockSizeAt', 'exclusion'])
+            && r.date is string && r.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && r.houseId is string && r.houseId.size() <= 128
+            && (r.get('exclusion', null) == null
+                || (r.exclusion is map
+                    && r.exclusion.keys().hasOnly(['kind', 'note'])
+                    && r.exclusion.get('kind', null) in ['disease', 'equipment', 'temperature', 'disaster', 'empty', 'other']
+                    && r.exclusion.get('note', '') is string
+                    && r.exclusion.get('note', '').size() <= 300))
+            && r.deaths is int
+            && r.deaths >= 0
+            && r.flockSizeAt is int
+            && r.flockSizeAt >= 0;
         }
         allow read: if isFarmMember(farmId);
         allow create, update: if isFarmMember(farmId) && deathOk();
@@ -93,8 +138,25 @@ service cloud.firestore {
       }
 
       match /checks/{checkId} {
+        // 自己点検の答えは 'ok'、'ng'、null（未回答）
+        function answerOk(a, k) {
+          return a.get(k, null) == null || a.get(k, null) in ['ok', 'ng'];
+        }
         function checkOk() {
-          return request.resource.data.keys().hasOnly(['kind', 'date', 'itemId', 'month', 'answers']);
+          let c = request.resource.data;
+          return c.keys().hasOnly(['kind', 'date', 'itemId', 'month', 'answers'])
+            && c.date is string && c.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && ((c.kind == 'disinfection'
+                  && !('month' in c) && !('answers' in c)
+                  && c.itemId is string && c.itemId.size() <= 64)
+                || (c.kind == 'self_inspection'
+                  && !('itemId' in c)
+                  && c.month is string && c.month.matches('^[0-9]{4}-[0-9]{2}$')
+                  && c.answers is map
+                  && c.answers.keys().hasOnly(['17', '18', '19', '22', '23', '25', '27'])
+                  && answerOk(c.answers, '17') && answerOk(c.answers, '18') && answerOk(c.answers, '19')
+                  && answerOk(c.answers, '22') && answerOk(c.answers, '23') && answerOk(c.answers, '25')
+                  && answerOk(c.answers, '27')));
         }
         allow read: if isFarmMember(farmId);
         allow create, update: if isFarmMember(farmId) && checkOk();
