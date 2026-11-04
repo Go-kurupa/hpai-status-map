@@ -132,4 +132,66 @@ describe("PublicPage", () => {
       .map((a) => a.getAttribute("href"));
     expect(hrefs).toEqual(OFFICIAL_GUIDANCE.map((g) => `#${g.topic}`));
   });
+
+  // 「市場に出回ることはありません」（農林水産省）の文は残し、その直後に、防疫指針の卵の出荷の例外を、出典つきの注として添える（利用者の決定 Q-j の C）
+  describe("卵の出荷の例外の注（作品側の要約）", () => {
+    const MARKET_SENTENCE =
+      "国内の家きん飼養農場で高病原性鳥インフルエンザ、低病原性鳥インフルエンザが発生した場合、家畜伝染病予防法に基づき、発生した農場の飼養家きんの殺処分、焼却又は埋却、消毒、移動制限など必要な防疫措置を実施します。このため、発生が確認された農場の家きん、鶏卵などが市場に出回ることはありません。";
+    const GUIDELINE_URL = "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_bousi/attach/pdf/index-75.pdf";
+
+    const noteOf = (container: HTMLElement) => container.querySelector("section#food [data-role='sourced-note']") as HTMLElement | null;
+
+    it("注が出る: 発生した農場の周りの農場の卵が、条件を満たせば出荷されることがある", () => {
+      const { container } = show();
+      const note = noteOf(container);
+      expect(note).not.toBeNull();
+      const text = note!.textContent ?? "";
+      expect(text).toContain("発生した農場の周りの");
+      expect(text).toContain("出荷");
+      expect(text).toContain("陰性");
+      // 国の文ではなく、作品側の要約だと分かる
+      expect(text).toContain("国の文ではありません");
+      expect(note!.closest("[data-role='official']")).toBeNull();
+      expect(note!.closest("blockquote")).toBeNull();
+    });
+
+    it("国の文の直後にある（その文と、次の文の間）", () => {
+      const { container } = show();
+      const note = noteOf(container) as HTMLElement;
+      const prev = note.previousElementSibling as HTMLElement;
+      expect(prev.getAttribute("data-role")).toBe("official");
+      expect(prev.textContent).toContain("市場に出回ることはありません");
+      expect((note.nextElementSibling as HTMLElement).getAttribute("data-role")).toBe("official");
+      expect(noteOf(container)).toBe(container.querySelector("section#food [data-role='sourced-note']"));
+      expect(container.querySelectorAll("[data-role='sourced-note']")).toHaveLength(1);
+    });
+
+    it("出典（防疫指針のリンク）と確認日が出る", () => {
+      const { container } = show();
+      const note = noteOf(container) as HTMLElement;
+      const source = note.querySelector(".source-line") as HTMLElement;
+      expect(source).not.toBeNull();
+      expect(source.textContent).toContain("確認日 2026-11-04");
+      const a = within(source).getByRole("link", { name: /特定家畜伝染病防疫指針/ });
+      expect(a.getAttribute("href")).toBe(GUIDELINE_URL);
+      expect(a.getAttribute("rel")).toContain("noopener");
+      expect(note.textContent).toContain("第９の５");
+    });
+
+    it("国の文は原文のまま残る（引用の中は、足しても削ってもいない）", () => {
+      const { container } = show();
+      const blocks = [...container.querySelectorAll("section#food [data-role='official'] blockquote p")];
+      const hit = blocks.filter((p) => p.textContent === MARKET_SENTENCE);
+      expect(hit).toHaveLength(1);
+      expect(OFFICIAL_GUIDANCE.find((g) => g.topic === "food")?.statements.map((s) => s.text)).toContain(MARKET_SENTENCE);
+    });
+
+    it("注に、禁止語がなく、受診の案内もない。URL や電話番号の形も作らない", () => {
+      const { container } = show();
+      const text = (noteOf(container) as HTMLElement).textContent ?? "";
+      expect(findForbiddenPhrases(text)).toEqual([]);
+      expect(text).not.toMatch(MEDICAL_ADVICE);
+      expect(text).not.toMatch(/(?<![0-9])0[0-9]*-[0-9]+-[0-9]+/u);
+    });
+  });
 });

@@ -57,6 +57,24 @@
   margin: 0 0 4px;
 }
 
+/* 国の文の直後に添える、出典つきの作品側の要約。引用（左の太い線）とも、お願い（破線の枠）とも違う、細い実線の枠で、少し内側に下げる */
+.guidance-sourced-note {
+  margin: 0 0 12px 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--muted);
+}
+.guidance-sourced-note h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+.guidance-sourced-note p {
+  margin: 0 0 4px;
+}
+.guidance-sourced-note .source-line {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 /* 作品側の文。公式の文（左の太い線の引用）と見た目を分ける */
 .guidance-notes {
   margin: 12px 0 0;

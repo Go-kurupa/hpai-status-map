@@ -3,7 +3,7 @@ import type { IsoDate } from "@hpai/shared/types";
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router";
 import { GuidanceSection } from "./GuidanceSection";
-import { PAGE_NOTES } from "./pageNotes";
+import { PAGE_NOTES, STATEMENT_NOTES } from "./pageNotes";
 import "./public.css";
 
 /** 鶏を飼っていない方へ（§11）。登録なしで読める固定のページ。AI は答えない。入力欄は置かない */
@@ -41,7 +41,7 @@ export function PublicView({ reviewedOn }: { reviewedOn: IsoDate | null }) {
       </nav>
 
       {OFFICIAL_GUIDANCE.map((g) => (
-        <GuidanceSection key={g.topic} guidance={g} notes={PAGE_NOTES[g.topic]}>
+        <GuidanceSection key={g.topic} guidance={g} notes={PAGE_NOTES[g.topic]} statementNotes={STATEMENT_NOTES.filter((n) => n.topic === g.topic)}>
           {g.topic === "small_flock" ? (
             <p className="guidance-map-link">
               <Link to="/">地図を見る（自分の町の状況）</Link>

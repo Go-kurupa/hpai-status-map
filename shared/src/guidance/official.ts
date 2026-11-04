@@ -22,7 +22,7 @@ export interface OfficialGuidance {
 export const OFFICIAL_GUIDANCE_REVIEWED_ON: IsoDate | null = null;
 
 /** 原本を取得して文を照合した日（日本時間）。docs/official-text-review.md に照合の記録がある */
-const CHECKED_ON: IsoDate = "2026-11-04";
+export const CHECKED_ON: IsoDate = "2026-11-04";
 
 const MAFF_KNOW = {
   sourceTitle: "農林水産省「鳥インフルエンザについて知りたい方へ」（令和 7 年 11 月 17 日更新）",
@@ -56,7 +56,8 @@ const MAFF_MANUAL = {
   sourceTitle: "農林水産省「高病原性鳥インフルエンザに関する防疫作業マニュアル（一般動員者・民間事業者用）」（令和 7 年 9 月）",
   sourceUrl: "https://www.maff.go.jp/j/syouan/douei/tori/r7_hpai_maual.pdf",
 } as const;
-const MAFF_GUIDELINE = {
+/** 防疫指針（web の作品側の注の出典にも使う。国の文を写すときの出典と同じ題と URL） */
+export const MAFF_GUIDELINE = {
   sourceTitle: "農林水産省「特定家畜伝染病防疫指針（高病原性鳥インフルエンザ及び低病原性鳥インフルエンザ）」（令和 7 年 10 月 1 日一部変更）",
   sourceUrl: "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_bousi/attach/pdf/index-75.pdf",
 } as const;

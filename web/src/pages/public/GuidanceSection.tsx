@@ -1,6 +1,7 @@
 import type { OfficialGuidance } from "@hpai/shared/guidance/official";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { SourceLine } from "../../ui/SourceLine";
+import type { StatementNote } from "./pageNotes";
 
 export const NOTES_HEADING = "このページからのお願い";
 
@@ -9,19 +10,41 @@ export const NOTES_HEADING = "このページからのお願い";
  * 作品側の文（notes）は、公式の文と見分けがつくよう、「このページからのお願い」の下にだけ置く。
  * id は topic と同じ（/area の本文などから /public#topic でここに来る）。
  */
-export function GuidanceSection({ guidance, notes, children }: { guidance: OfficialGuidance; notes?: readonly string[]; children?: ReactNode }) {
+export function GuidanceSection({
+  guidance,
+  notes,
+  statementNotes,
+  children,
+}: {
+  guidance: OfficialGuidance;
+  notes?: readonly string[];
+  /** 国の文の直後に添える、出典つきの注（作品側の要約）。引用の枠とは別の見た目 */
+  statementNotes?: readonly StatementNote[];
+  children?: ReactNode;
+}) {
   const { topic, heading, statements, links } = guidance;
   const headingId = `${topic}-heading`;
   return (
     <section id={topic} data-topic={topic} className="guidance" aria-labelledby={headingId}>
       <h2 id={headingId}>{heading}</h2>
       {statements.map((s, i) => (
-        <div key={i} data-role="official" className="guidance-statement">
-          <blockquote>
-            <p>{s.text}</p>
-          </blockquote>
-          <SourceLine title={s.sourceTitle} url={s.sourceUrl} checkedOn={s.checkedOn} />
-        </div>
+        <Fragment key={i}>
+          <div data-role="official" className="guidance-statement">
+            <blockquote>
+              <p>{s.text}</p>
+            </blockquote>
+            <SourceLine title={s.sourceTitle} url={s.sourceUrl} checkedOn={s.checkedOn} />
+          </div>
+          {(statementNotes ?? [])
+            .filter((n) => s.text.includes(n.after))
+            .map((n) => (
+              <aside key={n.after} data-role="sourced-note" className="guidance-sourced-note" aria-label="国の文ではない、作品側の要約">
+                <h3>作品側の要約（国の文ではありません）</h3>
+                <p>{n.text}</p>
+                <SourceLine title={n.sourceTitle} url={n.sourceUrl} checkedOn={n.checkedOn} />
+              </aside>
+            ))}
+        </Fragment>
       ))}
       {links && links.length > 0 ? (
         <div className="guidance-links">

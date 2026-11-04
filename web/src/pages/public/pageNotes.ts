@@ -1,6 +1,7 @@
 // 作品側の文（出典のないもの）。公式の文ではないので、画面では「このページからのお願い」の下にだけ出す。
 // MCP には渡さない（OFFICIAL_GUIDANCE は国の文だけ）。農場を特定する言葉、「安全」「安心」、受診の案内は書かない。
-import type { GuidanceTopic } from "@hpai/shared/guidance/official";
+import { CHECKED_ON, MAFF_GUIDELINE, type GuidanceTopic } from "@hpai/shared/guidance/official";
+import type { IsoDate } from "@hpai/shared/types";
 
 export const PAGE_NOTES: Partial<Record<GuidanceTopic, string[]>> = {
   approach: [
@@ -30,3 +31,29 @@ export const PAGE_NOTES: Partial<Record<GuidanceTopic, string[]>> = {
     "施行規則は、「特定症状」を、家畜伝染病予防法第 13 条の 2 第 1 項の症状（農林水産大臣が家畜の種類ごとに指定する症状）としています。症状の中身は、このページには書いていません。",
   ],
 };
+
+/**
+ * 国の文の直後に添える、出典つきの注（作品側の要約）。国の文ではないので、引用の枠とは別の見た目で出す。
+ * after は、どの国の文の直後か（その文に含まれる語。1 つの節の中で 1 つの文だけに当たること）。
+ * 防疫指針の原本を取得して照合した（docs/official-text-review.md の 11 番）。条文を写さず、条件の要点だけを書く。
+ * 「安全」「安心」と書かない。
+ */
+export interface StatementNote {
+  topic: GuidanceTopic;
+  after: string;
+  text: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  checkedOn: IsoDate;
+}
+
+export const STATEMENT_NOTES: readonly StatementNote[] = [
+  {
+    topic: "food",
+    after: "市場に出回ることはありません",
+    text: "上の国の文は、発生が確認された農場についての文です。発生した農場の周りの区域（移動制限区域、搬出制限区域）にある農場の卵は、防疫指針の条件を満たせば、出荷が認められることがあります。たとえば移動制限区域の中では、臨床検査、遺伝子検出検査、血清抗体検査のすべてで陰性が確認され、都道府県が農林水産省と協議したうえで、GPセンター等（卵の洗浄、消毒などを行う施設）へ出荷させることができます。運搬の車両は消毒します。搬出制限区域の中の農場の卵にも、出荷の例外が別に定められています。出荷してよいかどうかは、都道府県が判断します。（防疫指針 第９の５の（２）、（５））",
+    sourceTitle: MAFF_GUIDELINE.sourceTitle,
+    sourceUrl: MAFF_GUIDELINE.sourceUrl,
+    checkedOn: CHECKED_ON,
+  },
+];
