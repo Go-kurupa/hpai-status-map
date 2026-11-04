@@ -243,6 +243,71 @@ describe("usage-status（読むだけ。--unpause が上限を越えたまま戻
   });
 });
 
+describe("send-test-mail（運営者への試しの送信。宛先は設定の OPERATOR_EMAIL だけ）", () => {
+  const NOW = new Date("2026-11-05T03:00:00Z"); // 日本時間 2026-11-05
+  const OPERATOR = "operator@example.test";
+  function deps(over: { send?: (to: string, mail: { subject: string; text: string }) => Promise<void> } = {}) {
+    const sent: Array<{ to: string; subject: string; text: string }> = [];
+    return {
+      sent,
+      opts: {
+        now: () => NOW,
+        operatorEmail: () => OPERATOR,
+        sendMail: over.send ?? (async (to: string, mail: { subject: string; text: string }) => void sent.push({ to, ...mail })),
+      },
+    };
+  }
+
+  it("OPERATOR_EMAIL にだけ、固定の件名と本文（と時刻）で送り、{ sent: true } だけ返す。宛先を返さない", async () => {
+    const { sent, opts } = deps();
+    const res = await handleOp({ op: "send-test-mail" }, opts);
+    expect(res).toEqual({ ok: true, op: "send-test-mail", sent: true });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.to).toBe(OPERATOR);
+    expect(sent[0]!.subject).toBe("【鳥インフル発生状況マップ】試しの送信");
+    expect(sent[0]!.text).toContain("これは運営者の確認のための試しの送信です。");
+    expect(sent[0]!.text).toContain("2026-11-05T12:00:00+09:00");
+    expect(JSON.stringify(res)).not.toContain(OPERATOR);
+  });
+
+  it("引数で宛先を受け取らない（余計な項目は 400。送らない）", async () => {
+    const { sent, opts } = deps();
+    expect((await rejection(handleOp({ op: "send-test-mail", to: "evil@example.test" } as never, opts))).status).toBe(400);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("1 日（日本時間）に 5 回まで。6 回目は送らずに 429。日が変われば数え直す", async () => {
+    const { sent, opts } = deps();
+    for (let i = 0; i < 5; i++) await handleOp({ op: "send-test-mail" }, opts);
+    const err = await rejection(handleOp({ op: "send-test-mail" }, opts));
+    expect(err.status).toBe(429);
+    expect(sent).toHaveLength(5);
+
+    // UTC では同じ日、日本時間では翌日（2026-11-06 00:30 JST）
+    const next = { ...opts, now: () => new Date("2026-11-05T15:30:00Z") };
+    expect(await handleOp({ op: "send-test-mail" }, next)).toMatchObject({ sent: true });
+    expect(sent).toHaveLength(6);
+  });
+
+  it("送れなかったときは code だけ返す。宛先も原因の文も出さない。失敗も回数に数える", async () => {
+    const boom = Object.assign(new Error(`rejected ${OPERATOR} secret-text`), { code: "EAUTH" });
+    const { opts } = deps({ send: async () => { throw boom; } });
+    const err = await rejection(handleOp({ op: "send-test-mail" }, opts));
+    expect(err.status).toBe(500);
+    expect(err.message).toContain("EAUTH");
+    expect(err.message).not.toContain(OPERATOR);
+    expect(err.message).not.toContain("secret-text");
+    expect((await db.doc("usage/testMail").get()).data()).toMatchObject({ day: "2026-11-05", count: 1 });
+  });
+
+  it("code が無い・変な形の失敗は unknown", async () => {
+    const { opts } = deps({ send: async () => { throw new Error(`x ${OPERATOR}`); } });
+    const err = await rejection(handleOp({ op: "send-test-mail" }, opts));
+    expect(err.message).toContain("unknown");
+    expect(err.message).not.toContain(OPERATOR);
+  });
+});
+
 describe("serveOps（HTTP の入口）", () => {
   function fakeReq(init: { method?: string; auth?: string; body?: unknown }) {
     return {

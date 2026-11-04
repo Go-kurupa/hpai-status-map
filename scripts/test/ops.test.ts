@@ -19,6 +19,12 @@ describe("buildRequest（契約 1.7 の 4 操作）", () => {
     });
   });
 
+  it("send-test-mail（宛先の引数は受け取らない）", () => {
+    expect(buildRequest(["send-test-mail"])).toEqual({ op: "send-test-mail" });
+    expect(() => buildRequest(["send-test-mail", "--to", "a@example.test"])).toThrow();
+    expect(() => buildRequest(["send-test-mail", "a@example.test"])).toThrow();
+  });
+
   it("seed-sources", () => {
     expect(buildRequest(["seed-sources"])).toEqual({ op: "seed-sources" });
   });

@@ -111,8 +111,8 @@ describe("opsAdmin: Bearer なしは入れない", () => {
     expect(out.status).toBe(405);
   });
 
-  it("関数は OPS_TOKEN だけを秘密に持つ", () => {
-    expect(secretKeys(opsAdmin)).toEqual(["OPS_TOKEN"]);
+  it("関数の秘密は OPS_TOKEN と、試しのメール用の GMAIL_APP_PASSWORD だけ", () => {
+    expect(secretKeys(opsAdmin)).toEqual(["GMAIL_APP_PASSWORD", "OPS_TOKEN"]);
   });
 });
 

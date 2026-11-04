@@ -60,6 +60,7 @@ Hosting は `web/dist`。rewrite: `/api/v1/**` → `api`、`/mcp` → `mcp`、`/
 | `seed-sources` | 同梱の `data/sources.json` から足す。既存を上書きしない |
 | `set-setting <キー> <値>` | `usage/settings`。無ければ `DEFAULT_RUNTIME_SETTINGS` で作る |
 | `usage-status`（`{ op: "usage-status" }`。読むだけで何も書かない。`opsAdmin` の Bearer の内側） | 今月（日本時間）の費用と止める線を返す。返す値は `{ ok: true, op: "usage-status", month: "YYYY-MM", estimatedJpy, hardLimitJpy }` の 3 つだけ（Secret も個人情報もない）。`setup-agent.ts --unpause` が、費用が上限以上のときに戻さないために呼ぶ。`scripts/ops.ts` の `fetchUsageStatus` が読む |
+| `send-test-mail`（`{ op: "send-test-mail" }`。引数なし。余計な項目は 400） | 設定の `OPERATOR_EMAIL` にだけ、固定の件名と本文（と送った時刻）の試しのメールを `sendMail` で送る。宛先は引数で受け取らず、応答にも出さない。返す値は `{ ok: true, op: "send-test-mail", sent: true }` か、失敗の code だけ（500、`送れませんでした（EAUTH）` の形）。1 日（日本時間）5 回まで（超えると 429、送らない）。回数は `usage/testMail`（`{ day, count }`）に、送る前に数える。`opsAdmin` の `secrets` に `GMAIL_APP_PASSWORD` を持つ |
 | `probe --permanent <tsv> --entrances <tsv>`、`probe --from-sources` | `probeEntrances` を呼び `docs/reachability.md` を更新 |
 
 ## 2. 型と Firestore

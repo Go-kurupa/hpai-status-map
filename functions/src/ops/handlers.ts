@@ -4,9 +4,13 @@ import path from "node:path";
 import { getAuth } from "firebase-admin/auth";
 import { logger } from "firebase-functions";
 import { z } from "zod";
+import { jstDateOf, toJstIso } from "@hpai/shared/dates";
 import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
 import type { Invite, RuntimeSettings, Source, SourceKind, SourceSeed } from "@hpai/shared/types";
 import { db } from "../admin";
+import { sendMail as sendMailViaGmail } from "../notify/send";
+import type { SendMail } from "../notify/send";
+import { OPERATOR_EMAIL } from "../secrets";
 import { readRuntimeSettings, readUsageMonth, usageMonthKey } from "../usage/settings";
 import { checkBearer } from "./auth";
 
@@ -17,19 +21,21 @@ export type OpRequest =
   | { op: "create-invite"; kind: "signup"; maxUses: number }
   | { op: "seed-sources" }
   | { op: "set-setting"; key: string; value: unknown }
-  | { op: "usage-status" };
+  | { op: "usage-status" }
+  | { op: "send-test-mail" };
 
 export type OpResult =
   | { ok: true; op: "set-claims"; claims: string[] }
   | { ok: true; op: "create-invite"; code: string; maxUses: number }
   | { ok: true; op: "seed-sources"; added: number; skipped: number; total: number }
   | { ok: true; op: "set-setting"; key: string; value: unknown }
-  | { ok: true; op: "usage-status"; month: string; estimatedJpy: number; hardLimitJpy: number };
+  | { ok: true; op: "usage-status"; month: string; estimatedJpy: number; hardLimitJpy: number }
+  | { ok: true; op: "send-test-mail"; sent: true };
 
 /** 呼び出し側に返してよい失敗。message は固定の文で、入力の値を含めない。 */
 export class OpError extends Error {
   constructor(
-    readonly status: 400 | 500,
+    readonly status: 400 | 429 | 500,
     message: string,
   ) {
     super(message);
@@ -52,6 +58,7 @@ const RequestSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("seed-sources") }).strict(),
   z.object({ op: z.literal("set-setting"), key: z.string().min(1).max(100), value: z.unknown() }).strict(),
   z.object({ op: z.literal("usage-status") }).strict(),
+  z.object({ op: z.literal("send-test-mail") }).strict(), // 宛先は受け取らない（設定の OPERATOR_EMAIL だけ）
 ]);
 
 const SourceSeedSchema = z.object({
@@ -72,7 +79,15 @@ function parseRequest(raw: unknown): OpRequest {
   return parsed.data as OpRequest;
 }
 
-export async function handleOp(body: OpRequest, opts: { sourcesPath?: string; now?: () => Date } = {}): Promise<OpResult> {
+/** 試験で差し替える口。本番では何も渡さない。 */
+export interface OpOptions {
+  sourcesPath?: string;
+  now?: () => Date;
+  sendMail?: SendMail;
+  operatorEmail?: () => string;
+}
+
+export async function handleOp(body: OpRequest, opts: OpOptions = {}): Promise<OpResult> {
   const req = parseRequest(body);
   switch (req.op) {
     case "set-claims":
@@ -85,6 +100,8 @@ export async function handleOp(body: OpRequest, opts: { sourcesPath?: string; no
       return setSetting(req);
     case "usage-status":
       return usageStatus((opts.now ?? (() => new Date()))());
+    case "send-test-mail":
+      return sendTestMail(opts);
   }
 }
 
@@ -183,6 +200,39 @@ async function usageStatus(now: Date): Promise<OpResult> {
   return { ok: true, op: "usage-status", month: usageMonthKey(now), estimatedJpy: month.estimatedJpy, hardLimitJpy: settings.hardLimitJpy };
 }
 
+// ── send-test-mail: 運営者に 1 通だけ送る。宛先は OPERATOR_EMAIL 固定。1 日（日本時間）に 5 回まで ──
+
+const TEST_MAIL_DAILY_LIMIT = 5;
+const TEST_MAIL_SUBJECT = "【鳥インフル発生状況マップ】試しの送信";
+
+/** usage/testMail に { day, count } を数える。送る前に数える（失敗した試しも 1 回）。上限なら false。 */
+async function takeTestMailSlot(day: string): Promise<boolean> {
+  const ref = db.collection("usage").doc("testMail");
+  return db.runTransaction(async (tx) => {
+    const data = (await tx.get(ref)).data() as { day?: unknown; count?: unknown } | undefined;
+    const count = data?.day === day && typeof data.count === "number" ? data.count : 0;
+    if (count >= TEST_MAIL_DAILY_LIMIT) return false;
+    tx.set(ref, { day, count: count + 1 });
+    return true;
+  });
+}
+
+async function sendTestMail(opts: OpOptions): Promise<OpResult> {
+  const now = (opts.now ?? (() => new Date()))();
+  if (!(await takeTestMailSlot(jstDateOf(now)))) throw new OpError(429, `試しの送信は 1 日に ${TEST_MAIL_DAILY_LIMIT} 回までです`);
+  try {
+    await (opts.sendMail ?? sendMailViaGmail)((opts.operatorEmail ?? (() => OPERATOR_EMAIL.value()))(), {
+      subject: TEST_MAIL_SUBJECT,
+      text: `これは運営者の確認のための試しの送信です。\n送った時刻: ${toJstIso(now)}\n`,
+    });
+  } catch (e) {
+    // 宛先や原因の文は出さない。code（EAUTH など）だけ。
+    const code = String(errorCode(e) ?? "");
+    throw new OpError(500, `送れませんでした（${/^[A-Za-z0-9_-]{1,40}$/.test(code) ? code : "unknown"}）`);
+  }
+  return { ok: true, op: "send-test-mail", sent: true };
+}
+
 // ── set-setting: usage/settings。無ければ既定値で作る ──
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -222,7 +272,7 @@ export interface OpsRes {
   json(body: unknown): unknown;
 }
 
-export async function serveOps(req: OpsReq, res: OpsRes, expectedToken: string, opts: { sourcesPath?: string; now?: () => Date } = {}): Promise<void> {
+export async function serveOps(req: OpsReq, res: OpsRes, expectedToken: string, opts: OpOptions = {}): Promise<void> {
   if (!checkBearer(req.get("authorization"), expectedToken)) {
     res.status(401).json({ ok: false, error: "認証できません" });
     return;

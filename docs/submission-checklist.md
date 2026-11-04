@@ -109,17 +109,25 @@ claude mcp add --transport http hpai https://<本番の URL>/mcp
 
   1 つ目と 3 つ目は出力がないこと。2 つ目に出たコミットは、例示用のドメインだけかを見て確かめる。
 - [ ] `.claude/settings.json` の hook の登録と、`.gitignore` の守りの設定が、HEAD に入っている（`git show HEAD:.claude/settings.json`、`git show HEAD:.gitignore`）
-- [ ] **履歴の書き換え（push の前に 1 回だけ）。** 公開しない文書（大会の決まりのまとめ `docs/rules.md`）が、最初の commit から履歴に残っている。次の順で行う。
+- [ ] **履歴の書き換え（push の前に 1 回だけ）。** 公開しない文書（大会の決まりのまとめ `docs/rules.md`）が、最初の commit から履歴に残っている。次の順で行う（予行演習の結果を反映）。
   1. 利用者が、公開しない語の一覧（非公開のフォルダの `public-denylist.txt`）を作る。
-  2. 全履歴を、上の鍵の形と、一覧の語の両方で検査する。語の検査は、語ごとに `git log --all -S"<語>" --format='%h'` を回し、commit の短い名前だけを出す（語そのものは出さない）。
-  3. `docs/rules.md` と、2 で見つかったものを、**1 回の書き換え**でまとめて消す。道具は `git filter-repo` を使う（この機械には未導入。`pip install --user git-filter-repo` で入れる）。`git filter-repo --invert-paths --path docs/rules.md`。filter-repo は commit の文の中の hash を自動で直し、古い hash と新しい hash の対応を `.git/filter-repo/commit-map` に残す。
-  4. 書き換えると、すべての commit の hash が変わる。追跡中の文書（`docs/security-review.md` など）の中の hash は、ファイルの中身なので自動では直らない。`commit-map` を使って直し、次の検査で、文書の中の hash がすべて実在することを確かめる（出力がないこと。数字だけの 7 桁は番号なので見ない）:
+  2. **書き換えの前に**、全履歴を、上の鍵の形と、一覧の語の両方で検査する。語の検査は、語ごとに `git log --all -S"<語>" --format='%h'` を回し、commit の短い名前だけを出す（語そのものは出さない）。書き換えの後では、消えた語が見つからないだけで、検査にならない。
+  3. バックアップを取る: `git clone --mirror <このフォルダ> <別の場所>/backup.git`。書き換えは戻せないので、取ってから進む。
+  4. 作業ツリーがきれいであること（`git status` に何も出ない）と、もう一方のセッションが止まっていることを確かめる。**filter-repo は全 branch を書き換える**（`main` 以外の branch の hash も変わる）。
+  5. filter-repo を入れる。`pip install --user` は PEP 668 で拒否される。専用の venv に入れる: `python3 -m venv <場所> && <場所>/bin/pip install git-filter-repo`。以後は `<場所>/bin/git-filter-repo` で呼ぶ。
+  6. `docs/rules.md` と、2 で見つかったものを、**1 回の書き換え**でまとめて消す: `<場所>/bin/git-filter-repo --invert-paths --path docs/rules.md`（見つかったものが他にもあれば `--path` を足す）。写し（clone）で行うなら `--force` が要る。filter-repo は commit の文の中の hash を自動で直し、古い hash と新しい hash の対応を `.git/filter-repo/commit-map` に残す。
+  7. 書き換えると、すべての commit の hash が変わる。追跡中の文書（`docs/security-review.md` など）の中の hash は、ファイルの中身なので自動では直らない。**台本で直す**: `bash scripts/remap-hashes.sh <書き換え後のリポジトリ>`（`commit-map` を使い、`README.md` と `docs/` のバッククォート囲みの 7 桁 hash を新しい hash に置き換える。対応が 1 つに決まらないものは「要確認」と出して触らない）。そのあと、次の検査で、文書の中の hash がすべて実在することを確かめる（出力がないこと。数字だけの 7 桁は番号なので見ない）:
 
      ```
      grep -rhoE '`[0-9a-f]{7}`' README.md docs | tr -d '`' | grep '[a-f]' | sort -u | while read h; do git cat-file -e "$h^{commit}" 2>/dev/null || echo "missing $h"; done
      ```
-  5. 1 と 2 の検査、`--all-tracked`、試験をもう一度回す。
-  6. `main` を強制的に上書きして push する（`git push --force-with-lease`）。
+  8. 再検査: 1 と 2 の検査、`--all-tracked`、試験をもう一度回す。加えて、次が **0** であること（履歴のどこにも `docs/rules.md` が残っていない）:
+
+     ```
+     git log --all --name-only --format= | grep -c "docs/rules.md"
+     ```
+  9. push の前に、filter-repo が外した origin を付け直す（写しで行った場合）: `git remote add origin <URL>`。
+  10. `main` を強制的に上書きして push する。`--force-with-lease` は、**`git fetch origin` の後**に使う（取っていないと、手元が持つ origin の情報が古く、検査が空振りか誤判定になる）。fetch しないなら、旧 `origin/main` の hash を明示する: `git push --force-with-lease=main:<旧 origin/main の hash> origin main`。旧 hash は、書き換えの前に `git rev-parse origin/main` で控えておく。
   - **もう一方のアカウントとの段取り:** 同じフォルダと同じ `.git` を使っている。書き換えの間は、もう一方のセッションを止めておく。書き換えの後は、作業ツリーに書きかけがないことを確かめてから再開する。
 - [x] `CLAUDE.md` は「Codex は使わない」の行だけを公開し、参加者ガイドの写しは公開しない（2026-11-04 利用者の決定）
 - [ ] 利用者の確認のあとに push し、リポジトリを公開にする
