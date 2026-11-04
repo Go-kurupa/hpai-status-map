@@ -416,6 +416,12 @@ const SHELLS = new Set(["bash", "sh", "zsh", "dash", "eval"]);
 // commit するかを変えうるので、読み違えないよう止める
 const SAFE_GLOBAL = new Set(["--no-pager", "-P", "-p", "--paginate", "--no-optional-locks", "--literal-pathspecs", "--no-replace-objects"]);
 
+// --al や --upd のような長い指定の省略形。min は省略を認める最短の長さ
+function isAbbrevOf(a, full, min) {
+  const name = a.split("=")[0];
+  return name.length >= min && full.startsWith(name);
+}
+
 function insideProject(dir, project) {
   if (!project) return false;
   const rel = path.relative(project, dir);
@@ -494,6 +500,10 @@ function analyze(cmd, state, found, depth) {
         dir = path.resolve(dir, toks[j + 1]);
         j += 2;
       } else if (t === "-c" && toks[j + 1] !== undefined) {
+        // -c は別名や読み込む設定を書き換えられるので、commit と add では止める
+        odd.push("git_config_override");
+        // その場で作った別名（-c alias.ci=commit）は、後ろの名前が何でも止める
+        if (/^(alias|include|includeif)\./i.test(toks[j + 1])) found.flags.add("git_config_override");
         j += 2;
       } else if (SAFE_GLOBAL.has(t)) {
         j++;
@@ -504,23 +514,36 @@ function analyze(cmd, state, found, depth) {
     }
     let sub = toks[j];
     let args = toks.slice(j + 1);
-    if (sub !== "commit" && sub !== "add" && sub !== "stage") {
+    // 別名は別名を指せるので、数段までたどる。読み切れない形は、commit か add を含めば止める
+    let aliasText = "";
+    let shellAlias = false;
+    for (let d = 0; d < 5 && sub !== "commit" && sub !== "add" && sub !== "stage"; d++) {
       const al = aliasOf(dir, sub, state.project);
-      if (al && al.startsWith("!")) {
-        // シェルの別名は中身を読み切れないので、commit か add を含めば止める
-        if (/\b(commit|add|stage)\b/.test(al)) found.flags.add("git_alias_shell");
-        continue;
+      if (!al) break;
+      aliasText += ` ${al}`;
+      if (al.startsWith("!")) {
+        shellAlias = true;
+        break;
       }
-      if (al) {
-        const at = splitCommands(al)[0] || [];
-        sub = at[0];
-        args = [...at.slice(1), ...args];
-      }
+      const at = splitCommands(al)[0] || [];
+      if (at.length && at[0].startsWith("-")) odd.push("git_alias_option");
+      sub = at[0];
+      args = [...at.slice(1), ...args];
     }
-    if (sub !== "commit" && sub !== "add" && sub !== "stage") continue;
+    const touches = /\b(commit|add|stage)\b/.test(aliasText);
+    if (shellAlias) {
+      if (touches) found.flags.add("git_alias_shell");
+      continue;
+    }
+    if (sub !== "commit" && sub !== "add" && sub !== "stage") {
+      if (touches) found.flags.add("git_alias_unresolved");
+      continue;
+    }
     for (const f of odd) found.flags.add(f);
     // パスの一覧をファイルから読む指定は、中身を読み切れないので止める
-    if (args.some((a) => a === "--pathspec-from-file" || a.startsWith("--pathspec-from-file="))) found.flags.add("pathspec_from_file");
+    // git は長い指定の省略形（--pathspec-fr など）も受け付けるので、--pathspec で始まる指定は
+    // --pathspec-file-nul のほかは止める
+    if (args.some((a) => a.startsWith("--pathspec") && a !== "--pathspec-file-nul")) found.flags.add("pathspec_from_file");
     if (sub === "commit") {
       const c = parseCommit(args);
       found.commits.push({ dir, ...c });
@@ -531,7 +554,8 @@ function analyze(cmd, state, found, depth) {
       let endOpts = false;
       for (const a of args) {
         if (!endOpts && a === "--") endOpts = true;
-        else if (!endOpts && (a === "--all" || a === "--update")) all = true;
+        else if (!endOpts && isAbbrevOf(a, "--all", 4)) all = true;
+        else if (!endOpts && isAbbrevOf(a, "--update", 4)) all = true;
         else if (!endOpts && a === "--force") force = true;
         else if (!endOpts && a.startsWith("--")) continue;
         else if (!endOpts && a.startsWith("-") && a.length > 1) {
@@ -607,6 +631,8 @@ function main() {
   const found = { commits: [], adds: [], flags: new Set() };
   analyze(command, { cwd: base, project }, found, 0);
   if (!found.commits.length && !found.flags.size) return;
+  // export GIT_DIR=… のように、git の前の代入以外でも索引と作業ツリーは変えられる
+  if (/\bGIT_(DIR|INDEX_FILE|WORK_TREE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|COMMON_DIR|NAMESPACE|CONFIG\w*)\b/.test(command)) found.flags.add("git_env");
   armed = true;
   for (const f of found.flags) add("(command)", 0, f);
 

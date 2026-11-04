@@ -444,6 +444,13 @@ describe("読めない指定は止める（fail-closed）", () => {
     ["git --work-tree . commit -m x", "git_global_option"],
     ["GIT_INDEX_FILE=/tmp/i git commit -m x", "git_env"],
     ["env GIT_DIR=.git git commit -m x", "git_env"],
+    ["export GIT_INDEX_FILE=/tmp/i; git commit -m x", "git_env"],
+    ["git -c alias.ci=commit ci -m x", "git_config_override"],
+    ["git -c core.worktree=/tmp commit -m x", "git_config_override"],
+    ["git add --pathspec-fr=list.txt && git commit -m x", "pathspec_from_file"],
+    ["git commit --pathspec-from list.txt -m x", "pathspec_from_file"],
+    ["git add --al && git commit -m x", "git_add_all"],
+    ["git add --upd && git commit -m x", "git_add_all"],
   ];
   for (const [cmd, name] of BAD) {
     it(`止める: ${cmd}`, () => {
@@ -481,6 +488,20 @@ describe("読めない指定は止める（fail-closed）", () => {
     expect(r.stderr).toContain("k.txt:1:anthropic_key");
     git(["config", "alias.save", "!git add -A && git commit"]);
     expect(runHook("git save -m x && git commit -m y").stderr).toMatch(/git_alias_shell/);
+  });
+
+  it("別名を指す別名もたどる。指定で始まる別名と、たどり切れない別名は止める", () => {
+    stage({ "k.txt": `${ANTHROPIC_KEY}\n` });
+    git(["config", "alias.c1", "c2 -v"]);
+    git(["config", "alias.c2", "commit"]);
+    const r = runHook("git c1 -m x");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("k.txt:1:anthropic_key");
+    git(["config", "alias.wt", "--work-tree=/tmp commit"]);
+    expect(runHook("git wt -m x").stderr).toMatch(/git_alias_(option|unresolved)/);
+    git(["config", "alias.loop1", "loop2 commit"]);
+    git(["config", "alias.loop2", "loop1"]);
+    expect(runHook("git loop1 -m x").stderr).toMatch(/git_alias_unresolved/);
   });
 });
 
