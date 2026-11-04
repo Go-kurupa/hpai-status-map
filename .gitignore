@@ -43,6 +43,7 @@ web/public/history/
 web/public/replay/
 web/public/evals/
 web/public/trends/
+web/public/migration/
 .firebase/
 .secret.local
 web/test-results/

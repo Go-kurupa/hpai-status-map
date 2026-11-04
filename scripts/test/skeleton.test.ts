@@ -91,6 +91,7 @@ describe("ルートの設定", () => {
       "web/public/replay/",
       "web/public/evals/",
       "web/public/trends/",
+      "web/public/migration/",
       ".firebase/",
       ".secret.local",
     ]) {
@@ -328,6 +329,14 @@ describe("copyWebData", () => {
     expect(fs.existsSync(path.join(tmp, "web/public/trends/other.json"))).toBe(false);
     expect(fs.existsSync(path.join(tmp, "web/public/history/other.json"))).toBe(false);
     expect(fs.existsSync(path.join(tmp, "web/public/private"))).toBe(false);
+  });
+
+  it("渡り鳥の集計（data/migration/summary.json だけ）を web/public/migration/ へコピーする", () => {
+    write("data/migration/summary.json", "8");
+    write("data/migration/other.json", "9");
+    copyWebData(tmp);
+    expect(fs.readFileSync(path.join(tmp, "web/public/migration/summary.json"), "utf8")).toBe("8");
+    expect(fs.existsSync(path.join(tmp, "web/public/migration/other.json"))).toBe(false);
   });
 
   it("古いコピー先を残さず置き換える", () => {

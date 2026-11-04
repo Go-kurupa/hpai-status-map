@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import TrendsPage from "./TrendsPage";
+import type { MigrationSummary } from "./migrationTypes";
 import { parseTrendSummary, type TrendSummary } from "./types";
 
 afterEach(() => {
@@ -27,11 +28,22 @@ const SUMMARY: TrendSummary = {
   sourceUrls: ["https://www.maff.go.jp/j/syouan/douei/tori/r7_hpai_kokunai.html"],
 };
 
+// 渡り鳥の枠は別のファイルを読む。この画面の試験では、形の正しい作り物を返して、現地調査の集計の試験と混ざらないようにする
+const MIGRATION: MigrationSummary = {
+  generatedAt: "2026-11-04T18:30:00+09:00",
+  currentSeason: 2026,
+  baselineSeasons: [2021, 2022, 2023, 2024, 2025],
+  sourceUrl: "https://www.env.go.jp/nature/dobutsu/bird_flu/migratory/index.html",
+  sites: [],
+  arrivals: [],
+};
+
 type Reply = unknown | "missing" | "html" | "error";
 function stub(r: Reply) {
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string) => {
+      if (String(url).endsWith("migration/summary.json")) return Promise.resolve(new Response(JSON.stringify(MIGRATION), { status: 200, headers: { "content-type": "application/json" } }));
       if (!String(url).endsWith("trends/summary.json")) return Promise.reject(new Error(`想定しない通信: ${url}`));
       if (r === "missing") return Promise.resolve(new Response("", { status: 404 }));
       if (r === "html") return Promise.resolve(new Response("<!doctype html><html></html>", { status: 200, headers: { "content-type": "text/html" } }));

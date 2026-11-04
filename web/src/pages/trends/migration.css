@@ -1,0 +1,35 @@
+/* 渡り鳥の飛来（季節の参考）。平面の単色。表は使わず、地点ごとの縦の並びにして幅 360px でも横にはみ出さない */
+.migration {
+  max-width: 44rem;
+  margin-top: 32px;
+  padding-top: 8px;
+  border-top: 2px solid var(--line);
+}
+.migration-notes {
+  margin: 0 0 16px;
+  padding: 10px 12px 10px 28px;
+  border: 2px solid var(--fg);
+}
+.migration-notes li {
+  margin: 0 0 4px;
+}
+.migration-sub {
+  margin-top: 20px;
+  font-size: 1.1rem;
+}
+.migration-list {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.migration-site {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.migration-site h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+.migration-site p {
+  margin: 0 0 4px;
+}

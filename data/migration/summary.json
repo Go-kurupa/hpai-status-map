@@ -1,0 +1,891 @@
+{
+  "generatedAt": "2026-11-04T18:46:16+09:00",
+  "currentSeason": 2026,
+  "baselineSeasons": [
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "sourceUrl": "https://www.env.go.jp/nature/dobutsu/bird_flu/migratory/index.html",
+  "sites": [
+    {
+      "id": 10,
+      "name": "クッチャロ湖",
+      "latestDate": "2026-09-29",
+      "latestTotal": 0,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 4,
+        "median": 109,
+        "min": 7,
+        "max": 401,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-09-28",
+            "total": 7
+          },
+          {
+            "season": 2022,
+            "date": "2022-09-30",
+            "total": 25
+          },
+          {
+            "season": 2024,
+            "date": "2024-09-30",
+            "total": 401
+          },
+          {
+            "season": 2025,
+            "date": "2025-09-29",
+            "total": 192
+          }
+        ]
+      }
+    },
+    {
+      "id": 20,
+      "name": "宮島沼",
+      "latestDate": "2026-10-15",
+      "latestTotal": 1809,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 7535,
+        "min": 1726,
+        "max": 13581,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-16",
+            "total": 4195
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-13",
+            "total": 13581
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-18",
+            "total": 1726
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-17",
+            "total": 9647
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-15",
+            "total": 7535
+          }
+        ]
+      }
+    },
+    {
+      "id": 30,
+      "name": "ウトナイ湖",
+      "latestDate": "2026-10-13",
+      "latestTotal": 782,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 1175,
+        "min": 75,
+        "max": 12260,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-14",
+            "total": 1175
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-15",
+            "total": 2270
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-12",
+            "total": 12260
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-15",
+            "total": 75
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-10",
+            "total": 537
+          }
+        ]
+      }
+    },
+    {
+      "id": 40,
+      "name": "濤沸湖",
+      "latestDate": "2026-10-15",
+      "latestTotal": 43,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 304,
+        "min": 28,
+        "max": 1031,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-14",
+            "total": 1031
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-19",
+            "total": 304
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-15",
+            "total": 95
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-13",
+            "total": 506
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-16",
+            "total": 28
+          }
+        ]
+      }
+    },
+    {
+      "id": 50,
+      "name": "野付半島・野付湾",
+      "latestDate": "2026-10-14",
+      "latestTotal": 6893,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 958,
+        "min": 70,
+        "max": 2359,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-14",
+            "total": 733
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-12",
+            "total": 958
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-15",
+            "total": 2359
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-18",
+            "total": 70
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-19",
+            "total": 1142
+          }
+        ]
+      }
+    },
+    {
+      "id": 65,
+      "name": "厚岸・別寒辺牛・霧多布(別寒辺牛川下流・厚岸湖)",
+      "latestDate": "2026-10-13",
+      "latestTotal": 90,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 105,
+        "min": 42,
+        "max": 2322,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-07",
+            "total": 2322
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-15",
+            "total": 1764
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-16",
+            "total": 90
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-16",
+            "total": 105
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-15",
+            "total": 42
+          }
+        ]
+      }
+    },
+    {
+      "id": 66,
+      "name": "厚岸・別寒辺牛・霧多布(琵琶瀬川下流)",
+      "latestDate": "2026-10-15",
+      "latestTotal": 2821,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 1063,
+        "min": 121,
+        "max": 3572,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-13",
+            "total": 121
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-14",
+            "total": 1063
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-16",
+            "total": 2675
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-15",
+            "total": 3572
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-16",
+            "total": 551
+          }
+        ]
+      }
+    },
+    {
+      "id": 75,
+      "name": "風蓮湖(根室市側)",
+      "latestDate": "2026-10-15",
+      "latestTotal": 703,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 261,
+        "min": 195,
+        "max": 1021,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-17",
+            "total": 1001
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-15",
+            "total": 1021
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-15",
+            "total": 236
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-12",
+            "total": 195
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-13",
+            "total": 261
+          }
+        ]
+      }
+    },
+    {
+      "id": 80,
+      "name": "小湊",
+      "latestDate": "2026-10-20",
+      "latestTotal": 94,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 261,
+        "min": 85,
+        "max": 702,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-26",
+            "total": 702
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-18",
+            "total": 496
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-17",
+            "total": 111
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-22",
+            "total": 85
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-21",
+            "total": 261
+          }
+        ]
+      }
+    },
+    {
+      "id": 100,
+      "name": "大潟草原",
+      "latestDate": "2026-10-15",
+      "latestTotal": 457,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 293,
+        "min": 100,
+        "max": 1502,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-14",
+            "total": 330
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-14",
+            "total": 293
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-15",
+            "total": 209
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-15",
+            "total": 100
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-14",
+            "total": 1502
+          }
+        ]
+      }
+    },
+    {
+      "id": 110,
+      "name": "伊豆沼",
+      "latestDate": "2026-10-14",
+      "latestTotal": 41860,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 36459,
+        "min": 12801,
+        "max": 63962,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-13",
+            "total": 12801
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-12",
+            "total": 26124
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-11",
+            "total": 36459
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-14",
+            "total": 49778
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-15",
+            "total": 63962
+          }
+        ]
+      }
+    },
+    {
+      "id": 125,
+      "name": "大山上池・下池",
+      "latestDate": "2026-10-12",
+      "latestTotal": 5211,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 12481,
+        "min": 4141,
+        "max": 23915,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-13",
+            "total": 12481
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-12",
+            "total": 11957
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-11",
+            "total": 23915
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-11",
+            "total": 4141
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-14",
+            "total": 13488
+          }
+        ]
+      }
+    },
+    {
+      "id": 140,
+      "name": "片野鴨池",
+      "latestDate": "2026-09-26",
+      "latestTotal": 94,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 119,
+        "min": 106,
+        "max": 807,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-09-29",
+            "total": 160
+          },
+          {
+            "season": 2022,
+            "date": "2022-09-25",
+            "total": 807
+          },
+          {
+            "season": 2023,
+            "date": "2023-09-25",
+            "total": 115
+          },
+          {
+            "season": 2024,
+            "date": "2024-09-25",
+            "total": 119
+          },
+          {
+            "season": 2025,
+            "date": "2025-09-24",
+            "total": 106
+          }
+        ]
+      }
+    },
+    {
+      "id": 150,
+      "name": "佐潟",
+      "latestDate": "2026-10-16",
+      "latestTotal": 1879,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 3155,
+        "min": 627,
+        "max": 5192,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-15",
+            "total": 3828
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-14",
+            "total": 5192
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-13",
+            "total": 627
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-11",
+            "total": 1916
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-17",
+            "total": 3155
+          }
+        ]
+      }
+    },
+    {
+      "id": 160,
+      "name": "藤前干潟",
+      "latestDate": "2026-09-29",
+      "latestTotal": 890,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 1372,
+        "min": 1006,
+        "max": 2349,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-04",
+            "total": 1372
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-05",
+            "total": 2349
+          },
+          {
+            "season": 2023,
+            "date": "2023-09-27",
+            "total": 1212
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-01",
+            "total": 1565
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-01",
+            "total": 1006
+          }
+        ]
+      }
+    },
+    {
+      "id": 170,
+      "name": "浜甲子園",
+      "latestDate": "2026-10-14",
+      "latestTotal": 83,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 133,
+        "min": 91,
+        "max": 188,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-15",
+            "total": 100
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-17",
+            "total": 188
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-14",
+            "total": 91
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-16",
+            "total": 133
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-15",
+            "total": 140
+          }
+        ]
+      }
+    },
+    {
+      "id": 190,
+      "name": "宍道湖",
+      "latestDate": "2026-10-02",
+      "latestTotal": 326,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 111,
+        "min": 10,
+        "max": 740,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-09-29",
+            "total": 740
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-06",
+            "total": 111
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-05",
+            "total": 55
+          },
+          {
+            "season": 2024,
+            "date": "2024-09-26",
+            "total": 225
+          },
+          {
+            "season": 2025,
+            "date": "2025-09-25",
+            "total": 10
+          }
+        ]
+      }
+    },
+    {
+      "id": 1091,
+      "name": "倉敷市岡田大池",
+      "latestDate": "2026-10-20",
+      "latestTotal": 142,
+      "fetchedAt": "2026-11-04",
+      "baseline": {
+        "n": 5,
+        "median": 245,
+        "min": 184,
+        "max": 291,
+        "seasons": [
+          {
+            "season": 2021,
+            "date": "2021-10-19",
+            "total": 291
+          },
+          {
+            "season": 2022,
+            "date": "2022-10-25",
+            "total": 184
+          },
+          {
+            "season": 2023,
+            "date": "2023-10-24",
+            "total": 245
+          },
+          {
+            "season": 2024,
+            "date": "2024-10-27",
+            "total": 215
+          },
+          {
+            "season": 2025,
+            "date": "2025-10-21",
+            "total": 283
+          }
+        ]
+      }
+    }
+  ],
+  "arrivals": [
+    {
+      "siteId": 20,
+      "siteName": "宮島沼",
+      "species": "マガン",
+      "threshold": 1000,
+      "currentDate": "2026-09-26",
+      "latestSurveyDate": "2026-10-15",
+      "past": [
+        {
+          "season": 2020,
+          "date": "2020-09-24",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2021,
+          "date": "2021-09-17",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2022,
+          "date": "2022-09-24",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2023,
+          "date": "2023-09-28",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2024,
+          "date": "2024-09-26",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2025,
+          "date": "2025-09-26",
+          "atFirstSurvey": false
+        }
+      ]
+    },
+    {
+      "siteId": 110,
+      "siteName": "伊豆沼",
+      "species": "マガン",
+      "threshold": 1000,
+      "currentDate": "2026-09-30",
+      "latestSurveyDate": "2026-10-14",
+      "past": [
+        {
+          "season": 2020,
+          "date": "2020-09-29",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2021,
+          "date": "2021-09-22",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2022,
+          "date": "2022-09-25",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2023,
+          "date": "2023-10-04",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2024,
+          "date": "2024-09-29",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2025,
+          "date": "2025-10-02",
+          "atFirstSurvey": false
+        }
+      ]
+    },
+    {
+      "siteId": 110,
+      "siteName": "伊豆沼",
+      "species": "オオハクチョウ",
+      "threshold": 100,
+      "currentDate": null,
+      "latestSurveyDate": "2026-10-14",
+      "past": [
+        {
+          "season": 2020,
+          "date": "2020-10-28",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2021,
+          "date": "2021-10-24",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2022,
+          "date": "2022-10-24",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2023,
+          "date": "2023-10-21",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2024,
+          "date": "2024-10-28",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2025,
+          "date": "2025-10-15",
+          "atFirstSurvey": false
+        }
+      ]
+    },
+    {
+      "siteId": 1091,
+      "siteName": "倉敷市岡田大池",
+      "species": "ヒドリガモ",
+      "threshold": 100,
+      "currentDate": "2026-10-20",
+      "latestSurveyDate": "2026-10-20",
+      "past": [
+        {
+          "season": 2020,
+          "date": "2020-10-20",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2021,
+          "date": "2021-10-19",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2022,
+          "date": "2022-11-08",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2023,
+          "date": "2023-10-10",
+          "atFirstSurvey": true
+        },
+        {
+          "season": 2024,
+          "date": "2024-10-27",
+          "atFirstSurvey": false
+        },
+        {
+          "season": 2025,
+          "date": "2025-10-21",
+          "atFirstSurvey": false
+        }
+      ]
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 // 事例や市町村と結びつけない【決定】。集計がまだなければ「準備中です」のまま。
 import { useEffect, useState } from "react";
 import { Placeholder } from "../../ui/Placeholder";
+import MigrationSection from "./MigrationSection";
 import { parseTrendSummary, type TrendSummary } from "./types";
 
 type Load = { s: "loading" } | { s: "none" } | { s: "failed" } | { s: "ready"; v: TrendSummary };
@@ -50,12 +51,20 @@ export default function TrendsPage() {
   }, []);
 
   if (state.s === "loading") return <p role="status">全国の傾向を読み込んでいます</p>;
-  if (state.s === "none") return <Placeholder title="全国の傾向" />;
+  // 渡り鳥の枠は別のファイルを読む。現地調査の集計が無くても、枠だけは出す
+  if (state.s === "none")
+    return (
+      <div>
+        <Placeholder title="全国の傾向" />
+        <MigrationSection />
+      </div>
+    );
   if (state.s === "failed")
     return (
       <div>
         <h1>全国の傾向</h1>
         <p role="alert">集計を読み込めませんでした。時間をおいて開き直してください。</p>
+        <MigrationSection />
       </div>
     );
 
@@ -104,6 +113,8 @@ export default function TrendsPage() {
           </li>
         ))}
       </ul>
+
+      <MigrationSection />
     </div>
   );
 }
