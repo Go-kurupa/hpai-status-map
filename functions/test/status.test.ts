@@ -47,8 +47,29 @@ describe("computeWatchStatuses", () => {
     expect(s).toMatchObject({ ok: false, checkedAt: null });
     expect(one([], "34")).toMatchObject({ ok: false, checkedAt: null });
   });
-  it("まだ一度も確認していない入口があれば ok ではない", () => {
-    expect(one([src("a", "33"), src("b", "33", { lastCheckedAt: null, lastOkAt: null })], "33").ok).toBe(false);
+  describe("まだ回っていない入口（lastCheckedAt:null かつ failureCount:0）は判定から外す", () => {
+    const unchecked = (id: string) => src(id, "33", { lastCheckedAt: null, lastOkAt: null });
+    it("3 組にまたがる県で、1 組だけ回って成功なら ok:true（回っていない入口は数えない）", () => {
+      const s = one([src("a", "33", { group: 0, lastCheckedAt: iso(10) }), unchecked("b"), unchecked("c")], "33");
+      expect(s).toEqual({ prefCode: "33", ok: true, checkedAt: "2026-11-05T11:50:00+09:00", lastOkAt: "2026-11-05T11:50:00+09:00", failingSince: null });
+    });
+    it("1 組が失敗なら ok:false で failingSince がある（回っていない入口があっても）", () => {
+      const s = one([src("a", "33", { group: 0, failureCount: 1 }), unchecked("b"), unchecked("c")], "33");
+      expect(s.ok).toBe(false);
+      expect(s.failingSince).toBe("2026-11-05T12:00:00+09:00");
+    });
+    it("成功した入口と失敗した入口が混ざれば ok:false", () => {
+      expect(one([src("a", "33"), src("b", "33", { failureCount: 2 }), unchecked("c")], "33").ok).toBe(false);
+    });
+    it("全部未確認なら ok:false、checkedAt:null、failingSince:null（前の failingSince も引き継がない）", () => {
+      const prev: WatchStatus = { prefCode: "33", ok: false, checkedAt: null, lastOkAt: null, failingSince: iso(600) };
+      expect(one([unchecked("a"), unchecked("b"), unchecked("c")], "33")).toEqual({ prefCode: "33", ok: false, checkedAt: null, lastOkAt: null, failingSince: null });
+      expect(one([unchecked("a")], "33", [prev]).failingSince).toBeNull();
+    });
+    it("未確認だけの県は 24 時間たっても警告しない", () => {
+      const s = one([unchecked("a")], "33");
+      expect(shouldAlertFailing(s, new Date(NOW.getTime() + 48 * 3_600_000))).toBe(false);
+    });
   });
   it("国の入口（prefCode null）は県に数えない", () => {
     const list = [src("m", null, { failureCount: 5 }), src("a", "33")];

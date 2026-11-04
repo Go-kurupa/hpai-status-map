@@ -77,6 +77,13 @@ describe("runTick: 3 時間で全部を 1 回ずつ", () => {
       expect(seen, `${hour} 時`).toEqual(expected);
     }
   });
+  it("group を渡せば、時刻に関係なくその組だけを回る（run-watch-now）", async () => {
+    const seen: string[] = [];
+    const handlers: Handlers = { maff_press: async (s) => (seen.push(s.id), okResult()) };
+    const report = await runTick(deps(noFetch, at(0)), makeIo(sources).io, handlers, 2);
+    expect(seen).toEqual(["a2"]);
+    expect(report.group).toBe(2);
+  });
   it("0〜2 時の 3 回で、有効な入口がちょうど 1 回ずつ", async () => {
     const seen: string[] = [];
     const handlers: Handlers = { maff_press: async (s) => (seen.push(s.id), okResult()) };

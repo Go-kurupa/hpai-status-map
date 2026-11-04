@@ -6,6 +6,7 @@
 //   npx tsx scripts/ops.ts set-setting <キー> <値>
 //   npx tsx scripts/ops.ts watch-detail   # 入口ごとの確認の状態（読むだけ。ホスト名まで）
 //   npx tsx scripts/ops.ts send-test-mail   # 運営者（OPERATOR_EMAIL）にだけ試しのメールを送る。1 日 5 回まで
+//   npx tsx scripts/ops.ts run-watch-now [--group 0|1|2]   # 見回りを今すぐ回す（既定は 3 組すべて。数分かかる。1 日 3 回まで）
 //   npx tsx scripts/ops.ts probe --permanent <tsv> --entrances <tsv>   # 全入口への到達試験（docs/reachability.md を更新）
 //   npx tsx scripts/ops.ts probe --from-sources
 //
@@ -28,6 +29,7 @@ const USAGE = `使い方:
   ops.ts set-setting <キー> <値>
   ops.ts watch-detail
   ops.ts send-test-mail
+  ops.ts run-watch-now [--group 0|1|2]
   ops.ts probe --permanent <tsv> --entrances <tsv>
   ops.ts probe --from-sources`;
 
@@ -78,6 +80,12 @@ export function buildRequest(argv: string[]): OpRequest {
     case "send-test-mail": {
       parseArgs({ args: rest, options: {}, strict: true }); // 宛先は受け取らない
       return { op: "send-test-mail" };
+    }
+    case "run-watch-now": {
+      const { values } = parseArgs({ args: rest, options: { group: { type: "string" } }, strict: true });
+      if (values.group === undefined) return { op: "run-watch-now" };
+      if (values.group !== "0" && values.group !== "1" && values.group !== "2") throw new Error("--group は 0、1、2 のどれかです");
+      return { op: "run-watch-now", group: Number(values.group) as 0 | 1 | 2 };
     }
     default:
       throw new Error(cmd ? `知らない操作です: ${cmd}` : "操作を指定してください");

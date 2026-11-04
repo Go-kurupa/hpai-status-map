@@ -25,6 +25,14 @@ describe("buildRequest（契約 1.7 の 4 操作）", () => {
     expect(() => buildRequest(["send-test-mail", "a@example.test"])).toThrow();
   });
 
+  it("run-watch-now（組は 0〜2 だけ。なければ全部）", () => {
+    expect(buildRequest(["run-watch-now"])).toEqual({ op: "run-watch-now" });
+    expect(buildRequest(["run-watch-now", "--group", "2"])).toEqual({ op: "run-watch-now", group: 2 });
+    expect(() => buildRequest(["run-watch-now", "--group", "3"])).toThrow();
+    expect(() => buildRequest(["run-watch-now", "--group", "x"])).toThrow();
+    expect(() => buildRequest(["run-watch-now", "extra"])).toThrow();
+  });
+
   it("watch-detail（引数なし）", () => {
     expect(buildRequest(["watch-detail"])).toEqual({ op: "watch-detail" });
     expect(() => buildRequest(["watch-detail", "--pref", "13"])).toThrow();

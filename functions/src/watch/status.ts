@@ -19,25 +19,31 @@ function validTime(s: string | null | undefined, now: Date): number | null {
 
 /**
  * 47 件の確認状況。
- * ok は、有効な入口がすべて「確認済み（時刻が正しく、failureCount が 0）」のときだけ。
- * checkedAt は ok なら入口の確認のうちいちばん古い時刻（いちばん古い入口が新鮮さを決める）、ok でなければ最新の確認の時刻（なければ null）。
- * failingSince は失敗の最初の時刻を保ち（前の状態から）、ok で null に戻る。
+ * まだ回っていない入口（lastCheckedAt が null で failureCount が 0）は、判定から外す（入口は 3 組で 1 時間に 1 組ずつ回るので、初回は未確認が残る）。
+ * 確かめた入口のうち、成功は「failureCount が 0 で、時刻が正しい」もの。それ以外（失敗が続いている、時刻が壊れている・未来）は失敗。
+ * ok は、確かめた入口が 1 つ以上あり、確かめた入口がすべて成功のときだけ。
+ * checkedAt は ok なら成功した入口のうちいちばん古い時刻（いちばん古い入口が新鮮さを決める）、ok でなければ最新の確認の時刻（なければ null）。
+ * failingSince は、確かめて失敗した入口があるときだけ立て、最初の時刻を保つ（前の状態から）。ok や、確かめた入口がないときは null。
  */
 export function computeWatchStatuses(sources: readonly Source[], prev: readonly WatchStatus[], now: Date): WatchStatus[] {
   const prevBy = new Map(prev.map((p) => [p.prefCode, p]));
   return PREFS.map(({ code }): WatchStatus => {
-    const mine = sources.filter((s) => s.enabled && s.prefCode === code);
-    const times = mine.map((s) => (s.failureCount === 0 ? validTime(s.lastCheckedAt, now) : null));
-    const ok = mine.length > 0 && times.every((t) => t !== null);
-    const checked = mine.map((s) => validTime(s.lastCheckedAt, now)).filter((t): t is number => t !== null);
-
     const before = prevBy.get(code);
-    if (ok) {
-      const at = toJstIso(new Date(Math.min(...(times as number[]))));
-      return { prefCode: code, ok: true, checkedAt: at, lastOkAt: at, failingSince: null };
-    }
     // 前の時刻は、読めて未来でないときだけそのまま引き継ぐ（文字列は変えない）
     const keep = (v: string | null | undefined): string | null => (validTime(v, now) === null ? null : (v as string));
+    const confirmed = sources.filter((s) => s.enabled && s.prefCode === code && !(s.failureCount === 0 && s.lastCheckedAt === null));
+    const okTimes = confirmed.map((s) => (s.failureCount === 0 ? validTime(s.lastCheckedAt, now) : null));
+    const succeeded = okTimes.filter((t): t is number => t !== null);
+    const failed = confirmed.length - succeeded.length;
+
+    if (confirmed.length === 0) {
+      return { prefCode: code, ok: false, checkedAt: null, lastOkAt: keep(before?.lastOkAt), failingSince: null };
+    }
+    if (failed === 0) {
+      const at = toJstIso(new Date(Math.min(...succeeded)));
+      return { prefCode: code, ok: true, checkedAt: at, lastOkAt: at, failingSince: null };
+    }
+    const checked = confirmed.map((s) => validTime(s.lastCheckedAt, now)).filter((t): t is number => t !== null);
     return {
       prefCode: code,
       ok: false,

@@ -51,8 +51,9 @@ export class TickAbortedError extends Error {
   }
 }
 
-export async function runTick(deps: WatchDeps, io: TickIo, handlers: Handlers): Promise<TickReport> {
-  const group = (jstHour(deps.now()) % 3) as 0 | 1 | 2;
+/** group を渡さなければ、JST の時 % 3 の group を回る（定期実行）。渡せばその group を回る（run-watch-now）。 */
+export async function runTick(deps: WatchDeps, io: TickIo, handlers: Handlers, only?: 0 | 1 | 2): Promise<TickReport> {
+  const group = only ?? ((jstHour(deps.now()) % 3) as 0 | 1 | 2);
   const all = (await io.listSources()).filter((s) => s.enabled);
   const sink: TickSink = { reviews: [], missing: [] };
   const report: TickReport = { group, checked: [], skipped: [], early: [], reviews: sink.reviews, missing: sink.missing };

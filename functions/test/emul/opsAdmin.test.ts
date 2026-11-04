@@ -366,6 +366,73 @@ describe("send-test-mail（運営者への試しの送信。宛先は設定の O
   });
 });
 
+describe("run-watch-now（見回りを今すぐ回す。数だけ返す。1 日 3 回まで）", () => {
+  const NOW = new Date("2026-11-05T03:00:00Z"); // 日本時間 2026-11-05
+  function deps() {
+    const ran: number[] = [];
+    return {
+      ran,
+      opts: {
+        now: () => NOW,
+        runWatch: async (group: 0 | 1 | 2) => {
+          ran.push(group);
+          return { checked: [{ id: `a${group}`, kind: "pref_fixed" as const, ok: true }, ...(group === 1 ? [{ id: "b", kind: "pref_rss" as const, ok: false }] : [])] };
+        },
+      },
+    };
+  }
+
+  it("組を指定しなければ 3 組すべてを 1 回ずつ回し、組ごとの数だけ返す", async () => {
+    const { ran, opts } = deps();
+    const res = await handleOp({ op: "run-watch-now" }, opts);
+    expect(ran).toEqual([0, 1, 2]);
+    expect(res).toEqual({
+      ok: true,
+      op: "run-watch-now",
+      groups: [
+        { group: 0, checked: 1, succeeded: 1, failed: 0 },
+        { group: 1, checked: 2, succeeded: 1, failed: 1 },
+        { group: 2, checked: 1, succeeded: 1, failed: 0 },
+      ],
+    });
+  });
+
+  it("group を指定すればその組だけ。範囲外や余計な項目は 400 で回さない", async () => {
+    const { ran, opts } = deps();
+    expect(await handleOp({ op: "run-watch-now", group: 2 }, opts)).toMatchObject({ groups: [{ group: 2 }] });
+    expect(ran).toEqual([2]);
+    expect((await rejection(handleOp({ op: "run-watch-now", group: 3 } as never, opts))).status).toBe(400);
+    expect((await rejection(handleOp({ op: "run-watch-now", x: 1 } as never, opts))).status).toBe(400);
+    expect(ran).toEqual([2]);
+  });
+
+  it("1 日（日本時間）に 3 回まで。4 回目は回さずに 429。日が変われば数え直す", async () => {
+    const { ran, opts } = deps();
+    for (let i = 0; i < 3; i++) await handleOp({ op: "run-watch-now", group: 0 }, opts);
+    expect((await rejection(handleOp({ op: "run-watch-now", group: 0 }, opts))).status).toBe(429);
+    expect(ran).toHaveLength(3);
+    const next = { ...opts, now: () => new Date("2026-11-05T15:30:00Z") };
+    await handleOp({ op: "run-watch-now", group: 0 }, next);
+    expect(ran).toHaveLength(4);
+  });
+
+  it("途中の組が失敗したら 500。原因の文は出さず、それ以降の組は回さない", async () => {
+    const ran: number[] = [];
+    const opts = {
+      now: () => NOW,
+      runWatch: async (g: 0 | 1 | 2) => {
+        ran.push(g);
+        if (g === 1) throw Object.assign(new Error("secret-text https://x.example.test/path"), { code: "boom" });
+        return { checked: [] };
+      },
+    };
+    const err = await rejection(handleOp({ op: "run-watch-now" }, opts));
+    expect(err.status).toBe(500);
+    expect(err.message).not.toContain("secret-text");
+    expect(ran).toEqual([0, 1]);
+  });
+});
+
 describe("serveOps（HTTP の入口）", () => {
   function fakeReq(init: { method?: string; auth?: string; body?: unknown }) {
     return {

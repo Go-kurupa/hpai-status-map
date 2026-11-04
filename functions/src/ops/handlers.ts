@@ -12,6 +12,8 @@ import { sendMail as sendMailViaGmail } from "../notify/send";
 import type { SendMail } from "../notify/send";
 import { OPERATOR_EMAIL } from "../secrets";
 import { readRuntimeSettings, readUsageMonth, usageMonthKey } from "../usage/settings";
+import { runLiveWatch } from "../watch/live";
+import type { TickReport } from "../watch/tick";
 import { checkBearer } from "./auth";
 
 // 手元から本番を管理する opsAdmin の中身（契約 1.7）。応答にもログにも、Secret、招待コード（作った 1 度を除く）、email を出さない。
@@ -23,7 +25,8 @@ export type OpRequest =
   | { op: "set-setting"; key: string; value: unknown }
   | { op: "usage-status" }
   | { op: "watch-detail" }
-  | { op: "send-test-mail" };
+  | { op: "send-test-mail" }
+  | { op: "run-watch-now"; group?: 0 | 1 | 2 };
 
 export type OpResult =
   | { ok: true; op: "set-claims"; claims: string[] }
@@ -32,7 +35,16 @@ export type OpResult =
   | { ok: true; op: "set-setting"; key: string; value: unknown }
   | { ok: true; op: "usage-status"; month: string; estimatedJpy: number; hardLimitJpy: number }
   | { ok: true; op: "watch-detail"; total: number; sources: WatchDetailRow[] }
-  | { ok: true; op: "send-test-mail"; sent: true };
+  | { ok: true; op: "send-test-mail"; sent: true }
+  | { ok: true; op: "run-watch-now"; groups: WatchNowGroup[] };
+
+/** run-watch-now の組ごとの結果。数だけ（URL も理由も含まない）。 */
+export interface WatchNowGroup {
+  group: 0 | 1 | 2;
+  checked: number;
+  succeeded: number;
+  failed: number;
+}
 
 /** watch-detail の 1 行。入口ごとの確認の状態。URL のパスも、取得した中身も含まない。 */
 export interface WatchDetailRow {
@@ -75,6 +87,7 @@ const RequestSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("usage-status") }).strict(),
   z.object({ op: z.literal("watch-detail") }).strict(),
   z.object({ op: z.literal("send-test-mail") }).strict(), // 宛先は受け取らない（設定の OPERATOR_EMAIL だけ）
+  z.object({ op: z.literal("run-watch-now"), group: z.union([z.literal(0), z.literal(1), z.literal(2)]).optional() }).strict(),
 ]);
 
 const SourceSeedSchema = z.object({
@@ -101,6 +114,8 @@ export interface OpOptions {
   now?: () => Date;
   sendMail?: SendMail;
   operatorEmail?: () => string;
+  /** 見回りを 1 組回す。本番は runLiveWatch。 */
+  runWatch?: (group: 0 | 1 | 2) => Promise<Pick<TickReport, "checked">>;
 }
 
 export async function handleOp(body: OpRequest, opts: OpOptions = {}): Promise<OpResult> {
@@ -120,6 +135,8 @@ export async function handleOp(body: OpRequest, opts: OpOptions = {}): Promise<O
       return watchDetail();
     case "send-test-mail":
       return sendTestMail(opts);
+    case "run-watch-now":
+      return runWatchNow(req, opts);
   }
 }
 
@@ -277,6 +294,41 @@ async function sendTestMail(opts: OpOptions): Promise<OpResult> {
     throw new OpError(500, `送れませんでした（${/^[A-Za-z0-9_-]{1,40}$/.test(code) ? code : "unknown"}）`);
   }
   return { ok: true, op: "send-test-mail", sent: true };
+}
+
+// ── run-watch-now: watchTick と同じ見回りを今すぐ回す。組を指定しなければ 3 組すべて。1 日（日本時間）に 3 回まで ──
+
+const WATCH_NOW_DAILY_LIMIT = 3;
+
+/** usage/watchNow に { day, count } を数える。回す前に数える（失敗も 1 回）。上限なら false。 */
+async function takeWatchNowSlot(day: string): Promise<boolean> {
+  const ref = db.collection("usage").doc("watchNow");
+  return db.runTransaction(async (tx) => {
+    const data = (await tx.get(ref)).data() as { day?: unknown; count?: unknown } | undefined;
+    const count = data?.day === day && typeof data.count === "number" ? data.count : 0;
+    if (count >= WATCH_NOW_DAILY_LIMIT) return false;
+    tx.set(ref, { day, count: count + 1 });
+    return true;
+  });
+}
+
+async function runWatchNow(req: Extract<OpRequest, { op: "run-watch-now" }>, opts: OpOptions): Promise<OpResult> {
+  const now = (opts.now ?? (() => new Date()))();
+  if (!(await takeWatchNowSlot(jstDateOf(now)))) throw new OpError(429, `今すぐの見回りは 1 日に ${WATCH_NOW_DAILY_LIMIT} 回までです`);
+  const run = opts.runWatch ?? runLiveWatch;
+  const groups: WatchNowGroup[] = [];
+  for (const group of req.group === undefined ? ([0, 1, 2] as const) : ([req.group] as const)) {
+    try {
+      const { checked } = await run(group);
+      const succeeded = checked.filter((c) => c.ok).length;
+      groups.push({ group, checked: checked.length, succeeded, failed: checked.length - succeeded });
+    } catch (e) {
+      // 原因の文は出さない。組と code だけをログに残す。
+      logger.error("run-watch-now で見回りが失敗しました", { group, code: errorCode(e) ?? "unknown" });
+      throw new OpError(500, `見回りが失敗しました（組 ${group}。それまでに回った組: ${groups.map((g) => g.group).join(",") || "なし"}）`);
+    }
+  }
+  return { ok: true, op: "run-watch-now", groups };
 }
 
 // ── set-setting: usage/settings。無ければ既定値で作る ──
