@@ -89,7 +89,8 @@ export async function handleRedeemInvite(
       if (!farmSnap.exists) return { kind: "farm_missing" };
       // 1 会員 1 農場。別の農場にすでに入っている人は、農場の招待を使えない（試行には数えない）
       if (mine.docs.some((d) => d.id !== farmId)) return { kind: "other_farm" };
-      tx.set(membershipLockRef, { touchedAt: toJstIso(now) });
+      // farmId を残す。Firestore のルールが、入った農場がある間は自分の農場を作らせない（農場が消されたら作れる）
+      tx.set(membershipLockRef, { touchedAt: toJstIso(now), farmId });
       tx.update(farmRef, { memberUids: FieldValue.arrayUnion(uid) });
     }
     tx.update(inviteRef, { usedBy: FieldValue.arrayUnion(uid) });

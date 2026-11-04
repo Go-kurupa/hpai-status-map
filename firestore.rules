@@ -59,6 +59,17 @@ service cloud.firestore {
           && (n.selfCheckRemindDays == null
               || (n.selfCheckRemindDays is int && n.selfCheckRemindDays >= 0 && n.selfCheckRemindDays <= 7));
       }
+      // 要素は 5 桁の町のコードの文字列だけ（C-1）。i 番目がなければ通し、あれば文字列で 5 桁の数字。
+      // list は繰り返せないので、上限の 20 件ぶんを 1 つずつ見る（join だと数 13101 も文字に直って通ってしまう）
+      function muniAt(l, i) {
+        return l.size() <= i || (l[i] is string && l[i].matches('^[0-9]{5}$'));
+      }
+      function muniListOk(l) {
+        return muniAt(l, 0) && muniAt(l, 1) && muniAt(l, 2) && muniAt(l, 3) && muniAt(l, 4)
+            && muniAt(l, 5) && muniAt(l, 6) && muniAt(l, 7) && muniAt(l, 8) && muniAt(l, 9)
+            && muniAt(l, 10) && muniAt(l, 11) && muniAt(l, 12) && muniAt(l, 13) && muniAt(l, 14)
+            && muniAt(l, 15) && muniAt(l, 16) && muniAt(l, 17) && muniAt(l, 18) && muniAt(l, 19);
+      }
       function farmShapeOk() {
         let d = request.resource.data;
         return d.keys().hasOnly([
@@ -76,20 +87,29 @@ service cloud.firestore {
           && optStr(d.get('kahoContact', ''), 300)
           && optStr(d.get('updatedAt', ''), 40)
           // 画面は 20 件まで（MAX_FREQUENT_MUNIS）
-          && (!('frequentMuniCodes' in d) || (d.frequentMuniCodes is list && d.frequentMuniCodes.size() <= 20))
+          && (!('frequentMuniCodes' in d)
+              || (d.frequentMuniCodes is list && d.frequentMuniCodes.size() <= 20 && muniListOk(d.frequentMuniCodes)))
           && (d.get('production', null) == null || (d.production is string && d.production in ['layer', 'broiler']))
           && (d.get('housing', null) == null
               || (d.housing is string && d.housing in ['windowless', 'open', 'free_range']))
           && notifyOk(d.notify)
-          // 画面は 1 季 8 か月分。2 季目の保存（前の季の分が残る）を壊さないよう 40 件まで。キーと値の形は、読む側（サーバー）が日付だけ使う
-          && d.selfCheckDue is map && d.selfCheckDue.size() <= 40;
+          // 画面は今季と前季の 16 件に絞って保存する。余裕を見て 40 件まで。キーは YYYY-MM、値は YYYY-MM-DD だけ（C-1）。
+          // キーと値の join は、文字列でない値があると評価の誤りになり、拒否される
+          && d.selfCheckDue is map && d.selfCheckDue.size() <= 40
+          && d.selfCheckDue.keys().join(',').matches('^([0-9]{4}-[0-9]{2}(,[0-9]{4}-[0-9]{2}){0,39})?$')
+          && d.selfCheckDue.values().join(',').matches('^([0-9]{4}-[0-9]{2}-[0-9]{2}(,[0-9]{4}-[0-9]{2}-[0-9]{2}){0,39})?$');
       }
 
       allow read: if signedIn() && request.auth.uid in resource.data.memberUids;
       // 農場の id は作る人の uid にする（N-2）。1 会員が id を変えて農場をいくつも作れないようにする。
-      // 招待で他の農場に入る人は、サーバー（redeemInvite）が memberUids に足すので、ここを通らない
+      // 招待で他の農場に入る人は、サーバー（redeemInvite）が memberUids に足すので、ここを通らない。
+      // 招待で入った人は、鍵（invites/_membership/uids/{uid}、redeemInvite が farmId と一緒に書く）が残っている。
+      // 入った農場がまだある間は、自分の農場を作れない（1 会員 1 農場）。農場が消されたら作れる。
+      // 鍵に farmId がない古い形は get が評価の誤りになり、作れない（その人は農場の会員なので困らない）
       allow create: if isMemberClaim()
         && farmId == request.auth.uid
+        && !(exists(/databases/$(database)/documents/invites/_membership/uids/$(request.auth.uid))
+             && exists(/databases/$(database)/documents/farms/$(get(/databases/$(database)/documents/invites/_membership/uids/$(request.auth.uid)).data.farmId)))
         && farmShapeOk()
         && request.resource.data.memberUids == [request.auth.uid]
         && request.resource.data.unsubscribedUids == [];
@@ -104,14 +124,14 @@ service cloud.firestore {
         function houseOk() {
           let h = request.resource.data;
           return h.keys().hasOnly(['name', 'birdType', 'flockSize', 'empty'])
-            && h.name is string && h.name.size() <= 40
+            && h.name is string && h.name.size() >= 1 && h.name.size() <= 40
             && h.birdType is string && h.birdType.size() <= 20
             && h.empty is bool
             && h.flockSize is int
-            && h.flockSize >= 0;
+            && h.flockSize >= 0 && h.flockSize <= 100000000;
         }
         allow read: if isFarmMember(farmId);
-        allow create, update: if isFarmMember(farmId) && houseOk();
+        allow create, update: if isFarmMember(farmId) && houseId.size() <= 128 && houseOk();
         allow delete: if isFarmMember(farmId);
       }
 
@@ -120,7 +140,7 @@ service cloud.firestore {
           let r = request.resource.data;
           return r.keys().hasOnly(['date', 'houseId', 'deaths', 'flockSizeAt', 'exclusion'])
             && r.date is string && r.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-            && r.houseId is string && r.houseId.size() <= 128
+            && r.houseId is string && r.houseId.size() >= 1 && r.houseId.size() <= 128
             && (r.get('exclusion', null) == null
                 || (r.exclusion is map
                     && r.exclusion.keys().hasOnly(['kind', 'note'])
@@ -128,12 +148,12 @@ service cloud.firestore {
                     && r.exclusion.get('note', '') is string
                     && r.exclusion.get('note', '').size() <= 300))
             && r.deaths is int
-            && r.deaths >= 0
+            && r.deaths >= 0 && r.deaths <= 100000000
             && r.flockSizeAt is int
-            && r.flockSizeAt >= 0;
+            && r.flockSizeAt >= 0 && r.flockSizeAt <= 100000000;
         }
         allow read: if isFarmMember(farmId);
-        allow create, update: if isFarmMember(farmId) && deathOk();
+        allow create, update: if isFarmMember(farmId) && deathId.size() <= 128 && deathOk();
         allow delete: if isFarmMember(farmId);
       }
 
@@ -148,7 +168,7 @@ service cloud.firestore {
             && c.date is string && c.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
             && ((c.kind == 'disinfection'
                   && !('month' in c) && !('answers' in c)
-                  && c.itemId is string && c.itemId.size() <= 64)
+                  && c.itemId is string && c.itemId.size() >= 1 && c.itemId.size() <= 64)
                 || (c.kind == 'self_inspection'
                   && !('itemId' in c)
                   && c.month is string && c.month.matches('^[0-9]{4}-[0-9]{2}$')
@@ -159,7 +179,7 @@ service cloud.firestore {
                   && answerOk(c.answers, '27')));
         }
         allow read: if isFarmMember(farmId);
-        allow create, update: if isFarmMember(farmId) && checkOk();
+        allow create, update: if isFarmMember(farmId) && checkId.size() <= 128 && checkOk();
         allow delete: if isFarmMember(farmId);
       }
     }

@@ -402,6 +402,24 @@ describe("/settings/notify", () => {
     });
   });
 
+  it("期限の保存は、今季と前季より古い月を残さない（6 季目でも規則の上限 40 件に当たらない）", async () => {
+    const old = (y: number) => Object.fromEntries(["10", "11", "12"].map((m) => [`${y}-${m}`, `${y + 1}-01-06`]));
+    const older = Object.assign({}, old(2020), old(2021), old(2022), old(2023), old(2024), { "junk": "2026-01-06", "2025-1": "2026-01-06" });
+    farm = {
+      id: "f1",
+      ...farmFixture("u1", { selfCheckDue: { ...older, "2025-12": "2026-01-06", "2026-11": "2026-12-05" } }),
+    };
+    mount("/settings/notify");
+    const dec = (await screen.findByLabelText("2026年12月の分の期限")) as HTMLInputElement;
+    fireEvent.change(dec, { target: { value: "2027-01-06" } });
+    fireEvent.click(screen.getByRole("button", { name: "期限を保存" }));
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    // 今季（2026 年 6 月〜）と前季（2025 年 6 月〜）の月だけ。2025-12 は前季、2024 年以前は消える
+    expect(saveFarm.mock.calls[0]![0]).toEqual({
+      selfCheckDue: { "2025-12": "2026-01-06", "2026-11": "2026-12-05", "2026-12": "2027-01-06" },
+    });
+  });
+
   it("農場を読めなかったら『読めませんでした』を出し、保存を出さない", async () => {
     mount("/settings/notify", { getFarm: vi.fn(async () => Promise.reject(new Error("x"))) });
     expect((await screen.findByRole("alert")).textContent).toMatch(/読めませんでした/);

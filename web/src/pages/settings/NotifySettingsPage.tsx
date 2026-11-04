@@ -1,4 +1,4 @@
-import { currentSeason } from "@hpai/shared/season";
+import { currentSeason, seasonOf } from "@hpai/shared/season";
 import type { Farm, NotifySettings } from "@hpai/shared/types";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -83,8 +83,11 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
     setNotify((n) => ({ ...n, [key]: e.target.checked }));
 
   function saveDue() {
-    // 他のシーズンの期限は残し、この画面の月だけを置き換える。空の月は持たない
-    const merged: Record<string, string> = { ...farm.selfCheckDue };
+    // 前季の期限は残し、この画面の月だけを置き換える。空の月は持たない。
+    // 前季より古い月と月でないキーは捨てる（残すと季ごとに増え、規則の上限 40 件に当たって保存できなくなる）
+    const merged: Record<string, string> = Object.fromEntries(
+      Object.entries(farm.selfCheckDue).filter(([k]) => /^\d{4}-(0[1-9]|1[0-2])$/.test(k) && seasonOf(`${k}-01`) >= season - 1),
+    );
     for (const m of months) {
       const v = due[m] ?? "";
       if (v === "") delete merged[m];

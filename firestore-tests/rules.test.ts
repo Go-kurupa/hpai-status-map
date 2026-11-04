@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
 import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
-import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 // 契約 4.2。alice は f1、bob は f2 の会員。
 const PROJECT_ID = "demo-hpai";
@@ -69,7 +69,7 @@ beforeEach(async () => {
     await setDoc(doc(db, "documents/d1"), { id: "d1" });
     await setDoc(doc(db, "invites/abc"), { kind: "signup" });
     await setDoc(doc(db, "invites/_attempts/uids/alice"), { count: 1 });
-    await setDoc(doc(db, "invites/_membership/uids/alice"), { farmId: "f1" }); // 1 会員 1 農場の鍵（redeemInvite が書く）
+    await setDoc(doc(db, "invites/_membership/uids/alice"), { touchedAt: "2026-11-03T09:00:00+09:00", farmId: "f1" }); // 1 会員 1 農場の鍵（redeemInvite が書く形と同じ）
     await setDoc(doc(db, "sentNotices/n1"), { state: "queued" });
     await setDoc(doc(db, "usage/settings"), { softLimitJpy: 2000 });
     await setDoc(doc(db, "somethingElse/x"), { a: 1 });
@@ -422,14 +422,24 @@ describe("農場は 1 会員 1 つ（N-2）", () => {
   });
 
   it("2 つ目の農場（別の id）を作れない", async () => {
-    // 自分の uid の農場は 1 つだけ作れ、別の id でもう 1 つは作れない。
-    // 限界: すでに招待で他の農場（f1）の会員になっている人が、自分の uid の農場を作ることは、ルールでは止められない
-    // （別の文書の memberUids を探せない）。画面は先に自分の農場を探して更新するので作らない。招待の側（redeemInvite）は
-    // 別の農場に入っている人を断る。
-    const db = alice();
-    await assertSucceeds(setDoc(doc(db, "farms/alice"), farm("alice")));
-    await assertFails(setDoc(doc(db, "farms/alice2"), farm("alice")));
-    await assertFails(setDoc(doc(db, "farms/f2x"), farm("alice")));
+    const db = memberOnly();
+    await assertSucceeds(setDoc(doc(db, "farms/carol"), farm("carol")));
+    await assertFails(setDoc(doc(db, "farms/carol2"), farm("carol")));
+    await assertFails(setDoc(doc(db, "farms/f2x"), farm("carol")));
+  });
+
+  it("招待で他の農場に入っている人（鍵の農場が残っている）は、自分の農場を作れない（I-3）", async () => {
+    // alice は招待で f1 に入った人の形（鍵 invites/_membership/uids/alice が f1 を指し、f1 がある）
+    await assertFails(setDoc(doc(alice(), "farms/alice"), farm("alice")));
+  });
+
+  it("入った農場が消された人（鍵が消えた農場を指す）は、自分の農場を作れる。鍵がない人も作れる", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await deleteDoc(doc(ctx.firestore(), "farms/f1"));
+    });
+    await assertSucceeds(setDoc(doc(alice(), "farms/alice"), farm("alice")));
+    // 鍵がない人（自分で農場を作る人）は、もともと作れる
+    await assertSucceeds(setDoc(doc(memberOnly(), "farms/carol"), farm("carol")));
   });
 
   it("他人の uid の id の農場を、自分の会員として作れない", async () => {
@@ -524,5 +534,141 @@ describe("画面と同じ形の保存は通り、外れた値は落ちる", () =
     await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026-11-04" }));
     await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "unknown", date: "2026-11-04", itemId: "i" }));
     await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026/11/04", itemId: "i" }));
+  });
+});
+
+describe("selfCheckDue と frequentMuniCodes の中身（C-1）", () => {
+  const geo = { lat: 35.1, lng: 135.2 };
+  const db = () => alice();
+  const put = (patch: Record<string, unknown>) => updateDoc(doc(db(), "farms/f1"), patch);
+
+  it("selfCheckDue: 値が入れ子、数、巨大な文字、日付でない文字だと落ちる", async () => {
+    await assertFails(put({ selfCheckDue: { "2026-11": geo } }));
+    await assertFails(put({ selfCheckDue: { lat: "35.1" } }));
+    await assertFails(put({ selfCheckDue: { "2026-11": "x".repeat(500000) } }));
+    await assertFails(put({ selfCheckDue: { "2026-11": 20261120 } }));
+    await assertFails(put({ selfCheckDue: { "2026-11": "来週" } }));
+    await assertFails(put({ selfCheckDue: { "2026-11": null } }));
+    await assertFails(put({ selfCheckDue: { "2026-11": ["2026-11-20"] } }));
+    await assertFails(put({ selfCheckDue: { "2026-11": "2026-11-20", "2026-12": "2026-12-20x" } }));
+  });
+
+  it("selfCheckDue: 長いキーや月でないキーだと落ちる", async () => {
+    await assertFails(put({ selfCheckDue: { ["k".repeat(1000)]: "2026-11-20" } }));
+    await assertFails(put({ selfCheckDue: { lat: "2026-11-20" } }));
+    await assertFails(put({ selfCheckDue: { "2026-1": "2026-11-20" } }));
+    await assertFails(put({ selfCheckDue: { "2026-11-01": "2026-11-20" } }));
+    await assertFails(put({ selfCheckDue: { "2026-11\n": "2026-11-20" } }));
+  });
+
+  it("selfCheckDue: 空の {}、1 件、40 件ちょうどは通り、41 件は落ちる。作成時の {} も通る", async () => {
+    const months = (n: number) =>
+      Object.fromEntries(Array.from({ length: n }, (_, i) => [`${2000 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`, "2026-11-20"]));
+    await assertSucceeds(put({ selfCheckDue: {} }));
+    await assertSucceeds(put({ selfCheckDue: { "2026-11": "2026-12-05" } }));
+    await assertSucceeds(put({ selfCheckDue: months(40) }));
+    await assertFails(put({ selfCheckDue: months(41) }));
+    await assertSucceeds(setDoc(doc(memberOnly(), "farms/carol"), farm("carol", { selfCheckDue: {} })));
+  });
+
+  it("selfCheckDue: 今季と前季の 16 件に絞った保存は、古い季が 40 件たまっていても通る（I-1）", async () => {
+    const season = (y: number) => [`${y}-10`, `${y}-11`, `${y}-12`, `${y + 1}-01`, `${y + 1}-02`, `${y + 1}-03`, `${y + 1}-04`, `${y + 1}-05`];
+    const all = [2021, 2022, 2023, 2024, 2025].flatMap(season);
+    expect(all).toHaveLength(40);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), "farms/f1"), { selfCheckDue: Object.fromEntries(all.map((m) => [m, "2026-01-06"])) });
+    });
+    // 6 季目を足すと 48 件で落ちる（絞らない保存）
+    await assertFails(put({ selfCheckDue: Object.fromEntries([...all, ...season(2026)].map((m) => [m, "2026-01-06"])) }));
+    // 絞った保存（前季 2025 と今季 2026）は通る
+    await assertSucceeds(put({ selfCheckDue: Object.fromEntries([...season(2025), ...season(2026)].map((m) => [m, "2026-01-06"])) }));
+  });
+
+  it("frequentMuniCodes: 要素が入れ子、数、長い文字、5 桁でない文字だと落ちる", async () => {
+    await assertFails(put({ frequentMuniCodes: [geo] }));
+    await assertFails(put({ frequentMuniCodes: ["x".repeat(500000)] }));
+    await assertFails(put({ frequentMuniCodes: ["abc"] }));
+    await assertFails(put({ frequentMuniCodes: [1, 2, 3] }));
+    await assertFails(put({ frequentMuniCodes: [13101] }));
+    await assertFails(put({ frequentMuniCodes: ["13101", "1310"] }));
+    await assertFails(put({ frequentMuniCodes: ["13101", null] }));
+  });
+
+  it("frequentMuniCodes: 空、1 件、20 件ちょうどは通り、21 件は落ちる。作成時の [] も通る", async () => {
+    const munis = (n: number) => Array.from({ length: n }, (_, i) => String(13101 + i));
+    await assertSucceeds(put({ frequentMuniCodes: [] }));
+    await assertSucceeds(put({ frequentMuniCodes: ["13101"] }));
+    await assertSucceeds(put({ frequentMuniCodes: munis(20) }));
+    await assertFails(put({ frequentMuniCodes: munis(21) }));
+    await assertSucceeds(setDoc(doc(memberOnly(), "farms/carol"), farm("carol", { frequentMuniCodes: [] })));
+  });
+});
+
+describe("入れ子の穴を塞いだことの変異の確認（I-2）", () => {
+  const geo = { lat: 35.1, lng: 135.2 };
+  const answers = { "17": "ok", "18": "ng", "19": null, "22": "ok", "23": "ok", "25": "ok", "27": "ok" };
+
+  it("死亡数: 除外の note が map や list だと落ちる", async () => {
+    const db = alice();
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: { kind: "other", note: geo } })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: { kind: "other", note: ["a"] } })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ exclusion: { kind: "other", note: 1 } })));
+  });
+
+  it("自己点検: 7 つのキーのどれに 'maybe' を入れても落ちる", async () => {
+    const db = alice();
+    for (const k of ["17", "18", "19", "22", "23", "25", "27"]) {
+      await assertFails(
+        setDoc(doc(db, "farms/f1/checks/s1"), { kind: "self_inspection", date: "2026-11-04", month: "2026-11", answers: { ...answers, [k]: "maybe" } }),
+      );
+    }
+    await assertSucceeds(setDoc(doc(db, "farms/f1/checks/s1"), { kind: "self_inspection", date: "2026-11-04", month: "2026-11", answers }));
+  });
+
+  it("消毒に month を、自己点検に itemId を入れた入れ子は落ちる", async () => {
+    const db = alice();
+    await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026-11-04", itemId: "a", month: geo }));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026-11-04", itemId: "a", answers: {} }));
+    await assertFails(
+      setDoc(doc(db, "farms/f1/checks/s1"), { kind: "self_inspection", date: "2026-11-04", month: "2026-11", answers: {}, itemId: geo }),
+    );
+  });
+});
+
+describe("数の上限、空の名前、記録の id の長さ（M-1）", () => {
+  it("羽数と死亡数に上限（1 億）がある", async () => {
+    const db = alice();
+    await assertSucceeds(setDoc(doc(db, "farms/f1/houses/h2"), house({ flockSize: 100_000_000 })));
+    await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ flockSize: 100_000_001 })));
+    await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ flockSize: 9007199254740991 })));
+    await assertSucceeds(setDoc(doc(db, "farms/f1/deaths/x"), death({ deaths: 100_000_000, flockSizeAt: 100_000_000 })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ deaths: 100_000_001 })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ flockSizeAt: 100_000_001 })));
+  });
+
+  it("空の鶏舎の名前、空の itemId、空の houseId は落ちる", async () => {
+    const db = alice();
+    await assertFails(setDoc(doc(db, "farms/f1/houses/h2"), house({ name: "" })));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026-11-04", itemId: "" }));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ houseId: "" })));
+  });
+
+  it("記録の id が 128 字を超えると落ちる", async () => {
+    const db = alice();
+    const long = "a".repeat(129);
+    const ok = "a".repeat(128);
+    await assertFails(setDoc(doc(db, `farms/f1/houses/${long}`), house()));
+    await assertFails(setDoc(doc(db, `farms/f1/deaths/${long}`), death()));
+    await assertFails(setDoc(doc(db, `farms/f1/checks/${long}`), { kind: "disinfection", date: "2026-11-04", itemId: "i" }));
+    await assertSucceeds(setDoc(doc(db, `farms/f1/houses/${ok}`), house()));
+    await assertSucceeds(setDoc(doc(db, `farms/f1/deaths/${ok}`), death()));
+    await assertSucceeds(setDoc(doc(db, `farms/f1/checks/${ok}`), { kind: "disinfection", date: "2026-11-04", itemId: "i" }));
+  });
+
+  it("date は 4 桁-2 桁-2 桁の形だけ（点検・死亡数）", async () => {
+    const db = alice();
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ date: "2026-11-04T00:00" })));
+    await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ date: "26-11-04" })));
+    await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026-11-04 ", itemId: "i" }));
   });
 });

@@ -162,6 +162,10 @@ describe("redeemInvite", () => {
     expect(farm.unsubscribedUids).toEqual([]);
     expect((await inviteOf(code)).usedBy).toEqual([uid]);
     expect((await auth.getUser(uid)).customClaims).toEqual({ member: true });
+    // 1 会員 1 農場の鍵に、入った農場を残す（Firestore のルールが、入った農場がある間は自分の農場を作らせない）
+    const lock = (await db.collection("invites").doc("_membership").collection("uids").doc(uid).get()).data();
+    expect(lock?.farmId).toBe("f1");
+    expect(typeof lock?.touchedAt).toBe("string");
   });
 
   it("農場がなければ not-found で、usedBy も増やさない", async () => {
