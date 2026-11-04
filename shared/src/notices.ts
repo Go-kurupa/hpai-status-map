@@ -26,13 +26,15 @@ export interface SentNotice {
   timing: NoticeTiming;
   /**
    * abandoned: 送り直しを諦めた（14 日より古い、または 5 回失敗）。読まず、同じ知らせを作り直さない印として残す。
-   * capped: 基準の知らせが 1 農場 1 日の上限で止められた（送らない。運営者の箱に出す）。
+   * capped: 基準の知らせが 1 農場 1 日の上限で止められた（送らない。運営者の箱に出す）。すぐ送る経路でも送り直しの経路でも、送る直前に枠を確保できなければこうなる。
    */
   state: "queued" | "sent" | "failed" | "abandoned" | "capped";
   queuedAt: IsoDateTime;
   sentAt: IsoDateTime | null;
   /** 送り直しで失敗した回数（記録のせいの失敗だけ。認証、上限の停止は数えない）。なければ 0。 */
   retries?: number;
+  /** capped の記録で、運営者の箱への登録がまだ済んでいない印。登録できたら消す（送り直しと朝の実行が登録し直す）。 */
+  cappedAlert?: "pending";
 }
 
 export interface Notice {

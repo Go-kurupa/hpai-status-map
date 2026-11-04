@@ -6,6 +6,7 @@ import type { GeoStore } from "@hpai/shared/geo";
 import { renderMorningDigest, renderNotice, selfCheckDueNotices, type Notice, type NoticeEvent, type SentNotice } from "@hpai/shared/notices";
 import type { Farm } from "@hpai/shared/types";
 import { codeOf, dispatchNotices, isMailStopError, markSent, noteMailStop, unsubscribeUrlFor, type NotifyDeps } from "./dispatch";
+import { capHitNotices, hitDateOf, reserveHitSlot, retryCapAlerts, settleHitSlot } from "./hitSlots";
 import { createRebuildContext, isSelfCheckAnswered, loadSubjects, rebuildNotice, type QueueRec } from "./rebuild";
 
 /** 送ってから「すぐ」の知らせを拾うまでの待ち（分）。onCaseWritten が送っている間に拾わない。 */
@@ -57,6 +58,8 @@ export interface DeliverResult {
   failed: number;
   dropped: number;
   skipped: number;
+  /** 基準の知らせで、その日の上限まで送れた後なので送らなかった（capped）。 */
+  capped: number;
   mailStopped: boolean;
 }
 
@@ -91,10 +94,12 @@ function isTooOld(rec: QueueRec, now: Date): boolean {
  * - 認証、上限、一時的な制限、通信のエラー（isMailStopError）が出たら、残りに送らず noteMailStop。failRestOnStop なら、
  *   残りの queued も failed にして次の送り直しに回す。failed への更新が投げても noteMailStop は呼ぶ。
  * - 宛先の不備はその会員だけの失敗（failed）で、残りには送り続ける。
+ * - 基準の知らせ（mortality_hit）は、すぐ送る経路と同じ決まり（hitSlots.ts）: 送る直前に 1 日の枠を確保し、確保できなければ capped、
+ *   送れなければその場で枠を返す。その会員に届いていた（sent の書き込みだけが失敗していた）記録は、送らずに sent にする。
  */
 export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: readonly QueueRec[], opts: { failRestOnStop: boolean }): Promise<DeliverResult> {
   let recs: readonly QueueRec[] = allRecs;
-  const result: DeliverResult = { sent: 0, failed: 0, dropped: 0, skipped: 0, mailStopped: false };
+  const result: DeliverResult = { sent: 0, failed: 0, dropped: 0, skipped: 0, capped: 0, mailStopped: false };
   const startedAt = Date.now();
   const ctx = createRebuildContext(deps.db, geo, jstDateOf(deps.now()));
 
@@ -186,42 +191,88 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
         continue;
       }
 
-      let stop: ReturnType<typeof isMailStopError> = null;
-      let sendFailed = false;
+      // 基準の知らせは、送る直前に 1 日の枠を確保する（宛先が決まった後。飛ばす、止める分では確保しない）
+      const sendRecs: QueueRec[] = [];
+      const sendNotices: Notice[] = [];
+      const slots: Array<{ rec: QueueRec; reservedNew: boolean }> = [];
+      let delivered = false;
       try {
-        const first = notices[0]!;
-        const ctxRender = { unsubscribeUrl: unsubscribeUrlFor(first, deps), appUrl: deps.appUrl };
-        const mail = notices.length === 1 ? renderNotice(first, ctxRender) : renderMorningDigest(notices, ctxRender);
-        await deps.mailer(email, mail);
-      } catch (e) {
-        sendFailed = true;
-        stop = isMailStopError(e);
-        console.error("[notify] 送信に失敗しました", { code: codeOf(e), stop });
-      }
-
-      if (!sendFailed) {
-        const at = toJstIso(deps.now());
-        for (const r of recsNow) {
-          // 送れたのに記録に残せないと、次の実行が二度送る。失敗は件数に残す
-          if (await tryUpdate("sent", () => markSent(r.ref, at))) result.sent += 1;
-          else result.failed += 1;
+        for (let n = 0; n < recsNow.length; n += 1) {
+          const r = recsNow[n]!;
+          if (r.data.event === "mortality_hit") {
+            if (hitDateOf(r.data.subjectId) === null) {
+              if (await markFailed(r, true)) result.failed += 1; // 記録の id が壊れている（記録のせい）
+              continue;
+            }
+            let slot: Awaited<ReturnType<typeof reserveHitSlot>>;
+            try {
+              slot = await reserveHitSlot(deps.db, r.data.farmId, r.data.subjectId, r.data.uid);
+            } catch (e) {
+              console.error("[notify] 基準の知らせの枠を確保できませんでした（次の回に送り直します）", { code: codeOf(e) });
+              await markFailed(r); // 記録のせいではないので数えない
+              result.skipped += 1;
+              continue;
+            }
+            if (slot === "full") {
+              await capHitNotices([r.ref], r.data.subjectId, deps.now());
+              result.capped += 1;
+              continue;
+            }
+            if (slot === "delivered") {
+              // 届いていたのに sent を書けなかった記録。二度送らない
+              if (await tryUpdate("sent", () => markSent(r.ref, toJstIso(deps.now())))) result.sent += 1;
+              continue;
+            }
+            slots.push({ rec: r, reservedNew: slot === "reserved" });
+          }
+          sendRecs.push(r);
+          sendNotices.push(notices[n]!);
         }
-        continue;
-      }
+        if (sendRecs.length === 0) continue;
 
-      try {
-        for (const r of recsNow) if (await markFailed(r, stop === null)) result.failed += 1; // 停止は記録のせいではないので数えない
-      } finally {
+        let stop: ReturnType<typeof isMailStopError> = null;
+        let sendFailed = false;
+        try {
+          const first = sendNotices[0]!;
+          const ctxRender = { unsubscribeUrl: unsubscribeUrlFor(first, deps), appUrl: deps.appUrl };
+          const mail = sendNotices.length === 1 ? renderNotice(first, ctxRender) : renderMorningDigest(sendNotices, ctxRender);
+          await deps.mailer(email, mail);
+          delivered = true;
+        } catch (e) {
+          sendFailed = true;
+          stop = isMailStopError(e);
+          console.error("[notify] 送信に失敗しました", { code: codeOf(e), stop });
+        }
+
+        if (!sendFailed) {
+          const at = toJstIso(deps.now());
+          for (const r of sendRecs) {
+            // 送れたのに記録に残せないと、次の実行が二度送る（基準の知らせは枠の文書の「届いた会員」で防ぐ）。失敗は件数に残す
+            if (await tryUpdate("sent", () => markSent(r.ref, at))) result.sent += 1;
+            else result.failed += 1;
+          }
+          continue;
+        }
+
+        try {
+          for (const r of sendRecs) if (await markFailed(r, stop === null)) result.failed += 1; // 停止は記録のせいではないので数えない
+        } finally {
+          if (stop !== null) {
+            result.mailStopped = true;
+            await noteMailStop(deps); // failed への更新が投げても、運営者の画面には出す
+          }
+        }
         if (stop !== null) {
-          result.mailStopped = true;
-          await noteMailStop(deps); // failed への更新が投げても、運営者の画面には出す
+          if (opts.failRestOnStop) {
+            for (const g of list.slice(i + 1)) for (const r of g.recs) if (await markFailed(r)) result.failed += 1;
+          }
+          break;
         }
-      }
-      if (stop !== null) {
-        if (opts.failRestOnStop) {
-          for (const g of list.slice(i + 1)) for (const r of g.recs) if (await markFailed(r)) result.failed += 1;
+      } finally {
+        // 送れたかは送信の結果で決める（sent の書き込みの成否ではない）。送れなければ、今回確保した枠をその場で返す
+        for (const { rec, reservedNew } of slots) {
+          await settleHitSlot(deps.db, rec.data.farmId, rec.data.subjectId, { reservedNew, deliveredUids: delivered ? [rec.data.uid] : [] });
         }
-        break;
       }
     } catch (e) {
       // 記録の読み書きの失敗。この会員だけ飛ばす（次の実行が拾う）
@@ -265,6 +316,7 @@ async function planSelfCheck(db: Firestore, today: string): Promise<Notice[]> {
  */
 export async function runMorningDigest(deps: NotifyDeps, geo: GeoStore): Promise<void> {
   const now = deps.now();
+  await retryCapAlerts(deps.db, now); // 上限で止めた知らせの、箱への登録の残り
   let stopped = false;
   try {
     const due = await planSelfCheck(deps.db, jstDateOf(now));

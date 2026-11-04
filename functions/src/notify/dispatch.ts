@@ -100,11 +100,22 @@ export async function markSent(ref: DocumentReference, sentAt: string): Promise<
  * 認証、上限、一時的な制限、通信の失敗が出たら、残りは送らず queued のまま残し（M-13 の送り直しが拾う）、noteMailStop（連打しない）。
  * 記録の書き込みの失敗は件数をログに残し、呼び出し側の処理は止めない。
  */
+export interface DispatchHooks {
+  /**
+   * 送る前の関門（基準の知らせの 1 日の枠）。今回作った「すぐ」の記録を渡す。true なら送る。false なら送らない
+   * （記録の後始末は関門がする: 上限なら capped）。投げたら記録を failed にして送らない（次の送り直しが拾う）。
+   */
+  gate?: (refs: readonly DocumentReference[]) => Promise<boolean>;
+  /** 送信が成功した直後（記録を sent にする前）に呼ぶ。送れたかを sentNotices の状態でなく、送信の結果で知るため。 */
+  onDelivered?: (n: Notice) => void;
+}
+
 export async function dispatchNotices(
   deps: NotifyDeps,
   notices: readonly Notice[],
-  gate?: () => Promise<boolean>,
+  hooks: DispatchHooks = {},
 ): Promise<{ mailStopped: boolean }> {
+  const { gate, onDelivered } = hooks;
   let mailStopped = false;
   let errors = 0;
   const gates = new Map<string, Promise<Gate>>();
@@ -146,27 +157,24 @@ export async function dispatchNotices(
     }
   }
 
-  // 送る前の関門（基準の知らせの 1 日の上限）。記録を先に作ってから呼ぶので、止めても、落ちても、記録が残る。
-  // true なら送る。false なら capped にして送らない。投げたら failed にして送らない（次の送り直しが拾う）。
+  // 送る前の関門（基準の知らせの 1 日の枠）。記録を先に作ってから呼ぶので、止めても、落ちても、記録が残る。
   if (gate && toSend.length > 0) {
     let allowed = false;
-    let gateFailed = false;
     try {
-      allowed = await gate();
+      allowed = await gate(toSend.map((x) => x.ref));
     } catch (e) {
-      gateFailed = true;
       errors += 1;
       console.error("[notify] 送る前の確認に失敗しました", { code: codeOf(e) });
-    }
-    if (!allowed) {
       for (const { ref } of toSend) {
         try {
-          await ref.update({ state: gateFailed ? "failed" : "capped" });
-        } catch (e) {
+          await ref.update({ state: "failed" });
+        } catch (e2) {
           errors += 1;
-          console.error("[notify] 記録の書き込みに失敗しました", { code: codeOf(e) });
+          console.error("[notify] 記録の書き込みに失敗しました", { code: codeOf(e2) });
         }
       }
+    }
+    if (!allowed) {
       if (errors > 0) console.error("[notify] 記録に失敗した知らせがあります", { count: errors });
       return { mailStopped };
     }
@@ -202,6 +210,7 @@ export async function dispatchNotices(
         }
         continue;
       }
+      onDelivered?.(n);
       await markSent(ref, toJstIso(deps.now()));
     } catch (e) {
       errors += 1;

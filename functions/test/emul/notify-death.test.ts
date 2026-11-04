@@ -1,15 +1,36 @@
 // M-13: 死亡率の基準に当たったとき、同じ農場の会員へすぐ知らせる。模擬環境（demo-hpai）。本物のメールは送らない。
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { addDays } from "@hpai/shared/dates";
 import type { DeathRecord } from "@hpai/shared/types";
 import { db } from "../../src/admin";
 import { handleDeathWrite } from "../../src/notify/onDeathWritten";
+import { runMorningDigest } from "../../src/notify/digest";
+import { settleHitSlot } from "../../src/notify/hitSlots";
 import { runRetryFailed } from "../../src/notify/retryFailed";
 import { fakeGeo } from "../../../shared/test/helpers/mFixtures";
-import { assertEmulator, captureLogs, clearFirestore, makeDeps, reviewQueueIds, seedFarm, sentNoticeDocs } from "./mHelpers";
+import { assertEmulator, captureLogs, clearFirestore, makeDeps, NOW, reviewQueueIds, seedFarm, sentNoticeDocs } from "./mHelpers";
+
+// 運営者の箱への登録を 1 回だけ失敗させる（enqueueReview は ../admin の db を直接使うので、deps.db の差し替えでは失敗させられない）
+const queueFault = vi.hoisted(() => ({ failNext: 0 }));
+vi.mock("../../src/review/queue", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/review/queue")>();
+  return {
+    ...actual,
+    enqueueReview: async (...a: Parameters<typeof actual.enqueueReview>) => {
+      if (queueFault.failNext > 0) {
+        queueFault.failNext -= 1;
+        throw new Error("review queue unavailable");
+      }
+      return actual.enqueueReview(...a);
+    },
+  };
+});
 
 beforeAll(assertEmulator);
 beforeEach(clearFirestore);
+afterEach(() => {
+  queueFault.failNext = 0;
+});
 
 // NOW は 2026-11-05（JST の昼）。
 const TODAY = "2026-11-05";
@@ -26,6 +47,28 @@ async function house(id: string): Promise<void> {
 /** 当日の前の n 日を毎日 deaths 羽（1000 羽）。 */
 async function seedPast(houseId: string, n: number, today = TODAY, deaths = 1): Promise<void> {
   for (let i = 1; i <= n; i++) await put(rec(addDays(today, -i), houseId, deaths));
+}
+/** 確保した枠（farms/f1/hitCounters/{日付} の recordIds）。 */
+async function slotIds(date = TODAY): Promise<string[]> {
+  const d = (await db.doc(`farms/f1/hitCounters/${date}`).get()).data() as { recordIds?: string[] } | undefined;
+  return [...(d?.recordIds ?? [])].sort();
+}
+/** u1 の基準の知らせの記録の状態を、記録の id ごとに。 */
+async function hitStates(): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const d of Object.values(await sentNoticeDocs())) if (d.event === "mortality_hit" && d.uid === "u1") out[d.subjectId as string] = d.state as string;
+  return out;
+}
+/** 記録を sent にする書き込みだけを失敗させる（markSent は 1 回やり直すので、2 回とも失敗する）。戻す関数を返す。 */
+function failSentUpdates(): () => void {
+  const proto = Object.getPrototypeOf(db.doc("x/y")) as { update: (...a: unknown[]) => Promise<unknown> };
+  const orig = proto.update;
+  const spy = vi.spyOn(proto, "update").mockImplementation(function (this: unknown, ...a: unknown[]) {
+    const data = a[0] as { state?: unknown } | undefined;
+    if (data?.state === "sent") return Promise.reject(new Error("write unavailable"));
+    return orig.apply(this, a);
+  });
+  return () => spy.mockRestore();
 }
 const authErr = Object.assign(new Error("Invalid login"), { code: "EAUTH", responseCode: 535 });
 
@@ -182,23 +225,146 @@ describe("handleDeathWrite", () => {
     expect(mail.sent).toHaveLength(3);
   });
 
-  it("認証が切れた日は枠を返す: 4 件目の鶏舎が出ても失われず、停止が解けた後の送り直しで全部届く", async () => {
+  it("認証が切れた日に 4 件出ても失われない。送り直しで届くのは上限の 3 件まで、4 件目は capped と箱", async () => {
     await seedFarm("f1", "u1");
     const bad = makeDeps({ fail: () => authErr });
     const recs: DeathRecord[] = [];
     for (const h of ["h1", "h2", "h3", "h4"]) recs.push(await hit(h));
     for (const r of recs) await handleDeathWrite(bad.deps, "f1", idOf(r), r);
     expect(bad.mail.sent).toEqual([]);
-    const counter = (await db.doc(`farms/f1/hitCounters/${TODAY}`).get()).data() as { recordIds: string[] } | undefined;
-    expect(counter?.recordIds ?? []).toEqual([]); // 送れなかった分の枠は返っている
+    expect(await slotIds()).toEqual([]); // 送れなかった分の枠は、その場で返っている
     const docs = await sentNoticeDocs();
     for (const r of recs) expect(docs[`f1__u1__${idOf(r)}__mortality_hit`]).toMatchObject({ state: "failed" });
     expect(await reviewQueueIds()).toEqual(["alert-mail_failing-2026-11-05"]);
 
     const ok = makeDeps();
     await runRetryFailed(ok.deps, fakeGeo());
-    expect(ok.mail.sent).toHaveLength(1); // 会員ごとに 1 通（4 件をまとめて）
-    for (const r of recs) expect((await sentNoticeDocs())[`f1__u1__${idOf(r)}__mortality_hit`]).toMatchObject({ state: "sent" });
+    expect(ok.mail.sent).toHaveLength(1); // 会員ごとに 1 通（3 件をまとめて）
+    expect(await hitStates()).toEqual({ "2026-11-05_h1": "sent", "2026-11-05_h2": "sent", "2026-11-05_h3": "sent", "2026-11-05_h4": "capped" });
+    expect(await slotIds()).toEqual(["2026-11-05_h1", "2026-11-05_h2", "2026-11-05_h3"]);
+    expect(await reviewQueueIds()).toEqual(["alert-mail_failing-2026-11-05", "alert-mortality_capped-2026-11-05"]);
+    expect(ok.mail.sent[0]!.text).not.toContain("h4");
+  });
+
+  it("同じ日に 2 件届いた後、認証の停止で 3 件が失敗したら、送り直しで届くのは 1 件だけで、残り 2 件は capped", async () => {
+    await seedFarm("f1", "u1");
+    const ok = makeDeps();
+    const recs: DeathRecord[] = [];
+    for (const h of ["h1", "h2", "h3", "h4", "h5"]) recs.push(await hit(h));
+    for (const r of recs.slice(0, 2)) await handleDeathWrite(ok.deps, "f1", idOf(r), r);
+    expect(ok.mail.sent).toHaveLength(2);
+    const bad = makeDeps({ fail: () => authErr });
+    for (const r of recs.slice(2)) await handleDeathWrite(bad.deps, "f1", idOf(r), r);
+    expect(bad.mail.sent).toEqual([]);
+    expect(await slotIds()).toEqual(["2026-11-05_h1", "2026-11-05_h2"]);
+
+    await runRetryFailed(ok.deps, fakeGeo());
+    expect(ok.mail.sent).toHaveLength(3);
+    expect(ok.mail.sent[2]!.subject).toBe("【死亡数】11月5日の死亡率が基準に当たる可能性があります"); // 1 件だけの文面
+    expect(await hitStates()).toEqual({
+      "2026-11-05_h1": "sent", "2026-11-05_h2": "sent", "2026-11-05_h3": "sent", "2026-11-05_h4": "capped", "2026-11-05_h5": "capped",
+    });
+    expect(await slotIds()).toHaveLength(3);
+    expect(await reviewQueueIds()).toContain("alert-mortality_capped-2026-11-05");
+  });
+
+  it("送り直しを停止中と復旧後に繰り返しても、届くのは上限の 3 件まで", async () => {
+    await seedFarm("f1", "u1");
+    const bad = makeDeps({ fail: () => authErr });
+    const recs: DeathRecord[] = [];
+    for (const h of ["h1", "h2", "h3", "h4", "h5"]) recs.push(await hit(h));
+    for (const r of recs) await handleDeathWrite(bad.deps, "f1", idOf(r), r);
+    await runRetryFailed(bad.deps, fakeGeo()); // 停止中の送り直し
+    expect(bad.mail.sent).toEqual([]);
+    expect(await slotIds()).toEqual([]);
+    const ok = makeDeps();
+    await runRetryFailed(ok.deps, fakeGeo());
+    await runRetryFailed(ok.deps, fakeGeo());
+    await runMorningDigest(ok.deps, fakeGeo());
+    const states = Object.values(await hitStates()).sort();
+    expect(states).toEqual(["capped", "capped", "sent", "sent", "sent"]);
+    expect(await slotIds()).toHaveLength(3);
+  });
+
+  it("同じ記録の別の会員への送り直しは、枠を新しく使わない（4 件目の記録は capped のまま）", async () => {
+    await seedFarm("f1", "u1", { memberUids: ["u1", "u2"] });
+    const first = makeDeps({ emailOf: async (uid) => (uid === "u2" ? null : `${uid}@example.test`) });
+    const recs: DeathRecord[] = [];
+    for (const h of ["h1", "h2", "h3", "h4"]) recs.push(await hit(h));
+    for (const r of recs.slice(0, 3)) await handleDeathWrite(first.deps, "f1", idOf(r), r);
+    expect(first.mail.sent.map((m) => m.to)).toEqual(["u1@example.test", "u1@example.test", "u1@example.test"]);
+    expect(await slotIds()).toHaveLength(3);
+    const ok = makeDeps();
+    await runRetryFailed(ok.deps, fakeGeo()); // u2 の 3 件（枠は u1 に届いた記録のもの）
+    expect(ok.mail.sent.map((m) => m.to)).toEqual(["u2@example.test"]);
+    await handleDeathWrite(ok.deps, "f1", idOf(recs[3]!), recs[3]!);
+    expect(ok.mail.sent).toHaveLength(1);
+    expect(await slotIds()).toHaveLength(3);
+  });
+
+  it("送れた後に記録（sent）の書き込みが失敗しても、枠は返さず、送り直しで二度送らない（すぐ送る経路）", async () => {
+    await seedFarm("f1", "u1");
+    const { deps, mail } = makeDeps();
+    const r = await hit("h1");
+    const restore = failSentUpdates();
+    try {
+      await handleDeathWrite(deps, "f1", idOf(r), r);
+    } finally {
+      restore();
+    }
+    expect(mail.sent).toHaveLength(1);
+    expect((await sentNoticeDocs())[`f1__u1__${idOf(r)}__mortality_hit`]).toMatchObject({ state: "queued" });
+    expect(await slotIds()).toEqual([idOf(r)]); // 送れたので枠は使ったまま
+    const later = { ...deps, now: () => new Date(NOW.getTime() + 11 * 60_000) };
+    await runRetryFailed(later, fakeGeo());
+    expect(mail.sent).toHaveLength(1);
+    expect((await sentNoticeDocs())[`f1__u1__${idOf(r)}__mortality_hit`]).toMatchObject({ state: "sent" });
+  });
+
+  it("送り直しで送れた後に記録（sent）の書き込みが失敗しても、次の送り直しで二度送らない", async () => {
+    await seedFarm("f1", "u1");
+    const bad = makeDeps({ fail: () => authErr });
+    const r = await hit("h1");
+    await handleDeathWrite(bad.deps, "f1", idOf(r), r);
+    const ok = makeDeps();
+    const restore = failSentUpdates();
+    try {
+      await runRetryFailed(ok.deps, fakeGeo());
+    } finally {
+      restore();
+    }
+    expect(ok.mail.sent).toHaveLength(1);
+    expect(await slotIds()).toEqual([idOf(r)]);
+    await runRetryFailed(ok.deps, fakeGeo());
+    expect(ok.mail.sent).toHaveLength(1);
+    expect((await sentNoticeDocs())[`f1__u1__${idOf(r)}__mortality_hit`]).toMatchObject({ state: "sent" });
+  });
+
+  it("枠を返すとき、その記録が別の会員に届いていれば返さない（重なった実行で、届いた分を数え落とさない）", async () => {
+    const r = "2026-11-05_h1";
+    await db.doc(`farms/f1/hitCounters/${TODAY}`).set({ recordIds: [r], delivered: { [r]: ["u2"] } });
+    await settleHitSlot(db, "f1", r, { reservedNew: true, deliveredUids: [] });
+    expect(await slotIds()).toEqual([r]);
+  });
+
+  it("上限で止めた知らせの箱への登録が失敗しても、記録は capped のままで、次の回に箱へ登録し直す", async () => {
+    await seedFarm("f1", "u1");
+    const { deps, mail } = makeDeps();
+    const recs: DeathRecord[] = [];
+    for (const h of ["h1", "h2", "h3", "h4"]) recs.push(await hit(h));
+    for (const r of recs.slice(0, 3)) await handleDeathWrite(deps, "f1", idOf(r), r);
+    queueFault.failNext = 1;
+    await handleDeathWrite(deps, "f1", idOf(recs[3]!), recs[3]!);
+    expect(queueFault.failNext).toBe(0);
+    expect(mail.sent).toHaveLength(3);
+    expect((await sentNoticeDocs())[`f1__u1__${idOf(recs[3]!)}__mortality_hit`]).toMatchObject({ state: "capped", cappedAlert: "pending" });
+    expect(await reviewQueueIds()).toEqual([]);
+    await runRetryFailed(deps, fakeGeo());
+    expect(await reviewQueueIds()).toEqual(["alert-mortality_capped-2026-11-05"]);
+    const capped = (await sentNoticeDocs())[`f1__u1__${idOf(recs[3]!)}__mortality_hit`]!;
+    expect(capped.state).toBe("capped");
+    expect(capped.cappedAlert).toBeUndefined();
+    expect(mail.sent).toHaveLength(3);
   });
 
   it("宛先がなくて送れなかった日も枠を返す（送れた知らせだけが枠を使う）", async () => {
