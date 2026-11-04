@@ -3,7 +3,7 @@
 import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { jstDateOf, toJstIso } from "@hpai/shared/dates";
 import type { GeoStore } from "@hpai/shared/geo";
-import { renderMorningDigest, planSelfCheckDue, renderNotice, type Notice, type NoticeEvent, type SentNotice } from "@hpai/shared/notices";
+import { noticeDocId, renderMorningDigest, planSelfCheckDue, renderNotice, type Notice, type NoticeEvent, type SentNotice } from "@hpai/shared/notices";
 import type { Farm } from "@hpai/shared/types";
 import { codeOf, dispatchNotices, isMailStopError, markSent, noteMailStop, unsubscribeUrlFor, type NotifyDeps } from "./dispatch";
 import { capHitNotices, hitDateOf, reserveHitSlot, retryCapAlerts, settleHitSlot, type HitReservation } from "./hitSlots";
@@ -285,6 +285,24 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
   return result;
 }
 
+/**
+ * 期限の知らせを、会員全員（配信停止を除く）に送り済みの月。送り済みの月は、1 回に出す月の上限に数えない。
+ * 読むのは、対象の月（最大 9）× 会員の文書だけ（文書 id が決まっているので、全件は読まない）。
+ */
+async function sentSelfCheckMonths(db: Firestore, farm: Farm & { id: string }, months: readonly string[]): Promise<string[]> {
+  if (!Array.isArray(farm.memberUids) || !Array.isArray(farm.unsubscribedUids)) return [];
+  const uids = farm.memberUids.filter((u): u is string => typeof u === "string" && !farm.unsubscribedUids.includes(u));
+  if (uids.length === 0 || months.length === 0) return [];
+  const refs = months.flatMap((month) => uids.map((uid) => db.doc(`sentNotices/${noticeDocId(farm.id, uid, month, "self_check_due")}`)));
+  const snaps = await db.getAll(...refs);
+  const sentPerMonth = new Map<string, number>();
+  for (const snap of snaps) {
+    const d = snap.data() as Partial<SentNotice> | undefined;
+    if (snap.exists && d?.state === "sent" && typeof d.subjectId === "string") sentPerMonth.set(d.subjectId, (sentPerMonth.get(d.subjectId) ?? 0) + 1);
+  }
+  return months.filter((month) => sentPerMonth.get(month) === uids.length);
+}
+
 /** 全農場の自己点検の期限の知らせ。点検が記録済みの月は除く。1 つの農場の失敗で他を止めない。 */
 async function planSelfCheck(db: Firestore, today: string): Promise<Notice[]> {
   const farms = await db.collection("farms").get();
@@ -303,7 +321,8 @@ async function planSelfCheck(db: Firestore, today: string): Promise<Notice[]> {
       for (const month of first.months) {
         if (await isSelfCheckAnswered(ctx, d.id, month)) answered.push(month);
       }
-      notices.push(...planSelfCheckDue(farm, today, answered).notices);
+      const sent = await sentSelfCheckMonths(db, farm, first.months);
+      notices.push(...planSelfCheckDue(farm, today, answered, sent).notices);
     } catch (e) {
       errors += 1;
       console.error("[notify] この農場の期限の知らせを作れませんでした", { code: codeOf(e) });

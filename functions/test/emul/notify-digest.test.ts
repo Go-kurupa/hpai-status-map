@@ -242,6 +242,39 @@ describe("runMorningDigest: 期限の知らせ", () => {
     expect(dueRecords.length).toBeLessThanOrEqual(SELF_CHECK_MAX_MONTHS_PER_RUN);
   });
 
+  it("3 つの月の期限が近く、2 か月分が送り済みなら、その日に 3 つ目の月の知らせが送られる（送り済みは上限に数えない）", async () => {
+    await seedFarm("f1", "u1");
+    await db.doc("farms/f1").update({
+      selfCheckDue: { "2026-11": "2026-11-06", "2026-12": "2026-11-07", "2027-01": "2026-11-08" },
+      "notify.selfCheckRemindDays": 7,
+    });
+    for (const month of ["2026-11", "2026-12"]) {
+      await db.doc(`sentNotices/f1__u1__${month}__self_check_due`).set({
+        farmId: "f1", uid: "u1", subjectId: month, event: "self_check_due", timing: "immediate", state: "sent",
+        queuedAt: "2026-11-04T06:00:00+09:00", sentAt: "2026-11-04T06:00:10+09:00",
+      });
+    }
+    const { deps, mail } = makeDeps();
+    await runMorningDigest(deps, fakeGeo());
+    expect(mail.sent.map((m) => m.subject)).toEqual(["【自己点検】11月8日が期限です"]);
+    const docs = await sentNoticeDocs();
+    expect(docs["f1__u1__2027-01__self_check_due"]).toMatchObject({ state: "sent" });
+  });
+
+  it("送り済みの月が一部の会員にだけなら、届いていない会員には送る（月は全員に届くまで送り済みにしない）", async () => {
+    await seedFarm("f1", "u1");
+    await db.doc("farms/f1").update({
+      memberUids: ["u1", "u2"], selfCheckDue: { "2026-11": "2026-11-06" }, "notify.selfCheckRemindDays": 7,
+    });
+    await db.doc("sentNotices/f1__u1__2026-11__self_check_due").set({
+      farmId: "f1", uid: "u1", subjectId: "2026-11", event: "self_check_due", timing: "immediate", state: "sent",
+      queuedAt: "2026-11-04T06:00:00+09:00", sentAt: "2026-11-04T06:00:10+09:00",
+    });
+    const { deps, mail } = makeDeps();
+    await runMorningDigest(deps, fakeGeo());
+    expect(mail.sent.map((m) => m.to)).toEqual(["u2@example.test"]);
+  });
+
   it("期限の知らせの送信で認証のエラーが出たら、朝の queued も failed にして、送らない", async () => {
     await seedFour();
     const { deps, mail } = makeDeps({ fail: () => authErr });
