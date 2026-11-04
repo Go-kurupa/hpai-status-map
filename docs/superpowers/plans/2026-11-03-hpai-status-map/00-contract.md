@@ -123,7 +123,7 @@ interface RuntimeSettings { // usage/settings
   autoPublishEnabled: boolean; // I-06 の合格と利用者の確認の後に true
   primaryModel: string; primaryEffort: "low" | "medium" | "high" | "xhigh" | "max"; secondModel: string;
 }
-const DEFAULT_RUNTIME_SETTINGS: RuntimeSettings; // 2000、2500、150、false、"claude-opus-5-5"、"medium"、"claude-haiku-5-5"
+const DEFAULT_RUNTIME_SETTINGS: RuntimeSettings; // 8000、10000、150、false、"claude-opus-5-5"、"medium"、"claude-haiku-5-5"（2026-11-04 変更。当初は 2000、2500。予算の通知は月 3,000 円で、設定の値ではない）
 interface EvalSummary { // evals/results/summary.json。I-06 が書き、X-09 が読む
   measuredAt: IsoDateTime;
   metrics: Array<{ name: EvalMetricName; value: number; denominator: number | null; unit: string; note: string | null }>;
@@ -142,15 +142,15 @@ type EvalMetricName = "documents" | "read_refusals" | "format_errors" | "primary
 ```ts
 type Production = "layer" | "broiler";
 type FarmHousing = "windowless" | "open" | "free_range";
-interface NotifySettings { level1: boolean; level2: boolean; level3: boolean; morningDigest: boolean; selfCheckRemindDays: number | null }
+interface NotifySettings { level1: boolean; level2: boolean; level3: boolean; morningDigest: boolean; selfCheckRemindDays: number | null } // 5 つのキーがすべて必須。selfCheckRemindDays は 0〜7 の整数か null（画面の選択は 1、2、3、5、7）。サーバーは 0〜7 に丸める
 interface Farm { // farms/{farmId}
   name: string; memberUids: string[];
   unsubscribedUids: string[]; // サーバーだけが書く
   meshCode: MeshCode;         // 緯度経度のフィールドを持たない
-  muniCode: MuniCode; prefCode: PrefCode; frequentMuniCodes: MuniCode[];
+  muniCode: MuniCode; prefCode: PrefCode; frequentMuniCodes: MuniCode[]; // 20 件まで。各要素は 5 桁の町のコード
   production: Production | null; housing: FarmHousing | null; // M-05 で入れる。null は未設定
   kahoContact: string; notify: NotifySettings;
-  selfCheckDue: Record<string, IsoDate>; // "YYYY-MM" → 期限日（§8）
+  selfCheckDue: Record<string, IsoDate>; // "YYYY-MM"（月は 01〜12）→ "YYYY-MM-DD"（期限日、§8）。40 件まで。コンマで詰めた形は規則が拒否する。期限の知らせの対象は今季の月（10〜5 月）と、6〜9 月のときの前季の 5 月分だけで、ほかのキーは読み飛ばす
   updatedAt: IsoDateTime;
 }
 interface House { name: string; birdType: string; flockSize: number; empty: boolean }
@@ -390,7 +390,11 @@ Secret: `ANTHROPIC_API_KEY`、`GMAIL_APP_PASSWORD`、`UNSUBSCRIBE_SECRET`、`OPS
 
 - 既定は全拒否。`cases`、`wildBirds`、`watchStatus` は read 全員、write 拒否。
 - `caseDrafts` は read `request.auth.token.member == true`、`reviewQueue` は read `operator`。どちらも write 拒否。`sources`、`documents`、`invites`、`sentNotices`、`usage` は全拒否。
-- `farms/{id}`: read は `uid in memberUids`／create は `member`、`memberUids == [uid]`、`unsubscribedUids == []`／update は会員で、この 2 つを変えない／delete 拒否。全書き込みで `keys().hasOnly([Farm の全キー])`、`meshCode.matches('^[0-9]{8}$')`。
+- `farms/{id}`: read は `uid in memberUids`／create は `member`、`memberUids == [uid]`、`unsubscribedUids == []`、かつ `farmId == request.auth.uid`（農場を作れるのは自分の uid の 1 つだけ。招待で他の農場に入った人は、その農場がある間、自分の農場を作れない）／update は会員で、この 2 つを変えない／delete 拒否。全書き込みで `keys().hasOnly([Farm の全キー])`、`meshCode.matches('^[0-9]{8}$')`。
+  - `notify` は 5 つのキー（`level1`、`level2`、`level3`、`morningDigest`、`selfCheckRemindDays`）がすべて必須で、ほかのキーは持てない。`selfCheckRemindDays` は 0〜7 の整数か null。
+  - `selfCheckDue` は 40 件まで。キーは `YYYY-MM`（月は 01〜12）、値は `YYYY-MM-DD`。コンマで 1 つに詰めた形は拒否する。
+  - `frequentMuniCodes` は 20 件まで。各要素は 5 桁の文字列。
+  - 正本は `firestore.rules`。
 - `houses`、`deaths`、`checks`: 親の `memberUids` で判定。`hasOnly` で `uid`、`createdBy` を持てない。`deaths.deaths`、`deaths.flockSizeAt`、`houses.flockSize` は `is int` かつ `>= 0`。
 - `operator` でも `farms` は読めない。claim の付与の後に画面が `getIdToken(true)` を呼ぶ。
 

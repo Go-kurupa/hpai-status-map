@@ -1,4 +1,4 @@
-# Managed Agents の試行（X-01）
+# Managed Agents の試行
 
 県のサイトの見回り先が壊れたときに、新しい入口を**提案する**エージェントを、Claude Managed Agents のスケジュールデプロイメントで動かせるかを試す。提案だけで、見回り先は変えない（運営者が承認する）。
 
@@ -15,7 +15,7 @@
 
 設定の値: モデル `claude-sonnet-5-5`（effort `medium`）／道具は `mcp_toolset` 1 つだけ（`always_allow`）／環境は `cloud` で `limited`＋`allow_mcp_servers`／毎週月曜 07:00（`Asia/Tokyo`）／1 セッションの上限は 1 ドル（`budget` の `amount` は最小単位の `"100"`）。
 
-仮の道具（`tools.ts`。X-14 が本物にする）: 対象は固定の 3 県（33、01、02。`currentUrl` は null）、`propose_entrance` は id を返すだけで何も書かない。`fetch_pref_page` は `politeFetch` を通り、県のドメインの外へは取得の前に拒む（リダイレクトの先も同じ）。手数の上限はまだ無く、1 セッション 1 ドルの上限が止める。
+仮の道具（`tools.ts`。エージェントの実装で本物にする）: 対象は固定の 3 県（33、01、02。`currentUrl` は null）、`propose_entrance` は id を返すだけで何も書かない。`fetch_pref_page` は `politeFetch` を通り、県のドメインの外へは取得の前に拒む（リダイレクトの先も同じ）。手数の上限はまだ無く、1 セッション 1 ドルの上限が止める。
 
 ## SDK と公式の資料の確認（2026-11-03）
 

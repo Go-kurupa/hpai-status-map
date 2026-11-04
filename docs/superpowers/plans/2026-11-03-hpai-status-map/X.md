@@ -71,7 +71,7 @@ function ReplayFrame(p: { scenario: ReplayScenario; dataSource: ReplayDataSource
   - E2E: 12/19 の夜に「区域に入っている可能性があります。県の連絡を確かめてください」が出て 1/21 で消える。`firestore.googleapis.com`、`api.anthropic.com` への通信がない。
 - [ ] **Step 2: 失敗を確かめる** `vt scripts,web replay` → FAIL
 - [ ] **Step 3: 実装**
-  - `scenario.json` は手で書く。材料は `private/research/20261103-outbreak-bulletin-timeline.md`（未検証）と `cases-6seasons.json`。各 `sourceUrl` を原本で確かめ、確かめた日を `docs/replay-sources.md` に残す。**試験の値と原本が違えば止めて利用者に訊く。** 姫路の例外もここに書く（§17）。文章を写さない。
+  - `scenario.json` は手で書く。材料は手元の非公開の調査メモ（未検証）と、6 シーズンの事例の控え。各 `sourceUrl` を原本で確かめ、確かめた日を `docs/replay-sources.md` に残す。**試験の値と原本が違えば止めて利用者に訊く。** 姫路の例外もここに書く（§17）。文章を写さない。
   - `defaultSpot.meshCode` は 33622 の `center` を `latLngToMesh3` に通した値。
   - `noticePreview.text` は `${muniName}で${語}の発表がありました。${prefContactIsAuthority}`（語は 疑い／確定／搬出制限の解除／移動制限の解除）。
   - `ReplayFrame` の中に `MapPage` を置き（複製しない）、`SpotProvider` の `fixed` に `defaultSpot`。操作は「前へ」「次へ」と日付の一覧。起動時は order 0。
@@ -264,7 +264,7 @@ function detectAgentRunFailures(runs: readonly AgentRunView[]): Array<{ key: str
 - [ ] **Step 3: 実装**
   - ドメインは入口のホストに `/(pref\.[a-z]+(\.lg)?\.jp|metro\.tokyo\.lg\.jp)$/` を当てた値。当たらなければ F-09 に差し戻す。`rationale` は 1000 字まで。id は `entr-${sha256(prefCode + "|" + 正規化した URL).slice(0, 24)}`。
   - `checkAgentRuns`: 直近 14 日の実行のうち `countedRunIds` にないもの。セッションが `idle` か `terminated` のときだけ `usage.list_cost.amount` と、`sessions.events.list(id, {types:["session.status_idle"], order:"desc"})` の最初の `stop_reason.type` を読む。
-  - 止めた後は `--unpause` で運営者が戻す。止める線 2,500 円に週 1 回の 150 円が足されても 3,000 円を超えない。
+  - 止めた後は `--unpause` で運営者が戻す。止める線 10,000 円（2026-11-04 変更。当初は 2,500 円）に週 1 回の 150 円が足されても、10,500 円以内に収まる。
   - 心拍の判定は大会後。`lastAuthedCallAt` の書き込みだけ残す。
   - **戻し先**（`decision: cloud_functions` のときだけ）: `client.messages.create` の繰り返し。`mcpInternal` を export から外す。`checkAgentRuns` は作らない。基盤を変えたことを docs と README に書く。
 - [ ] **Step 4: 通ることを確かめる** 同じコマンドと `npm run test:emul`

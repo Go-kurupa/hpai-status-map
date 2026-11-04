@@ -236,7 +236,7 @@ export const OFFICIAL_GUIDANCE_REVIEWED_ON: IsoDate | null;  // null の間は�
 export const PAGE_NOTES: Partial<Record<GuidanceTopic, string[]>>;  // pageNotes.ts。出典のない作品の文。MCP に渡さない
 ```
 
-**文の元**: 手元の `private/research/20261103-public-page-draft.md` の 3 章の `>` の行を候補にし、各文を原本で 1 度照合してから写す。`checkedOn` は照合した日。TLS で取得できなければ緩めず（契約 3.7）、その文を入れずに報告する。【出典なし】の行と、県の文だけが根拠の行は `PAGE_NOTES` に回す。
+**文の元**: 手元の非公開の文面の下書きの 3 章の `>` の行を候補にし、各文を原本で 1 度照合してから写す。`checkedOn` は照合した日。TLS で取得できなければ緩めず（契約 3.7）、その文を入れずに報告する。【出典なし】の行と、県の文だけが根拠の行は `PAGE_NOTES` に回す。
 
 | topic（節の id）、見出し | `statements` の出典（国のみ） | 注意 |
 |---|---|---|
@@ -289,7 +289,7 @@ export const PAST_BASIS: { text: string; sourceTitle: string; sourceUrl: string;
 
 - [ ] **Step 1: 失敗する試験を書く** §11 の 7 行（再発 8/24、基本の管理、水辺と羽数、少羽数、靴の履き替え、基準の対策、近所の続発）に地域と時期、確からしさ、限界、出典がそろう／`verifiedOn` null は出ない／出る行ごとに `確認日`（`verifiedOn`）／「研究の知見です。決まりではありません」があり `GuidanceSection` を使わない／`/また発生しやすい|この町も危ない|隣町からうつる|危険地帯|ホットスポット|感染確率|8 割/` と禁止語がない／基準の対策の行に「実施を勧めないという意味ではありません」／入力欄がない。
 - [ ] **Step 2: 確かめる** 期待: 仮の画面で失敗。
-- [ ] **Step 3: 実装** 文と確からしさは §11 の表。材料は手元の `private/research/20261103-literature-farm-factors.md`、`20261103-literature-recurrence.md`、`20261103-public-page-draft.md` の 5 章（§22 の未検索の記録）。**メモの文を写さず、DOI か公式の URL を原本で確かめて書く。**確かめられない行は `verifiedOn: null`。`PAST_BASIS` は §11 の国の報告書の一文を原本で確かめる。
+- [ ] **Step 3: 実装** 文と確からしさは §11 の表。材料は手元の非公開の文献調査のメモと、文面の下書きの 5 章（§22 の未検索の記録）。**メモの文を写さず、DOI か公式の URL を原本で確かめて書く。**確かめられない行は `verifiedOn: null`。`PAST_BASIS` は §11 の国の報告書の一文を原本で確かめる。
 - [ ] **Step 4: 確かめる** 同じコマンド。
 - [ ] **Step 5: Human** 作者が `/known` を読み、直しを反映する。
 - [ ] **Step 6: Commit** `feat(public): 分かっていることのページを作る`

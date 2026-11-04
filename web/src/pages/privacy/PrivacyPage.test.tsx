@@ -46,7 +46,7 @@ const REVIEW_R1_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
 
 // N-6（X-23 のセキュリティ確認）: 運営者に見えるものと、メールの控えに残るものを、ありのままに書く
 const N6_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
-  { heading: "保存場所", phrase: "基準の知らせが 1 日の上限で止まったときは、運営者の箱に日付つきの知らせが出ます" },
+  { heading: "保存場所", phrase: "基準の知らせが 1 日の上限で止まったときは、運営者の確認画面に日付つきの知らせが出ます" },
   { heading: "保存場所", phrase: "送ったメールの控えには、会員のアドレスと、死亡率が基準に当たる可能性があることが残ります" },
   { heading: "保存場所", phrase: "死亡数そのものは、運営者に見えません" },
 ];

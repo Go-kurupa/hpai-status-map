@@ -88,7 +88,7 @@ function decideReadBudget(month: UsageMonth, s: RuntimeSettings, title: string):
   - `decideReadBudget`（`>=`）: 1,999 円 `read`、2,000 円で進捗報だけ `skip_progress`、2,499 円も同じ、2,500 円は `stop`。
   - emul: `recordUsage` は同時でも失わず積む。`readRuntimeSettings` は文書がなければ既定値。
 - [ ] **Step 2: 失敗を確かめる** `VT functions functions/test/claude.test.ts`、`VT shared shared/test/budget.test.ts`
-- [ ] **Step 3: 実装** 単価は `opus-5-5 {4,20,read 0.20}`、`sonnet-5-5 {2,10,read 0.20}`、`haiku-5-5 {0.10,0.50,read 0.01}`（100K 超 `{0.50,2.50,read 0.05}`）。`looksLikeProgressTitle` は正規化の後、`完了|解除|特報` で false、`第([2-9]|\d{2,})報`、`進捗`、`続報` で true。実物 3 本は先に控える: 手元の `private/research/20261103-outbreak-bulletin-timeline.md`（県の確定、進捗の PDF）と `20261102-moe-wildbird.md`（環境省の野鳥）の出典 URL から 1 本ずつ選び（I-06 Step 3 と同じ経路）、`politeFetch` で `data/private/fixtures/smoke/` に保存する。`tls:true` などで取れなければ緩めず次の URL にする。`scripts/smoke-read.ts` は作った 2 本（確定、作った否定）とこの 3 本を両モデルに渡し、`kind`、`municipality.value`、`primaryDate`、`usage`（`output_tokens` が 16000 にどれだけ近いかを見る）、`stop_reason`、失敗の `reason` と `detail` だけを出す。
+- [ ] **Step 3: 実装** 単価は `opus-5-5 {4,20,read 0.20}`、`sonnet-5-5 {2,10,read 0.20}`、`haiku-5-5 {0.10,0.50,read 0.01}`（100K 超 `{0.50,2.50,read 0.05}`）。`looksLikeProgressTitle` は正規化の後、`完了|解除|特報` で false、`第([2-9]|\d{2,})報`、`進捗`、`続報` で true。実物 3 本は先に控える: 手元の非公開の調査メモ（県の確定、進捗の PDF、環境省の野鳥）の出典 URL から 1 本ずつ選び（I-06 Step 3 と同じ経路）、`politeFetch` で `data/private/fixtures/smoke/` に保存する。`tls:true` などで取れなければ緩めず次の URL にする。`scripts/smoke-read.ts` は作った 2 本（確定、作った否定）とこの 3 本を両モデルに渡し、`kind`、`municipality.value`、`primaryDate`、`usage`（`output_tokens` が 16000 にどれだけ近いかを見る）、`stop_reason`、失敗の `reason` と `detail` だけを出す。
 - [ ] **Step 4: 通ることを確かめる** Step 2 と `EMUL`。`npx tsx scripts/smoke-read.ts`。期待: 全文書、両モデルで `ok:true`。API がスキーマを拒むときは残りの nullable を空文字列に替える。**拒否が 1 件でも出たら止めて、文書と件数を報告する**（索引 Q9）。
 - [ ] **Step 5: Commit** `feat(read): 主の読み手、別の読み手、費用の数え方を追加する`
 
@@ -374,7 +374,7 @@ function evalPasses(s: EvalSummary, scores: readonly DocScore[]): boolean;
   - スキル: frontmatter に name と description。本文のコマンドが `evals/run.ts` を呼び、鍵の値がなく、鍵を表示しないと書いてある。`summary.json`、項目ごとの正解率、費用の読み方、「`autoPublishEnabled` を変えるのは利用者の確認の後」がある。
 - [ ] **Step 2: 失敗を確かめる** `VT scripts scripts/test/eval-answers.test.ts` ほか 2 本
 - [ ] **Step 3: 実装**
-  - 文書は手元の `private/research/20261103-outbreak-bulletin-timeline.md`、`20261102-moe-wildbird.md`、`20261103-entrance-probe.md` の出典 URL と岡山の事例ページから選ぶ。岡山のほか京都、埼玉、茨城、宮崎、岐阜、三重のうち 3 県以上、環境省の栗原の疑いと陰性確定、岡山のページの姫路に係る 2 本（`other_pref`）、特報 2 本を入れる。**正解は取得した原本を読んで書く。** 調査メモの値を写さない。作った文書は実在の農場を指さない。
+  - 文書は手元の非公開の調査メモの出典 URL と岡山の事例ページから選ぶ。岡山のほか京都、埼玉、茨城、宮崎、岐阜、三重のうち 3 県以上、環境省の栗原の疑いと陰性確定、岡山のページの姫路に係る 2 本（`other_pref`）、特報 2 本を入れる。**正解は取得した原本を読んで書く。** 調査メモの値を写さない。作った文書は実在の農場を指さない。
   - Batch は `custom_id` を `${id}__p`、`${id}__s` とし、バッチ ID を `data/private/eval-runs/` に保存してから 60 秒ごとに待つ。`errored`、`expired` は `read = null`。実際の応答は `data/private/eval-runs/` にだけ置く。`--sync` は同時 4 件までで同じ採点を通す。不合格または `read_refusals > 0` なら終了コード 1。
   - `--backfill`（実行するかは索引 Q19）は月別一覧の文書を Batch で読む。最初に `--dry-run` で「疑似患畜の確認」の題をシーズンごとに数え、合わなければ止めて報告する。現地調査の概要は扱わない（X-27）。費用は `docs/batch-usage.md` に書く。
   - `docs/first-outbreak-log.md` は手順だけ: 最初の発生が来たら `documents` の `fetchedAt` と `sourceId` から入口ごとの最初の検知時刻を出し、事実だけを記録して見回り先を直す（§9.2、§17）。

@@ -22,7 +22,7 @@ const SUMMARY: EvalSummary = {
     { name: "primary_stage_errors", value: 0, denominator: 54, unit: "文書", note: null },
     { name: "primary_date_errors", value: 0, denominator: 54, unit: "文書", note: null },
     { name: "tamper_rejected", value: 17, denominator: 17, unit: "件", note: "わざと入れ替えた結果のうち、載らずに落ちた数" },
-    { name: "detection_prev_season", value: 24, denominator: 24, unit: "件", note: "前季の確認の発表が cases.json と一致" },
+    { name: "detection_prev_season", value: 24, denominator: 24, unit: "件", note: "前季の確認の発表が 国の事例の一覧と一致" },
   ],
   unmeasured: ["detection_title_classification"],
   costPerDocumentUsd: 0.0412,
@@ -138,7 +138,7 @@ describe("/results（試験の結果がある）", () => {
     const s = region(/読み取りの試験/);
     expect(s.textContent).toContain("2026-11-05 17:30");
     expect(within(s).getByText("24/24 件")).toBeTruthy();
-    expect(s.textContent).toContain("前季の確認の発表が cases.json と一致");
+    expect(s.textContent).toContain("前季の確認の発表が 国の事例の一覧と一致");
     expect(within(s).getAllByText("0/54 文書", { selector: "td" })).toHaveLength(3);
     const row = (label: string) => within(s).getByRole("row", { name: new RegExp(label) });
     expect(row("国の題の分類").textContent).toContain("未実測"); // unmeasured

@@ -314,7 +314,7 @@ const CHECKLIST_ITEMS: readonly ChecklistItem[];
 
 読む節: 2.3、3.10、4.1、索引 Q2、Q10、Q12、M-03、M-07 Interfaces
 
-**Day:** 11/6 / **Depends on:** M-01、M-03、M-07 / **Human:** 手元の資料（`private/research/20261103-kaho-forms-and-resident-handout.md`）の項目と報告文の順を利用者が見比べる
+**Day:** 11/6 / **Depends on:** M-01、M-03、M-07 / **Human:** 手元の非公開の資料の項目と報告文の順を利用者が見比べる
 
 **Files:** Create `shared/src/reports.ts`、`functions/src/farm/deleteFarmData.ts`、`web/src/pages/record/{RecordTabs,DeathsPanel,SelfCheckPanel,ExportPanel}.tsx`。Modify `functions/src/farm/index.ts`、`web/src/pages/record/{RecordPage,DeathsPage,SelfCheckPage,DisinfectionPage}.tsx`。Test `shared/test/reports.test.ts`、`functions/test/emul/delete-farm.test.ts`、`web/src/pages/record/record.test.tsx`
 

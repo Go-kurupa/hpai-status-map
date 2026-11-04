@@ -211,7 +211,7 @@ export function summarize(scores: readonly DocScore[], tamper: Tamper, detection
   ];
   const unmeasured: string[] = [];
   if (detection) {
-    metrics.push(m("detection_prev_season", detection.prevSeason, 24, "件", "前季の確認の発表が cases.json と一致"));
+    metrics.push(m("detection_prev_season", detection.prevSeason, 24, "件", "前季の確認の発表が国の事例の一覧と一致"));
     metrics.push(m("detection_title_classification", detection.titles, TITLE_SPLIT.confirmed + TITLE_SPLIT.movement_lifted + TITLE_SPLIT.other, "題", `確認/解除/それ以外 = ${TITLE_SPLIT.confirmed}/${TITLE_SPLIT.movement_lifted}/${TITLE_SPLIT.other}`));
   } else {
     unmeasured.push("detection_prev_season", "detection_title_classification");
