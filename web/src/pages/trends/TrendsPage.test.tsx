@@ -53,6 +53,7 @@ describe("全国の傾向（/trends）", () => {
     show();
     expect(await screen.findByText(/全国の傾向です/u)).toBeTruthy();
     expect(screen.getByText(/自由記述を Claude が項目に揃えた結果で、全件を人が確かめたものではありません/u)).toBeTruthy();
+    expect(screen.getByText(/国の報告書の集計（半数以上の農場）より少なく出ます。数え方が違います/u)).toBeTruthy();
     expect(screen.getByText(/2026-11-08 10:00 時点/u)).toBeTruthy();
   });
 

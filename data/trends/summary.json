@@ -1,0 +1,157 @@
+{
+  "generatedAt": "2026-11-04T17:14:39+09:00",
+  "seasons": [
+    {
+      "season": 2025,
+      "surveyed": 24,
+      "items": [
+        {
+          "key": "external_clothing",
+          "label": "外部事業者の専用の衣服や靴",
+          "issueCount": 6,
+          "notMentionedCount": 2
+        },
+        {
+          "key": "rodent_signs",
+          "label": "ねずみの痕跡",
+          "issueCount": 20,
+          "notMentionedCount": 0
+        },
+        {
+          "key": "wall_net_damage",
+          "label": "壁やネットの破損",
+          "issueCount": 15,
+          "notMentionedCount": 4
+        }
+      ]
+    },
+    {
+      "season": 2024,
+      "surveyed": 51,
+      "items": [
+        {
+          "key": "external_clothing",
+          "label": "外部事業者の専用の衣服や靴",
+          "issueCount": 16,
+          "notMentionedCount": 7
+        },
+        {
+          "key": "rodent_signs",
+          "label": "ねずみの痕跡",
+          "issueCount": 33,
+          "notMentionedCount": 2
+        },
+        {
+          "key": "wall_net_damage",
+          "label": "壁やネットの破損",
+          "issueCount": 25,
+          "notMentionedCount": 11
+        }
+      ]
+    },
+    {
+      "season": 2023,
+      "surveyed": 11,
+      "items": [
+        {
+          "key": "external_clothing",
+          "label": "外部事業者の専用の衣服や靴",
+          "issueCount": 4,
+          "notMentionedCount": 0
+        },
+        {
+          "key": "rodent_signs",
+          "label": "ねずみの痕跡",
+          "issueCount": 9,
+          "notMentionedCount": 0
+        },
+        {
+          "key": "wall_net_damage",
+          "label": "壁やネットの破損",
+          "issueCount": 8,
+          "notMentionedCount": 1
+        }
+      ]
+    },
+    {
+      "season": 2022,
+      "surveyed": 84,
+      "items": [
+        {
+          "key": "external_clothing",
+          "label": "外部事業者の専用の衣服や靴",
+          "issueCount": 32,
+          "notMentionedCount": 11
+        },
+        {
+          "key": "rodent_signs",
+          "label": "ねずみの痕跡",
+          "issueCount": 62,
+          "notMentionedCount": 3
+        },
+        {
+          "key": "wall_net_damage",
+          "label": "壁やネットの破損",
+          "issueCount": 54,
+          "notMentionedCount": 19
+        }
+      ]
+    },
+    {
+      "season": 2021,
+      "surveyed": 25,
+      "items": [
+        {
+          "key": "external_clothing",
+          "label": "外部事業者の専用の衣服や靴",
+          "issueCount": 4,
+          "notMentionedCount": 13
+        },
+        {
+          "key": "rodent_signs",
+          "label": "ねずみの痕跡",
+          "issueCount": 20,
+          "notMentionedCount": 0
+        },
+        {
+          "key": "wall_net_damage",
+          "label": "壁やネットの破損",
+          "issueCount": 18,
+          "notMentionedCount": 5
+        }
+      ]
+    },
+    {
+      "season": 2020,
+      "surveyed": 51,
+      "items": [
+        {
+          "key": "external_clothing",
+          "label": "外部事業者の専用の衣服や靴",
+          "issueCount": 0,
+          "notMentionedCount": 49
+        },
+        {
+          "key": "rodent_signs",
+          "label": "ねずみの痕跡",
+          "issueCount": 45,
+          "notMentionedCount": 2
+        },
+        {
+          "key": "wall_net_damage",
+          "label": "壁やネットの破損",
+          "issueCount": 39,
+          "notMentionedCount": 11
+        }
+      ]
+    }
+  ],
+  "sourceUrls": [
+    "https://www.maff.go.jp/j/syouan/douei/tori/r7_hpai_kokunai.html",
+    "https://www.maff.go.jp/j/syouan/douei/tori/r6_hpai_kokunai.html",
+    "https://www.maff.go.jp/j/syouan/douei/tori/r5_hpai_kokunai.html",
+    "https://www.maff.go.jp/j/syouan/douei/tori/220929.html",
+    "https://www.maff.go.jp/j/syouan/douei/tori/r3_hpai_kokunai.html",
+    "https://www.maff.go.jp/j/syouan/douei/tori/r2_hpai_kokunai.html"
+  ]
+}
