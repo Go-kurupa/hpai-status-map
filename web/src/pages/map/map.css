@@ -503,3 +503,49 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+
+/* 過去のシーズンとの比べ（CSS の棒。幅 360px でも横にはみ出さない） */
+.season-compare {
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+.compare-table {
+  width: 100%;
+  margin: 0 0 8px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.875rem;
+}
+.compare-table caption {
+  padding: 4px 0;
+  text-align: left;
+  font-weight: 700;
+}
+.compare-table th,
+.compare-table td {
+  padding: 4px 4px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.compare-table tr.is-now {
+  background: var(--soft);
+}
+.compare-track {
+  display: block;
+  height: 8px;
+  margin-top: 2px;
+  background: var(--soft);
+}
+.compare-fill {
+  display: block;
+  height: 100%;
+  background: var(--fg);
+}
+.compare-months th {
+  width: 4.5em;
+}
+.compare-prefs ul {
+  margin: 4px 0;
+  padding-left: 1.2em;
+}

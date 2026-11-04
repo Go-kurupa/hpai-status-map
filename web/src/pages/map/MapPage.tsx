@@ -1,3 +1,4 @@
+import { jstDateOf } from "@hpai/shared/dates";
 import { PREFS } from "@hpai/shared/pref";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import type { MuniCode } from "@hpai/shared/types";
@@ -12,6 +13,7 @@ import { MapLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import type { PickTarget } from "./pickSpot";
 import { SeasonBar } from "./SeasonBar";
+import { SeasonCompare } from "./SeasonCompare";
 import { SpotPicker } from "./SpotPicker";
 import { TEXT } from "./texts";
 import { TownBanner } from "./TownBanner";
@@ -216,6 +218,20 @@ export default function MapPage() {
       />
 
       <SeasonBar bars={bars} selected={d.selected} onSelect={d.select} />
+
+      {/* 再現（去年の再現）は日付を過去に置いた画面なので、今日の比べは出さない */}
+      {ds.mode === "replay" ? null : (
+        <SeasonCompare
+          today={jstDateOf(now)}
+          current={d.current}
+          currentCases={d.currentCases}
+          history={d.history}
+          historyFailed={d.historyFailed}
+          asOf={d.asOf}
+          unchecked={d.failedPrefCodes.length}
+          allUnchecked={noneConfirmed}
+        />
+      )}
 
       {!view.isCurrent && view.loaded ? <p className="map-notice">{FIXED_TEXT.pastDisclaimer}</p> : null}
       {view.isCurrent && view.loaded && view.total === 0 && !townLine.line?.details.includes(FIXED_TEXT.riskAnywhere) ? (

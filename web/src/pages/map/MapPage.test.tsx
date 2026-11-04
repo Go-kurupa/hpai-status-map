@@ -120,7 +120,9 @@ describe("MapPage", () => {
     show(rig());
     await screen.findByTestId("map");
     expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
-    expect(document.body.textContent).not.toMatch(/(^|[^0-9])0 件/);
+    // 過去のシーズンとの比べの表には、過去の実績としての「0 件」（その時期までに発生がなかったシーズン）が出る。ほかの所を見る
+    const outsideCompare = [...document.querySelectorAll(".map-page > *")].filter((e) => !e.matches(".season-compare")).map((e) => e.textContent).join("");
+    expect(outsideCompare).not.toMatch(/(^|[^0-9])0 件/);
     expect(document.body.textContent).toContain("まだ読めていません");
     expect(lastProps().view.loaded).toBe(false);
     expect(lastProps().failedPrefCodes).toHaveLength(47);
