@@ -452,3 +452,27 @@ export function checkXlsxBody(b: Buffer): string | null {
     return (e as Error).message;
   }
 }
+
+/**
+ * 今季のファイルとして保存してよいか。checkXlsxBody に加えて、水鳥の数がある回（total が null でない回）が
+ * 1 つ以上なければ読めないものとする。シーズン初めの「報告未着」「記録なし」だけのほぼ空のファイルを手元の写しに残さない
+ * （保存しなければ、前の写しがあればそれが残り、なければ今季は「記録なし」として地点を載せない）
+ */
+export function checkCurrentXlsxBody(b: Buffer): string | null {
+  try {
+    const s = extractSurveys(parseXlsx(b)).surveys;
+    if (s.length === 0) return "調査の回がありません";
+    return s.some((x) => x.total !== null) ? null : "水鳥の数がある回がありません";
+  } catch (e) {
+    return (e as Error).message;
+  }
+}
+
+/**
+ * 書き出すかと終了コードの判断。0 件、または前回の半分未満に減ったときは壊れた取得とみなして書かず 1。
+ * 書く場合でも、取得に失敗したものが 1 つでもあれば終了コードは 2（集計は取れた分で書く）
+ */
+export function decideExit(i: { siteCount: number; previousCount: number | null; failed: readonly string[] }): { write: boolean; code: number } {
+  if (i.siteCount === 0 || (i.previousCount !== null && i.siteCount * 2 < i.previousCount)) return { write: false, code: 1 };
+  return { write: true, code: i.failed.length > 0 ? 2 : 0 };
+}

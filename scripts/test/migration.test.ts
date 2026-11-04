@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   excelSerialToIsoDate,
   checkIndexBody,
+  checkCurrentXlsxBody,
   checkXlsxBody,
+  decideExit,
   extractSurveys,
   firstCrossing,
   isWaterbirdSpecies,
@@ -352,5 +354,43 @@ describe("取った本体が読めるかの確認（読めないものは保存�
     expect(checkXlsxBody(xlsx([["調査地点名", "試験沼"], ["調査年月日", "10月上旬"], ["飛来状況", ""]]))).toMatch(/調査の回/u);
     expect(checkIndexBody(Buffer.from("<html>メンテナンス中</html>"))).not.toBeNull();
     expect(checkIndexBody(Buffer.from('<a href="site_csv/10.xlsx">(1)クッチャロ湖</a>'))).toBeNull();
+  });
+});
+
+describe("今季のファイルの確認（水鳥の数がある回が 1 つも無いものは保存しない）", () => {
+  it("回はあっても数が 1 つも無い（記録なし・報告未着だけ）ファイルは理由を返し、数がある回があれば null", () => {
+    const empty = xlsx([
+      ["調査地点名", "試験沼", "試験沼"],
+      ["調査年月日", serial("2026-09-28"), serial("2026-10-05")],
+      ["飛来状況", "報告未着", "報告未着"],
+      ["マガン", null, null],
+    ]);
+    expect(checkXlsxBody(empty)).toBeNull(); // 過去のシーズンの確認は従来どおり
+    expect(checkCurrentXlsxBody(empty)).toMatch(/数/u);
+    expect(checkCurrentXlsxBody(xlsx(fixtureGrid()))).toBeNull();
+    expect(checkCurrentXlsxBody(Buffer.from("<html>503</html>"))).toMatch(/zip/u);
+  });
+  it("水鳥でない行にだけ数がある回は、数がある回に数えない", () => {
+    const g = xlsx([
+      ["調査地点名", "試験沼"],
+      ["調査年月日", serial("2026-09-28")],
+      ["飛来状況", ""],
+      ["カワウ", 9],
+    ]);
+    expect(checkCurrentXlsxBody(g)).not.toBeNull();
+  });
+});
+
+describe("終了コードと書き出しの判断", () => {
+  it("失敗がなく地点があれば 0 で書く", () => {
+    expect(decideExit({ siteCount: 10, previousCount: 10, failed: [] })).toEqual({ write: true, code: 0 });
+  });
+  it("一部の取得に失敗しても、取れた分は書き、終了コードは 2", () => {
+    expect(decideExit({ siteCount: 9, previousCount: 10, failed: ["2026/1.xlsx: timeout"] })).toEqual({ write: true, code: 2 });
+  });
+  it("地点が 0 件、または前回の半分未満なら書かず 1（失敗の有無によらない）", () => {
+    expect(decideExit({ siteCount: 0, previousCount: null, failed: ["a"] })).toEqual({ write: false, code: 1 });
+    expect(decideExit({ siteCount: 4, previousCount: 10, failed: [] })).toEqual({ write: false, code: 1 });
+    expect(decideExit({ siteCount: 5, previousCount: 10, failed: [] })).toEqual({ write: true, code: 0 });
   });
 });

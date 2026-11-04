@@ -15,8 +15,10 @@ import { parseArgs } from "node:util";
 import { jstDateOf, toJstIso } from "@hpai/shared/dates";
 import { politeFetch } from "../functions/src/watch/politeFetch";
 import {
+  checkCurrentXlsxBody,
   checkIndexBody,
   checkXlsxBody,
+  decideExit,
   extractSurveys,
   isMainSite,
   parseIndexLinks,
@@ -98,6 +100,8 @@ async function main(): Promise<number> {
   const allPast = [current - 6, ...baselineSeasons].filter((s, i, a) => a.indexOf(s) === i && s < current).sort();
   const manifest = loadManifest();
   const problems: string[] = [];
+  /** 取得に失敗した、または取った本体を保存しなかったもの（終了コードを 2 にする） */
+  const failed: string[] = [];
   let fetched = 0;
   let lastFetchAt = 0;
 
@@ -115,13 +119,17 @@ async function main(): Promise<number> {
     fetched++;
     if (r.kind !== "ok" || r.status !== 200) {
       // 再試行しない（同じ URL を重ねて叩かない）
-      problems.push(`${key}: ${r.kind}${"status" in r ? ` ${r.status}` : ""}`);
+      const why = `${key}: ${r.kind}${"status" in r ? ` ${r.status}` : ""}`;
+      problems.push(why);
+      failed.push(why);
       return fs.existsSync(file) ? fs.readFileSync(file) : null;
     }
     // 読めない本体（エラーページ、途中で切れたもの）は保存しない。manifest も更新しない
     const bad = valid(r.body);
     if (bad !== null) {
-      problems.push(`${key}: 取得した本体を保存しませんでした（${bad}）`);
+      const why = `${key}: 取得した本体を保存しませんでした（${bad}）`;
+      problems.push(why);
+      failed.push(why);
       return fs.existsSync(file) ? fs.readFileSync(file) : null;
     }
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -184,7 +192,7 @@ async function main(): Promise<number> {
       problems.push(`${key}: .xls は取りません。この地点は載せません`);
       continue;
     }
-    const buf = await get(key, `${seasonBase(current, current)}site_csv/${link.id}.${link.ext}`, true, checkXlsxBody);
+    const buf = await get(key, `${seasonBase(current, current)}site_csv/${link.id}.${link.ext}`, true, checkCurrentXlsxBody);
     if (!buf) {
       problems.push(`${key}: 今季のファイルがありません。この地点は載せません`);
       continue;
@@ -225,16 +233,19 @@ async function main(): Promise<number> {
   };
   // 書き出す前の確認: 地点が 0 件、または前回の半分未満に減ったときは、壊れた取得とみなして書かない
   const prevCount = previousSiteCount();
-  if (sites.length === 0 || (prevCount !== null && sites.length * 2 < prevCount)) {
+  const decision = decideExit({ siteCount: sites.length, previousCount: prevCount, failed });
+  if (!decision.write) {
     console.error(`地点が ${sites.length} 件（前回 ${prevCount ?? "なし"} 件）です。取得が壊れた可能性があるので書き出しません`);
     if (problems.length > 0) console.error(`気づいた点 ${problems.length} 件:\n  ${problems.join("\n  ")}`);
-    return 1;
+    if (failed.length > 0) console.error(`取得に失敗したもの ${failed.length} 件:\n  ${failed.join("\n  ")}`);
+    return decision.code;
   }
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, `${JSON.stringify(summary, null, 2)}\n`);
   console.log(`取得 ${fetched} 本。地点 ${sites.length}、飛来の早さ ${arrivals.length} 件を ${path.relative(ROOT, OUT)} に書きました`);
   if (problems.length > 0) console.error(`気づいた点 ${problems.length} 件:\n  ${problems.join("\n  ")}`);
-  return 0;
+  if (failed.length > 0) console.error(`取得に失敗したもの ${failed.length} 件（集計は取れた分で書きました。終了コード ${decision.code}）:\n  ${failed.join("\n  ")}`);
+  return decision.code;
 }
 
 main().then(
