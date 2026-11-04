@@ -89,12 +89,12 @@ export default function AreaPage() {
         <p role="alert">{TEXT.loadFailed}</p>
       ) : null}
       {computed.kind === "geo_loading" || computed.kind === "cases_loading" ? (
-        <p className="town-now-wait" role="status">
+        <p className="state-wait" role="status">
           {TEXT.loading}
         </p>
       ) : null}
       {computed.kind === "failed" ? (
-        <p className="town-now-wait" role="alert">
+        <p className="state-unknown" role="alert">
           {TEXT.loadFailed}
         </p>
       ) : null}

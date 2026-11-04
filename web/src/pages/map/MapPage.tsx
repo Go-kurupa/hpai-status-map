@@ -129,6 +129,24 @@ export default function MapPage() {
       : b,
   );
 
+  const picker = (
+    <>
+      <TownPicker
+        geo={geo}
+        geoFailed={geoFailed}
+        town={town}
+        readOnly={spotState.readOnly}
+        readOnlyNote={spotState.source === "fixed" ? TEXT.spotFixed : undefined}
+        picking={picking}
+        onPickingChange={setPickingOpen}
+        onChoose={choose}
+        onShowJapan={() => moveTo("japan", [])}
+        onShowTown={() => town && moveTo("muni", [town])}
+      />
+      {notice ? <p role="status">{notice}</p> : null}
+    </>
+  );
+
   return (
     <div className="map-page">
       <h1 ref={h1Ref}>{view.label}の発生状況</h1>
@@ -152,19 +170,7 @@ export default function MapPage() {
         past={past}
         showPastDisclaimer={view.isCurrent || !view.loaded}
       >
-        <TownPicker
-          geo={geo}
-          geoFailed={geoFailed}
-          town={town}
-          readOnly={spotState.readOnly}
-          readOnlyNote={spotState.source === "fixed" ? TEXT.spotFixed : undefined}
-          picking={picking}
-          onPickingChange={setPickingOpen}
-          onChoose={choose}
-          onShowJapan={() => moveTo("japan", [])}
-          onShowTown={() => town && moveTo("muni", [town])}
-        />
-        {notice ? <p role="status">{notice}</p> : null}
+        {town === null ? picker : null}
       </TownBanner>
 
       <div className="map-box" ref={boxRef}>
@@ -193,6 +199,7 @@ export default function MapPage() {
       </div>
 
       <p className="map-disclaimer">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
+      {town !== null ? picker : null}
       <Legend isCurrent={view.isCurrent} />
 
       {view.isCurrent && !view.loaded ? (

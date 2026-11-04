@@ -96,7 +96,7 @@ describe("WebGL2 が使えない端末", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mount();
     const japan = await screen.findByRole("group", { name: TEXT.svgMapAria });
-    fireEvent.click(screen.getByRole("button", { name: TEXT.myTown }));
+    fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     fireEvent.click(within(japan).getByRole("button", { name: /^岡山県/ }));
     const muni = await screen.findByRole("group", { name: /岡山県の市町村/ });
     fireEvent.click(await within(muni).findByRole("button", { name: /^西粟倉村/ }));
@@ -111,7 +111,7 @@ describe("WebGL2 が使えない端末", () => {
     expect(within(spot).queryByRole("button", { name: TEXT.spotStart })).toBeNull();
     expect(within(spot).getByText(TEXT.spotNoMap)).toBeTruthy();
     // 町を選ぶ（代わりの地図から）
-    fireEvent.click(screen.getByRole("button", { name: TEXT.myTown }));
+    fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     fireEvent.click(within(japan).getByRole("button", { name: /^岡山県/ }));
     const muni = await screen.findByRole("group", { name: /岡山県の市町村/ });
     fireEvent.click(await within(muni).findByRole("button", { name: /^西粟倉村/ }));

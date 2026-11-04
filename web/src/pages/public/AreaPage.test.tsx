@@ -33,6 +33,19 @@ vi.mock("../../geo/loadGeo", () => {
   };
 });
 
+// 計算が落ちる場合を作るため、必要なときだけ computeAreaStatus を投げる偽にできるようにする
+const levelFlag = vi.hoisted(() => ({ throwOnce: false }));
+vi.mock("@hpai/shared/level", async (orig) => {
+  const mod = await orig<typeof import("@hpai/shared/level")>();
+  return {
+    ...mod,
+    computeAreaStatus: ((...a: Parameters<typeof mod.computeAreaStatus>) => {
+      if (levelFlag.throwOnce) throw new Error("broken");
+      return mod.computeAreaStatus(...a);
+    }) as typeof mod.computeAreaStatus,
+  };
+});
+
 const history = historyJson as HistoryCase[];
 const NOW = new Date("2026-11-04T09:00:00+09:00"); // 今季は 2026
 
@@ -130,6 +143,31 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     expect(bodyText()).not.toContain(FIXED_TEXT.riskAnywhere);
     expect(bodyText()).not.toContain(FIXED_TEXT.areaNoDistance);
     expect(document.querySelector("[data-tone]")).toBeNull();
+  });
+
+  it("読み込み中の文は state-wait（role=status）。town-now-wait は使わない", async () => {
+    show(rig(), "33214");
+    await screen.findByText("真庭市の状況");
+    const p = screen.getByText(TEXT.loading);
+    expect(p.className).toBe("state-wait");
+    expect(p.getAttribute("role")).toBe("status");
+    expect(document.querySelector(".town-now-wait")).toBeNull();
+  });
+
+  it("壊れた記録で計算が落ちたときの文は state-unknown（role=alert）。town-now-wait は使わない", async () => {
+    const r = rig();
+    show(r, "33214");
+    await screen.findByText("真庭市の状況");
+    levelFlag.throwOnce = true;
+    try {
+      r.deliverCases([mkCase({ id: "c1", muniCode: "33214" })]);
+      const p = await screen.findByRole("alert");
+      expect(p.className).toBe("state-unknown");
+      expect(p.textContent).toBe(TEXT.loadFailed);
+      expect(document.querySelector(".town-now-wait")).toBeNull();
+    } finally {
+      levelFlag.throwOnce = false;
+    }
   });
 
   it("段階 1（同じ町）: 『この町で発生しました』。areaNoDistance と riskAnywhere を必ず出す（契約 8）", async () => {

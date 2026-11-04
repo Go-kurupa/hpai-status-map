@@ -1,7 +1,9 @@
 import type { GeoStore, MuniEntry } from "@hpai/shared/geo";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TownPicker, type TownPickerProps } from "./TownPicker";
+import { TEXT } from "./texts";
 
 const entry = (code: string, name: string, prefCode: string): MuniEntry => ({ code, name, prefCode, center: [0, 0], bbox: [0, 0, 0, 0] });
 const GEO = {
@@ -28,7 +30,11 @@ function setup(o: Partial<TownPickerProps> = {}) {
     onShowTown: vi.fn(),
     ...o,
   };
-  render(<TownPicker {...p} />);
+  render(
+    <MemoryRouter>
+      <TownPicker {...p} />
+    </MemoryRouter>,
+  );
   return p;
 }
 
@@ -41,9 +47,9 @@ describe("TownPicker", () => {
     expect(p.onShowJapan).toHaveBeenCalled();
   });
 
-  it("町が未選択なら『自分の町』で選ぶ画面を開く。選んだ後は自分の町へ動かす", () => {
+  it("町が未選択なら『町を選ぶ』で選ぶ画面を開く。選んだ後は自分の町へ動かす", () => {
     const a = setup();
-    fireEvent.click(screen.getByRole("button", { name: "自分の町" }));
+    fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     expect(a.onPickingChange).toHaveBeenCalledWith(true);
     expect(a.onShowTown).not.toHaveBeenCalled();
     cleanup();
@@ -116,5 +122,40 @@ describe("TownPicker", () => {
     cleanup();
     setup({ picking: true, geo: null, geoFailed: true });
     expect(screen.getByRole("alert").textContent).toContain("読めませんでした");
+  });
+
+  it("未選択では『町を選ぶ』が btn-primary で、全国より前にある", () => {
+    setup();
+    const pick = screen.getByRole("button", { name: TEXT.pickTown });
+    const japan = screen.getByRole("button", { name: "全国" });
+    expect(pick.className).toContain("btn-primary");
+    expect(pick.compareDocumentPosition(japan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "自分の町" })).toBeNull();
+  });
+
+  it("市町村を選ぶまで『県と市町村を選ぶと押せます』が出て、ボタンを結ぶ。選ぶと消える", () => {
+    setup({ picking: true });
+    const decide = screen.getByRole("button", { name: "この町にする" }) as HTMLButtonElement;
+    const hint = screen.getByText(TEXT.decideHint);
+    expect(hint.tagName).toBe("P");
+    expect(hint.id).not.toBe("");
+    expect(decide.getAttribute("aria-describedby")).toBe(hint.id);
+    expect(decide.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("都道府県"), { target: { value: "33" } });
+    expect(screen.queryByText(TEXT.decideHint)).not.toBeNull();
+    fireEvent.change(screen.getByLabelText("市町村"), { target: { value: "33214" } });
+    expect(screen.queryByText(TEXT.decideHint)).toBeNull();
+    expect(decide.disabled).toBe(false);
+  });
+
+  it("読み取り専用で農場の場所のときは、設定への道を添える。再現の固定では添えない", () => {
+    setup({ readOnly: true, town: "33214" });
+    const link = screen.getByRole("link", { name: TEXT.openFarmSettings });
+    expect(link.getAttribute("href")).toBe("/settings/farm");
+    expect(link.className).toContain("tap-link");
+    cleanup();
+    setup({ readOnly: true, readOnlyNote: TEXT.spotFixed });
+    expect(screen.getByText(TEXT.spotFixed).tagName).toBe("P");
+    expect(screen.queryByRole("link")).toBeNull();
   });
 });

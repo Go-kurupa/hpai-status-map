@@ -4,6 +4,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
 import { TownBanner, type TownBannerProps } from "./TownBanner";
+import { TEXT } from "./texts";
 import type { TownLine } from "./townLine";
 
 const LINE: TownLine = { tone: "lv2", main: "隣町で発生しました", details: ["津山市で確定（12 月 20 日）"] };
@@ -177,5 +178,24 @@ describe("過去の発生の一覧（PastList）", () => {
   it("予測や煽りの言葉がない（§11）", () => {
     show(props());
     expect(document.body.textContent).not.toMatch(/また発生しやすい|危ない|うつる|危険地帯|ホットスポット|確率/);
+  });
+
+  it("読み込み中は state-wait、失敗は state-unknown。role と文はそのまま。town-now-wait は使わない", () => {
+    const a = show(props({ loaded: false }));
+    const wait = within(a.container).getByRole("status", { name: "" });
+    expect(wait.className).toBe("state-wait");
+    expect(wait.textContent).toBe(TEXT.loading);
+    expect(a.container.querySelector(".town-now-wait")).toBeNull();
+    cleanup();
+    const b = show(props({ lineFailed: true }));
+    const bad = within(b.container).getByRole("alert");
+    expect(bad.className).toBe("state-unknown");
+    expect(bad.textContent).toBe(TEXT.loadFailed);
+    expect(b.container.querySelector(".town-now-wait")).toBeNull();
+  });
+
+  it("『この町のくわしい状況』のリンクは tap-link", () => {
+    show(props());
+    expect(screen.getByRole("link", { name: /この町のくわしい状況/ }).className).toContain("tap-link");
   });
 });

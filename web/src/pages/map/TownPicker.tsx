@@ -1,7 +1,8 @@
 import type { GeoStore } from "@hpai/shared/geo";
 import { PREFS } from "@hpai/shared/pref";
 import type { MuniCode } from "@hpai/shared/types";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { Button } from "../../ui/Button";
 import { TEXT } from "./texts";
 
@@ -25,6 +26,7 @@ export interface TownPickerProps {
 /** 県 → 市町村の順に選ぶ。知らない人でも迷わないよう、ふつうの選択欄（select）と大きなボタンだけを使う */
 function Chooser({ geo, town, onChoose, onClose }: { geo: Pick<GeoStore, "index">; town: MuniCode | null; onChoose(c: MuniCode): void; onClose(): void }) {
   const [pref, setPref] = useState<string>(() => (town ? (geo.index[town]?.prefCode ?? "") : ""));
+  const hintId = useId();
   const [muni, setMuni] = useState<string>(() => (town && geo.index[town] ? town : ""));
 
   const options = useMemo(() => {
@@ -71,6 +73,7 @@ function Chooser({ geo, town, onChoose, onClose }: { geo: Pick<GeoStore, "index"
         <Button
           variant="primary"
           disabled={!muni}
+          aria-describedby={muni ? undefined : hintId}
           onClick={() => {
             onChoose(muni);
             onClose();
@@ -80,6 +83,7 @@ function Chooser({ geo, town, onChoose, onClose }: { geo: Pick<GeoStore, "index"
         </Button>
         <Button onClick={onClose}>{TEXT.cancel}</Button>
       </div>
+      {muni ? null : <p id={hintId}>{TEXT.decideHint}</p>}
     </div>
   );
 }
@@ -93,15 +97,31 @@ export function TownPicker(p: TownPickerProps) {
           <Button onClick={p.onShowJapan}>{TEXT.japan}</Button>
           <Button onClick={p.onShowTown}>{TEXT.myTown}</Button>
         </div>
-        <p className="map-note">{p.readOnlyNote ?? TEXT.spotFromFarm}</p>
+        <p>{p.readOnlyNote ?? TEXT.spotFromFarm}</p>
+        {p.readOnlyNote ? null : (
+          <Link to="/settings/farm" className="tap-link">
+            {TEXT.openFarmSettings}
+          </Link>
+        )}
       </div>
     );
   }
   return (
     <div className="town-picker">
       <div className="town-actions">
-        <Button onClick={p.onShowJapan}>{TEXT.japan}</Button>
-        <Button onClick={p.town ? p.onShowTown : () => p.onPickingChange(true)}>{TEXT.myTown}</Button>
+        {p.town ? (
+          <>
+            <Button onClick={p.onShowJapan}>{TEXT.japan}</Button>
+            <Button onClick={p.onShowTown}>{TEXT.myTown}</Button>
+          </>
+        ) : (
+          <>
+            <Button variant="primary" onClick={() => p.onPickingChange(true)}>
+              {TEXT.pickTown}
+            </Button>
+            <Button onClick={p.onShowJapan}>{TEXT.japan}</Button>
+          </>
+        )}
         {p.town && !p.picking ? <Button onClick={() => p.onPickingChange(true)}>{TEXT.changeTown}</Button> : null}
       </div>
       {p.picking ? (

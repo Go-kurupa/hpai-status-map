@@ -143,7 +143,7 @@ test("公開: 町と地点を指定しても、全要求に緯度経度がなく
   await page.waitForFunction(() => !!(window as unknown as W).__hpaiMap, undefined, { timeout: 20_000 });
 
   // 町を選ぶ
-  await page.getByRole("button", { name: "自分の町", exact: true }).click();
+  await page.getByRole("button", { name: "町を選ぶ", exact: true }).click();
   await page.getByLabel("都道府県").selectOption("33");
   await page.getByLabel("市町村").selectOption("33203");
   await page.getByRole("button", { name: "この町にする" }).click();

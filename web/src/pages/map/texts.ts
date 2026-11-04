@@ -31,6 +31,8 @@ export const TEXT = {
   muniPlaceholder: "市町村を選んでください",
   mapTapHint: "地図の町をさわっても選べます",
   decideTown: "この町にする",
+  decideHint: "県と市町村を選ぶと押せます",
+  openFarmSettings: "農場の設定を開く",
   cancel: "やめる",
   // 地点
   spotTitle: "くわしい場所を決める",

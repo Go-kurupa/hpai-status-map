@@ -253,16 +253,11 @@
   color: var(--muted);
   font-size: 0.9rem;
 }
-.town-now,
-.town-now-wait {
+.town-now {
   margin: 0 0 8px;
   padding: 10px 12px;
   border: 2px solid var(--line);
   border-left-width: 10px;
-}
-.town-now-wait {
-  border-left-color: var(--muted);
-  background: var(--soft);
 }
 .town-now[data-tone="lv1"] {
   border-color: var(--lv1);

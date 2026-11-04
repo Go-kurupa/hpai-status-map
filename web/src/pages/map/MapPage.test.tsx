@@ -338,7 +338,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
-    fireEvent.click(screen.getByRole("button", { name: "自分の町" }));
+    fireEvent.click(screen.getByRole("button", { name: "町を選ぶ" }));
     fireEvent.change(await screen.findByLabelText("都道府県"), { target: { value: "33" } });
     fireEvent.change(await screen.findByLabelText("市町村"), { target: { value: "33214" } });
     fireEvent.click(screen.getByRole("button", { name: "この町にする" }));
@@ -355,7 +355,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
     expect(lastProps().onSelectMuni).toBeUndefined();
-    fireEvent.click(screen.getByRole("button", { name: "自分の町" }));
+    fireEvent.click(screen.getByRole("button", { name: "町を選ぶ" }));
     expect(lastProps().pickMode).toBe(true);
     expect(lastProps().onSelectMuni).toBeTypeOf("function");
     act(() => lastProps().onSelectMuni!("33214"));
@@ -404,6 +404,49 @@ describe("MapPage: 自分の町の 1 文", () => {
     r.deliverWatch(okWatch());
     await screen.findByText("隣町で発生しました");
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
+  });
+});
+
+describe("MapPage: 町の選択の並び（T09）", () => {
+  const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it("町を選んでいないとき、地図より上にあるのは h1、時点、町の欄だけ。町の欄は『町を選んでください』と町を選ぶボタンだけ", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    const page = document.querySelector(".map-page")!;
+    const box = document.querySelector(".map-box")!;
+    const above = [...page.children].filter((e) => before(e, box));
+    expect(above.map((e) => e.tagName.toLowerCase() + (e.className ? "." + e.className : ""))).toEqual(["h1", "p.as-of", "section.town-banner"]);
+    const banner = document.querySelector(".town-banner")!;
+    expect([...banner.children].map((e) => e.className)).toEqual(["town-now", "town-picker"]);
+    expect(banner.querySelector(".town-now")!.textContent).toBe("町を選んでください");
+    const pick = within(banner as HTMLElement).getByRole("button", { name: TEXT.pickTown });
+    expect(pick.className).toContain("btn-primary");
+    expect(before(pick, within(banner as HTMLElement).getByRole("button", { name: "全国" }))).toBe(true);
+  });
+
+  it("町を選ぶと、全国のボタンの行は『色がない場所は…』の断りより後に出る", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    const japan = screen.getByRole("button", { name: "全国" });
+    const box = document.querySelector(".map-box")!;
+    const disclaimer = document.querySelector(".map-disclaimer")!;
+    expect(before(box, japan)).toBe(true);
+    expect(before(disclaimer, japan)).toBe(true);
+    expect(document.querySelector(".town-banner")!.contains(japan)).toBe(false);
+  });
+
+  it("左の色帯の待ちの枠（town-now-wait）は画面にない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    show(rig());
+    await screen.findByTestId("map");
+    expect(document.querySelector(".town-now-wait")).toBeNull();
+    expect(document.querySelector(".town-banner .state-wait")).not.toBeNull();
   });
 });
 

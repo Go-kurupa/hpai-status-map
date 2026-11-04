@@ -97,7 +97,7 @@ async function aimAtStation(page: Page) {
 }
 
 async function chooseTown(page: Page, pref: string, muni: string) {
-  await page.getByRole("button", { name: "自分の町", exact: true }).click();
+  await page.getByRole("button", { name: "町を選ぶ", exact: true }).click();
   await page.getByLabel("都道府県").selectOption(pref);
   await page.getByLabel("市町村").selectOption(muni);
   await page.getByRole("button", { name: "この町にする" }).click();

@@ -63,13 +63,13 @@ export function TownBanner(p: TownBannerProps) {
     );
   } else if (p.lineFailed) {
     now = (
-      <p className="town-now-wait" role="alert">
+      <p className="state-unknown" role="alert">
         {TEXT.loadFailed}
       </p>
     );
   } else if (!p.loaded || p.line === null) {
     now = (
-      <p className="town-now-wait" role="status">
+      <p className="state-wait" role="status">
         {TEXT.loading}
       </p>
     );
@@ -99,7 +99,7 @@ export function TownBanner(p: TownBannerProps) {
       {noTown ? null : <PastRow past={p.past} line={p.line} showDisclaimer={p.showPastDisclaimer} />}
       {noTown ? null : (
         <p className="town-area-link">
-          <Link to={`/area/${p.muniCode}`}>{TEXT.areaLink}</Link>
+          <Link to={`/area/${p.muniCode}`} className="tap-link">{TEXT.areaLink}</Link>
         </p>
       )}
       {p.children}
