@@ -36,7 +36,7 @@ describe("data/migration/summary.json（生成物）", () => {
 });
 
 describe("isMainSite", () => {
-  const base = { id: 1, name: "試験沼", latestDate: "2026-10-14", latestTotal: 5, fetchedAt: "2026-11-04" };
+  const base = { id: 1, name: "試験沼", latestDate: "2026-10-14", latestTotal: 5, fetchedAt: "2026-11-04", unreported: 0 };
   const baseline = (median: number) => ({ n: 3, median, min: 0, max: median + 1, seasons: [] });
   it("過去と比べられ、中央値が下限以上のときだけ", () => {
     expect(isMainSite({ ...base, baseline: null })).toBe(false);

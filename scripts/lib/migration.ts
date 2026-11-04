@@ -4,9 +4,10 @@
 // 読み方の決めごと（原本の形は 2026-11-04 に確かめた。形が違えば例外にして、黙って数えない）:
 //   - 1 つ目のシートの A 列にラベル、B 列以降が調査の回。「調査年月日」の行が日付（Excel のシリアル値か文字列）、
 //     「飛来状況」の行が自由記述（読まない）、その下の行が種ごとの羽数。
-//   - 水鳥の合計 = ガン・ヒシクイ・ハクチョウ・ガモ・ハジロ・アイサ・オシドリ・カモの種の行の和。
-//     「ガン類」のような科レベルの行（種不明）と、名前だけ合うカモ以外（ハジロカイツブリなど）は入れない。
-//   - 空欄は 0 として足す。ただし、その回に 1 つも数が書かれていなければ「数の記録がない回」として扱い、合計を出さない（0 にしない）。
+//   - 水鳥の合計 = 許可リスト（WATERBIRD_SPECIES）の種の行の和 + 「カモ類」「ハクチョウ類」「ガン類」「アイサ類」「カモ科」の行。
+//     科レベルの行は、種まで分からなかった残りの羽数で、種の行の合計と重複しない（2026-11-04 に全キャッシュ 3,894 回で確かめた。FAMILY_ROWS の注）。
+//     許可リストは全キャッシュの全行名を見て作った。部分一致では判定しない（ハジロカイツブリ・アイガモなどが混ざるため）。
+//   - 空欄は 0 として足す。ただし、水鳥の行（種と科）に数が 1 つも書かれていない回は「数の記録がない回」として扱い、合計を出さない（0 にしない）。
 //     空欄が 0 を意味するかは環境省の説明が見つからず、未確認。
 import zlib from "node:zlib";
 import type { IsoDate } from "@hpai/shared/types";
@@ -34,6 +35,7 @@ export function readZipEntry(zip: Buffer, name: string): Buffer | null {
   if (eocd < 0) throw new Error("zip ではありません");
   const count = zip.readUInt16LE(eocd + 10);
   let p = zip.readUInt32LE(eocd + 16);
+  if (p >= zip.length) throw new Error("zip の目次の位置が範囲外です");
   for (let n = 0; n < count; n++) {
     if (p + 46 > zip.length || zip.readUInt32LE(p) !== 0x02014b50) throw new Error("zip の目次が壊れています");
     const method = zip.readUInt16LE(p + 10);
@@ -46,9 +48,14 @@ export function readZipEntry(zip: Buffer, name: string): Buffer | null {
     const entryName = zip.subarray(p + 46, p + 46 + nameLen).toString("utf8");
     if (entryName === name) {
       if (rawSize > MAX_ENTRY_BYTES) throw new Error("zip の中のファイルが大きすぎます");
+      if (local + 30 > zip.length) throw new Error("zip の中のファイルの位置が範囲外です");
       const dataStart = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+      if (dataStart + compSize > zip.length) throw new Error("zip の中のファイルが途中で切れています");
       const data = zip.subarray(dataStart, dataStart + compSize);
-      if (method === 0) return Buffer.from(data);
+      if (method === 0) {
+        if (compSize !== rawSize) throw new Error("zip の大きさの記録が合いません");
+        return Buffer.from(data);
+      }
       if (method === 8) return zlib.inflateRawSync(data, { maxOutputLength: MAX_ENTRY_BYTES });
       throw new Error(`zip の圧縮方式 ${method} は読めません`);
     }
@@ -135,6 +142,10 @@ export interface SiteSurveys {
   surveys: Survey[];
   /** 日付が読めず、飛ばした列の数 */
   skippedColumns: number;
+  /** 「飛来状況」に「報告未着」とある列の数（日付が読めない予定の列も含む） */
+  unreportedColumns: number;
+  /** 数でも空でもない羽数のセルの数（読めず、数えていない） */
+  unparsedCounts: number;
 }
 
 function pad(n: number): string {
@@ -169,15 +180,37 @@ export function normalizeSpeciesName(raw: string): string {
     .trim();
 }
 
-const WATERBIRD_WORD = /ガン|ヒシクイ|ハクチョウ|ガモ|ハジロ|アイサ|オシドリ|カモ$/u;
-/** 名前だけ合う、カモ以外の鳥 */
-const NOT_WATERBIRD = new Set(["ハジロカイツブリ", "ハジロコチドリ", "ハジロクロハラアジサシ"]);
+/**
+ * 水鳥の種の許可リスト。全キャッシュ（2020〜2026 年秋期の 175 ファイル）の全行名を見て作った。
+ * 入れる: ガン・ヒシクイ・ハクチョウ・カモ・アイサの野生種と迷鳥（アメリカヒドリ・カリガネ・ビロードキンクロなど）。
+ *   雑種ガモ（野生のカモ同士の雑種。1 件）とコブハクチョウ（国内では移入個体が多いが、水鳥として数える。27 件）も入れる。
+ * 入れない: アイガモ・アヒル・バリケン・ガチョウ（家禽）、ハジロカイツブリなど名前だけ似た別の鳥、ツル、カモメ、サギ。
+ */
+export const WATERBIRD_SPECIES: ReadonlySet<string> = new Set([
+  // ガン・ヒシクイ
+  "マガン", "ヒシクイ", "オオヒシクイ", "ハクガン", "オオハクガン", "コクガン", "シジュウカラガン", "カリガネ",
+  // ハクチョウ
+  "オオハクチョウ", "コハクチョウ", "コブハクチョウ", "アメリカコハクチョウ",
+  // カモ（水面採食）
+  "ツクシガモ", "オシドリ", "オカヨシガモ", "オナガガモ", "カルガモ", "コガモ", "アメリカコガモ", "トモエガモ", "ハシビロガモ",
+  "ヒドリガモ", "アメリカヒドリ", "マガモ", "ヨシガモ", "雑種ガモ",
+  // カモ（潜水採食）・アイサ
+  "ホシハジロ", "アカハジロ", "メジロガモ", "キンクロハジロ", "スズガモ", "クロガモ", "ビロードキンクロ", "シノリガモ", "コオリガモ",
+  "ホオジロガモ", "ミコアイサ", "ウミアイサ", "カワアイサ",
+]);
 
-/** 水鳥（ガン・ハクチョウ・カモ類）の種の行か。「ガン類」のような科レベルの行は種不明なので入れない */
+/**
+ * 科レベルの行。種まで分からなかった羽数で、合計に足す。
+ * 同じ回に科の行と同じ科の種の行の両方に数がある場合を全キャッシュで数えた（2026-11-04）:
+ * カモ類は 678 回のうち、科の行が種の合計と等しいのは 3 回だけで、小さいのが 300 回、大きいのが 375 回（例: クッチャロ湖 2020-10-15 は科 32,022・種の合計 562）。
+ * ハクチョウ類は 103 回で等しいのは 0 回（小さい 64・大きい 39）、ガン類は 8 回で 0 回、カモ科は 4 回で 0 回。
+ * 科の行が種の合計になっていれば、常に種の合計以上になるはずだが、小さい回が多い。よって二重計上ではなく、残りと読む。
+ */
+export const FAMILY_ROWS: ReadonlySet<string> = new Set(["カモ類", "カモ科", "ハクチョウ類", "ガン類", "アイサ類"]);
+
+/** 水鳥の合計に入れる行か（許可リストの種、または科レベルの行） */
 export function isWaterbirdSpecies(name: string): boolean {
-  if (name.endsWith("類")) return false;
-  if (NOT_WATERBIRD.has(name)) return false;
-  return WATERBIRD_WORD.test(name);
+  return WATERBIRD_SPECIES.has(name) || FAMILY_ROWS.has(name);
 }
 
 const SUBTOTAL_LABEL = /^(合計|総計|小計|計)$/u;
@@ -210,29 +243,40 @@ export function extractSurveys(grid: Grid): SiteSurveys {
 
   const surveys: Survey[] = [];
   let skippedColumns = 0;
+  let unreportedColumns = 0;
+  let unparsedCounts = 0;
   const width = Math.max(...grid.map((r) => r.length), 0);
   for (let c = 1; c < width; c++) {
     const raw = grid[dateRow]?.[c];
     if (raw === null || raw === undefined) continue;
+    const note = textRow >= 0 ? grid[textRow]?.[c] : null;
+    if (typeof note === "string" && note.normalize("NFKC").includes("未着")) unreportedColumns++;
     const date = cellToDate(raw);
     if (date === null) {
       skippedColumns++;
       continue;
     }
     const species: Record<string, number> = {};
-    let any = false;
+    let anyWater = false;
     let total = 0;
     for (const row of rows) {
-      const n = toCount(row.cells[c] ?? null);
-      if (n === null) continue;
-      any = true;
+      const cell = row.cells[c] ?? null;
+      const n = toCount(cell);
+      if (n === null) {
+        if (cell !== null && !(typeof cell === "string" && cell.trim() === "")) unparsedCounts++;
+        continue;
+      }
       species[row.name] = (species[row.name] ?? 0) + n;
-      if (row.water) total += n;
+      if (row.water) {
+        anyWater = true;
+        total += n;
+      }
     }
-    surveys.push({ date, total: any ? total : null, species });
+    // 水鳥の行に数が 1 つもない回（水鳥でない行だけに数がある回を含む）は、0 羽ではなく「記録なし」
+    surveys.push({ date, total: anyWater ? total : null, species });
   }
   surveys.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  return { siteName, surveys, skippedColumns };
+  return { siteName, surveys, skippedColumns, unreportedColumns, unparsedCounts };
 }
 
 // ── 集計 ──
@@ -288,6 +332,8 @@ export interface SiteInput {
   past: ReadonlyMap<number, Survey[]>;
   /** 今季のファイルを取得した日 */
   fetchedAt: IsoDate;
+  /** 今季のファイルで「報告未着」とある回の数 */
+  unreported: number;
 }
 
 /** 今季の最新の調査と、過去のシーズンの同じ時期の調査を並べる。今季に数の記録が 1 回もなければ null */
@@ -306,7 +352,7 @@ export function summarizeSite(input: SiteInput, currentSeason: number, baselineS
     const totals = seasons.map((s) => s.total);
     baseline = { n: seasons.length, median: median(totals), min: Math.min(...totals), max: Math.max(...totals), seasons };
   }
-  return { id: input.id, name: input.name, latestDate: latest.date, latestTotal: latest.total, fetchedAt: input.fetchedAt, baseline };
+  return { id: input.id, name: input.name, latestDate: latest.date, latestTotal: latest.total, fetchedAt: input.fetchedAt, unreported: input.unreported, baseline };
 }
 
 /** 主な地点に載せる、過去の同じ時期の水鳥の中央値の下限（羽）。これ未満の地点は、数が小さく揺れも読み取れないので載せない */
@@ -389,4 +435,20 @@ export function parseIndexLinks(html: string): IndexLink[] {
     seen.set(id, { id, ext: m[2] as "xlsx" | "xls", label: text });
   }
   return [...seen.values()];
+}
+
+// ── 取った本体が読めるかの確認（読めないものは保存しない） ──
+
+/** 入口のページとして読めるか。null なら読める、そうでなければ理由 */
+export function checkIndexBody(b: Buffer): string | null {
+  return parseIndexLinks(b.toString("utf8")).length > 0 ? null : "地点へのリンクがありません";
+}
+
+/** xlsx として読めて、調査の回が 1 つ以上あるか。null なら読める、そうでなければ理由 */
+export function checkXlsxBody(b: Buffer): string | null {
+  try {
+    return extractSurveys(parseXlsx(b)).surveys.length > 0 ? null : "調査の回がありません";
+  } catch (e) {
+    return (e as Error).message;
+  }
 }

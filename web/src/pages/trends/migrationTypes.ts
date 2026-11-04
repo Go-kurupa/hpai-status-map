@@ -32,6 +32,8 @@ export interface MigrationSite {
   latestTotal: number;
   /** この地点のファイルを取得した日 */
   fetchedAt: IsoDate;
+  /** 今季のファイルで「報告未着」とある回の数（その地点の最新の調査日が他より古い理由になる） */
+  unreported: number;
   /** 過去の同じ時期と比べられなければ null（比べられた過去のシーズンが少なすぎる） */
   baseline: MigrationBaseline | null;
 }
@@ -92,11 +94,11 @@ function parseBaseline(v: unknown): MigrationBaseline | null | undefined {
 }
 
 function parseSite(v: unknown): MigrationSite | null {
-  if (!isObj(v) || !hasOnly(v, ["id", "name", "latestDate", "latestTotal", "fetchedAt", "baseline"])) return null;
-  if (!isCount(v.id) || typeof v.name !== "string" || v.name === "" || !isDate(v.latestDate) || !isCount(v.latestTotal) || !isDate(v.fetchedAt)) return null;
+  if (!isObj(v) || !hasOnly(v, ["id", "name", "latestDate", "latestTotal", "fetchedAt", "unreported", "baseline"])) return null;
+  if (!isCount(v.id) || typeof v.name !== "string" || v.name === "" || !isDate(v.latestDate) || !isCount(v.latestTotal) || !isDate(v.fetchedAt) || !isCount(v.unreported)) return null;
   const baseline = parseBaseline(v.baseline);
   if (baseline === undefined) return null;
-  return { id: v.id, name: v.name, latestDate: v.latestDate, latestTotal: v.latestTotal, fetchedAt: v.fetchedAt, baseline };
+  return { id: v.id, name: v.name, latestDate: v.latestDate, latestTotal: v.latestTotal, fetchedAt: v.fetchedAt, unreported: v.unreported, baseline };
 }
 
 function parseArrivalPast(v: unknown): MigrationArrivalPast | null {

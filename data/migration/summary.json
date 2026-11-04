@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T18:46:16+09:00",
+  "generatedAt": "2026-11-04T18:59:25+09:00",
   "currentSeason": 2026,
   "baselineSeasons": [
     2021,
@@ -14,33 +14,34 @@
       "id": 10,
       "name": "クッチャロ湖",
       "latestDate": "2026-09-29",
-      "latestTotal": 0,
+      "latestTotal": 27997,
       "fetchedAt": "2026-11-04",
+      "unreported": 2,
       "baseline": {
         "n": 4,
-        "median": 109,
-        "min": 7,
-        "max": 401,
+        "median": 17275,
+        "min": 11388,
+        "max": 46878,
         "seasons": [
           {
             "season": 2021,
             "date": "2021-09-28",
-            "total": 7
+            "total": 21923
           },
           {
             "season": 2022,
             "date": "2022-09-30",
-            "total": 25
+            "total": 12627
           },
           {
             "season": 2024,
             "date": "2024-09-30",
-            "total": 401
+            "total": 46878
           },
           {
             "season": 2025,
             "date": "2025-09-29",
-            "total": 192
+            "total": 11388
           }
         ]
       }
@@ -51,6 +52,7 @@
       "latestDate": "2026-10-15",
       "latestTotal": 1809,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 7535,
@@ -89,38 +91,39 @@
       "id": 30,
       "name": "ウトナイ湖",
       "latestDate": "2026-10-13",
-      "latestTotal": 782,
+      "latestTotal": 1958,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
-        "median": 1175,
-        "min": 75,
-        "max": 12260,
+        "median": 1205,
+        "min": 95,
+        "max": 12270,
         "seasons": [
           {
             "season": 2021,
             "date": "2021-10-14",
-            "total": 1175
+            "total": 1205
           },
           {
             "season": 2022,
             "date": "2022-10-15",
-            "total": 2270
+            "total": 2545
           },
           {
             "season": 2023,
             "date": "2023-10-12",
-            "total": 12260
+            "total": 12270
           },
           {
             "season": 2024,
             "date": "2024-10-15",
-            "total": 75
+            "total": 95
           },
           {
             "season": 2025,
             "date": "2025-10-10",
-            "total": 537
+            "total": 695
           }
         ]
       }
@@ -129,13 +132,14 @@
       "id": 40,
       "name": "濤沸湖",
       "latestDate": "2026-10-15",
-      "latestTotal": 43,
+      "latestTotal": 253,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 304,
         "min": 28,
-        "max": 1031,
+        "max": 1506,
         "seasons": [
           {
             "season": 2021,
@@ -150,12 +154,12 @@
           {
             "season": 2023,
             "date": "2023-10-15",
-            "total": 95
+            "total": 295
           },
           {
             "season": 2024,
             "date": "2024-10-13",
-            "total": 506
+            "total": 1506
           },
           {
             "season": 2025,
@@ -171,36 +175,37 @@
       "latestDate": "2026-10-14",
       "latestTotal": 6893,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
-        "median": 958,
-        "min": 70,
-        "max": 2359,
+        "median": 2142,
+        "min": 570,
+        "max": 13348,
         "seasons": [
           {
             "season": 2021,
             "date": "2021-10-14",
-            "total": 733
+            "total": 13348
           },
           {
             "season": 2022,
             "date": "2022-10-12",
-            "total": 958
+            "total": 1958
           },
           {
             "season": 2023,
             "date": "2023-10-15",
-            "total": 2359
+            "total": 4359
           },
           {
             "season": 2024,
             "date": "2024-10-18",
-            "total": 70
+            "total": 570
           },
           {
             "season": 2025,
             "date": "2025-10-19",
-            "total": 1142
+            "total": 2142
           }
         ]
       }
@@ -211,11 +216,12 @@
       "latestDate": "2026-10-13",
       "latestTotal": 90,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 105,
         "min": 42,
-        "max": 2322,
+        "max": 3264,
         "seasons": [
           {
             "season": 2021,
@@ -225,7 +231,7 @@
           {
             "season": 2022,
             "date": "2022-10-15",
-            "total": 1764
+            "total": 3264
           },
           {
             "season": 2023,
@@ -251,6 +257,7 @@
       "latestDate": "2026-10-15",
       "latestTotal": 2821,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 1063,
@@ -291,6 +298,7 @@
       "latestDate": "2026-10-15",
       "latestTotal": 703,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 261,
@@ -331,6 +339,7 @@
       "latestDate": "2026-10-20",
       "latestTotal": 94,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 261,
@@ -371,11 +380,12 @@
       "latestDate": "2026-10-15",
       "latestTotal": 457,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
-        "median": 293,
+        "median": 330,
         "min": 100,
-        "max": 1502,
+        "max": 1637,
         "seasons": [
           {
             "season": 2021,
@@ -385,7 +395,7 @@
           {
             "season": 2022,
             "date": "2022-10-14",
-            "total": 293
+            "total": 446
           },
           {
             "season": 2023,
@@ -400,7 +410,7 @@
           {
             "season": 2025,
             "date": "2025-10-14",
-            "total": 1502
+            "total": 1637
           }
         ]
       }
@@ -411,6 +421,7 @@
       "latestDate": "2026-10-14",
       "latestTotal": 41860,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 36459,
@@ -451,6 +462,7 @@
       "latestDate": "2026-10-12",
       "latestTotal": 5211,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 12481,
@@ -491,6 +503,7 @@
       "latestDate": "2026-09-26",
       "latestTotal": 94,
       "fetchedAt": "2026-11-04",
+      "unreported": 2,
       "baseline": {
         "n": 5,
         "median": 119,
@@ -531,6 +544,7 @@
       "latestDate": "2026-10-16",
       "latestTotal": 1879,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 3155,
@@ -571,6 +585,7 @@
       "latestDate": "2026-09-29",
       "latestTotal": 890,
       "fetchedAt": "2026-11-04",
+      "unreported": 2,
       "baseline": {
         "n": 5,
         "median": 1372,
@@ -611,6 +626,7 @@
       "latestDate": "2026-10-14",
       "latestTotal": 83,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 133,
@@ -649,38 +665,39 @@
       "id": 190,
       "name": "宍道湖",
       "latestDate": "2026-10-02",
-      "latestTotal": 326,
+      "latestTotal": 3736,
       "fetchedAt": "2026-11-04",
+      "unreported": 1,
       "baseline": {
         "n": 5,
-        "median": 111,
-        "min": 10,
-        "max": 740,
+        "median": 260,
+        "min": 25,
+        "max": 1240,
         "seasons": [
           {
             "season": 2021,
             "date": "2021-09-29",
-            "total": 740
+            "total": 1240
           },
           {
             "season": 2022,
             "date": "2022-10-06",
-            "total": 111
+            "total": 467
           },
           {
             "season": 2023,
             "date": "2023-10-05",
-            "total": 55
+            "total": 174
           },
           {
             "season": 2024,
             "date": "2024-09-26",
-            "total": 225
+            "total": 260
           },
           {
             "season": 2025,
             "date": "2025-09-25",
-            "total": 10
+            "total": 25
           }
         ]
       }
@@ -691,6 +708,7 @@
       "latestDate": "2026-10-20",
       "latestTotal": 142,
       "fetchedAt": "2026-11-04",
+      "unreported": 0,
       "baseline": {
         "n": 5,
         "median": 245,
@@ -858,7 +876,7 @@
         {
           "season": 2020,
           "date": "2020-10-20",
-          "atFirstSurvey": false
+          "atFirstSurvey": true
         },
         {
           "season": 2021,

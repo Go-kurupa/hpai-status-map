@@ -2,6 +2,8 @@ import zlib from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
   excelSerialToIsoDate,
+  checkIndexBody,
+  checkXlsxBody,
   extractSurveys,
   firstCrossing,
   isWaterbirdSpecies,
@@ -131,7 +133,7 @@ describe("調査の回を取り出す", () => {
   });
 
   it("水鳥の合計は、ガン・ハクチョウ・カモの種だけ。科レベルの行、カモ以外、合計の行は入れない", () => {
-    expect(x.surveys.map((s) => s.total)).toEqual([12, 1508, 40_230]);
+    expect(x.surveys.map((s) => s.total)).toEqual([12, 1508, 40_730]); // 3 回目: マガン 40,000 + オオハクチョウ 30 + コガモ 200 + 「ガン類」500
     // 種名は亜種と優先度の印を除く
     expect(x.surveys[2]?.species["オオハクチョウ"]).toBe(30);
     // 水鳥でない行の数も、飛来の早さのために種の表には残る
@@ -148,6 +150,54 @@ describe("調査の回を取り出す", () => {
     expect(latestSurvey(y.surveys)?.date).toBe("2026-10-14");
   });
 
+  it("科レベルの行に大きな数がある回は、種の合計に足す（捨てない）", () => {
+    const g: Cell[][] = [
+      ["調査地点名", "試験湖"],
+      ["調査年月日", serial("2026-10-15")],
+      ["飛来状況", "多数"],
+      ["コガモ", 562],
+      ["カモ類", 32_022],
+    ];
+    expect(extractSurveys(parseXlsx(xlsx(g))).surveys[0]?.total).toBe(32_584);
+  });
+
+  it("水鳥でない行にだけ数がある回は、0 羽ではなく記録なし(null)。水鳥の行に 0 が書かれていれば 0", () => {
+    const g: Cell[][] = [
+      ["調査地点名", "試験湖", "試験湖"],
+      ["調査年月日", serial("2026-10-01"), serial("2026-10-15")],
+      ["飛来状況", "", ""],
+      ["アオサギ", 3, 2],
+      ["ハジロカイツブリ", 4, null],
+      ["アイガモ", 9, null],
+      ["コガモ", null, 0],
+    ];
+    const y = extractSurveys(parseXlsx(xlsx(g)));
+    expect(y.surveys.map((s) => s.total)).toEqual([null, 0]);
+  });
+
+  it("「報告未着」の列（日付が読めない予定の列も）と、羽数として読めないセルを数える", () => {
+    const g: Cell[][] = [
+      ["調査地点名", "試験湖", "試験湖", "試験湖"],
+      ["調査年月日", serial("2026-09-26"), "10月上旬", "10月中旬"],
+      ["飛来状況", "", "報告未着", "報告未着"],
+      ["コガモ", "約 20 羽", null, null],
+      ["マガモ", 5, null, null],
+    ];
+    const y = extractSurveys(parseXlsx(xlsx(g)));
+    expect(y.unreportedColumns).toBe(2);
+    expect(y.skippedColumns).toBe(2);
+    expect(y.unparsedCounts).toBe(1);
+    expect(y.surveys[0]?.total).toBe(5);
+  });
+
+  it("壊れた zip（目次の位置が範囲外、途中で切れた中身）は例外", () => {
+    const ok = xlsx(fixtureGrid(), 0);
+    expect(() => parseXlsx(ok.subarray(0, ok.length - 100))).toThrow();
+    const broken = Buffer.from(ok);
+    broken.writeUInt32LE(0x7fffffff, broken.length - 22 + 16);
+    expect(() => parseXlsx(broken)).toThrow(/範囲外/u);
+  });
+
   it("「調査年月日」の行がなければ例外（原本の形が変わった）", () => {
     expect(() => extractSurveys([["a", "b"]])).toThrow(/調査年月日/u);
   });
@@ -161,7 +211,15 @@ describe("種名と水鳥の判定", () => {
   it.each(["マガン", "ヒシクイ", "オオハクチョウ", "コガモ", "キンクロハジロ", "カワアイサ", "オシドリ", "ツクシガモ", "ヒドリガモ"])("%s は水鳥", (n) => {
     expect(isWaterbirdSpecies(n)).toBe(true);
   });
-  it.each(["ガン類", "ハクチョウ類", "カモ類", "ハジロカイツブリ", "ハジロコチドリ", "ハジロクロハラアジサシ", "カワウ", "オオバン", "ユリカモメ", "ナベヅル"])("%s は水鳥の合計に入れない", (n) => {
+  // 許可リストの境界: 迷鳥・雑種・移入種は入れる
+  it.each(["アメリカヒドリ", "カリガネ", "ビロードキンクロ", "雑種ガモ", "コブハクチョウ", "アメリカコハクチョウ", "アカハジロ"])("%s は許可リストに入っている", (n) => {
+    expect(isWaterbirdSpecies(n)).toBe(true);
+  });
+  // 科レベルの行は、種まで分からなかった羽数なので合計に入れる（全キャッシュで二重計上でないと確かめた）
+  it.each(["ガン類", "ハクチョウ類", "カモ類", "カモ科", "アイサ類"])("科の行 %s は合計に入れる", (n) => {
+    expect(isWaterbirdSpecies(n)).toBe(true);
+  });
+  it.each(["アイガモ", "アヒル", "バリケン", "ガチョウ", "ハジロカイツブリ", "ハジロコチドリ", "ハジロクロハラアジサシ", "カワウ", "オオバン", "ユリカモメ", "カモメ", "オナガ", "ナベヅル", "ミズナギドリ科", "シギ科", "ヘラサギ類"])("%s は水鳥の合計に入れない", (n) => {
     expect(isWaterbirdSpecies(n)).toBe(false);
   });
 });
@@ -199,7 +257,7 @@ describe("近い回と今季の最新", () => {
 
 describe("地点の集計", () => {
   const past = (rows: Array<[number, string, number]>): Map<number, Survey[]> => new Map(rows.map(([s, d, t]) => [s, [sv(d, t)]]));
-  const base = { id: 110, name: "試験沼", fetchedAt: "2026-11-04" };
+  const base = { id: 110, name: "試験沼", fetchedAt: "2026-11-04", unreported: 0 };
 
   it("今季の最新の回と、過去 5 季の同じ時期の中央値・最小・最大を並べる（比は出さない）", () => {
     const site = summarizeSite(
@@ -282,5 +340,17 @@ describe("入口のページ", () => {
       { id: 1010, ext: "xlsx", label: "大野川河口" },
       { id: 1091, ext: "xlsx", label: "倉敷市岡田大池" },
     ]);
+  });
+});
+
+describe("取った本体が読めるかの確認（読めないものは保存しない）", () => {
+  it("エラーページ（HTML）、途中で切れた xlsx、調査の回のない xlsx は理由を返す。読めるものは null", () => {
+    expect(checkXlsxBody(Buffer.from("<html>503 Service Unavailable</html>"))).toMatch(/zip/u);
+    const ok = xlsx(fixtureGrid());
+    expect(checkXlsxBody(ok)).toBeNull();
+    expect(checkXlsxBody(ok.subarray(0, 40))).not.toBeNull();
+    expect(checkXlsxBody(xlsx([["調査地点名", "試験沼"], ["調査年月日", "10月上旬"], ["飛来状況", ""]]))).toMatch(/調査の回/u);
+    expect(checkIndexBody(Buffer.from("<html>メンテナンス中</html>"))).not.toBeNull();
+    expect(checkIndexBody(Buffer.from('<a href="site_csv/10.xlsx">(1)クッチャロ湖</a>'))).toBeNull();
   });
 });

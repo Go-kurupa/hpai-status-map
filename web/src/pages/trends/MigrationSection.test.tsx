@@ -22,6 +22,7 @@ const SUMMARY: MigrationSummary = {
       latestDate: "2026-10-14",
       latestTotal: 41_860,
       fetchedAt: "2026-11-04",
+      unreported: 0,
       baseline: {
         n: 5,
         median: 36_459,
@@ -36,6 +37,7 @@ const SUMMARY: MigrationSummary = {
       latestDate: "2026-10-20",
       latestTotal: 9,
       fetchedAt: "2026-11-04",
+      unreported: 0,
       baseline: {
         n: 3,
         median: 300,
@@ -44,7 +46,8 @@ const SUMMARY: MigrationSummary = {
         seasons: [2021, 2023, 2025].map((season, i) => ({ season, date: `${season}-10-2${i}`, total: [200, 300, 400][i]! })),
       },
     },
-    { id: 30, name: "試験池", latestDate: "2026-10-12", latestTotal: 500, fetchedAt: "2026-11-04", baseline: null },
+    { id: 30, name: "試験池", latestDate: "2026-10-12", latestTotal: 500, fetchedAt: "2026-11-04",
+      unreported: 2, baseline: null },
   ],
   arrivals: [
     {
@@ -132,6 +135,32 @@ describe("渡り鳥の飛来（季節の参考）", () => {
     const pond = screen.getByRole("heading", { name: "試験池" }).closest("li")!;
     expect(pond.textContent).toContain("比べられる回がそろいませんでした");
     expect(pond.textContent).not.toContain("中央値");
+  });
+
+  it("報告が未着の回がある地点には、その地点の最新の調査日と未着の回数を出す。ない地点には出さない", async () => {
+    stub(SUMMARY);
+    show();
+    await screen.findByRole("heading", { name: "試験池" });
+    const pond = screen.getByRole("heading", { name: "試験池" }).closest("li")!;
+    expect(pond.textContent).toContain("この地点は10 月 12 日の調査が最新です（報告が未着の回が 2 回あります）");
+    const numa = screen.getByRole("heading", { name: "試験沼" }).closest("li")!;
+    expect(numa.textContent).not.toContain("未着");
+  });
+
+  it("地点が 0 件なら、日付の行を出さず「載せられる地点がありません」と言う（0 年 0 月 0 日を出さない）", async () => {
+    stub({ ...SUMMARY, sites: [], arrivals: [] });
+    const { container } = show();
+    expect(await screen.findByText("載せられる地点がありません。")).toBeTruthy();
+    expect(container.textContent).not.toContain("最も新しい調査日");
+    expect(container.textContent).not.toMatch(/0 年|NaN|undefined/u);
+    expect(findWordingViolations(container.textContent ?? "")).toEqual([]);
+  });
+
+  it("水鳥の数の定義（種の羽数 + 種まで分からなかった羽数）を冒頭で言う", async () => {
+    stub(SUMMARY);
+    const { container } = show();
+    await screen.findByRole("heading", { name: "試験沼" });
+    expect(container.textContent).toContain("種まで分からなかった「カモ類」などの羽数を足したものです");
   });
 
   it("載せていない地点があること（中央値 100 羽未満、出水・高尾野）を画面で断る", async () => {

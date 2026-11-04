@@ -15,6 +15,8 @@ import { parseArgs } from "node:util";
 import { jstDateOf, toJstIso } from "@hpai/shared/dates";
 import { politeFetch } from "../functions/src/watch/politeFetch";
 import {
+  checkIndexBody,
+  checkXlsxBody,
   extractSurveys,
   isMainSite,
   parseIndexLinks,
@@ -69,6 +71,16 @@ function seasonBase(season: number, current: number): string {
   return season === current ? `${BASE}ap_wr_transit/` : `${BASE}ap_wr_transit${pad2(season - 1999)}/`;
 }
 
+/** 前回の summary.json の地点数。無い・読めなければ null */
+function previousSiteCount(): number | null {
+  try {
+    const v = JSON.parse(fs.readFileSync(OUT, "utf8")) as { sites?: unknown };
+    return Array.isArray(v.sites) ? v.sites.length : null;
+  } catch {
+    return null;
+  }
+}
+
 function loadManifest(): Manifest {
   try {
     return JSON.parse(fs.readFileSync(MANIFEST, "utf8")) as Manifest;
@@ -90,7 +102,7 @@ async function main(): Promise<number> {
   let lastFetchAt = 0;
 
   /** キャッシュにあれば返す。なければ（--offline でなければ）1 回だけ取る。currentFile は今日取っていなければ取り直す */
-  async function get(key: string, url: string, refreshDaily: boolean): Promise<Buffer | null> {
+  async function get(key: string, url: string, refreshDaily: boolean, valid: (b: Buffer) => string | null): Promise<Buffer | null> {
     const file = path.join(CACHE, key);
     const hit = manifest[key];
     const fresh = hit && fs.existsSync(file) && (!refreshDaily || hit.fetchedAt.slice(0, 10) === today);
@@ -106,6 +118,12 @@ async function main(): Promise<number> {
       problems.push(`${key}: ${r.kind}${"status" in r ? ` ${r.status}` : ""}`);
       return fs.existsSync(file) ? fs.readFileSync(file) : null;
     }
+    // 読めない本体（エラーページ、途中で切れたもの）は保存しない。manifest も更新しない
+    const bad = valid(r.body);
+    if (bad !== null) {
+      problems.push(`${key}: 取得した本体を保存しませんでした（${bad}）`);
+      return fs.existsSync(file) ? fs.readFileSync(file) : null;
+    }
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, r.body);
     manifest[key] = { fetchedAt: toJstIso(now), lastModified: r.lastModified, finalUrl: r.finalUrl };
@@ -117,7 +135,7 @@ async function main(): Promise<number> {
   // 1. 入口のページ（今季と過去 6 シーズン）から、地点の一覧を作る
   const links = new Map<number, Map<number, IndexLink>>();
   for (const season of [...allPast, current]) {
-    const buf = await get(`index/${season}.html`, `${seasonBase(season, current)}index.html`, season === current);
+    const buf = await get(`index/${season}.html`, `${seasonBase(season, current)}index.html`, season === current, checkIndexBody);
     if (!buf) {
       problems.push(`index ${season}: 入口のページがありません`);
       continue;
@@ -146,33 +164,45 @@ async function main(): Promise<number> {
     for (const season of allPast) {
       const l = links.get(season)?.get(link.id);
       if (!l) continue;
-      const buf = await get(`${season}/${link.id}.${l.ext}`, `${seasonBase(season, current)}site_csv/${link.id}.${l.ext}`, false);
+      if (l.ext !== "xlsx") {
+        problems.push(`${season}/${link.id}: .xls は取りません`);
+        continue;
+      }
+      const buf = await get(`${season}/${link.id}.${l.ext}`, `${seasonBase(season, current)}site_csv/${link.id}.${l.ext}`, false, checkXlsxBody);
       if (!buf) continue;
       try {
         const x = extractSurveys(parseXlsx(buf));
         if (x.skippedColumns > 0) problems.push(`${season}/${link.id}: 日付が読めない列 ${x.skippedColumns}`);
+        if (x.unparsedCounts > 0) problems.push(`${season}/${link.id}: 羽数として読めないセル ${x.unparsedCounts}`);
         past.set(season, x.surveys);
       } catch (e) {
         problems.push(`${season}/${link.id}: ${(e as Error).message}`);
       }
     }
     const key = `${current}/${link.id}.${link.ext}`;
-    const buf = await get(key, `${seasonBase(current, current)}site_csv/${link.id}.${link.ext}`, true);
+    if (link.ext !== "xlsx") {
+      problems.push(`${key}: .xls は取りません。この地点は載せません`);
+      continue;
+    }
+    const buf = await get(key, `${seasonBase(current, current)}site_csv/${link.id}.${link.ext}`, true, checkXlsxBody);
     if (!buf) {
       problems.push(`${key}: 今季のファイルがありません。この地点は載せません`);
       continue;
     }
     let curSurveys: Survey[];
+    let unreported = 0;
     try {
       const x = extractSurveys(parseXlsx(buf));
       if (x.skippedColumns > 0) problems.push(`${key}: 日付が読めない列 ${x.skippedColumns}`);
+      if (x.unparsedCounts > 0) problems.push(`${key}: 羽数として読めないセル ${x.unparsedCounts}`);
       curSurveys = x.surveys;
+      unreported = x.unreportedColumns;
     } catch (e) {
       problems.push(`${key}: ${(e as Error).message}`);
       continue;
     }
     const fetchedAt = (manifest[key]?.fetchedAt ?? toJstIso(now)).slice(0, 10);
-    const site = summarizeSite({ id: link.id, name: link.label, current: curSurveys, past, fetchedAt }, current, baselineSeasons);
+    const site = summarizeSite({ id: link.id, name: link.label, current: curSurveys, past, fetchedAt, unreported }, current, baselineSeasons);
     if (!site) {
       problems.push(`${key}: 今季は数の記録がまだありません。この地点は載せません`);
       continue;
@@ -193,10 +223,17 @@ async function main(): Promise<number> {
     sites,
     arrivals,
   };
+  // 書き出す前の確認: 地点が 0 件、または前回の半分未満に減ったときは、壊れた取得とみなして書かない
+  const prevCount = previousSiteCount();
+  if (sites.length === 0 || (prevCount !== null && sites.length * 2 < prevCount)) {
+    console.error(`地点が ${sites.length} 件（前回 ${prevCount ?? "なし"} 件）です。取得が壊れた可能性があるので書き出しません`);
+    if (problems.length > 0) console.error(`気づいた点 ${problems.length} 件:\n  ${problems.join("\n  ")}`);
+    return 1;
+  }
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, `${JSON.stringify(summary, null, 2)}\n`);
   console.log(`取得 ${fetched} 本。地点 ${sites.length}、飛来の早さ ${arrivals.length} 件を ${path.relative(ROOT, OUT)} に書きました`);
-  if (problems.length > 0) console.log(`気づいた点 ${problems.length} 件:\n  ${problems.join("\n  ")}`);
+  if (problems.length > 0) console.error(`気づいた点 ${problems.length} 件:\n  ${problems.join("\n  ")}`);
   return 0;
 }
 
