@@ -50,23 +50,22 @@ export async function handleDeathWrite(deps: NotifyDeps, farmId: string, recordI
 
   // 記録（queued）を先に作り、送る直前に 1 日の枠を確保する（dispatchNotices の関門）。確保が投げたら記録は failed（送り直しが拾う）。
   // 満杯なら capped にして運営者の箱に出す。送れたかは送信の結果で数え、1 人も届かなければ、今回確保した枠をその場で返す。
-  let opened = false;
-  let reservedNew = false;
+  let holder: string | null = null;
   const deliveredUids: string[] = [];
   const gate = async (refs: readonly DocumentReference[]): Promise<boolean> => {
     const r = await reserveHitSlot(deps.db, farmId, recordId);
-    if (r === "full") {
+    if (r.kind !== "open") {
+      // uid を渡していないので delivered は返らない。full なら capped にして箱へ
       await capHitNotices(refs, recordId, deps.now());
       return false;
     }
-    opened = true;
-    reservedNew = r === "reserved";
+    holder = r.holder;
     return true;
   };
   try {
     await dispatchNotices(deps, notices, { gate, onDelivered: (n) => deliveredUids.push(n.uid) });
   } finally {
-    if (opened) await settleHitSlot(deps.db, farmId, recordId, { reservedNew, deliveredUids });
+    if (holder !== null) await settleHitSlot(deps.db, farmId, recordId, { holder, deliveredUids });
   }
 }
 

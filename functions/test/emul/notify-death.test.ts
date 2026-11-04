@@ -340,11 +340,95 @@ describe("handleDeathWrite", () => {
     expect((await sentNoticeDocs())[`f1__u1__${idOf(r)}__mortality_hit`]).toMatchObject({ state: "sent" });
   });
 
+  it("すぐ送る経路と送り直しの経路を同時に混ぜても、届く記録も枠も 3 件以下で、上限で止めた分は箱に出る", async () => {
+    await seedFarm("f1", "u1");
+    const bad = makeDeps({ fail: () => authErr });
+    const old: DeathRecord[] = [];
+    for (const h of ["h1", "h2", "h3", "h4"]) old.push(await hit(h));
+    for (const r of old) await handleDeathWrite(bad.deps, "f1", idOf(r), r);
+    const fresh: DeathRecord[] = [];
+    for (const h of ["h5", "h6", "h7"]) fresh.push(await hit(h));
+    const ok = makeDeps();
+    await Promise.all([
+      runRetryFailed(ok.deps, fakeGeo()),
+      runRetryFailed(ok.deps, fakeGeo()),
+      ...fresh.map((r) => handleDeathWrite(ok.deps, "f1", idOf(r), r)),
+    ]);
+    const states = Object.values(await hitStates());
+    expect(states.filter((x) => x === "sent").length).toBeLessThanOrEqual(3);
+    expect((await slotIds()).length).toBeLessThanOrEqual(3);
+    expect(states.filter((x) => x === "capped").length).toBeGreaterThanOrEqual(4);
+    expect(await reviewQueueIds()).toContain("alert-mortality_capped-2026-11-05");
+  });
+
+  it("確保した実行が送れずに後始末しても、同じ記録を送り直しで送っている最中の実行の枠は返さない（4 件目を通さない）", async () => {
+    await seedFarm("f1", "u1", { memberUids: ["u1", "u2"] });
+    const X = await hit("h1");
+    const eenv = Object.assign(new Error("bad rcpt"), { code: "EENVELOPE", responseCode: 550 });
+    let releaseA!: () => void;
+    const gateA = new Promise<void>((r) => (releaseA = r));
+    let aEntered!: () => void;
+    const aIn = new Promise<void>((r) => (aEntered = r));
+    let releaseB!: () => void;
+    const gateB = new Promise<void>((r) => (releaseB = r));
+    let bEntered!: () => void;
+    const bIn = new Promise<void>((r) => (bEntered = r));
+    // A（すぐ送る）: u1 は宛先の不備で failed、u2 は送信中に止まり、そのあと認証の失敗（1 人も届かない）
+    const A = makeDeps({
+      mailer: async (to) => {
+        if (to === "u1@example.test") throw eenv;
+        aEntered();
+        await gateA;
+        throw authErr;
+      },
+    });
+    const pA = handleDeathWrite(A.deps, "f1", idOf(X), X);
+    await aIn;
+    // B（送り直し）: u1 の failed を拾い、同じ記録の枠（held）で送信中に止まる
+    const sentTo: string[] = [];
+    const B = makeDeps({
+      mailer: async (to) => {
+        bEntered();
+        await gateB;
+        sentTo.push(to);
+      },
+    });
+    const pB = runRetryFailed(B.deps, fakeGeo());
+    await bIn;
+    releaseA();
+    await pA;
+    expect(await slotIds()).toEqual([idOf(X)]); // B が使っているので、A は返さない
+    const others: DeathRecord[] = [];
+    for (const h of ["h2", "h3", "h4"]) others.push(await hit(h));
+    const ok = makeDeps();
+    for (const r of others) await handleDeathWrite(ok.deps, "f1", idOf(r), r);
+    releaseB();
+    await pB;
+    expect(sentTo).toEqual(["u1@example.test"]);
+    const ids = await slotIds();
+    expect(ids.length).toBeLessThanOrEqual(3);
+    expect(ids).toContain(idOf(X));
+    expect(await hitStates()).toMatchObject({ [idOf(others[2]!)]: "capped" });
+  });
+
   it("枠を返すとき、その記録が別の会員に届いていれば返さない（重なった実行で、届いた分を数え落とさない）", async () => {
     const r = "2026-11-05_h1";
-    await db.doc(`farms/f1/hitCounters/${TODAY}`).set({ recordIds: [r], delivered: { [r]: ["u2"] } });
-    await settleHitSlot(db, "f1", r, { reservedNew: true, deliveredUids: [] });
+    await db.doc(`farms/f1/hitCounters/${TODAY}`).set({ recordIds: [r], delivered: { [r]: ["u2"] }, holders: { [r]: ["run-a"] } });
+    await settleHitSlot(db, "f1", r, { holder: "run-a", deliveredUids: [] });
     expect(await slotIds()).toEqual([r]);
+    const d = (await db.doc(`farms/f1/hitCounters/${TODAY}`).get()).data() as { holders: Record<string, string[]> };
+    expect(d.holders[r]).toBeUndefined(); // 自分の印は外す
+  });
+
+  it("枠を返すとき、自分以外の印が残っていれば返さず、自分の印だけを外す。最後の実行が送れなければ返す", async () => {
+    const r = "2026-11-05_h1";
+    await db.doc(`farms/f1/hitCounters/${TODAY}`).set({ recordIds: [r], delivered: {}, holders: { [r]: ["run-a", "run-b"] } });
+    await settleHitSlot(db, "f1", r, { holder: "run-a", deliveredUids: [] });
+    expect(await slotIds()).toEqual([r]);
+    const d = (await db.doc(`farms/f1/hitCounters/${TODAY}`).get()).data() as { holders: Record<string, string[]> };
+    expect(d.holders[r]).toEqual(["run-b"]);
+    await settleHitSlot(db, "f1", r, { holder: "run-b", deliveredUids: [] });
+    expect(await slotIds()).toEqual([]);
   });
 
   it("上限で止めた知らせの箱への登録が失敗しても、記録は capped のままで、次の回に箱へ登録し直す", async () => {

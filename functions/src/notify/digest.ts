@@ -6,7 +6,7 @@ import type { GeoStore } from "@hpai/shared/geo";
 import { renderMorningDigest, renderNotice, selfCheckDueNotices, type Notice, type NoticeEvent, type SentNotice } from "@hpai/shared/notices";
 import type { Farm } from "@hpai/shared/types";
 import { codeOf, dispatchNotices, isMailStopError, markSent, noteMailStop, unsubscribeUrlFor, type NotifyDeps } from "./dispatch";
-import { capHitNotices, hitDateOf, reserveHitSlot, retryCapAlerts, settleHitSlot } from "./hitSlots";
+import { capHitNotices, hitDateOf, reserveHitSlot, retryCapAlerts, settleHitSlot, type HitReservation } from "./hitSlots";
 import { createRebuildContext, isSelfCheckAnswered, loadSubjects, rebuildNotice, type QueueRec } from "./rebuild";
 
 /** 送ってから「すぐ」の知らせを拾うまでの待ち（分）。onCaseWritten が送っている間に拾わない。 */
@@ -194,7 +194,7 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
       // 基準の知らせは、送る直前に 1 日の枠を確保する（宛先が決まった後。飛ばす、止める分では確保しない）
       const sendRecs: QueueRec[] = [];
       const sendNotices: Notice[] = [];
-      const slots: Array<{ rec: QueueRec; reservedNew: boolean }> = [];
+      const slots: Array<{ rec: QueueRec; holder: string }> = [];
       let delivered = false;
       try {
         for (let n = 0; n < recsNow.length; n += 1) {
@@ -204,7 +204,7 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
               if (await markFailed(r, true)) result.failed += 1; // 記録の id が壊れている（記録のせい）
               continue;
             }
-            let slot: Awaited<ReturnType<typeof reserveHitSlot>>;
+            let slot: HitReservation;
             try {
               slot = await reserveHitSlot(deps.db, r.data.farmId, r.data.subjectId, r.data.uid);
             } catch (e) {
@@ -213,17 +213,17 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
               result.skipped += 1;
               continue;
             }
-            if (slot === "full") {
+            if (slot.kind === "full") {
               await capHitNotices([r.ref], r.data.subjectId, deps.now());
               result.capped += 1;
               continue;
             }
-            if (slot === "delivered") {
+            if (slot.kind === "delivered") {
               // 届いていたのに sent を書けなかった記録。二度送らない
               if (await tryUpdate("sent", () => markSent(r.ref, toJstIso(deps.now())))) result.sent += 1;
               continue;
             }
-            slots.push({ rec: r, reservedNew: slot === "reserved" });
+            slots.push({ rec: r, holder: slot.holder });
           }
           sendRecs.push(r);
           sendNotices.push(notices[n]!);
@@ -270,8 +270,8 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
         }
       } finally {
         // 送れたかは送信の結果で決める（sent の書き込みの成否ではない）。送れなければ、今回確保した枠をその場で返す
-        for (const { rec, reservedNew } of slots) {
-          await settleHitSlot(deps.db, rec.data.farmId, rec.data.subjectId, { reservedNew, deliveredUids: delivered ? [rec.data.uid] : [] });
+        for (const { rec, holder } of slots) {
+          await settleHitSlot(deps.db, rec.data.farmId, rec.data.subjectId, { holder, deliveredUids: delivered ? [rec.data.uid] : [] });
         }
       }
     } catch (e) {

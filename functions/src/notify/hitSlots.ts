@@ -6,6 +6,7 @@
 // 3. 確保できなければ（その日の上限まで送れた後）、記録を capped にして送らず、運営者の箱に 1 日 1 件出す（capHitNotices）。
 //    箱への登録が失敗したら、記録に cappedAlert: "pending" を残し、次の実行で登録し直す（retryCapAlerts）。
 // ログに出すのは件数とエラーの code だけ（農場、鶏舎、宛先は出さない）。ルールは全拒否のまま（サーバーだけが書く）。
+import { randomUUID } from "node:crypto";
 import { FieldValue, type DocumentReference, type Firestore } from "firebase-admin/firestore";
 import { enqueueReview, reviewAlertId } from "../review/queue";
 import { codeOf } from "./dispatch";
@@ -24,6 +25,8 @@ interface Counter {
   recordIds: string[];
   /** 記録ごとの、届いた会員。markSent が失敗した記録を送り直しで二度送らないために使う。 */
   delivered: Record<string, string[]>;
+  /** 記録ごとの、いま枠を使って送っている実行の印。自分以外の印が残っていれば、送れなくても枠を返さない。 */
+  holders: Record<string, string[]>;
 }
 
 function counterRef(db: Firestore, farmId: string, recordId: string): DocumentReference {
@@ -32,62 +35,85 @@ function counterRef(db: Firestore, farmId: string, recordId: string): DocumentRe
   return db.collection("farms").doc(farmId).collection("hitCounters").doc(date);
 }
 
-function readCounter(data: unknown): Counter {
-  const d = data as { recordIds?: unknown; delivered?: unknown } | undefined;
-  const recordIds = Array.isArray(d?.recordIds) ? (d.recordIds as unknown[]).filter((x): x is string => typeof x === "string") : [];
-  const delivered: Record<string, string[]> = {};
-  if (typeof d?.delivered === "object" && d.delivered !== null) {
-    for (const [k, v] of Object.entries(d.delivered as Record<string, unknown>)) {
-      if (Array.isArray(v)) delivered[k] = v.filter((x): x is string => typeof x === "string");
+function readLists(v: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  if (typeof v === "object" && v !== null) {
+    for (const [k, list] of Object.entries(v as Record<string, unknown>)) {
+      if (Array.isArray(list)) out[k] = list.filter((x): x is string => typeof x === "string");
     }
   }
-  return { recordIds, delivered };
+  return out;
 }
 
+function readCounter(data: unknown): Counter {
+  const d = data as { recordIds?: unknown; delivered?: unknown; holders?: unknown } | undefined;
+  const recordIds = Array.isArray(d?.recordIds) ? (d.recordIds as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  return { recordIds, delivered: readLists(d?.delivered), holders: readLists(d?.holders) };
+}
+
+/** 空の一覧を残さない。 */
+function withList(map: Record<string, string[]>, key: string, list: readonly string[]): Record<string, string[]> {
+  const { [key]: _old, ...rest } = map;
+  return list.length > 0 ? { ...rest, [key]: [...list] } : rest;
+}
+
+/** 確保の結果。open のときだけ送ってよく、holder（この実行の印）を settleHitSlot に渡す。 */
+export type HitReservation =
+  | { kind: "open"; holder: string; fresh: boolean }
+  | { kind: "delivered" }
+  | { kind: "full" };
+
 /**
- * 送る直前に枠を確保する（トランザクション）。
- * - reserved: 今回新しく確保した（送れなければ settleHitSlot が返す）
- * - held: その記録はすでに枠を使っている（別の会員に届いた、など）。送ってよいが、送れなくても枠は返さない
+ * 送る直前に枠を確保する（トランザクション）。確保できたら、その記録の holders にこの実行の印を足す。
+ * - open（fresh）: 今回新しく枠を確保した
+ * - open（fresh でない）: その記録はすでに枠を使っている（別の会員に届いた、別の実行が送っている、など）。同じ枠で送ってよい
  * - delivered: uid を渡したとき、その会員にはすでに届いている（記録の sent への書き込みが失敗していた）。送らずに sent にする
- * - full: その日の上限まで送れた後。送らずに capped にする
+ * - full: その日の上限まで枠が埋まっている。送らずに capped にする
  */
-export async function reserveHitSlot(db: Firestore, farmId: string, recordId: string, uid?: string): Promise<"reserved" | "held" | "delivered" | "full"> {
+export async function reserveHitSlot(db: Firestore, farmId: string, recordId: string, uid?: string): Promise<HitReservation> {
   const ref = counterRef(db, farmId, recordId);
-  return db.runTransaction(async (tx) => {
+  const holder = randomUUID();
+  return db.runTransaction(async (tx): Promise<HitReservation> => {
     const c = readCounter((await tx.get(ref)).data());
-    if (uid !== undefined && (c.delivered[recordId] ?? []).includes(uid)) return "delivered" as const;
-    if (c.recordIds.includes(recordId)) return "held" as const;
-    if (c.recordIds.length >= MAX_HIT_NOTICES_PER_FARM_DAY) return "full" as const;
-    tx.set(ref, { recordIds: [...c.recordIds, recordId], delivered: c.delivered });
-    return "reserved" as const;
+    if (uid !== undefined && (c.delivered[recordId] ?? []).includes(uid)) return { kind: "delivered" };
+    const held = c.recordIds.includes(recordId);
+    if (!held && c.recordIds.length >= MAX_HIT_NOTICES_PER_FARM_DAY) return { kind: "full" };
+    tx.set(ref, {
+      recordIds: held ? c.recordIds : [...c.recordIds, recordId],
+      delivered: c.delivered,
+      holders: withList(c.holders, recordId, [...(c.holders[recordId] ?? []), holder]),
+    });
+    return { kind: "open", holder, fresh: !held };
   });
 }
 
 /**
- * 送ったあとの後始末（トランザクション）。投げない（失敗はログだけ。送ったメールは取り消せない）。
- * - 届いた会員がいなければ: 今回新しく確保した枠（reservedNew）だけを返す。その記録が別の実行で別の会員に届いていれば返さない
+ * 送ったあとの後始末（トランザクション）。自分の印（holder）だけを外す。投げない（失敗はログだけ。送ったメールは取り消せない）。
  * - 届いた会員がいれば: 枠を使ったまま、届いた会員を残す（枠が返っていたら付け直す。上限より 1 件多くなっても、送った分は数える）
+ * - 届いた会員がいなければ: その記録がほかの実行で届いておらず、自分以外の印も残っていないときだけ、枠を返す
+ *   （送り直しで同じ枠を使って送っている最中の実行がいれば返さない。印を残したまま打ち切られた実行の枠は返らず、届く数が減る側に倒れる）
  */
 export async function settleHitSlot(
   db: Firestore,
   farmId: string,
   recordId: string,
-  o: { reservedNew: boolean; deliveredUids: readonly string[] },
+  o: { holder: string; deliveredUids: readonly string[] },
 ): Promise<void> {
-  if (o.deliveredUids.length === 0 && !o.reservedNew) return;
   try {
     const ref = counterRef(db, farmId, recordId);
     await db.runTransaction(async (tx) => {
       const c = readCounter((await tx.get(ref)).data());
-      if (o.deliveredUids.length === 0) {
-        if (!c.recordIds.includes(recordId)) return;
-        if ((c.delivered[recordId] ?? []).length > 0) return; // 別の実行で別の会員に届いている。枠は使ったまま
-        tx.set(ref, { recordIds: c.recordIds.filter((i) => i !== recordId), delivered: c.delivered });
+      const others = (c.holders[recordId] ?? []).filter((h) => h !== o.holder);
+      const holders = withList(c.holders, recordId, others);
+      if (o.deliveredUids.length > 0) {
+        const recordIds = c.recordIds.includes(recordId) ? c.recordIds : [...c.recordIds, recordId];
+        const uids = [...new Set([...(c.delivered[recordId] ?? []), ...o.deliveredUids])].sort();
+        tx.set(ref, { recordIds, delivered: { ...c.delivered, [recordId]: uids }, holders });
         return;
       }
-      const recordIds = c.recordIds.includes(recordId) ? c.recordIds : [...c.recordIds, recordId];
-      const uids = [...new Set([...(c.delivered[recordId] ?? []), ...o.deliveredUids])].sort();
-      tx.set(ref, { recordIds, delivered: { ...c.delivered, [recordId]: uids } });
+      const keep = others.length > 0 || (c.delivered[recordId] ?? []).length > 0;
+      const recordIds = keep ? c.recordIds : c.recordIds.filter((i) => i !== recordId);
+      tx.set(ref, { recordIds, delivered: c.delivered, holders });
     });
   } catch (e) {
     console.error("[notify] 基準の知らせの枠の後始末に失敗しました", { code: codeOf(e), delivered: o.deliveredUids.length });
