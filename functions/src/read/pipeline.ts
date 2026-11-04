@@ -146,7 +146,7 @@ async function judge(rec: DocumentRecord, deps: PipelineDeps, now: Date, setting
     const season = seasonOf(jstDateOf(new Date(rec.fetchedAt)));
     const doc = { text, hasTextLayer: rec.hasTextLayer, season };
     // announcedOn（発表日）は取得のときに取り出して保存したもの。取り出せなかった（null、古い文書）なら「本日」だけの引用は確認中に回る（安全な側）
-    const opts = { sourcePrefCode: await sourcePrefCodeOf(rec), announcedOn: rec.announcedOn ?? null };
+    const opts = { sourcePrefCode: await sourcePrefCodeOf(rec), announcedOn: rec.announcedOn ?? null, title: rec.title, fetchedOn: jstDateOf(new Date(rec.fetchedAt)) };
     verify = verifyRead(read, doc, deps.geo, null, opts);
     compare = second !== null ? compareReads(read, second, verify) : null;
     redo = (previous) => {

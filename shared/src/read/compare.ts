@@ -5,7 +5,7 @@ import { prefCodeOfName } from "../pref";
 import { normalizeForMatch } from "../text";
 import { muniCoreName } from "./names";
 import type { CompareReport, DocumentKind, MandatoryField, ReadDate, ReadResult, SecondReadResult, VerifyReport } from "./types";
-import { PREF_FILLED_FROM_SOURCE } from "./verify";
+import { PREF_FILLED_FROM_SOURCE } from "./notes";
 
 const CASE_KINDS: ReadonlySet<DocumentKind> = new Set(["suspected", "confirmed", "progress", "control_done", "zone_lifted", "negated"]);
 

@@ -8,6 +8,7 @@ import { PREFS, prefCodeOfName } from "../pref";
 import { normalizeForMatch } from "../text";
 import type { Case, CaseStage, IsoDate, PrefCode, StageStamp, WildBirdTest } from "../types";
 import { muniCoreName } from "./names";
+import { PREF_FILLED_FROM_SOURCE, PREF_FROM_SOURCE } from "./notes";
 import {
   dateInQuote,
   headCountInQuote,
@@ -41,8 +42,10 @@ const KIND_WORD: Partial<Record<DocumentKind, RegExp>> = {
 
 // 処分した羽の数を知らせる語。羽数（headCount）は飼っている羽数なので、引用にこの語があれば採らない（飼養の語があっても、採らない側に倒す）。
 export const CULLED_COUNT_WORD = /殺処分|処分|とう汰|淘汰|埋却/u;
-/** 照合が都道府県を取得元の県で補った印（issues の detail）。compareReads と舞台裏が見る。 */
-export const PREF_FILLED_FROM_SOURCE = "prefecture_filled_from_source";
+// 照合が都道府県を取得元の県で補った印（issues の detail）。compareReads と舞台裏が見る。
+export { PREF_FILLED_FROM_SOURCE };
+// 引用の中の、年を相対で言う語。この語がある引用では、年を補わない（昨年の事例の振り返りを今季にしない）。
+const RELATIVE_YEAR_WORD = /昨年|前年|去年|同年/u;
 
 // 種類と primaryStage の組み合わせ（null は段階なし）。
 const ALLOWED_STAGES: Partial<Record<DocumentKind, ReadonlyArray<CaseStage | null>>> = {
@@ -114,9 +117,43 @@ function prefNameInQuote(code: PrefCode, quote: string): boolean {
  * 年は補った扱い（year を null にして返す。resolveReadDate で yearCompleted になる）。指示文が題などから年を補うことを許すため。
  */
 function matchQuotedDate(d: ReadDate, quote: string, season: number): ReadDate | null {
+  // 「昨年」「同年」などがあれば、引用に書いた年と値の年の一致だけを認める（年を補わない）
+  if (RELATIVE_YEAR_WORD.test(normalizeForMatch(quote))) return d.year !== null && dateInQuote(d, quote) ? d : null;
   if (dateInQuote(d, quote)) return d;
   if (d.year === null || d.year !== seasonYearOf(d.month, season) || !yearlessDateInQuote(d, quote)) return null;
   return { ...d, year: null };
+}
+
+const PREF_SHORT_BY_CODE: ReadonlyMap<PrefCode, string | null> = new Map(
+  PREFS.map((p) => [p.code, p.name === "北海道" ? null : normalizeForMatch(p.name.slice(0, -1))]),
+);
+
+/**
+ * 文（題と本文。正規化済み）に、取得元の県以外の県の名前（正式名か、都・府・県を取った短い名）がある。
+ * 取得元の県の正式名の出現は先に取り除くので、東京都の文書の「東京都」の中の「京都」は他県に数えない。
+ */
+function otherPrefNamed(ntext: string, source: PrefCode): boolean {
+  const rest = ntext.split(PREF_FORMAL_BY_CODE.get(source) ?? "\u0000").join("\u0000");
+  return PREFS.some((p) => {
+    if (p.code === source) return false;
+    const short = PREF_SHORT_BY_CODE.get(p.code);
+    return rest.includes(PREF_FORMAL_BY_CODE.get(p.code)!) || (short != null && rest.includes(short));
+  });
+}
+
+// 全国の市町村の索引で、同じ名前の数。geo ごとに覚える。
+const NAME_COUNTS = new WeakMap<object, Map<string, number>>();
+function nationalNameCount(core: string, geo: GeoStore): number {
+  let m = NAME_COUNTS.get(geo.index);
+  if (!m) {
+    m = new Map();
+    for (const e of Object.values(geo.index)) {
+      const n = normalizeForMatch(e.name);
+      m.set(n, (m.get(n) ?? 0) + 1);
+    }
+    NAME_COUNTS.set(geo.index, m);
+  }
+  return m.get(normalizeForMatch(core)) ?? 0;
 }
 
 /** 引用に、いずれかの都道府県の正式名がある。 */
@@ -184,8 +221,10 @@ export function verifyRead(
    * 呼び出し側が渡す、プログラムが取り出した情報（どちらも省略可）。
    * sourcePrefCode: 取得元の県（sources.json の prefCode。国の発表のように複数県なら渡さない）。引用に県名がなくても、読みの県と一致すれば都道府県は合格。読みの県が null でも、本文に別の県名がなければこの県で補う。
    * announcedOn: 文書の発表日。引用が「本日」「同日」だけで年月日がないとき、日付の値がこの日と同じなら合格（時刻は引用で照合する）。
+   * title: 文書の題。取得元の県で補う前に、題にも他県の名前がないことを確かめる。
+   * fetchedOn: 取得した日（日本時間）。主の日付と段階の出来事が、発表日か取得日より後なら落とす（見込み日は未来なので見ない）。
    */
-  opts: { sourcePrefCode?: PrefCode | null; announcedOn?: IsoDate | null } = {},
+  opts: { sourcePrefCode?: PrefCode | null; announcedOn?: IsoDate | null; title?: string | null; fetchedOn?: IsoDate | null } = {},
 ): VerifyReport {
   if (!doc.hasTextLayer) {
     return {
@@ -229,11 +268,16 @@ export function verifyRead(
   }
 
   // ── 都道府県、市町村（必須） ──
-  const prefCode = checkPrefecture(read.prefecture, inDoc, mandatoryFail, opts.sourcePrefCode ?? null, issues, ndoc);
-  const muni = checkMunicipality(read.municipality, prefCode, geo, inDoc, mandatoryFail);
+  const titled = normalizeForMatch(`${opts.title ?? ""}\n${doc.text}`);
+  const pref = checkPrefecture(read.prefecture, inDoc, mandatoryFail, opts.sourcePrefCode ?? null, issues, titled);
+  const prefCode = pref?.code ?? null;
+  const muni = checkMunicipality(read.municipality, prefCode, pref?.filled ?? false, geo, inDoc, mandatoryFail);
   out.prefCode = prefCode;
   out.muniCode = muni?.code ?? null;
   out.muniName = muni?.name ?? null;
+
+  // 日付の上限: 文書の発表日と取得日の早い方。出来事の日はこれより後にならない
+  const latest = [opts.announcedOn, opts.fetchedOn].filter((x): x is IsoDate => typeof x === "string").sort()[0] ?? null;
 
   // ── 段階と日付（必須） ──
   let completed = false;
@@ -253,6 +297,7 @@ export function verifyRead(
     const r = matched && resolveReadDate(matched, doc.season);
     if (!matched) mandatoryFail("primaryDate", "value_in_quote", "date_not_in_quote");
     else if (!r) mandatoryFail("primaryDate", "year_completion", "out_of_season_or_invalid");
+    else if (latest !== null && r.date > latest) mandatoryFail("primaryDate", "chronology", "after_announcement");
     else {
       stamp = { date: r.date, time: d.time };
       if (read.primaryStage !== null && previous) {
@@ -322,6 +367,7 @@ export function verifyRead(
     if (!matched) return optionalFail(field, "value_in_quote", `row${i}:date_not_in_quote`);
     const r = resolveReadDate(matched, doc.season);
     if (!r) return optionalFail(field, "year_completion", `row${i}:out_of_season_or_invalid`);
+    if (latest !== null && r.date > latest) return optionalFail(field, "chronology", `row${i}:after_announcement`);
     if (reference.some((ref) => stagesConflict({ stage: row.stage, date: r.date }, ref))) {
       return optionalFail(field, "chronology", `row${i}:conflicts_with_known_stage`);
     }
@@ -386,30 +432,30 @@ function checkPrefecture(
   fail: Fail,
   sourcePrefCode: PrefCode | null,
   issues: VerifyIssue[],
-  ndoc: string,
-): PrefCode | null {
+  titled: string,
+): { code: PrefCode; filled: boolean } | null {
   if (q.quote !== null && !inDoc(q.quote)) return failNull(fail, "prefecture", "quote_exists", "quote_not_in_document");
   if (q.value === null) {
-    const otherPref = PREFS.some((p) => p.code !== sourcePrefCode && ndoc.includes(PREF_FORMAL_BY_CODE.get(p.code)!));
-    if (sourcePrefCode === null || otherPref) return failNull(fail, "prefecture", "value_in_quote", "missing_value");
+    if (sourcePrefCode === null || otherPrefNamed(titled, sourcePrefCode)) return failNull(fail, "prefecture", "value_in_quote", "missing_value");
     issues.push({ field: "prefecture", check: "value_in_quote", mandatory: false, detail: PREF_FILLED_FROM_SOURCE });
-    return sourcePrefCode;
+    return { code: sourcePrefCode, filled: true };
   }
   const code = prefCodeOfName(q.value);
   if (code === null) return failNull(fail, "prefecture", "muni_exists", "unknown_prefecture");
-  if (q.quote !== null && prefNameInQuote(code, q.quote)) return code;
+  if (q.quote !== null && prefNameInQuote(code, q.quote)) return { code, filled: false };
   if (q.quote !== null && anyPrefNameInQuote(q.quote)) return failNull(fail, "prefecture", "value_in_quote", "value_not_in_quote");
   if (sourcePrefCode === null || code !== sourcePrefCode) {
     return failNull(fail, "prefecture", "value_in_quote", q.quote === null ? "missing_quote" : "value_not_in_quote");
   }
-  issues.push({ field: "prefecture", check: "value_in_quote", mandatory: false, detail: "prefecture_from_source" });
-  return code;
+  issues.push({ field: "prefecture", check: "value_in_quote", mandatory: false, detail: PREF_FROM_SOURCE });
+  return { code, filled: false };
 }
 
 /** 市町村。引用が本文にあり、値が引用にあり、その都道府県に存在すること。 */
 function checkMunicipality(
   q: Quoted<string>,
   prefCode: PrefCode | null,
+  prefFilled: boolean,
   geo: GeoStore,
   inDoc: InDoc,
   fail: Fail,
@@ -423,6 +469,8 @@ function checkMunicipality(
   if (prefCode === null) return null; // 都道府県の不合格が既に出ている
   const code = findMuniByName(prefCode, core, geo);
   if (code === null) return failNull(fail, "municipality", "muni_exists", "not_in_prefecture");
+  // 県を取得元で補ったときは、同じ名前の市町村が他県にもあれば決められない（隣の県の太子町など）
+  if (prefFilled && nationalNameCount(core, geo) > 1) return failNull(fail, "municipality", "muni_exists", "name_not_unique_for_filled_prefecture");
   return { code, name: geo.index[code]?.name ?? core };
 }
 

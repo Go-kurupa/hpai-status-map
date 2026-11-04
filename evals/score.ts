@@ -145,7 +145,7 @@ function publishedErrors(a: EvalAnswer, read: ReadResult, n: NormalizedRead | nu
 export function scoreDocument(i: ScoreInput): DocScore {
   const read = i.primary.ok ? i.primary.value : null;
   const second = i.second.ok ? i.second.value : null;
-  const verify = read ? verifyRead(read, { text: i.text, hasTextLayer: i.hasTextLayer, season: i.answer.season }, i.geo, null, { sourcePrefCode: i.sourcePrefCode ?? null }) : null;
+  const verify = read ? verifyRead(read, { text: i.text, hasTextLayer: i.hasTextLayer, season: i.answer.season }, i.geo, null, { sourcePrefCode: i.sourcePrefCode ?? null, title: i.answer.title }) : null;
   const compare = read && second ? compareReads(read, second, verify) : null;
   const decision = decidePublication({
     read,

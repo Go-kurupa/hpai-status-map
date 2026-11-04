@@ -312,7 +312,7 @@ export async function runBackstage(argv: string[], deps: BackstageDeps): Promise
 
     const previous = previousCase(scenario, doc.eventOrder);
     const vdoc = { text: loaded.text, hasTextLayer: loaded.hasTextLayer, season: REPLAY_SEASON };
-    const opts = { sourcePrefCode: doc.sourcePrefCode, announcedOn: doc.announcedOn };
+    const opts = { sourcePrefCode: doc.sourcePrefCode, announcedOn: doc.announcedOn, title: doc.title };
     const verify = verifyRead(read, vdoc, geo, previous, opts);
     const compare = compareReads(read, second, verify);
 

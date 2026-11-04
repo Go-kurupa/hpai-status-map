@@ -26,6 +26,8 @@ const geo = makeGeo([
   { code: "01236", name: "伊達市" },
   { code: "26100", name: "京都市" },
   { code: "13101", name: "千代田区" },
+  { code: "27366", name: "太子町" },
+  { code: "28464", name: "太子町" },
 ]);
 
 const q = <T,>(value: T | null, quote: string | null) => ({ value, quote });
@@ -740,5 +742,111 @@ describe("verifyRead: 羽数の引用が処分の数", () => {
     const r = go("飼養羽数約7.5万羽のうち、75,000羽の殺処分を完了しました。", 75000);
     expect(r.normalized?.headCount).toBeNull();
     expect(r.droppedOptional).toContain("headCount");
+  });
+});
+
+// レビュー I-1、I-2: 取得元の県で補うのは、題と本文のどちらにも他県の名前（正式名も短い名も）がなく、市町村名が全国で一つのときだけ。
+describe("verifyRead: 取得元の県で補う範囲（題、短い県名、同名の市町村）", () => {
+  const sent = (muni: string) => `令和7年12月20日午前9時、${muni}の養鶏場で、高病原性鳥インフルエンザの疑似患畜を確認しました。`;
+  const go = (text: string, muni: string, opts: { sourcePrefCode?: string | null; title?: string | null }) => {
+    const s = text.split("\n").find((l) => l.includes("養鶏場")) ?? text;
+    return verifyRead(oneSentence(s, { prefecture: none, municipality: q(muni, s) }), { text, hasTextLayer: true, season: 2025 }, geo, null, opts);
+  };
+  it("題に他県の名前があれば補わない（本文に県名がなくても）", () => {
+    expect(go(sent("津山市"), "津山市", { sourcePrefCode: "33" }).pass).toBe(true);
+    for (const title of ["鳥取県における高病原性鳥インフルエンザの発生について", "鳥取の養鶏場での発生について"]) {
+      const r = go(sent("津山市"), "津山市", { sourcePrefCode: "33", title });
+      expect(r.pass).toBe(false);
+      expect(issueOf(r, "prefecture", "value_in_quote")).toMatchObject({ mandatory: true, detail: "missing_value" });
+    }
+    expect(go(sent("津山市"), "津山市", { sourcePrefCode: "33", title: "岡山県における発生について" }).pass).toBe(true);
+  });
+  it("本文の他県の短い名（大阪の、鳥取の）でも補わない", () => {
+    for (const text of [`大阪の事例とは別です。\n${sent("津山市")}`, `鳥取の農場から10km圏内です。\n${sent("津山市")}`]) {
+      const r = go(text, "津山市", { sourcePrefCode: "33" });
+      expect(r.pass).toBe(false);
+      expect(r.normalized?.prefCode).toBeNull();
+    }
+  });
+  it("取得元の県の正式名の中の短い名は他県に数えない（東京都の中の「京都」）。京都府の文書の「京都」も同じ", () => {
+    const tokyo = go(`東京都産業労働局\n${sent("港区")}`, "港区", { sourcePrefCode: "13", title: "東京都における対応について" });
+    expect(tokyo.pass).toBe(true);
+    expect(tokyo.normalized?.prefCode).toBe("13");
+    const kyoto = go(`京都府農林水産部\n京都の家きん農家の皆様へ\n${sent("京都市")}`, "京都市", { sourcePrefCode: "26" });
+    expect(kyoto.pass).toBe(true);
+    expect(kyoto.normalized?.prefCode).toBe("26");
+    // 京都府の文書に「東京」があれば、それは他県
+    expect(go(`東京での会議の後、\n${sent("京都市")}`, "京都市", { sourcePrefCode: "26" }).pass).toBe(false);
+  });
+  it("補った県の市町村名が他県にもあれば補わない（兵庫の取得元の太子町、大阪府にもある）", () => {
+    const r = go(sent("太子町"), "太子町", { sourcePrefCode: "28" });
+    expect(r.pass).toBe(false);
+    expect(issueOf(r, "municipality", "muni_exists")?.mandatory).toBe(true);
+    expect(r.normalized?.muniCode).toBeNull();
+    // 引用に県名のある通常の読みは、同名があっても今までどおり
+    const s = `令和7年12月20日午前9時、兵庫県太子町の養鶏場で、高病原性鳥インフルエンザの疑似患畜を確認しました。`;
+    const ok = verifyRead(oneSentence(s, { prefecture: q("兵庫県", s), municipality: q("太子町", s) }), { text: s, hasTextLayer: true, season: 2025 }, geo, null);
+    expect(ok.pass).toBe(true);
+    expect(ok.normalized?.muniCode).toBe("28464");
+  });
+});
+
+// レビュー I-3、M-1、M-2: 6 月の境、取得日と発表日より後の日付、「昨年」、同じ月日に別の年。
+describe("verifyRead: 日付の境と、相対の年", () => {
+  const mk = (md: string) => `${md}午前9時、岡山県津山市の養鶏場で、高病原性鳥インフルエンザの疑似患畜を確認しました。`;
+  const primary = (md: string, d: ReadDate, season = 2025, opts: { announcedOn?: string | null; fetchedOn?: string | null } = {}) => {
+    const s = mk(md);
+    return verifyRead(oneSentence(s, { primaryDate: d }), { text: s, hasTextLayer: true, season }, geo, null, opts);
+  };
+  it("6 月の境: シーズン 2025 で、6/1（2025 年）と 5/31（2026 年）は合格、5/31（2025 年）は不合格", () => {
+    expect(primary("6月1日", date(2025, 6, 1, "09:00")).pass).toBe(true);
+    expect(primary("5月31日", date(2026, 5, 31, "09:00")).pass).toBe(true);
+    expect(primary("5月31日", date(2025, 5, 31, "09:00")).pass).toBe(false);
+  });
+  it("主の日付が取得日か発表日より後なら不合格（6 月の境で 2027-05-30 になる例）", () => {
+    const d = date(2027, 5, 30, "09:00");
+    expect(primary("5月30日", d, 2026).pass).toBe(true); // 境の情報がなければ今までどおり
+    for (const opts of [{ fetchedOn: "2026-06-02" }, { announcedOn: "2026-06-01" }, { announcedOn: "2027-06-01", fetchedOn: "2026-06-02" }]) {
+      const r = primary("5月30日", d, 2026, opts);
+      expect(r.pass).toBe(false);
+      expect(issueOf(r, "primaryDate", "chronology")?.mandatory).toBe(true);
+      expect(r.normalized?.primaryStamp).toBeNull();
+    }
+    expect(primary("5月30日", date(null, 5, 30, "09:00"), 2026, { fetchedOn: "2026-06-02" }).pass).toBe(false);
+    expect(primary("5月30日", date(2026, 5, 30, "09:00"), 2025, { fetchedOn: "2026-06-02", announcedOn: "2026-05-30" }).pass).toBe(true);
+  });
+  it("段階の出来事は発表日より後なら落とす。見込み日は未来なので落とさない", () => {
+    const base = mk("令和7年12月20日");
+    const ev = "12月21日に殺処分を完了しました。";
+    const es = "1月10日に搬出制限区域を解除する見込みです。";
+    const r = verifyRead(
+      oneSentence(base, {
+        stageEvents: [{ stage: "culling_done", date: date(2025, 12, 21), quote: ev }],
+        estimates: [{ target: "shipment", date: date(2026, 1, 10), quote: es }],
+      }),
+      { text: [base, ev, es].join("\n"), hasTextLayer: true, season: 2025 },
+      geo,
+      null,
+      { announcedOn: "2025-12-20" },
+    );
+    expect(r.pass).toBe(true);
+    expect(r.normalized?.stages.culling_done).toBeUndefined();
+    expect(r.droppedOptional).toEqual(["stageEvents"]);
+    expect(issueOf(r, "stageEvents", "chronology")?.mandatory).toBe(false);
+    expect(r.normalized?.estimates.shipment).toBe("2026-01-10");
+  });
+  it("引用に「昨年」「前年」「去年」「同年」があれば、年を補わない（昨年の事例の振り返り）", () => {
+    for (const word of ["昨年", "前年", "去年", "同年"]) {
+      for (const d of [date(2025, 12, 20, "09:00"), date(null, 12, 20, "09:00")]) {
+        const r = primary(`${word}12月20日`, d);
+        expect(r.pass).toBe(false);
+        expect(issueOf(r, "primaryDate", "value_in_quote")?.mandatory).toBe(true);
+      }
+    }
+  });
+  it("同じ月日に別の年が書かれた引用（12月20日と令和6年12月20日）は、値が 2025 なら不合格", () => {
+    const r = primary("12月20日（令和6年12月20日の事例とは別）", date(2025, 12, 20, "09:00"));
+    expect(r.pass).toBe(false);
+    expect(issueOf(r, "primaryDate", "value_in_quote")?.mandatory).toBe(true);
   });
 });

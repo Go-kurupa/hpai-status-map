@@ -3,6 +3,7 @@
 // 時計は引数で受ける。ここでは今の時刻を読まない。
 import { addDays, toJstIso } from "./dates";
 import { muniCoreName } from "./read/names";
+import { PREF_FILLED_FROM_SOURCE, PREF_FROM_SOURCE } from "./read/notes";
 import { radiusInQuote } from "./read/quote";
 import type { CompareReport, DocumentKind, ReadDate, ReadResult, SecondReadResult, VerifyCheck, VerifyReport } from "./read/types";
 import { normalizeForMatch } from "./text";
@@ -210,8 +211,8 @@ const CHECK_ORDER: readonly VerifyCheck[] = ["quote_exists", "value_in_quote", "
 export const BACKSTAGE_WORD_MAX = 20;
 const OMITTED = "（長い文なので載せません）";
 const GUARD = 20;
-const FROM_SOURCE = "prefecture_from_source";
-const FILLED_FROM_SOURCE = "prefecture_filled_from_source"; // verify.ts の PREF_FILLED_FROM_SOURCE と同じ
+const FROM_SOURCE = PREF_FROM_SOURCE;
+const FILLED_FROM_SOURCE = PREF_FILLED_FROM_SOURCE;
 
 /** 本文（正規化後）の連続 20 字の集合。値や詳細がこれを含めば、本文の写しになる */
 function runSet(docText: string): Set<string> {
