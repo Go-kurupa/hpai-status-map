@@ -516,6 +516,17 @@
   width: 100%;
   margin: 0 0 8px;
 }
+.compare-table.data-table th,
+.compare-table.data-table td {
+  padding: 6px 4px;
+}
+.compare-table.data-table th[scope="row"] {
+  min-width: 5em;
+}
+/* 件数の棒は列の幅に対する割合で描くので、2 つの件数の列は同じ幅にして縮尺をそろえる */
+.compare-table td.num {
+  width: 30%;
+}
 .compare-table caption {
   padding: 4px 0;
   text-align: left;
@@ -541,4 +552,53 @@
 .compare-prefs ul {
   margin: 4px 0;
   padding-left: 1.2em;
+}
+
+/* PC 幅: 地図の横に状況を並べる（DOM の順は変えない）。十字合わせ中は 1 列に戻す。40rem〜64rem は 1 列のまま */
+@media (min-width: 64rem) {
+  .map-page {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    column-gap: 24px;
+    align-items: start;
+    max-width: 1200px;
+    margin-inline: auto;
+  }
+  .map-page > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+  .map-page > .map-box {
+    grid-column: 1;
+    grid-row: span 7;
+  }
+  .map-page > .map-box ~ * {
+    grid-column: 2;
+  }
+  /* 地図は右の列より短くならないようにする。右の列が高いときは地図を伸ばし、低いときは --map-h を下限にする */
+  .map-page > .map-box {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+  }
+  .map-page > .map-box .map-wrap {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+  }
+  .map-page > .map-box .map-canvas {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: var(--map-h);
+  }
+  /* 場所の合わせ方より後ろ（件数の一覧、シーズン、比べ、リンク）は全幅に戻す */
+  .map-page > :is(.spot-picker, .case-list, .season-bar),
+  .map-page > :is(.spot-picker, .case-list, .season-bar) ~ * {
+    grid-column: 1 / -1;
+  }
+  .map-page:has(> .spot-picker[data-active="true"]) {
+    display: flex;
+    align-items: stretch;
+    max-width: none;
+  }
 }

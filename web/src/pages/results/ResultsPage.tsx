@@ -141,23 +141,23 @@ function EvalSection({ src }: { src: Src<EvalSummary> }) {
     <div>
       <p>時点: {formatAt(s.measuredAt)}</p>
       <div className="table-scroll">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th scope="col">項目</th>
-            <th scope="col">結果</th>
-            <th scope="col">補足</th>
+      <table className="data-table data-table-stack" role="table">
+        <thead role="rowgroup">
+          <tr role="row">
+            <th role="columnheader" scope="col">項目</th>
+            <th role="columnheader" scope="col">結果</th>
+            <th role="columnheader" scope="col">補足</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup">
           {METRIC_ORDER.map((name) => {
             // unmeasured にあるものと、結果に無いものは未実測。0 とは書かない
             const m = s.unmeasured.includes(name) ? undefined : s.metrics.find((x) => x.name === name);
             return (
-              <tr key={name}>
-                <th scope="row">{METRIC_LABEL[name]}</th>
-                <td className="num">{m ? formatMetric(m) : UNMEASURED_METRIC}</td>
-                <td>{m?.note ?? ""}</td>
+              <tr role="row" key={name}>
+                <th role="rowheader" scope="row">{METRIC_LABEL[name]}</th>
+                <td role="cell" className="num">{m ? formatMetric(m) : UNMEASURED_METRIC}</td>
+                <td role="cell">{m?.note ?? ""}</td>
               </tr>
             );
           })}
@@ -235,31 +235,31 @@ function CalcSection({ usage, summary }: { usage: MeasuredUsage; summary: EvalSu
 function CostTable({ bases, jpyPerUsd, caption }: { bases: ReturnType<typeof costBases>; jpyPerUsd: number; caption: string }) {
   return (
     <div className="table-scroll">
-      <table className="data-table">
+      <table className="data-table data-table-stack" role="table">
         <caption>{caption}</caption>
-        <thead>
-          <tr>
-            <th scope="col">根拠</th>
-            <th scope="col">1 文書</th>
+        <thead role="rowgroup">
+          <tr role="row">
+            <th role="columnheader" scope="col">根拠</th>
+            <th role="columnheader" scope="col">1 文書</th>
             {SCENARIOS.map((c) => (
-              <th scope="col" key={c.label}>
+              <th role="columnheader" scope="col" key={c.label}>
                 {c.label}
               </th>
             ))}
-            <th scope="col">月 {n(MONTHLY_BUDGET_JPY)} 円で読める事例</th>
+            <th role="columnheader" scope="col">月 {n(MONTHLY_BUDGET_JPY)} 円で読める事例</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup">
           {bases.map((b) => {
             const cap = monthlyCaseCapacity(b, jpyPerUsd);
             return (
-              <tr key={b.id}>
-                <th scope="row">{b.measured ? `${b.label}。円の額は ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う見積もり（推定）` : b.label}</th>
-                <td className="num">${formatUsd(b.usdPerDocument)}</td>
+              <tr role="row" key={b.id}>
+                <th role="rowheader" scope="row">{b.measured ? `${b.label}。円の額は ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う見積もり（推定）` : b.label}</th>
+                <td role="cell" className="num" data-label="1 文書">${formatUsd(b.usdPerDocument)}</td>
                 {SCENARIOS.map((c) => (
-                  <td key={c.label} className="num">{formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases: c.cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy)}</td>
+                  <td role="cell" key={c.label} className="num" data-label={c.label}>{formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases: c.cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy)}</td>
                 ))}
-                <td>{cap === null ? "—" : `1 か月に ${cap} 事例まで${b.id === "assumed" ? "（別の読み手を除く）" : ""}`}</td>
+                <td role="cell" data-label={`月 ${n(MONTHLY_BUDGET_JPY)} 円で読める事例`}>{cap === null ? "—" : `1 か月に ${cap} 事例まで${b.id === "assumed" ? "（別の読み手を除く）" : ""}`}</td>
               </tr>
             );
           })}

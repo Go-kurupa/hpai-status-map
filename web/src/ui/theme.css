@@ -310,6 +310,48 @@ button:focus-visible {
 .table-scroll {
   overflow-x: auto;
 }
+/* 文の列がある表は、狭い幅で 1 行を 1 かたまりに積む（列が 3〜4 文字幅につぶれるのを防ぐ）。
+   見出しの行は視覚だけ隠し、読み上げには残す。display:block で表の役割が落ちるので、
+   マークアップ側で role を明示する。 */
+@media (max-width: 40rem) {
+  .data-table-stack,
+  .data-table-stack caption,
+  .data-table-stack tbody,
+  .data-table-stack tr,
+  .data-table-stack th,
+  .data-table-stack td {
+    display: block;
+  }
+  .data-table-stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .data-table-stack tr {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .data-table-stack th,
+  .data-table-stack td {
+    padding: 2px 0;
+    border-bottom: 0;
+  }
+  .data-table-stack th[scope="row"] {
+    min-width: 0;
+    font-weight: 700;
+  }
+  .data-table-stack td.num {
+    text-align: left;
+  }
+  /* 見出しの行を隠したぶん、値の意味を data-label の文で td の前に出す（文は見出しと同じ） */
+  .data-table-stack td[data-label]::before {
+    content: attr(data-label) "　";
+    font-weight: 700;
+  }
+}
 
 /* 札 */
 .stat {

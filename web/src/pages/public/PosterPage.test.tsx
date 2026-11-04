@@ -132,3 +132,11 @@ describe("poster.css（画面の幅が狭いとき）", () => {
     expect(rule).toMatch(/letter-spacing:\s*0\s*;/);
   });
 });
+
+describe("poster.css（画面用の読み仮名）", () => {
+  const css = fs.readFileSync(path.join(import.meta.dirname, "poster.css"), "utf8");
+  it("画面の読み仮名は max(8px, 0.3em) で、10px の下限は残らない", () => {
+    expect(css).toMatch(/@media screen and \(max-width: 840px\)\s*\{\s*\.poster-sheet rt\s*\{[^}]*font-size:\s*max\(8px,\s*0\.3em\)/);
+    expect(css).not.toMatch(/max\(10px,\s*0\.3em\)/);
+  });
+});

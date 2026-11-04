@@ -28,7 +28,7 @@
     --poster-h: 13vw;
     --poster-sub: 6vw;
     /* 本文は 14.4px を下限にする（幅 320px で 12.8px になるのを防ぐ。最長 17 文字で約 245px、使える幅 252px に収まる）。
-       読み仮名は補助の文字なので 14px の決まりの例外とし、画面だけ 10px を下限にする（印刷の大きさは変えない）。 */
+       読み仮名は補助の文字なので 14px の決まりの例外とし、画面だけ 8px を下限にする（10px だと語の中に隙間が出た）（印刷の大きさは変えない）。 */
     --poster-body: max(4vw, 14.4px);
     padding: 16px;
   }
@@ -159,6 +159,6 @@
 
 @media screen and (max-width: 840px) {
   .poster-sheet rt {
-    font-size: max(10px, 0.3em);
+    font-size: max(8px, 0.3em);
   }
 }

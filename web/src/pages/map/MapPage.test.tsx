@@ -887,3 +887,42 @@ describe("MapPage: 平面の札（T12）", () => {
     expect(one.className).toBe(zeroClass);
   });
 });
+
+describe("map.css（比べの表の幅と PC 幅の 2 列）", () => {
+  const mapCss = readFileSync(path.resolve(import.meta.dirname, "map.css"), "utf8");
+
+  it("比べの表は行の見出しを 5em まで詰め、2 つの件数の列を同じ幅にする", () => {
+    expect(mapCss).toMatch(/\.compare-table(?:\.data-table)? th\[scope="row"\]\s*\{[^}]*min-width:\s*5em/);
+    expect(mapCss).toMatch(/\.compare-table td\.num\s*\{[^}]*width:\s*(\d+)%/);
+  });
+
+  it("64rem 以上で .map-page を 2 列の grid にし、地図を左、状況を右に置く", () => {
+    const m = mapCss.match(/@media \(min-width:\s*64rem\)\s*\{([\s\S]*?)\n\}\n/);
+    expect(m).not.toBeNull();
+    const body = m![1]!;
+    expect(body).toMatch(/\.map-page\s*\{[^}]*display:\s*grid/);
+    expect(body).toMatch(/grid-template-columns:\s*minmax\(0,\s*3fr\)\s*minmax\(0,\s*2fr\)/);
+    expect(body).toMatch(/column-gap:\s*24px/);
+    expect(body).toMatch(/\.map-box\s*\{[^}]*grid-column:\s*1/);
+    expect(body).toMatch(/\.map-page\s*>\s*\.map-box ~ \*\s*\{[^}]*grid-column:\s*2/);
+    // 十字合わせ中は 2 列を解く
+    expect(body).toMatch(/\.map-page:has\(>\s*\.spot-picker\[data-active="true"\]\)\s*\{[^}]*display:\s*flex/);
+    // 再現の h1 隠しは壊さない
+    expect(readFileSync(path.resolve(import.meta.dirname, "../replay/replay.css"), "utf8")).toMatch(/\.replay-scope \.map-page > h1\s*\{\s*display:\s*none/);
+  });
+
+  it("64rem 以上で地図は右の列より短くならない（伸びる、下限は --map-h）", () => {
+    const body = mapCss.match(/@media \(min-width:\s*64rem\)\s*\{([\s\S]*?)\n\}\n/)![1]!;
+    expect(body).toMatch(/\.map-page\s*>\s*\.map-box\s*\{[^}]*align-self:\s*stretch/);
+    expect(body).toMatch(/\.map-box\s*\.map-canvas\s*\{[^}]*flex:\s*1 1 auto[^}]*min-height:\s*var\(--map-h\)/);
+    expect(body).toMatch(/\.map-box\s*\.map-canvas\s*\{[^}]*height:\s*auto/);
+  });
+
+  it("40rem から 64rem の間は今の 1 列のまま（2 列の規則は 64rem 以上だけ）", () => {
+    expect(mapCss.replace(/@media \(min-width:\s*64rem\)\s*\{[\s\S]*?\n\}\n/, "")).not.toMatch(/grid-template-columns:\s*minmax\(0,\s*3fr\)/);
+  });
+
+  it("画面の本文は 1200px までで中央に寄せる", () => {
+    expect(mapCss).toMatch(/\.map-page\s*\{[^}]*max-width:\s*1200px[^}]*margin-inline:\s*auto/);
+  });
+});

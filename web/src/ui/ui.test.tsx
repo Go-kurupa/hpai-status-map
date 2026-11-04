@@ -434,3 +434,20 @@ describe("文字の大きさの下限", () => {
     expect(small).toEqual([]);
   });
 });
+
+describe("表の狭い幅の形（.data-table-stack）", () => {
+  const stack = css.match(/@media \(max-width:\s*40rem\)\s*\{\s*\.data-table-stack[\s\S]*?\n\}/)?.[0] ?? "";
+  it("40rem 以下で表を縦に積み、見出しの行は視覚だけ隠す", () => {
+    expect(stack).not.toBe("");
+    expect(stack).toMatch(/\.data-table-stack,[\s\S]*tbody,[\s\S]*tr,[\s\S]*th,[\s\S]*td\s*\{[^}]*display:\s*block/);
+    expect(stack).toMatch(/\.data-table-stack thead\s*\{[^}]*position:\s*absolute/);
+    expect(stack).not.toMatch(/thead\s*\{[^}]*display:\s*none/);
+    expect(stack).toMatch(/th\[scope="row"\]\s*\{[^}]*min-width:\s*0/);
+    expect(stack).toMatch(/td\.num\s*\{[^}]*text-align:\s*left/);
+    expect(stack).toMatch(/td\[data-label\]::before\s*\{[^}]*content:\s*attr\(data-label\)/);
+  });
+
+  it("縦に積む表は caption も block にする（表の外に残すと 1 文字ずつ縦に並ぶ）", () => {
+    expect(css).toMatch(/\.data-table-stack caption[^{]*\{\s*display:\s*block/);
+  });
+});

@@ -357,3 +357,28 @@ describe("表の見た目（.data-table と .table-scroll）", () => {
     expect(cr[cr.length - 1]!.textContent).toContain("事例まで");
   });
 });
+
+describe("文の列がある表は狭い幅で積む", () => {
+  it("2 つの表に data-table-stack が付き、表の役割が明示されている", async () => {
+    await show({ summary: SUMMARY });
+    const tables = screen.getAllByRole("table");
+    expect(tables.length).toBeGreaterThanOrEqual(1);
+    for (const t of tables) {
+      expect(t.classList.contains("data-table-stack")).toBe(true);
+      expect(t.getAttribute("role")).toBe("table");
+      expect(t.querySelector("tbody tr")!.getAttribute("role")).toBe("row");
+    }
+  });
+
+  it("値の欄は data-label に見出しと同じ文を持ち、積んだときも何の値か分かる", async () => {
+    await show({ summary: SUMMARY });
+    const costTables = screen.getAllByRole("table").filter((t) => t.querySelector("thead")!.textContent!.includes("1 文書"));
+    expect(costTables.length).toBeGreaterThanOrEqual(1);
+    for (const t of costTables) {
+      const heads = [...t.querySelectorAll("thead th")].map((h) => h.textContent);
+      const cells = [...t.querySelectorAll("tbody tr")[0]!.querySelectorAll("td")];
+      expect(cells.length).toBeGreaterThan(0);
+      cells.forEach((c, i) => expect(c.getAttribute("data-label")).toBe(heads[i + 1]));
+    }
+  });
+});
