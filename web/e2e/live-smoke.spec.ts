@@ -93,7 +93,9 @@ test.describe("模擬環境（live の DataSource）", () => {
     );
     // ・過去の記録の行: 「過去の記録」で始まり「（記録）」で終わる 1 文（同梱の過去データ由来。色なし）。今季の文が紛れ込めば落ちる
     await expect(page.locator(".town-past > p").first()).toHaveText(/^過去の記録 .+（記録）$/u);
-    await page.addStyleTag({ content: '.town-past, [data-testid="watch-line"] { display: none !important; }' });
+    // ・過去のシーズンとの比べ: 過去の実績の「0 件」（例: 2020/21 は 11 月 4 日まで 0 件）は正しい表示。今季の行は件数ではなく「まだ読めていません」であること
+    await expect(page.locator(".season-compare")).toContainText(/今季（[0-9/]+）は .+までに まだ読めていません/u);
+    await page.addStyleTag({ content: '.town-past, [data-testid="watch-line"], .season-compare { display: none !important; }' });
     const text = await main.innerText();
     expect(text).not.toMatch(/(^|[^0-9])0 件/);
     for (const sentence of ["全国の動きをお知らせしています", "隣町で発生しました", "区域に入っている可能性があります"]) {
