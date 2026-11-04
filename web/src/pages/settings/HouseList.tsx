@@ -2,7 +2,7 @@
 // 鶏舎は消せない。過去の死亡数の記録が鶏舎の id を指しているので、使わなくなったら空舎にする。
 // 羽数を直しても、過去の死亡数の記録の羽数（flockSizeAt）は動かさない（saveDeath は呼ばない）。
 import type { House } from "@hpai/shared/types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RecordStore } from "../../data/types";
 import { Button } from "../../ui/Button";
 import { BIRD_TYPES, HOUSE_NAME_MAX, parseHouseInput } from "./houseForm";
@@ -34,6 +34,12 @@ export function HouseList({
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  // 欄が新しく開いたら、先頭の入力欄へフォーカスを移す（開いたまま入力するたびには動かさない）
+  const openedKey = draft === null ? null : (draft.id ?? "new");
+  useEffect(() => {
+    if (openedKey !== null) nameRef.current?.focus?.();
+  }, [openedKey]);
 
   const reload = useCallback(async () => {
     try {
@@ -129,7 +135,7 @@ export function HouseList({
       {draft ? (
         <div className="settings-form house-form">
           <label htmlFor="house-name">鶏舎の名前</label>
-          <input id="house-name" type="text" value={draft.name} maxLength={HOUSE_NAME_MAX} onChange={(e) => change({ name: e.target.value })} />
+          <input ref={nameRef} id="house-name" type="text" value={draft.name} maxLength={HOUSE_NAME_MAX} onChange={(e) => change({ name: e.target.value })} />
           <label htmlFor="house-bird">鳥の種類</label>
           <select id="house-bird" value={draft.birdType} onChange={(e) => change({ birdType: e.target.value })}>
             <option value="">選んでください</option>

@@ -272,10 +272,15 @@ function FarmSettings() {
       ) : null}
 
       <p>
-        <Link to="/settings/explainer">近隣への説明文を作る</Link>
+        <Link to="/settings/explainer" className="tap-link">近隣への説明文を作る</Link>
       </p>
       <p>
-        <Link to="/privacy">プライバシーの説明</Link>
+        <Link to="/privacy" className="tap-link">プライバシーの説明</Link>
+      </p>
+      <p>
+        <Link to="/settings/notify" className="tap-link">
+          知らせの設定を開く
+        </Link>
       </p>
     </div>
   );

@@ -7,6 +7,7 @@ import { Button } from "../../ui/Button";
 import { MultipleFarmsError } from "../auth/firestoreRecordStore";
 import { RequireMember } from "../auth/RequireMember";
 import { savedAtLabel, seasonMonths } from "./farmForm";
+import { SaveStatus, useSectionSave } from "./sectionSave";
 import "./settings.css";
 
 type Saved = Farm & { id: string };
@@ -31,8 +32,6 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
   const [due, setDue] = useState<Record<string, string>>(() =>
     Object.fromEntries(months.map((m) => [m, initial.selfCheckDue[m] ?? ""])),
   );
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
   // 配信を止めているか。確かめられなければ null（止めている表示は出さず、設定の画面は使える）
   const [stopped, setStopped] = useState<boolean | null>(null);
   const [resume, setResume] = useState<"idle" | "busy" | "failed" | "done">("idle");
@@ -65,24 +64,27 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
     }
   }
 
+  // 失敗は投げる（useSectionSave が failed にして、ボタンの直下に出す）
   async function saveWith(patch: Partial<Farm>) {
-    if (busy) return;
-    setBusy(true);
-    setFailed(false);
-    try {
-      await store.saveFarm(patch);
-      const next = await store.getFarm();
-      if (next) setFarm(next);
-    } catch {
-      setFailed(true);
-    }
-    setBusy(false);
+    await store.saveFarm(patch);
+    const next = await store.getFarm();
+    if (next) setFarm(next);
   }
 
-  const toggle = (key: "level1" | "level2" | "level3" | "morningDigest") => (e: { target: { checked: boolean } }) =>
-    setNotify((n) => ({ ...n, [key]: e.target.checked }));
+  const notifySave = useSectionSave(() => saveWith({ notify }));
+  const dueSave = useSectionSave(saveDue);
 
-  function saveDue() {
+  const toggle = (key: "level1" | "level2" | "level3" | "morningDigest") => (e: { target: { checked: boolean } }) => {
+    setNotify((n) => ({ ...n, [key]: e.target.checked }));
+    notifySave.reset();
+  };
+
+  function changeNotify(update: (n: NotifySettings) => NotifySettings) {
+    setNotify(update);
+    notifySave.reset();
+  }
+
+  async function saveDue() {
     // 前季の期限は残し、この画面の月だけを置き換える。空の月は持たない。
     // 前季より古い月と月でないキーは捨てる（残すと季ごとに増え、規則の上限 40 件に当たって保存できなくなる）
     const merged: Record<string, string> = Object.fromEntries(
@@ -93,7 +95,7 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
       if (v === "") delete merged[m];
       else merged[m] = v;
     }
-    void saveWith({ selfCheckDue: merged });
+    await saveWith({ selfCheckDue: merged });
   }
 
   const remindOn = notify.selfCheckRemindDays !== null;
@@ -152,7 +154,7 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
             <input
               type="checkbox"
               checked={remindOn}
-              onChange={(e) => setNotify((n) => ({ ...n, selfCheckRemindDays: e.target.checked ? DEFAULT_REMIND_DAYS : null }))}
+              onChange={(e) => changeNotify((n) => ({ ...n, selfCheckRemindDays: e.target.checked ? DEFAULT_REMIND_DAYS : null }))}
             />
             自己点検の期限の前に知らせる
           </label>
@@ -162,7 +164,7 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
               <select
                 id="remind-days"
                 value={notify.selfCheckRemindDays ?? DEFAULT_REMIND_DAYS}
-                onChange={(e) => setNotify((n) => ({ ...n, selfCheckRemindDays: Number(e.target.value) }))}
+                onChange={(e) => changeNotify((n) => ({ ...n, selfCheckRemindDays: Number(e.target.value) }))}
               >
                 {REMIND_CHOICES.map((d) => (
                   <option key={d} value={d}>
@@ -172,9 +174,10 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
               </select>
             </>
           ) : null}
-          <Button variant="primary" disabled={busy} onClick={() => void saveWith({ notify })}>
+          <Button variant="primary" disabled={notifySave.state === "saving"} onClick={() => void notifySave.run()}>
             知らせの設定を保存
           </Button>
+          <SaveStatus state={notifySave.state} />
         </div>
       </section>
 
@@ -190,24 +193,28 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
                 name={`due-${m}`}
                 type="date"
                 value={due[m] ?? ""}
-                onChange={(e) => setDue((d) => ({ ...d, [m]: e.target.value }))}
+                onChange={(e) => {
+                  setDue((d) => ({ ...d, [m]: e.target.value }));
+                  dueSave.reset();
+                }}
               />
             </div>
           ))}
-          <Button disabled={busy} onClick={saveDue}>
+          <Button disabled={dueSave.state === "saving"} onClick={() => void dueSave.run()}>
             期限を保存
           </Button>
+          <SaveStatus state={dueSave.state} />
         </div>
       </section>
 
-      {failed ? (
-        <p className="settings-error" role="alert">
-          保存できませんでした。通信を確かめて、もう一度試してください。
-        </p>
-      ) : null}
       {saved ? <p className="settings-saved">{saved}</p> : null}
       <p>
         <Link to="/privacy">プライバシーの説明</Link>
+      </p>
+      <p>
+        <Link to="/settings/farm" className="tap-link">
+          農場の設定を開く
+        </Link>
       </p>
     </div>
   );

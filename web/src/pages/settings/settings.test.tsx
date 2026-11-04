@@ -300,6 +300,23 @@ describe("/settings/farm", () => {
     expect((await screen.findByRole("alert")).textContent).toMatch(/招待リンクを作れませんでした/);
   });
 
+  it("末尾に、/settings/notify へのリンクがある", async () => {
+    mount("/settings/farm");
+    const link = await screen.findByRole("link", { name: "知らせの設定を開く" });
+    expect(link.getAttribute("href")).toBe("/settings/notify");
+    expect(link.className).toContain("tap-link");
+  });
+
+  it("末尾の 3 本とも .tap-link", async () => {
+    mount("/settings/farm");
+    const links = [
+      await screen.findByRole("link", { name: "近隣への説明文を作る" }),
+      screen.getByRole("link", { name: "プライバシーの説明" }),
+      screen.getByRole("link", { name: "知らせの設定を開く" }),
+    ];
+    for (const l of links) expect(l.classList.contains("tap-link")).toBe(true);
+  });
+
   it("下に /privacy へのリンクがあり、全文に禁止語がない", async () => {
     const { container } = mount("/settings/farm");
     const link = await screen.findByRole("link", { name: /プライバシー/ });
@@ -326,7 +343,8 @@ describe("/settings/farm（WebGL2 が使えない端末）", () => {
     farm = null;
     mount("/settings/farm");
     const save = await screen.findByRole("button", { name: "地点を保存" }, { timeout: 5000 });
-    expect(screen.getByText(TEXT.meshPickMuniFirst)).toBeTruthy();
+    // 地図の初期化の失敗はボタンより後に届くので、案内が替わるのを待つ（負荷が高いと間に合わなかった）
+    expect(await screen.findByText(TEXT.meshPickMuniFirst, {}, { timeout: 5000 })).toBeTruthy();
     expect(screen.queryByText(/地図がその町に寄ります/)).toBeNull();
 
     fireEvent.change(screen.getByLabelText("都道府県"), { target: { value: "13" } });
@@ -405,6 +423,48 @@ describe("/settings/notify", () => {
     fireEvent.click(await screen.findByLabelText(/朝のまとめ/));
     fireEvent.click(save());
     expect(await screen.findByText("最終保存 11月7日 08:15")).toBeTruthy();
+  });
+
+  it("知らせの保存で『保存しました』が、そのボタンの直下に出る。入力を変えると消える", async () => {
+    mount("/settings/notify");
+    fireEvent.click(await screen.findByLabelText(/朝のまとめ/));
+    fireEvent.click(save());
+    const status = await screen.findByText("保存しました");
+    expect(save().nextElementSibling).toBe(status);
+    expect(screen.getAllByText("保存しました")).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText(/朝のまとめ/));
+    expect(screen.queryByText("保存しました")).toBeNull();
+  });
+
+  it("期限の保存で『保存しました』が、そのボタンの直下に出る。入力を変えると消える", async () => {
+    mount("/settings/notify");
+    fireEvent.change(await screen.findByLabelText("2026年11月の分の期限"), { target: { value: "2026-12-05" } });
+    const btn = screen.getByRole("button", { name: "期限を保存" });
+    fireEvent.click(btn);
+    const status = await screen.findByText("保存しました");
+    expect(btn.nextElementSibling).toBe(status);
+    fireEvent.change(screen.getByLabelText("2026年11月の分の期限"), { target: { value: "2026-12-06" } });
+    expect(screen.queryByText("保存しました")).toBeNull();
+  });
+
+  it("保存に失敗したら、同じボタンの直下に『保存できませんでした』を出す", async () => {
+    saveFarm.mockRejectedValue(new Error("x"));
+    mount("/settings/notify");
+    fireEvent.click(await screen.findByLabelText(/朝のまとめ/));
+    fireEvent.click(save());
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/保存できませんでした/);
+    expect(save().nextElementSibling).toBe(alert);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText(/朝のまとめ/));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("知らせの設定の末尾に、/settings/farm へのリンクがある", async () => {
+    mount("/settings/notify");
+    const link = await screen.findByRole("link", { name: "農場の設定を開く" });
+    expect(link.getAttribute("href")).toBe("/settings/farm");
+    expect(link.className).toContain("tap-link");
   });
 
   it("自己点検の期限は月ごとに入れる。既定の日は入れない", async () => {

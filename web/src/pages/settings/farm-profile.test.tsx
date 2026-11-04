@@ -417,6 +417,13 @@ describe("鶏舎（§8）", () => {
     expect(houses).toHaveLength(1);
   });
 
+  it("編集を押すと、入力欄の先頭（鶏舎の名前）にフォーカスが移る", async () => {
+    houses = [h({ id: "h1", name: "1 号舎", flockSize: 1200 })];
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "1 号舎を編集" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("鶏舎の名前")));
+  });
+
   it("空舎に切り替えられる。切り替えると羽数は 0 になる", async () => {
     houses = [h({ id: "h1", name: "1 号舎", flockSize: 1200 })];
     mount();
