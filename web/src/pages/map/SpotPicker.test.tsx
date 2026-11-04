@@ -117,6 +117,18 @@ describe("SpotPicker", () => {
     fireEvent.click(screen.getByRole("button", { name: "ここに決める" }));
     expect(screen.getByRole("alert").textContent).toMatch(/地図を読み込んでいます/);
   });
+
+  it("data-active は十字合わせ中と候補がある間だけ付く", () => {
+    render(<Harness />);
+    const sec = screen.getByRole("region", { name: TEXT.spotTitle });
+    expect(sec.getAttribute("data-active")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせる" }));
+    expect(sec.getAttribute("data-active")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "ここに決める" })); // 候補ができ、合わせ中は終わる
+    expect(sec.getAttribute("data-active")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "決める" }));
+    expect(sec.getAttribute("data-active")).toBeNull();
+  });
 });
 
 describe("SpotPicker（WebGL2 が使えない端末、mapless）", () => {

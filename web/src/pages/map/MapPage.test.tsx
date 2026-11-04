@@ -31,8 +31,10 @@ vi.mock("../../geo/loadGeo", () => {
 
 // MapView は maplibre（WebGL）を使うので、jsdom では差し替える。渡された props を控える
 const seen: MapViewProps[] = [];
+let mapThrows = false;
 vi.mock("./MapView", () => ({
   default: (props: MapViewProps) => {
+    if (mapThrows) throw new Error("chunk failed");
     seen.push(props);
     return <div data-testid="map" />;
   },
@@ -110,6 +112,7 @@ const okWatch = (): WatchStatus[] =>
 const lastProps = () => seen[seen.length - 1]!;
 
 beforeEach(() => {
+  mapThrows = false;
   seen.length = 0;
   localStorage.clear();
 });
@@ -223,14 +226,14 @@ describe("MapPage", () => {
     expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
   });
 
-  it("地図の下に固定のリンクが 5 つある", async () => {
+  it("地図の下に固定のリンクが 8 つある", async () => {
     show(rig());
     await screen.findByTestId("map");
     const nav = screen.getByRole("navigation", { name: "ほかのページ" });
     const hrefs = within(nav)
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/public", "/known", "/replay", "/results", "/privacy"]);
+    expect(hrefs).toEqual(["/public", "/known", "/trends", "/replay", "/sample", "/poster", "/results", "/privacy"]);
   });
 });
 
@@ -634,5 +637,89 @@ describe("MapPage: レビュー指摘の修正（1 回目）", () => {
     const t = document.querySelector(".as-of")?.textContent ?? "";
     expect(t).toContain("最後に確認を試した");
     expect(t).not.toContain("時点");
+  });
+});
+
+describe("MapPage: 並びと出典", () => {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  const scrollMock = () => Element.prototype.scrollIntoView as unknown as ReturnType<typeof vi.fn>;
+  const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it("守る文は地図の直後にあり、場所を合わせる区画より前。.map-status は画面にない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    const box = document.querySelector(".map-box")!;
+    const disclaimer = screen.getByText(/色がない場所は/);
+    const picker = screen.getByRole("region", { name: TEXT.spotTitle });
+    expect(follows(box, disclaimer)).toBe(true);
+    expect(follows(disclaimer, picker)).toBe(true);
+    expect(disclaimer.className).toBe("map-disclaimer");
+    expect(screen.getByTestId("watch-line").className).toContain("state-ok");
+    expect(document.querySelector(".map-status")).toBeNull();
+  });
+
+  it("今季がまだ読めない間は state-unknown の全文が出て、.map-status はない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    expect(screen.getByTestId("watch-line").className).toContain("state-unknown");
+    const p = screen.getByText("今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。");
+    expect(p.className).toBe("state-unknown");
+    expect(document.querySelector(".map-status")).toBeNull();
+  });
+
+  it("確認中の発表がある県の文は全文で、state-wait。WatchLine より後、.map-attribution より前", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([
+      tsuyamaCase({ id: "rev-1", prefCode: "31", muniCode: null, muniName: null, headCount: null, stages: {}, confirmState: "reviewing", sourceUrls: ["https://example.invalid/r"] }),
+    ]);
+    r.deliverWatch(okWatch());
+    const p = await screen.findByText("確認中の発表がある県: 鳥取県。件数にはまだ入れていません。");
+    expect(p.className).toBe("state-wait");
+    expect(follows(screen.getByTestId("watch-line"), p)).toBe(true);
+    expect(follows(p, document.querySelector(".map-attribution")!)).toBe(true);
+    expect(document.querySelector(".map-status")).toBeNull();
+  });
+
+  it("出典は地図の外の .map-attribution に 3 つ出る", async () => {
+    show(rig());
+    await screen.findByTestId("map");
+    const a = document.querySelector(".map-attribution")!;
+    expect(a).toBeTruthy();
+    expect(a.closest(".map-box")).toBeNull();
+    expect(a.textContent).toMatch(/地理院タイル/);
+    expect(a.textContent).toMatch(/Vector Map Level 0/);
+    expect(a.textContent).toMatch(/国土数値情報/);
+    expect(a.querySelectorAll("span")).toHaveLength(3);
+  });
+
+  it("『地図で場所を合わせる』を押すと地図の上端へ動く。棒を押すと見出しへ動く", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせる" }));
+    expect(scrollMock()).toHaveBeenCalledWith({ block: "start" });
+    scrollMock().mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /昨季/ }));
+    expect(scrollMock()).toHaveBeenCalled();
+  });
+
+  it("地図の部品が読み込めなければ mapLoadFailed を出し、守る文は残る", async () => {
+    mapThrows = true;
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    show(rig());
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(TEXT.mapLoadFailed);
+    expect(alert.className).toBe("map-error");
+    expect(screen.getByText(/色がない場所は/)).toBeTruthy();
+    spy.mockRestore();
   });
 });

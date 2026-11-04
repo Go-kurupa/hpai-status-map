@@ -3,9 +3,8 @@ import type { MuniCode, PrefCode, WildBird } from "@hpai/shared/types";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { feature, mesh } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
-import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
-import { AttributionControl, Marker, MlMap } from "../../geo/maplibre";
+import { Marker, MlMap } from "../../geo/maplibre";
 import { applyView, applyWildBirds, type ViewTarget } from "./applyView";
 import { HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
 import { baseStyle, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
@@ -68,7 +67,7 @@ export default function MapView(props: MapViewProps) {
         dragRotate: false,
         pitchWithRotate: false,
         touchPitch: false,
-        attributionControl: false, // 既定は幅が狭いと畳むので、全文を出す自前の部品を足す
+        attributionControl: false, // 出典は MapPage が地図の外に全文を出す
       });
     } catch {
       // WebGL2 が使えない端末では、ここで投げる。画面全体を落とさず、境の線だけの代わりの地図（SvgMap）を出す
@@ -78,7 +77,6 @@ export default function MapView(props: MapViewProps) {
     }
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
-    map.addControl(new AttributionControl({ compact: false, customAttribution: MAP_ATTRIBUTION }), "bottom-right");
     mapRef.current = map;
     if (import.meta.env.MODE === "e2e") (window as unknown as { __hpaiMap?: MlMap }).__hpaiMap = map;
 
@@ -247,7 +245,7 @@ export default function MapView(props: MapViewProps) {
       ) : null}
       {failed ? (
         <p className="map-error" role="alert">
-          地図の形を読み込めませんでした。ページを読み込み直してください。それまで地図に色がなくても、発生がないとは言えません。
+          {TEXT.mapLoadFailed}
         </p>
       ) : null}
       {unplaced > 0 ? <p className="map-note">場所が分からず、地図に置けなかった野鳥の記録が {unplaced} 件あります。</p> : null}

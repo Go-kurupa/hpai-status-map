@@ -1,6 +1,6 @@
 // 地図の出典。常に全文を出す。文は docs/data-sources.md の「地理院タイル」の節と、N03 の「出典（表示する文）」と同じにする。
 // N03 の文は、CC BY 4.0 が求める加工の表示を含む（形の簡略化、政令市の区の統合、隣り合いの計算）。
-// AttributionControl の customAttribution は HTML を受ける。リンクは別のタブで開き、元のページを渡さない。
+// 出典は MapPage が地図の外に全文を出す（HTML を受ける）。リンクは別のタブで開き、元のページを渡さない。
 
 const NEW_TAB = 'target="_blank" rel="noopener noreferrer"';
 

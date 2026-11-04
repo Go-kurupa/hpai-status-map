@@ -60,7 +60,7 @@ export function SeasonCompare(p: SeasonCompareProps) {
     <section className="season-compare" aria-label="過去のシーズンとの比べ">
       <h2>過去のシーズンとの比べ</h2>
       {rows === null ? (
-        <p className="map-status" role="status">
+        <p className={p.historyFailed ? "state-unknown" : "state-wait"} role="status">
           過去のシーズンの記録をまだ読めていません。{p.historyFailed ? "ページを読み込み直してください。" : null}
         </p>
       ) : (

@@ -78,7 +78,7 @@ export function SpotPicker(p: SpotPickerProps) {
   }
 
   return (
-    <section className="spot-picker" aria-label={TEXT.spotTitle}>
+    <section className="spot-picker" aria-label={TEXT.spotTitle} data-active={p.aiming || candidate ? "true" : undefined}>
       <h2>{TEXT.spotTitle}</h2>
       <p className="map-note">{TEXT.spotWhy}</p>
       {p.deviceSpot && !p.aiming && !candidate ? (

@@ -70,7 +70,7 @@ export function baseStyle(): StyleSpecification & { layers: LayerSpecification[]
         tileSize: 256,
         minzoom: 2,
         maxzoom: 18,
-        // 出典は AttributionControl に全文を出す（geo/attribution.ts）
+        // 出典は MapPage が地図の外に全文を出す（geo/attribution.ts）
       },
     },
     layers: [{ id: "gsi-pale", type: "raster", source: "gsi" }],

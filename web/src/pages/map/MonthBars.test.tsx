@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { MonthBars } from "./MonthBars";
+import { TEXT } from "./texts";
 
 afterEach(cleanup);
 
@@ -26,5 +27,18 @@ describe("MonthBars", () => {
     render(<MonthBars months={[]} loaded={false} />);
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getByText(/まだ読めていません/)).toBeTruthy();
+  });
+
+  it("allUnchecked では表を出さず、まだ確認できていないと書く", () => {
+    render(<MonthBars months={months} loaded allUnchecked />);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText(TEXT.listNoneChecked)).toBeTruthy();
+    expect(document.body.textContent).not.toContain("0 件");
+  });
+
+  it("allUnchecked でも読めていないときは今のまま", () => {
+    render(<MonthBars months={[]} loaded={false} allUnchecked />);
+    expect(screen.getByText(/まだ読めていません/)).toBeTruthy();
+    expect(screen.queryByText(TEXT.listNoneChecked)).toBeNull();
   });
 });

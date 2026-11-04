@@ -72,6 +72,7 @@ export const TEXT = {
   listEmpty: "この期間に、一覧にできる発生の報告はありません。",
   listEmptyPartial: "確認できた範囲では、一覧にできる発生の報告はありません",
   listNoneCheckedShort: "まだ確認できていません",
+  mapLoadFailed: "地図の形を読み込めませんでした。ページを読み込み直してください。それまで地図に色がなくても、発生がないとは言えません。",
   listNoneChecked: "まだ確認できていません。見回りの結果が出るまで、発生がないとは言えません。",
   listPartialLabel: "確認できた範囲では",
   watchAttemptOnly: "確認できた県はありません。最後に確認を試したのは",

@@ -2,13 +2,15 @@ import { jstDateOf } from "@hpai/shared/dates";
 import { PREFS } from "@hpai/shared/pref";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import type { MuniCode } from "@hpai/shared/types";
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { useDataSource } from "../../data/context";
 import { useSpotState } from "../../data/spotContext";
 import type { MapViewProps } from "./MapView";
 import { CaseListSheet } from "./CaseListSheet";
 import { Legend } from "./Legend";
 import { listRows, wildBirdRows } from "./listRows";
+import { MapChunkBoundary } from "./MapChunkBoundary";
 import { MapLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import type { PickTarget } from "./pickSpot";
@@ -49,7 +51,14 @@ export default function MapPage() {
     now: ds.now(),
     unwatchedPrefCodes: d.failedPrefCodes, // 自分の町の県が未確認なら、1 文にそれを加える（④だけで済ませない）
   });
-  const past = usePast({ town, history: d.history, historyFailed: d.historyFailed, geo, geoFailed, current: d.current });
+  const past = usePast({
+    town,
+    history: d.history,
+    historyFailed: d.historyFailed,
+    geo,
+    geoFailed,
+    current: d.current,
+  });
   const now = ds.now();
   const nowMinute = Math.floor(now.getTime() / 60_000); // 否定した事例が 8 日目に消えるのを、開いたままでも進める
   const rows = useMemo(() => (d.listCases === null ? [] : listRows(d.listCases, new Date(nowMinute * 60_000))), [d.listCases, nowMinute]);
@@ -63,6 +72,8 @@ export default function MapPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [mapless, setMapless] = useState(false); // 地図が描けない端末（代わりの地図を出している）
   const mapRef = useRef<PickTarget | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const h1Ref = useRef<HTMLHeadingElement | null>(null);
   const nonce = useRef(0);
   // 会員の農場が後から届いたら、端末内の町や場所を変える画面は閉じる（変えても見える形が変わらない）
   const canEdit = !spotState.readOnly;
@@ -93,18 +104,34 @@ export default function MapPage() {
     setPicking(open);
     if (open) setAiming(false);
   }, []);
+  // 十字を合わせ始めたら、地図の上端を画面の先頭に寄せる（地図の上に町の欄があり、地図が下に隠れやすい）
+  useEffect(() => {
+    if (aiming) boxRef.current?.scrollIntoView?.({ block: "start" });
+  }, [aiming]);
+  // 棒を押したら、見出し（なければ地図）へ戻す。見出しが隠れている画面では offsetParent が null になる
+  const selectSeason = (s: Parameters<typeof d.select>[0]) => {
+    d.select(s);
+    const h1 = h1Ref.current;
+    (h1 && h1.offsetParent !== null ? h1 : boxRef.current)?.scrollIntoView?.({
+      block: "start",
+    });
+  };
   const noneConfirmed = d.failedPrefCodes.length === PREFS.length;
   // 確認できていない県があるうちは、今季の件数を「確認できた範囲では N 件（M 県は確認できていません）」にする。
   // 47 県とも（見回りの結果が未着のときを含む）確認できていなければ、件数を見出しにしない
   const bars = d.bars.map((b) =>
     b.season === d.current && d.failedPrefCodes.length > 0
-      ? { ...b, unchecked: d.failedPrefCodes.length, allUnchecked: noneConfirmed }
+      ? {
+          ...b,
+          unchecked: d.failedPrefCodes.length,
+          allUnchecked: noneConfirmed,
+        }
       : b,
   );
 
   return (
     <div className="map-page">
-      <h1>{view.label}の発生状況</h1>
+      <h1 ref={h1Ref}>{view.label}の発生状況</h1>
       {view.isCurrent ? (
         <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
       ) : (
@@ -137,35 +164,70 @@ export default function MapPage() {
           onShowJapan={() => moveTo("japan", [])}
           onShowTown={() => town && moveTo("muni", [town])}
         />
-        {notice ? (
-          <p className="map-status" role="status">
-            {notice}
-          </p>
-        ) : null}
+        {notice ? <p role="status">{notice}</p> : null}
       </TownBanner>
 
-      <div className="map-box">
-        <Suspense fallback={<p role="status">地図を読み込んでいます</p>}>
-          <MapView
-            view={view}
-            wildBirds={d.wildBirds}
-            failedPrefCodes={d.failedPrefCodes}
-            myMuniCode={town}
-            nearMuniCodes={townLine.nearMuniCodes}
-            focus={focus}
-            pickMode={picking && canEdit}
-            onSelectMuni={picking && canEdit ? choose : undefined}
-            onMapReady={(map) => {
-              mapRef.current = map as unknown as PickTarget;
-            }}
-            onUnsupported={() => {
-              setMapless(true);
-              setAiming(false);
-            }}
-          />
-        </Suspense>
+      <div className="map-box" ref={boxRef}>
+        <MapChunkBoundary>
+          <Suspense fallback={<p role="status">地図を読み込んでいます</p>}>
+            <MapView
+              view={view}
+              wildBirds={d.wildBirds}
+              failedPrefCodes={d.failedPrefCodes}
+              myMuniCode={town}
+              nearMuniCodes={townLine.nearMuniCodes}
+              focus={focus}
+              pickMode={picking && canEdit}
+              onSelectMuni={picking && canEdit ? choose : undefined}
+              onMapReady={(map) => {
+                mapRef.current = map as unknown as PickTarget;
+              }}
+              onUnsupported={() => {
+                setMapless(true);
+                setAiming(false);
+              }}
+            />
+          </Suspense>
+        </MapChunkBoundary>
         {aiming && canEdit && !mapless ? <div className="crosshair" aria-hidden="true" /> : null}
       </div>
+
+      <p className="map-disclaimer">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
+      <Legend isCurrent={view.isCurrent} />
+
+      {view.isCurrent && !view.loaded ? (
+        <p className="state-unknown" role="status">
+          今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。
+        </p>
+      ) : null}
+      {!view.isCurrent && !view.loaded ? (
+        <p className={d.historyFailed ? "state-unknown" : "state-wait"} role="status">
+          過去の記録をまだ読めていません。
+          {d.historyFailed ? (
+            <>
+              {" "}
+              <button type="button" className="btn" onClick={d.retryHistory}>
+                もう一度読む
+              </button>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+      {view.isCurrent ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
+      {view.reviewingPrefCodes.length > 0 ? (
+        <p className="state-wait">
+          確認中の発表がある県: {names(view.reviewingPrefCodes)}
+          。件数にはまだ入れていません。
+        </p>
+      ) : null}
+      {mapless ? null : (
+        <p className="map-attribution">
+          {MAP_ATTRIBUTION.map((html, i) => (
+            // 出典の文は geo/attribution.ts の固定の文（外からの入力を含まない）
+            <span key={i} dangerouslySetInnerHTML={{ __html: html }} />
+          ))}
+        </p>
+      )}
 
       <SpotPicker
         getMap={() => mapRef.current}
@@ -184,32 +246,6 @@ export default function MapPage() {
         town={town}
       />
 
-      <Legend isCurrent={view.isCurrent} />
-      <p className="map-note">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
-
-      {view.isCurrent && !view.loaded ? (
-        <p className="map-status" role="status">
-          今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。
-        </p>
-      ) : null}
-      {!view.isCurrent && !view.loaded ? (
-        <p className="map-status" role="status">
-          過去の記録をまだ読めていません。
-          {d.historyFailed ? (
-            <>
-              {" "}
-              <button type="button" className="btn" onClick={d.retryHistory}>
-                もう一度読む
-              </button>
-            </>
-          ) : null}
-        </p>
-      ) : null}
-      {view.isCurrent ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
-      {view.reviewingPrefCodes.length > 0 ? (
-        <p className="map-status">確認中の発表がある県: {names(view.reviewingPrefCodes)}。件数にはまだ入れていません。</p>
-      ) : null}
-
       <CaseListSheet
         rows={rows}
         birds={view.isCurrent ? birdRows : null}
@@ -217,7 +253,7 @@ export default function MapPage() {
         unwatchedCount={view.isCurrent ? d.failedPrefCodes.length : 0}
       />
 
-      <SeasonBar bars={bars} selected={d.selected} onSelect={d.select} />
+      <SeasonBar bars={bars} selected={d.selected} onSelect={selectSeason} />
 
       {/* 再現（去年の再現）は日付を過去に置いた画面なので、今日の比べは出さない */}
       {ds.mode === "replay" ? null : (
@@ -239,7 +275,7 @@ export default function MapPage() {
       ) : null}
       {view.undatedCases > 0 ? <p className="map-note">日付のない事例が {view.undatedCases} 件あり、月の棒には入っていません。</p> : null}
 
-      <MonthBars months={view.months} loaded={view.loaded} />
+      <MonthBars months={view.months} loaded={view.loaded} allUnchecked={view.isCurrent && noneConfirmed} />
       <MapLinks />
     </div>
   );

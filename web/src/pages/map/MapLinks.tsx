@@ -3,7 +3,10 @@ import { Link } from "react-router";
 const LINKS: ReadonlyArray<{ to: string; label: string }> = [
   { to: "/public", label: "鶏を飼っていない方へ" },
   { to: "/known", label: "分かっていること" },
+  { to: "/trends", label: "全国の傾向" },
   { to: "/replay", label: "去年の再現" },
+  { to: "/sample", label: "見本の農場" },
+  { to: "/poster", label: "掲示用の貼り紙" },
   { to: "/results", label: "試験の結果" },
   { to: "/privacy", label: "プライバシー" },
 ];

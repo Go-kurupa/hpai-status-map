@@ -9,7 +9,11 @@ import type { WatchLineResult } from "./watchLineText";
  */
 export function WatchLine({ loaded, line }: { loaded: boolean; line: WatchLineResult }) {
   return (
-    <p className="map-status watch-line" role="status" data-testid="watch-line">
+    <p
+      className={loaded && line.failedPrefCodes.length === 0 ? "state-ok watch-line" : "state-unknown watch-line"}
+      role="status"
+      data-testid="watch-line"
+    >
       {loaded ? (
         <>
           {line.text}。{line.failedPrefCodes.length > 0 ? TEXT.watchFailedTail : null}

@@ -114,8 +114,8 @@ test.describe("地図（入口）", () => {
       if (/\/xyz\/pale\/\d+\/\d+\/\d+\.png$/.test(r.url())) tiles.push(r.url());
     });
     await open(page, 360);
-    await page.waitForFunction(() => document.querySelector(".maplibregl-ctrl-attrib") !== null);
-    const attrib = page.locator(".maplibregl-ctrl-attrib");
+    await page.waitForFunction(() => document.querySelector(".map-attribution") !== null);
+    const attrib = page.locator(".map-attribution");
     await expect(attrib).toBeVisible();
     await expect(attrib).toContainText(/地理院タイル/);
     await expect(attrib).toContainText(/Vector Map Level 0/);

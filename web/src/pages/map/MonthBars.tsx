@@ -1,14 +1,23 @@
 import type { MonthBar } from "./seasonView";
+import { TEXT } from "./texts";
 
 const nf = new Intl.NumberFormat("ja-JP");
 
 /** 月ごとの件数と羽数。表にして、棒の長さは件数に比例。羽数の分からない事例は数を書く */
-export function MonthBars({ months, loaded }: { months: readonly MonthBar[]; loaded: boolean }) {
+export function MonthBars({ months, loaded, allUnchecked }: { months: readonly MonthBar[]; loaded: boolean; allUnchecked?: boolean }) {
   if (!loaded) {
     return (
       <section className="month-bars">
         <h2>月ごとの件数と羽数</h2>
         <p>まだ読めていません。</p>
+      </section>
+    );
+  }
+  if (allUnchecked) {
+    return (
+      <section className="month-bars">
+        <h2>月ごとの件数と羽数</h2>
+        <p>{TEXT.listNoneChecked}</p>
       </section>
     );
   }

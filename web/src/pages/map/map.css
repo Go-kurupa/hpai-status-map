@@ -6,12 +6,28 @@
 .map-wrap {
   position: relative;
 }
+.map-page {
+  display: flex;
+  flex-direction: column;
+}
+/* 場所を合わせている間は、場所の区画を地図の直後に上げる（地図の下の説明はその後ろ） */
+.map-page:has(> .spot-picker[data-active="true"]) > .map-box ~ * {
+  order: 1;
+}
+.map-page:has(> .spot-picker[data-active="true"]) > .spot-picker {
+  order: 0;
+}
 .map-box {
   /* 画面の幅いっぱい。横にはみ出さない */
   --map-h: clamp(360px, 65vh, 640px);
   position: relative;
   min-width: 0;
   margin: 0 0 8px;
+}
+@media (max-width: 40rem) {
+  .map-box {
+    --map-h: clamp(300px, 46vh, 480px);
+  }
 }
 .map-canvas {
   width: 100%;
@@ -27,25 +43,26 @@
   font-weight: 700;
 }
 
-/* 出典は常に全文。狭い画面では折り返す */
-.map-canvas .maplibregl-ctrl.maplibregl-ctrl-attrib {
-  max-width: 100%;
-  background: rgba(255, 255, 255, 0.92);
-  font-size: 12px;
-  line-height: 1.5;
-  white-space: normal;
+/* 出典は地図の外に全文を出す。1 件ずつ行を変える */
+.map-attribution {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0 0 8px;
 }
-.map-canvas .maplibregl-ctrl-attrib a {
+.map-attribution span {
+  display: block;
+}
+.map-attribution a {
   color: var(--accent);
 }
-.map-canvas .maplibregl-ctrl-bottom-right {
-  max-width: 100%;
+.map-disclaimer {
+  margin: 0 0 8px;
 }
 
 /* 県のバッジ（全国の倍率の件数）。押すとその県へ拡大 */
 .pref-badge {
-  min-width: 40px;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0 6px;
   border: 2px solid var(--on-lv);
   border-radius: 999px;
@@ -72,7 +89,7 @@
   margin: 0 0 4px;
   padding: 0;
   list-style: none;
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 .map-legend li {
   display: inline-flex;
@@ -116,12 +133,6 @@
   color: var(--muted);
   font-size: 0.9rem;
 }
-.map-status {
-  margin: 0 0 8px;
-  padding: 6px 12px;
-  border-left: 6px solid var(--muted);
-  background: var(--soft);
-}
 .map-notice {
   margin: 0 0 12px;
   padding: 8px 12px;
@@ -137,7 +148,7 @@
 }
 .season-bar-btn {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(6.5em, max-content) minmax(0, 1fr);
   grid-template-areas:
     "label count"
     "track track";
@@ -147,7 +158,7 @@
   min-height: var(--tap);
   margin: 0 0 4px;
   padding: 4px 8px;
-  border: 2px solid var(--line);
+  border: 2px solid var(--muted);
   border-radius: 4px;
   background: var(--surface);
   color: var(--fg);
@@ -168,7 +179,7 @@
 }
 .season-bar-label small {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 1rem;
   font-weight: 400;
 }
 .season-bar-track,
@@ -189,7 +200,7 @@
 .season-bar-count small {
   display: block;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 1rem;
   font-weight: 400;
 }
 .season-bar-count {
@@ -476,14 +487,14 @@
   fill: var(--lv4, #4a4f57);
 }
 .svg-back {
-  min-height: 44px;
+  min-height: var(--tap);
   margin: 0 0 8px;
 }
 .svg-list {
   margin: 8px 0 0;
 }
 .svg-list summary {
-  min-height: 44px;
+  min-height: var(--tap);
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -494,12 +505,9 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-.svg-list .btn {
-  min-height: 44px;
-}
 .svg-map-note {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: 1rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
