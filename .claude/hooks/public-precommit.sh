@@ -60,7 +60,8 @@ const RE_ANTHROPIC = new RegExp("sk-" + "ant-" + "[A-Za-z0-9_-]+");
 const RE_GOOGLE = /AIza[0-9A-Za-z_-]{35}/;
 const RE_PRIVATE_KEY = /BEGIN [A-Z ]*PRIVATE KEY/;
 const RE_EMAIL = /[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
-const RE_PHONE = /0[0-9]{1,4}-[0-9]{1,4}-[0-9]{3,4}/g;
+// 英数字に続く番号（DOI の s42003-… や id の …-2026-11-12000）は電話としない
+const RE_PHONE = /(?<![0-9A-Za-z])0[0-9]{1,4}-[0-9]{1,4}-[0-9]{3,4}(?![0-9])/g;
 const RE_QUOTE = /"quote"\s*:/;
 
 // 例示用に予約されたドメイン（RFC 2606）。実在の人のアドレスではない
@@ -151,8 +152,9 @@ function pathCheck(file) {
 }
 
 // ---- git ----
+// 承認の前に動くので、リポジトリの設定が指すコマンド（fsmonitor、フック）を動かさない
 function git(dir, args, env) {
-  return execFileSync("git", ["-c", "core.quotepath=false", ...args], {
+  return execFileSync("git", ["-c", "core.quotepath=false", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", ...args], {
     cwd: dir,
     env: env || process.env,
     encoding: "utf8",
@@ -407,7 +409,28 @@ const VALUE_LONG = new Set([
   "--cleanup", "--fixup", "--squash", "--template", "--trailer", "--pathspec-from-file",
 ]);
 const WRAPPERS = new Set(["env", "sudo", "command", "time", "nohup", "exec", "nice"]);
+// if git commit …; then … や { git commit …; } の先頭の語は飛ばして、その後のコマンドを見る
+const KEYWORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "{", "}"]);
 const SHELLS = new Set(["bash", "sh", "zsh", "dash", "eval"]);
+// 意味の分かる大域の指定。ほかの指定（--git-dir、--work-tree など）は、どの索引と作業ツリーを
+// commit するかを変えうるので、読み違えないよう止める
+const SAFE_GLOBAL = new Set(["--no-pager", "-P", "-p", "--paginate", "--no-optional-locks", "--literal-pathspecs", "--no-replace-objects"]);
+
+function insideProject(dir, project) {
+  if (!project) return false;
+  const rel = path.relative(project, dir);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+// git の別名（alias）。プロジェクトの中のリポジトリでだけ引く
+function aliasOf(dir, sub, project) {
+  if (!sub || sub.startsWith("-") || !insideProject(dir, project)) return null;
+  try {
+    return git(dir, ["config", "--get", `alias.${sub}`]).trim() || null;
+  } catch {
+    return null;
+  }
+}
 
 // git commit の引数: -a か、パス指定か
 function parseCommit(args) {
@@ -443,7 +466,11 @@ function parseCommit(args) {
 function analyze(cmd, state, found, depth) {
   for (const toks of splitCommands(cmd)) {
     let i = 0;
-    while (i < toks.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(toks[i]) || WRAPPERS.has(toks[i]))) i++;
+    let gitEnv = false;
+    while (i < toks.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(toks[i]) || WRAPPERS.has(toks[i]) || KEYWORDS.has(toks[i]))) {
+      if (/^GIT_[A-Z0-9_]*=/.test(toks[i])) gitEnv = true;
+      i++;
+    }
     if (i >= toks.length) continue;
     const prog = path.basename(toks[i]);
     if (prog === "cd" || prog === "pushd") {
@@ -453,29 +480,51 @@ function analyze(cmd, state, found, depth) {
       continue;
     }
     if (SHELLS.has(prog) && depth < 3) {
-      for (const a of toks.slice(i + 1)) if (/\bgit\b/.test(a) && /\b(commit|add)\b/.test(a)) analyze(a, { cwd: state.cwd }, found, depth + 1);
+      for (const a of toks.slice(i + 1)) if (/\bgit\b/.test(a) && /\b(commit|add|stage)\b/.test(a)) analyze(a, { cwd: state.cwd, project: state.project }, found, depth + 1);
       continue;
     }
     if (prog !== "git") continue;
     let j = i + 1;
     let dir = state.cwd;
+    const odd = [];
+    if (gitEnv) odd.push("git_env");
     while (j < toks.length && toks[j].startsWith("-")) {
       const t = toks[j];
       if (t === "-C" && toks[j + 1] !== undefined) {
         dir = path.resolve(dir, toks[j + 1]);
         j += 2;
-      } else if (t === "-c" || t === "--git-dir" || t === "--work-tree" || t === "--namespace") {
+      } else if (t === "-c" && toks[j + 1] !== undefined) {
         j += 2;
-      } else {
+      } else if (SAFE_GLOBAL.has(t)) {
         j++;
+      } else {
+        odd.push("git_global_option");
+        j += t === "--git-dir" || t === "--work-tree" || t === "--namespace" ? 2 : 1;
       }
     }
-    const sub = toks[j];
-    const args = toks.slice(j + 1);
+    let sub = toks[j];
+    let args = toks.slice(j + 1);
+    if (sub !== "commit" && sub !== "add" && sub !== "stage") {
+      const al = aliasOf(dir, sub, state.project);
+      if (al && al.startsWith("!")) {
+        // シェルの別名は中身を読み切れないので、commit か add を含めば止める
+        if (/\b(commit|add|stage)\b/.test(al)) found.flags.add("git_alias_shell");
+        continue;
+      }
+      if (al) {
+        const at = splitCommands(al)[0] || [];
+        sub = at[0];
+        args = [...at.slice(1), ...args];
+      }
+    }
+    if (sub !== "commit" && sub !== "add" && sub !== "stage") continue;
+    for (const f of odd) found.flags.add(f);
+    // パスの一覧をファイルから読む指定は、中身を読み切れないので止める
+    if (args.some((a) => a === "--pathspec-from-file" || a.startsWith("--pathspec-from-file="))) found.flags.add("pathspec_from_file");
     if (sub === "commit") {
       const c = parseCommit(args);
       found.commits.push({ dir, ...c });
-    } else if (sub === "add") {
+    } else {
       const paths = [];
       let all = false;
       let force = false;
@@ -552,23 +601,32 @@ function main() {
   if (typeof command !== "string") return;
 
   const base = typeof input.cwd === "string" && input.cwd ? input.cwd : process.cwd();
-  const found = { commits: [], adds: [] };
-  analyze(command, { cwd: base }, found, 0);
-  if (!found.commits.length) return;
+  // 検査で git を動かすのは、このプロジェクトのリポジトリの中だけ（承認の前に、
+  // コマンドが指す別のリポジトリの設定を読まない）
+  const project = (process.env.CLAUDE_PROJECT_DIR && topOf(process.env.CLAUDE_PROJECT_DIR)) || topOf(base);
+  const found = { commits: [], adds: [], flags: new Set() };
+  analyze(command, { cwd: base, project }, found, 0);
+  if (!found.commits.length && !found.flags.size) return;
   armed = true;
+  for (const f of found.flags) add("(command)", 0, f);
 
+  const inProject = (dir) => insideProject(dir, project) && topOf(dir) === project;
   // 同じコマンドの中の git add は、この時点ではまだ stage に入っていない。
   // -A などは中身が決まらないので止め、明示のパスは一時の索引で stage を再現して調べる
   for (const a of found.adds) {
     if (a.all) add("(command)", 0, "git_add_all");
     for (const p of a.paths) pathspecCheck(p);
+    if (!inProject(a.dir)) add("(command)", 0, "repo_outside_project");
   }
 
   const tops = new Map();
   for (const c of found.commits) {
     if (c.all) add("(command)", 0, "git_commit_all");
-    const top = topOf(c.dir);
-    if (!top) continue;
+    if (!inProject(c.dir)) {
+      add("(command)", 0, "repo_outside_project");
+      continue;
+    }
+    const top = project;
     if (!tops.has(top)) tops.set(top, { deny: loadDenylist(top), specs: new Set(), plain: false });
     const t = tops.get(top);
     if (c.paths.length) c.paths.forEach((p) => t.specs.add(p));
@@ -576,7 +634,7 @@ function main() {
   }
   for (const [top, t] of tops) {
     const ctx = { deny: t.deny };
-    const adds = found.adds.filter((a) => !a.all && a.paths.length && topOf(a.dir) === top);
+    const adds = found.adds.filter((a) => !a.all && a.paths.length && inProject(a.dir));
     withTempIndex(top, adds, (env) => {
       if (t.plain) scanStaged(top, [], ctx, env);
       if (t.specs.size) scanStaged(top, [...t.specs], ctx, env);

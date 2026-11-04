@@ -178,11 +178,22 @@ describe("内容の検査", () => {
         "install pkg@1.2.3 and @scope/lib@4.5.6-rc.1",
         "00-0000-0000",
         "2026-11-03 と 2025-12-20T09:00:00+09:00",
+        "https://doi.org/10.1038/s" + "42003-025-08687-4",
+        "alert-agent_run_failed-paused-2026-11-" + "12000",
       ].join("\n") + "\n",
     });
     const r = runHook(COMMIT);
     expect(r.stderr).toBe("");
     expect(r.status).toBe(0);
+  });
+
+  it("英数字に続く番号は電話としない。記号や日本語に続く電話は止める", () => {
+    stage({ "a.md": [`TEL:${PHONE}`, `（${PHONE}）`, `電話${PHONE}`, `${PHONE}0`].join("\n") + "\n" });
+    const r = runHook(COMMIT);
+    expect(r.status).toBe(2);
+    for (const n of [1, 2, 3]) expect(r.stderr).toContain(`a.md:${n}:phone`);
+    // 末尾に数字が続く番号は電話の形ではない
+    expect(r.stderr).not.toContain("a.md:4:phone");
   });
 
   it("予約済みの例示用ドメインは止めない。似た名前の実在風のドメインは止める", () => {
@@ -389,27 +400,87 @@ describe("stage の中身が決まらない commit", () => {
     expect(runHook(COMMIT).status).toBe(0);
   });
 
-  it("-C で別のリポジトリを指していればそちらを見る", () => {
+  it("-C で別のリポジトリを指す commit は、そこで git を動かさずに止める", () => {
     const other = initRepo();
-    stage({ "k.txt": `${ANTHROPIC_KEY}\n` }, other);
+    stage({ "ok.txt": "ok\n" }, other);
     const r = runHook(`git -C ${other} commit -m x`);
     expect(r.status).toBe(2);
-    expect(r.stderr).toContain("k.txt:1:anthropic_key");
+    expect(r.stderr).toMatch(/^\(command\):0:repo_outside_project$/m);
   });
 
-  it("cd で別のリポジトリへ移ってからの commit はそちらを見る（&& と ; の範囲）", () => {
+  it("cd で別のリポジトリへ移ってからの commit も止める（&& と ; の範囲）", () => {
     const other = initRepo();
-    stage({ "k.txt": `${ANTHROPIC_KEY}\n` }, other);
+    stage({ "ok.txt": "ok\n" }, other);
     for (const sep of ["&&", ";"]) {
       const r = runHook(`cd ${other} ${sep} git commit -m x`);
       expect(r.status, sep).toBe(2);
+      expect(r.stderr).toMatch(/^\(command\):0:repo_outside_project$/m);
+    }
+    // 同じリポジトリの中の移動は、そのリポジトリを見る
+    stage({ "k.txt": `${ANTHROPIC_KEY}\n` });
+    fs.mkdirSync(path.join(repo, "sub"));
+    const rel = runHook("cd .. && git commit -m x", path.join(repo, "sub"));
+    expect(rel.status).toBe(2);
+    expect(rel.stderr).toContain("k.txt:1:anthropic_key");
+  });
+
+  it("別のリポジトリの設定のコマンド（fsmonitor）を、検査の中で動かさない", () => {
+    const marker = path.join(tmp, "fsmonitor-ran");
+    write("mon.sh", `#!/bin/sh\ntouch ${marker}\n`, tmp);
+    fs.chmodSync(path.join(tmp, "mon.sh"), 0o755);
+    // 試験の準備の git add が fsmonitor を動かさないよう、設定は stage の後に入れる
+    stage({ "ok.txt": "ok\n" });
+    git(["config", "core.fsmonitor", path.join(tmp, "mon.sh")]);
+    runHook(COMMIT);
+    expect(fs.existsSync(marker)).toBe(false);
+  });
+});
+
+describe("読めない指定は止める（fail-closed）", () => {
+  const BAD: Array<[string, string]> = [
+    ["git add --pathspec-from-file=list.txt && git commit -m x", "pathspec_from_file"],
+    ["git commit --pathspec-from-file list.txt -m x", "pathspec_from_file"],
+    ["git --git-dir=.git commit -m x", "git_global_option"],
+    ["git --work-tree . commit -m x", "git_global_option"],
+    ["GIT_INDEX_FILE=/tmp/i git commit -m x", "git_env"],
+    ["env GIT_DIR=.git git commit -m x", "git_env"],
+  ];
+  for (const [cmd, name] of BAD) {
+    it(`止める: ${cmd}`, () => {
+      stage({ "a.txt": "ok\n" });
+      write("list.txt", "a.txt\n");
+      const r = runHook(cmd);
+      expect(r.status).toBe(2);
+      expect(r.stderr).toMatch(new RegExp(`^\\(command\\):0:${name}$`, "m"));
+    });
+  }
+
+  it("if や while の中の commit も検査する", () => {
+    stage({ "k.txt": `${ANTHROPIC_KEY}\n` });
+    for (const cmd of ["if git commit -m x; then echo ok; fi", "true && { git commit -m x; }", "! git commit -m x"]) {
+      const r = runHook(cmd);
+      expect(r.status, cmd).toBe(2);
       expect(r.stderr).toContain("k.txt:1:anthropic_key");
     }
-    fs.mkdirSync(path.join(other, "sub"));
-    const rel = runHook("cd .. && git commit -m x", path.join(other, "sub"));
-    expect(rel.status).toBe(2);
-    // cd のないコマンドは、hook を呼んだ場所（きれいな repo）を見る
-    expect(runHook(COMMIT).status).toBe(0);
+  });
+
+  it("git stage は git add と同じに扱う", () => {
+    stage({ "seed.txt": "seed\n" });
+    write("a.txt", `${ANTHROPIC_KEY}\n`);
+    const r = runHook("git stage a.txt && git commit -m x");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("a.txt:1:anthropic_key");
+    expect(runHook("git stage -A && git commit -m x").stderr).toMatch(/git_add_all/);
+  });
+
+  it("commit や add の別名（alias）も検査する。シェルの別名は止める", () => {
+    stage({ "k.txt": `${ANTHROPIC_KEY}\n` });
+    git(["config", "alias.ci", "commit -v"]);
+    const r = runHook("git ci -m x");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("k.txt:1:anthropic_key");
+    git(["config", "alias.save", "!git add -A && git commit"]);
+    expect(runHook("git save -m x && git commit -m y").stderr).toMatch(/git_alias_shell/);
   });
 });
 
@@ -456,15 +527,15 @@ describe("同じコマンドの git add（一時の索引で stage を再現す�
     expect(r.stderr).toContain("s.txt:1:google_api_key");
   });
 
-  it("cd と git -C の先で add したファイルを調べる", () => {
-    const other = initRepo();
-    write("a.txt", `${ANTHROPIC_KEY}\n`, other);
-    const viaCd = runHook(`cd ${other} && git add a.txt && git commit -m x`);
+  it("同じリポジトリの中の cd と git -C の先で add したファイルを調べる", () => {
+    stage({ "seed.txt": "seed\n" });
+    write("d/a.txt", `${ANTHROPIC_KEY}\n`);
+    const viaCd = runHook(`cd d && git add a.txt && git commit -m x`);
     expect(viaCd.status).toBe(2);
-    expect(viaCd.stderr).toContain("a.txt:1:anthropic_key");
-    const viaC = runHook(`git -C ${other} add a.txt && git -C ${other} commit -m x`);
+    expect(viaCd.stderr).toContain("d/a.txt:1:anthropic_key");
+    const viaC = runHook(`git -C d add a.txt && git -C d commit -m x`);
     expect(viaC.status).toBe(2);
-    expect(viaC.stderr).toContain("a.txt:1:anthropic_key");
+    expect(viaC.stderr).toContain("d/a.txt:1:anthropic_key");
   });
 
   it("リポジトリの索引を変えず、一時ファイルを残さない", () => {
