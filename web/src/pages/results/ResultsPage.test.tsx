@@ -1,4 +1,4 @@
-import type { MeasuredUsage } from "@hpai/shared/replay";
+import { UNMEASURED_USAGE, type MeasuredUsage } from "@hpai/shared/replay";
 import type { EvalSummary } from "@hpai/shared/types";
 import { findForbiddenPhrases } from "@hpai/shared/wording";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -52,7 +52,7 @@ function stub(over: { summary?: Reply; usage?: Reply } = {}) {
       const u = String(url);
       calls.push(u);
       if (u.endsWith("evals/summary.json")) return reply("summary" in over ? over.summary : "missing");
-      if (u.endsWith("replay/measured-usage.json")) return reply("usage" in over ? over.usage : usageJson);
+      if (u.endsWith("replay/measured-usage.json")) return reply("usage" in over ? over.usage : UNMEASURED_USAGE); // 既定は測る前の形（実物の data/ は測り済みなので、それは下の『実物のデータ』で縛る）
       return Promise.reject(new Error(`想定しない通信: ${u}`));
     }),
   );
@@ -189,6 +189,30 @@ describe("/results（再現 1 回分を測った）", () => {
     expect(calc.textContent).toContain("再現の実測から");
     expect(calc.textContent).toContain("2,592 円");
     expect(calc.textContent).toContain("見積もり（推定）"); // 仮定の行は実測の行と分けて残る
+  });
+});
+
+describe("/results（実物の data/replay/measured-usage.json）", () => {
+  it("測り済み: 文書数、モデルごとのトークン数、時点を出し、『未計測』とは言わない。静的ファイルだけを読む", async () => {
+    const real = usageJson as unknown as MeasuredUsage;
+    expect(real.status).toBe("measured");
+    const calls = await show({ usage: real });
+    const s = region(/再現 1 回分/);
+    expect(s.textContent).not.toContain("未計測");
+    expect(s.textContent).toContain(`読んだ文書: ${real.documents} 本`);
+    for (const [model, t] of Object.entries(real.byModel)) {
+      expect(s.textContent, model).toContain(model);
+      expect(s.textContent, model).toContain(t.inputTokens.toLocaleString("en-US"));
+      expect(s.textContent, model).toContain(t.outputTokens.toLocaleString("en-US"));
+    }
+    expect(s.textContent).toContain(real.measuredAt!.slice(0, 10));
+    expect(calls.sort()).toEqual(["/evals/summary.json", "/replay/measured-usage.json"]);
+  });
+
+  it("測り済みなら『計算』の節に、実測から計算した表が出る（見積もりの表と合わせて 2 つ）", async () => {
+    await show({ usage: usageJson });
+    expect(within(region(/計算/)).getAllByRole("table")).toHaveLength(2);
+    expect(within(region(/計算/)).getByRole("heading", { name: /実測の使用量から計算/ })).toBeTruthy();
   });
 });
 

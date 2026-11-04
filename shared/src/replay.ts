@@ -175,6 +175,11 @@ export interface BackstageEntry {
   compare: CompareReport | null;
   /** 値をわざと入れ替えて、本当に落ちた結果だけ。入れ替えなかった、または落ちなかったときは null */
   tamperedDemo: { field: string; before: string; after: string; rejectedBy: VerifyCheck | "compare" } | null;
+  /**
+   * 照合で止めた（確認中に回した）印。照合が落とすと分かっている項目だけが落ち、Claude の読みそのものは期待どおりだった文書に付く。
+   * 付いていなければ（または null）、そうではない。reason は短い一文（本文や引用を写さない）。
+   */
+  verifyStopped?: { fields: string[]; reason: string } | null;
 }
 
 /** data/replay/backstage.json。測っていない間は status "unmeasured"、entries は空 */

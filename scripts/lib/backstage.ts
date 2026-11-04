@@ -48,8 +48,21 @@ export interface BackstageDoc {
   /** scenario の出来事（出典がこの文書そのもの）。結びつかなければ null */
   eventOrder: number | null;
   /** scenario と食い違えば止めるための期待値。キーがなければ見ない。null は『読み取りも null であること』 */
-  expect: { kind?: DocumentKind; muniCode?: string; primaryStage?: CaseStage | null; primaryDate?: IsoDate | null };
+  expect: {
+    kind?: DocumentKind;
+    muniCode?: string;
+    primaryStage?: CaseStage | null;
+    primaryDate?: IsoDate | null;
+    /**
+     * 照合が落とすと分かっている項目（安全側に倒して止める例として、舞台裏に正直に出す）。
+     * 食い違いがこの項目だけで、かつ Claude の読みそのもの（read.primaryDate）が期待の値と合うときだけ、止めずに書く。
+     */
+    expectVerifyFail?: VerifyFailField[];
+    /** 照合で止めた理由（短い一文。本文や引用を写さない。舞台裏の画面に出る） */
+    verifyFailNote?: string;
+  };
 }
+export type VerifyFailField = "primaryDate";
 export interface DocsFile {
   docs: BackstageDoc[];
 }
@@ -148,6 +161,32 @@ function otherMuniName(scenario: ReplayScenario, muni: string): string | null {
   const core = muniCoreName(muni);
   const other = scenario.events.map((e) => e.caseAfter.muniName).find((n): n is string => n !== null && muniCoreName(n) !== core);
   return other ?? null;
+}
+
+const VERIFY_STOP_FALLBACK = "プログラムの照合が通らなかったので、確認中に回しました";
+
+/** Claude の読みそのものが、期待の値と合うか（照合の結果ではなく、read の値を見る）。年が空なら月日だけを見る */
+function readMatchesExpected(doc: BackstageDoc, read: ReadResult, field: VerifyFailField): boolean {
+  if (field === "primaryDate") {
+    const want = doc.expect.primaryDate;
+    const d = read.primaryDate;
+    if (want === undefined || want === null || d === null) return false;
+    const [y, m, day] = want.split("-").map(Number);
+    return d.month === m && d.day === day && (d.year === null || d.year === y);
+  }
+  return false;
+}
+
+/** 食い違い(bad)を、照合で止めると期待していて読みも合うもの(stopped)と、それ以外(real)に分ける */
+function splitMismatches(doc: BackstageDoc, read: ReadResult, bad: string[]): { stopped: VerifyFailField[]; real: string[] } {
+  const allowed = new Set<string>(doc.expect.expectVerifyFail ?? []);
+  const stopped: VerifyFailField[] = [];
+  const real: string[] = [];
+  for (const b of bad) {
+    if (allowed.has(b) && readMatchesExpected(doc, read, b as VerifyFailField)) stopped.push(b as VerifyFailField);
+    else real.push(b);
+  }
+  return { stopped, real };
 }
 
 function expectMismatches(doc: BackstageDoc, read: ReadResult, verify: VerifyReport): string[] {
@@ -318,10 +357,12 @@ export async function runBackstage(argv: string[], deps: BackstageDeps): Promise
 
     // scenario の出来事に結びつく文書だけが、scenario と食い違えば止める。出来事のない文書（進捗報、市のページ）は、
     // 食い違いを記録して続ける（読み切れなかったことも、舞台裏に正直に出す）
-    const bad = expectMismatches(doc, read, verify);
-    if (bad.length > 0) (doc.eventOrder !== null ? mismatches : notes).push(`${doc.id}: ${bad.join("、")}`);
+    // 照合が落とすと分かっている項目（expectVerifyFail）だけが落ち、読みそのものが期待どおりなら、止めずに『照合で止めた』印をつけて書く
+    const { stopped, real } = splitMismatches(doc, read, expectMismatches(doc, read, verify));
+    if (real.length > 0) (doc.eventOrder !== null ? mismatches : notes).push(`${doc.id}: ${real.join("、")}`);
 
     let entry = toBackstageEntry({ id: doc.id, url: doc.url, read, second, verify, compare, docText: loaded.docText, hadPrevious: previous !== null });
+    if (stopped.length > 0) entry = { ...entry, verifyStopped: { fields: stopped, reason: doc.expect.verifyFailNote ?? VERIFY_STOP_FALLBACK } };
 
     // 値を入れ替えて、本当に落ちたものだけを記録する（最初の半径のある文書に半径、次に二重読みの文書に市町村）
     if (!radiusDemo) {

@@ -47,7 +47,7 @@
       },
       "noticePreview": null,
       "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251201.html",
-      "backstageId": null
+      "backstageId": "yonago-confirmed"
     },
     {
       "order": 2,
@@ -89,7 +89,7 @@
       },
       "noticePreview": null,
       "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251216.html",
-      "backstageId": null
+      "backstageId": "himeji-confirmed"
     },
     {
       "order": 3,
@@ -185,7 +185,7 @@
         "text": "津山市で疑いの発表がありました。県の連絡が正です"
       },
       "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
-      "backstageId": null
+      "backstageId": "tsuyama-suspected"
     },
     {
       "order": 5,
@@ -235,7 +235,7 @@
         "text": "津山市で確定の発表がありました。県の連絡が正です"
       },
       "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf",
-      "backstageId": null
+      "backstageId": "tsuyama-confirmed"
     },
     {
       "order": 6,
@@ -277,7 +277,7 @@
       },
       "noticePreview": null,
       "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/251224.html",
-      "backstageId": null
+      "backstageId": "kameoka-confirmed"
     },
     {
       "order": 7,
@@ -385,7 +385,7 @@
       },
       "noticePreview": null,
       "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970459_misc.pdf",
-      "backstageId": null
+      "backstageId": "tsuyama-control-done"
     },
     {
       "order": 9,
@@ -547,7 +547,7 @@
         "text": "津山市で搬出制限の解除の発表がありました。県の連絡が正です"
       },
       "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970460_misc.pdf",
-      "backstageId": null
+      "backstageId": "tsuyama-shipment-lifted"
     },
     {
       "order": 12,
@@ -668,7 +668,7 @@
         "text": "津山市で移動制限の解除の発表がありました。県の連絡が正です"
       },
       "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/260121_1.html",
-      "backstageId": null
+      "backstageId": "tsuyama-movement-lifted"
     },
     {
       "order": 14,

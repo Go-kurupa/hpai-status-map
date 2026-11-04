@@ -1,4 +1,4 @@
-import type { BackstageEntry, BackstageFile, MeasuredUsage, ReplayScenario } from "@hpai/shared/replay";
+import { UNMEASURED_BACKSTAGE, UNMEASURED_USAGE, type BackstageEntry, type BackstageFile, type MeasuredUsage, type ReplayScenario } from "@hpai/shared/replay";
 import { findForbiddenPhrases } from "@hpai/shared/wording";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -64,8 +64,8 @@ function stub(over: { backstage?: unknown; usage?: unknown; failBackstage?: bool
       const u = String(url);
       calls.push(u);
       if (u.endsWith("replay/scenario.json")) return Promise.resolve(over.failScenario ? new Response("", { status: 404 }) : new Response(JSON.stringify(scenarioJson), { status: 200 }));
-      if (u.endsWith("replay/backstage.json")) return Promise.resolve(over.failBackstage ? new Response("", { status: 404 }) : new Response(JSON.stringify(over.backstage ?? backstageJson), { status: 200 }));
-      if (u.endsWith("replay/measured-usage.json")) return Promise.resolve(new Response(JSON.stringify(over.usage ?? usageJson), { status: 200 }));
+      if (u.endsWith("replay/backstage.json")) return Promise.resolve(over.failBackstage ? new Response("", { status: 404 }) : new Response(JSON.stringify(over.backstage ?? UNMEASURED_BACKSTAGE), { status: 200 }));
+      if (u.endsWith("replay/measured-usage.json")) return Promise.resolve(new Response(JSON.stringify(over.usage ?? UNMEASURED_USAGE), { status: 200 }));
       return Promise.reject(new Error(`想定しない通信: ${u}`));
     }),
   );
@@ -163,6 +163,19 @@ describe("舞台裏の画面（測った後）", () => {
     expect(within(demo).getAllByRole("listitem").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("照合で止めた文書には、印と理由が検査の節に出る。印のない文書には出ない。禁じた言い方がない", async () => {
+    const reason = "引用に日付がなく時刻だけだったので、プログラムは日付を確かめられず、確認中に回しました";
+    const stopped = { ...MEASURED, entries: [entry({ verifyPass: false, verifyStopped: { fields: ["primaryDate"], reason } }), MEASURED.entries[1]!] };
+    await show({ backstage: stopped, usage: MEASURED_USAGE });
+    const checks = section("検査");
+    const marks = within(checks).getAllByTestId("verify-stopped");
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.textContent).toContain("照合で止めました");
+    expect(marks[0]!.textContent).toContain("日付");
+    expect(marks[0]!.textContent).toContain(reason);
+    expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
+  });
+
   it("費用: 実測のトークン数と、推定費用は『推定』と分かる形", async () => {
     await show({ backstage: MEASURED, usage: MEASURED_USAGE });
     const cost = section("費用");
@@ -177,6 +190,39 @@ describe("舞台裏の画面（測った後）", () => {
     const link = within(section("二つの読み手")).getAllByRole("link", { name: /原文/ })[0]!;
     expect(link.getAttribute("href")).toBe("https://example.test/confirmed");
     expect(link.getAttribute("rel")).toContain("noopener");
+  });
+});
+
+describe("舞台裏の画面（実物の data/replay/）", () => {
+  const real = backstageJson as unknown as BackstageFile;
+  const realUsage = usageJson as unknown as MeasuredUsage;
+
+  it("測り済み: 『時点』は測った日。『未計測』とは言わず、文書ごとの項目、入れ替えた値の例、費用が出る", async () => {
+    expect(real.status).toBe("measured");
+    await show({ backstage: real, usage: realUsage });
+    const band = screen.getByRole("region", { name: "去年の再現の舞台裏" });
+    expect(band.textContent).toContain(real.measuredAt!.slice(0, 10));
+    expect(document.body.textContent).not.toContain("未計測");
+    expect(within(section("二つの読み手")).getAllByRole("link", { name: /原文/ })).toHaveLength(real.entries.length);
+    expect(within(section("検査")).getAllByRole("heading", { level: 3 })).toHaveLength(real.entries.length);
+    expect(within(section("入れ替えた値")).getAllByRole("listitem").length).toBeGreaterThanOrEqual(2);
+    expect(section("費用").textContent).toContain(`${realUsage.documents} 本`);
+    expect(section("費用").textContent).toContain("推定");
+    expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
+  });
+
+  it("照合で止めた文書（津山の疑いと確定）には印と理由が出て、それ以外には出ない", async () => {
+    await show({ backstage: real, usage: realUsage });
+    const stopped = real.entries.filter((e) => e.verifyStopped);
+    expect(stopped.map((e) => e.id)).toEqual(["tsuyama-suspected", "tsuyama-confirmed"]);
+    const marks = within(section("検査")).getAllByTestId("verify-stopped");
+    expect(marks).toHaveLength(stopped.length);
+    stopped.forEach((e, i) => {
+      expect(marks[i]!.textContent).toContain("照合で止めました");
+      expect(marks[i]!.textContent).toContain(e.verifyStopped!.reason);
+    });
+    // 止めた文書は『載せません』と出し、通った文書の数と合う
+    expect(within(section("検査")).getAllByText(/必須の項目が通らなかったので、載せません/)).toHaveLength(stopped.length);
   });
 });
 

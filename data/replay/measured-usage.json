@@ -1,6 +1,19 @@
 {
-  "status": "unmeasured",
-  "documents": 0,
-  "byModel": {},
-  "measuredAt": null
+  "status": "measured",
+  "documents": 10,
+  "byModel": {
+    "claude-opus-5-5": {
+      "inputTokens": 41175,
+      "outputTokens": 10466,
+      "cacheReadTokens": 39550,
+      "cacheWriteTokens": 0
+    },
+    "claude-haiku-5-5": {
+      "inputTokens": 41175,
+      "outputTokens": 2579,
+      "cacheReadTokens": 24100,
+      "cacheWriteTokens": 0
+    }
+  },
+  "measuredAt": "2026-11-04T16:27:14+09:00"
 }

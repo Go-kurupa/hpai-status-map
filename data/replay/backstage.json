@@ -1,6 +1,1075 @@
 {
-  "status": "unmeasured",
-  "measuredAt": null,
-  "note": "まだ実物の文書を読んでいません。有料の Claude API の呼び出しは、支払いの上限を置いてから行います。",
-  "entries": []
+  "status": "measured",
+  "measuredAt": "2026-11-04T16:27:14+09:00",
+  "entries": [
+    {
+      "id": "tsuyama-suspected",
+      "documentUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
+      "kind": "suspected",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "suspected",
+          "matchedWord": null
+        },
+        {
+          "field": "prefecture",
+          "value": "岡山県",
+          "matchedWord": "岡山県"
+        },
+        {
+          "field": "municipality",
+          "value": "津山市",
+          "matchedWord": "津山市"
+        },
+        {
+          "field": "birdUse",
+          "value": "採卵鶏",
+          "matchedWord": "採卵鶏"
+        },
+        {
+          "field": "headCount",
+          "value": "430000",
+          "matchedWord": "43万羽"
+        },
+        {
+          "field": "primaryStage",
+          "value": "suspected",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-19 14:26",
+          "matchedWord": "12月19日"
+        },
+        {
+          "field": "radiiKm",
+          "value": "3km、10km",
+          "matchedWord": "3km"
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "suspected"
+        },
+        {
+          "field": "prefecture",
+          "value": "岡山県"
+        },
+        {
+          "field": "municipality",
+          "value": "津山市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "suspected"
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-19 14:26"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": false,
+          "detail": "primaryDate: date_not_in_quote（必須の項目）"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "stage_word",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "radius_sentence",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "year_completion",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": false,
+      "droppedOptional": [],
+      "compare": {
+        "match": true,
+        "mismatches": []
+      },
+      "tamperedDemo": {
+        "field": "radiiKm",
+        "before": "3km",
+        "after": "1km",
+        "rejectedBy": "radius_sentence"
+      },
+      "verifyStopped": {
+        "fields": [
+          "primaryDate"
+        ],
+        "reason": "引用に日付がなく時刻だけだったので、プログラムは日付を確かめられず、確認中に回しました"
+      }
+    },
+    {
+      "id": "tsuyama-confirmed",
+      "documentUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf",
+      "kind": "confirmed",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "confirmed",
+          "matchedWord": null
+        },
+        {
+          "field": "municipality",
+          "value": "津山市",
+          "matchedWord": "津山市"
+        },
+        {
+          "field": "headCount",
+          "value": "430000",
+          "matchedWord": "43万羽"
+        },
+        {
+          "field": "primaryStage",
+          "value": "confirmed",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-20 09:00",
+          "matchedWord": "12月20日"
+        },
+        {
+          "field": "radiiKm",
+          "value": "3km、10km",
+          "matchedWord": null
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "confirmed"
+        },
+        {
+          "field": "prefecture",
+          "value": "岡山県"
+        },
+        {
+          "field": "municipality",
+          "value": "津山市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "confirmed"
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-20 09:00"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": false,
+          "detail": "primaryDate: date_not_in_quote（必須の項目） / headCount: culled_count_not_flock_size（任意の項目。落として続行）"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "stage_word",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "radius_sentence",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "chronology",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "year_completion",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": false,
+      "droppedOptional": [
+        "headCount"
+      ],
+      "compare": {
+        "match": true,
+        "mismatches": []
+      },
+      "tamperedDemo": {
+        "field": "municipality",
+        "before": "津山市",
+        "after": "米子市",
+        "rejectedBy": "compare"
+      },
+      "verifyStopped": {
+        "fields": [
+          "primaryDate"
+        ],
+        "reason": "引用に別の月日と「本日」の両方があり、プログラムは日付を確かめられず、確認中に回しました"
+      }
+    },
+    {
+      "id": "tsuyama-progress",
+      "documentUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970441_misc.pdf",
+      "kind": "progress",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "progress",
+          "matchedWord": null
+        },
+        {
+          "field": "municipality",
+          "value": "津山市",
+          "matchedWord": "津山市"
+        },
+        {
+          "field": "headCount",
+          "value": "424245",
+          "matchedWord": null
+        },
+        {
+          "field": "radiiKm",
+          "value": "3km、10km",
+          "matchedWord": "3km"
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "progress"
+        },
+        {
+          "field": "prefecture",
+          "value": "岡山県"
+        },
+        {
+          "field": "municipality",
+          "value": "津山市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "confirmed"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": true,
+          "detail": "都道府県は、読み取りが空で、本文に別の県名もなかったので、取得元の県（プログラムの情報）で補いました"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "radius_sentence",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": true,
+      "droppedOptional": [],
+      "compare": {
+        "match": false,
+        "mismatches": [
+          "primaryStage"
+        ]
+      },
+      "tamperedDemo": null
+    },
+    {
+      "id": "tsuyama-control-done",
+      "documentUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970459_misc.pdf",
+      "kind": "control_done",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "control_done",
+          "matchedWord": null
+        },
+        {
+          "field": "municipality",
+          "value": "津山市",
+          "matchedWord": "津山市"
+        },
+        {
+          "field": "headCount",
+          "value": "424190",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryStage",
+          "value": "control_done",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-30 15:10",
+          "matchedWord": "12月30日"
+        },
+        {
+          "field": "radiiKm",
+          "value": "3km、10km",
+          "matchedWord": "3km"
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "control_done"
+        },
+        {
+          "field": "prefecture",
+          "value": "岡山県"
+        },
+        {
+          "field": "municipality",
+          "value": "津山市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "control_done"
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-30 15:10"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": false,
+          "detail": "headCount: culled_count_not_flock_size（任意の項目。落として続行）"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "radius_sentence",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "chronology",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "year_completion",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": true,
+      "droppedOptional": [
+        "headCount"
+      ],
+      "compare": {
+        "match": true,
+        "mismatches": []
+      },
+      "tamperedDemo": null
+    },
+    {
+      "id": "tsuyama-shipment-lifted",
+      "documentUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970460_misc.pdf",
+      "kind": "zone_lifted",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "zone_lifted",
+          "matchedWord": null
+        },
+        {
+          "field": "municipality",
+          "value": "津山市",
+          "matchedWord": "津山市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "shipment_lifted",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryDate",
+          "value": "2026-01-10 15:00",
+          "matchedWord": "1月10日"
+        },
+        {
+          "field": "radiiKm",
+          "value": "3km、10km",
+          "matchedWord": "3km"
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "zone_lifted"
+        },
+        {
+          "field": "prefecture",
+          "value": "岡山県"
+        },
+        {
+          "field": "municipality",
+          "value": "津山市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "shipment_lifted"
+        },
+        {
+          "field": "primaryDate",
+          "value": "2026-01-10 15:00"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": true,
+          "detail": "都道府県は、読み取りが空で、本文に別の県名もなかったので、取得元の県（プログラムの情報）で補いました"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "stage_word",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "radius_sentence",
+          "pass": false,
+          "detail": "radiiKm: row0:radius_not_in_sentence（任意の項目。落として続行） / radiiKm: row1:radius_not_in_sentence（任意の項目。落として続行）"
+        },
+        {
+          "check": "chronology",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "year_completion",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": true,
+      "droppedOptional": [
+        "radiiKm"
+      ],
+      "compare": {
+        "match": true,
+        "mismatches": []
+      },
+      "tamperedDemo": null
+    },
+    {
+      "id": "tsuyama-movement-lifted",
+      "documentUrl": "https://www.maff.go.jp/j/press/syouan/douei/260121_1.html",
+      "kind": "zone_lifted",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "zone_lifted",
+          "matchedWord": null
+        },
+        {
+          "field": "prefecture",
+          "value": "岡山県",
+          "matchedWord": "岡山県"
+        },
+        {
+          "field": "municipality",
+          "value": "津山市",
+          "matchedWord": "津山市"
+        },
+        {
+          "field": "nationalNo",
+          "value": "8",
+          "matchedWord": "国内8例目"
+        },
+        {
+          "field": "primaryStage",
+          "value": "movement_lifted",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryDate",
+          "value": "2026-01-21 00:00",
+          "matchedWord": "1月21日"
+        },
+        {
+          "field": "radiiKm",
+          "value": "3km、10km",
+          "matchedWord": "3km"
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "zone_lifted"
+        },
+        {
+          "field": "prefecture",
+          "value": "岡山県"
+        },
+        {
+          "field": "municipality",
+          "value": "津山市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "movement_lifted"
+        },
+        {
+          "field": "primaryDate",
+          "value": "2026-01-21 00:00"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "stage_word",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "radius_sentence",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "chronology",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "year_completion",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": true,
+      "droppedOptional": [],
+      "compare": {
+        "match": true,
+        "mismatches": []
+      },
+      "tamperedDemo": null
+    },
+    {
+      "id": "yonago-confirmed",
+      "documentUrl": "https://www.maff.go.jp/j/press/syouan/douei/251201.html",
+      "kind": "confirmed",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "confirmed",
+          "matchedWord": null
+        },
+        {
+          "field": "prefecture",
+          "value": "鳥取県",
+          "matchedWord": "鳥取県"
+        },
+        {
+          "field": "municipality",
+          "value": "米子市",
+          "matchedWord": "米子市"
+        },
+        {
+          "field": "nationalNo",
+          "value": "6",
+          "matchedWord": "国内6例目"
+        },
+        {
+          "field": "birdUse",
+          "value": "肉用鶏",
+          "matchedWord": "肉用鶏"
+        },
+        {
+          "field": "headCount",
+          "value": "75000",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryStage",
+          "value": "confirmed",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-02",
+          "matchedWord": "12月2日"
+        },
+        {
+          "field": "radiiKm",
+          "value": "3km、10km",
+          "matchedWord": "3km"
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "confirmed"
+        },
+        {
+          "field": "prefecture",
+          "value": "鳥取県"
+        },
+        {
+          "field": "municipality",
+          "value": "米子市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "confirmed"
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-02"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": false,
+          "detail": "stageEvents: row0:date_not_in_quote（任意の項目。落として続行）"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "stage_word",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "radius_sentence",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "year_completion",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": true,
+      "droppedOptional": [
+        "stageEvents"
+      ],
+      "compare": {
+        "match": true,
+        "mismatches": []
+      },
+      "tamperedDemo": null
+    },
+    {
+      "id": "himeji-confirmed",
+      "documentUrl": "https://www.maff.go.jp/j/press/syouan/douei/251216.html",
+      "kind": "confirmed",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "confirmed",
+          "matchedWord": null
+        },
+        {
+          "field": "prefecture",
+          "value": "兵庫県",
+          "matchedWord": "兵庫県"
+        },
+        {
+          "field": "municipality",
+          "value": "姫路市",
+          "matchedWord": "姫路市"
+        },
+        {
+          "field": "nationalNo",
+          "value": "7",
+          "matchedWord": "国内7例目"
+        },
+        {
+          "field": "birdUse",
+          "value": "採卵鶏",
+          "matchedWord": "採卵鶏"
+        },
+        {
+          "field": "headCount",
+          "value": "240000",
+          "matchedWord": "24万羽"
+        },
+        {
+          "field": "primaryStage",
+          "value": "confirmed",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-16",
+          "matchedWord": "12月16日"
+        },
+        {
+          "field": "radiiKm",
+          "value": "3km、10km",
+          "matchedWord": "3km"
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "confirmed"
+        },
+        {
+          "field": "prefecture",
+          "value": "兵庫県"
+        },
+        {
+          "field": "municipality",
+          "value": "姫路市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "confirmed"
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-16"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": false,
+          "detail": "stageEvents: row0:date_not_in_quote（任意の項目。落として続行）"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "stage_word",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "radius_sentence",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "year_completion",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": true,
+      "droppedOptional": [
+        "stageEvents"
+      ],
+      "compare": {
+        "match": true,
+        "mismatches": []
+      },
+      "tamperedDemo": null
+    },
+    {
+      "id": "kameoka-confirmed",
+      "documentUrl": "https://www.maff.go.jp/j/press/syouan/douei/251224.html",
+      "kind": "confirmed",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "confirmed",
+          "matchedWord": null
+        },
+        {
+          "field": "prefecture",
+          "value": "京都府",
+          "matchedWord": "京都府"
+        },
+        {
+          "field": "municipality",
+          "value": "亀岡市",
+          "matchedWord": "亀岡市"
+        },
+        {
+          "field": "nationalNo",
+          "value": "9",
+          "matchedWord": "国内9例目"
+        },
+        {
+          "field": "birdUse",
+          "value": "採卵鶏",
+          "matchedWord": "採卵鶏"
+        },
+        {
+          "field": "headCount",
+          "value": "280000",
+          "matchedWord": "28万羽"
+        },
+        {
+          "field": "primaryStage",
+          "value": "confirmed",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-24",
+          "matchedWord": "12月24日"
+        },
+        {
+          "field": "radiiKm",
+          "value": "3km、10km",
+          "matchedWord": "3km"
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "confirmed"
+        },
+        {
+          "field": "prefecture",
+          "value": "京都府"
+        },
+        {
+          "field": "municipality",
+          "value": "亀岡市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "confirmed"
+        },
+        {
+          "field": "primaryDate",
+          "value": "2025-12-24"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": false,
+          "detail": "stageEvents: row0:date_not_in_quote（任意の項目。落として続行）"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "stage_word",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "radius_sentence",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "year_completion",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": true,
+      "droppedOptional": [
+        "stageEvents"
+      ],
+      "compare": {
+        "match": true,
+        "mismatches": []
+      },
+      "tamperedDemo": null
+    },
+    {
+      "id": "himeji-city-page",
+      "documentUrl": "https://www.city.himeji.lg.jp/kurashi/0000019291.html",
+      "kind": "zone_lifted",
+      "primary": [
+        {
+          "field": "kind",
+          "value": "zone_lifted",
+          "matchedWord": null
+        },
+        {
+          "field": "prefecture",
+          "value": "兵庫県",
+          "matchedWord": "兵庫県"
+        },
+        {
+          "field": "municipality",
+          "value": "姫路市",
+          "matchedWord": "姫路市"
+        },
+        {
+          "field": "prefNo",
+          "value": "2",
+          "matchedWord": "2例目"
+        },
+        {
+          "field": "birdUse",
+          "value": "採卵鶏",
+          "matchedWord": "採卵鶏"
+        },
+        {
+          "field": "headCount",
+          "value": "155000",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryStage",
+          "value": "movement_lifted",
+          "matchedWord": null
+        },
+        {
+          "field": "primaryDate",
+          "value": "2026-02-02 00:00",
+          "matchedWord": "2月2日"
+        }
+      ],
+      "second": [
+        {
+          "field": "kind",
+          "value": "zone_lifted"
+        },
+        {
+          "field": "prefecture",
+          "value": "兵庫県"
+        },
+        {
+          "field": "municipality",
+          "value": "姫路市"
+        },
+        {
+          "field": "primaryStage",
+          "value": "movement_lifted"
+        },
+        {
+          "field": "primaryDate",
+          "value": "2026-02-02 00:00"
+        }
+      ],
+      "checks": [
+        {
+          "check": "quote_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "value_in_quote",
+          "pass": false,
+          "detail": "prefNo: value_not_in_quote（任意の項目。落として続行）"
+        },
+        {
+          "check": "muni_exists",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "stage_word",
+          "pass": true,
+          "detail": "問題なし"
+        },
+        {
+          "check": "year_completion",
+          "pass": true,
+          "detail": "問題なし"
+        }
+      ],
+      "verifyPass": true,
+      "droppedOptional": [
+        "prefNo"
+      ],
+      "compare": {
+        "match": true,
+        "mismatches": []
+      },
+      "tamperedDemo": null
+    }
+  ]
 }

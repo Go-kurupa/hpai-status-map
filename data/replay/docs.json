@@ -12,7 +12,9 @@
         "kind": "suspected",
         "muniCode": "33203",
         "primaryStage": "suspected",
-        "primaryDate": "2025-12-19"
+        "primaryDate": "2025-12-19",
+        "expectVerifyFail": ["primaryDate"],
+        "verifyFailNote": "引用に日付がなく時刻だけだったので、プログラムは日付を確かめられず、確認中に回しました"
       }
     },
     {
@@ -27,7 +29,9 @@
         "kind": "confirmed",
         "muniCode": "33203",
         "primaryStage": "confirmed",
-        "primaryDate": "2025-12-20"
+        "primaryDate": "2025-12-20",
+        "expectVerifyFail": ["primaryDate"],
+        "verifyFailNote": "引用に別の月日と「本日」の両方があり、プログラムは日付を確かめられず、確認中に回しました"
       }
     },
     {

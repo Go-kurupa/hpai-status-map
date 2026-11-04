@@ -6,6 +6,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { BackstageFile, MeasuredUsage, ReplayScenario } from "@hpai/shared/replay";
 import { isPrefDomainHost } from "@hpai/shared/pref";
+import { findForbiddenPhrases, findWordingViolations } from "@hpai/shared/wording";
 import { checkBackstageData, UNMEASURED_BACKSTAGE, UNMEASURED_USAGE, type DocsFile } from "../lib/backstage";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
@@ -72,6 +73,20 @@ describe("docs.json（読む文書の一覧）", () => {
     }
     const orders = docs.flatMap((d) => (d.eventOrder === null ? [] : [d.eventOrder]));
     expect(new Set(orders).size).toBe(orders.length);
+  });
+
+  it("expectVerifyFail を書いた文書は、日付の項目だけで、理由の文があり、禁句を含まない（津山の疑いと確定）", () => {
+    const flagged = docs.filter((d) => d.expect.expectVerifyFail !== undefined);
+    expect(flagged.map((d) => d.id)).toEqual(["tsuyama-suspected", "tsuyama-confirmed"]);
+    for (const d of flagged) {
+      expect(d.expect.expectVerifyFail, d.id).toEqual(["primaryDate"]);
+      expect(d.expect.primaryDate, d.id).toBeTruthy(); // 読みの比べ先
+      const note = d.expect.verifyFailNote ?? "";
+      expect(note.length, d.id).toBeGreaterThan(0);
+      expect(note.length, d.id).toBeLessThanOrEqual(80);
+      expect(findWordingViolations(note), d.id).toEqual([]);
+      expect(findForbiddenPhrases(note), d.id).toEqual([]);
+    }
   });
 
   it("本文や引用を持たない（quote のキーがなく、長い文を置かない）", () => {

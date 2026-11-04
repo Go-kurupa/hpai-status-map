@@ -173,6 +173,12 @@ function BackstageView({ scenario, backstage, usage }: Data) {
                 {e.verifyPass ? "必須の項目は通りました。" : "必須の項目が通らなかったので、載せません。"}
                 {e.droppedOptional.length > 0 ? `任意の項目で落としたもの: ${e.droppedOptional.map((f) => FIELD_LABEL[f] ?? f).join("、")}。` : ""}
               </p>
+              {e.verifyStopped ? (
+                <p className="backstage-stopped" data-testid="verify-stopped">
+                  <strong>照合で止めました（確認中に回しました）</strong>: {e.verifyStopped.fields.map((f) => FIELD_LABEL[f] ?? f).join("、")}。{e.verifyStopped.reason}。
+                  読み取りそのものは期待どおりでしたが、プログラムは確かめられない値を載せません。
+                </p>
+              ) : null}
               <ul>
                 {e.checks.map((c) => (
                   <li key={c.check}>

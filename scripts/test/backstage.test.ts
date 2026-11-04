@@ -298,7 +298,7 @@ interface Rig {
   read: <T>(name: string) => T;
 }
 
-function rig(opts: { docs?: BackstageDoc[]; cache?: boolean } = {}): Rig {
+function rig(opts: { docs?: BackstageDoc[]; cache?: boolean; tweakA?: (r: ReadResult) => ReadResult } = {}): Rig {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "backstage-"));
   const cacheDir = path.join(dir, "cache");
   fs.mkdirSync(cacheDir);
@@ -306,7 +306,9 @@ function rig(opts: { docs?: BackstageDoc[]; cache?: boolean } = {}): Rig {
   fs.writeFileSync(files.docs, JSON.stringify({ docs: opts.docs ?? docs() }, null, 2));
   fs.writeFileSync(files.backstage, JSON.stringify(UNMEASURED_BACKSTAGE, null, 2) + "\n");
   fs.writeFileSync(files.usage, JSON.stringify(UNMEASURED_USAGE, null, 2) + "\n");
-  fs.copyFileSync(path.join(ROOT, "data", "replay", "scenario.json"), files.scenario);
+  // 実物の scenario.json は測り済みで backstageId が入っている。ここでは作った文書（t-*）を測るので、測る前の形（backstageId なし）にして写す
+  const real = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "replay", "scenario.json"), "utf8")) as ReplayScenario;
+  fs.writeFileSync(files.scenario, JSON.stringify({ ...real, events: real.events.map((e) => ({ ...e, backstageId: null })) }, null, 2) + "\n");
   if (opts.cache !== false) {
     fs.writeFileSync(path.join(cacheDir, "t-confirmed.html"), `<html><head><title>x</title></head><body><main>${TEXT_A.split("\n").map((l) => `<p>${l}</p>`).join("")}</main></body></html>`);
     fs.writeFileSync(path.join(cacheDir, "t-suspected.html"), `<html><head><title>x</title></head><body><main>${TEXT_B.split("\n").map((l) => `<p>${l}</p>`).join("")}</main></body></html>`);
@@ -316,7 +318,7 @@ function rig(opts: { docs?: BackstageDoc[]; cache?: boolean } = {}): Rig {
     const content = JSON.stringify(params.messages);
     const isA = content.includes("【試験用】確定");
     const primary = params.model === S.primaryModel;
-    const body = primary ? wirePrimary(isA ? readA() : readB()) : isA ? secondA() : secondB();
+    const body = primary ? wirePrimary(isA ? (opts.tweakA ?? ((x: ReadResult) => x))(readA()) : readB()) : isA ? secondA() : secondB();
     return { id: "m", type: "message", role: "assistant", model: params.model, stop_reason: "end_turn", stop_sequence: null, content: [{ type: "text", text: JSON.stringify(body) }], usage: usageOf(params.model) } as unknown as Anthropic.Message;
   });
   const makeClient = vi.fn(() => ({ messages: { create } }) as unknown as Anthropic);
@@ -502,8 +504,75 @@ describe("runBackstage --yes（偽の client）", () => {
   });
 });
 
+describe("runBackstage: 照合で止めると分かっている項目（expectVerifyFail）", () => {
+  // 引用が時刻だけ（日付がない）→ 照合が日付を確かめられず落とす。読み（年月日）は期待どおり
+  const timeOnly = (r: ReadResult): ReadResult => ({ ...r, primaryDateQuote: "午前9時" });
+  const withFail = (over: Partial<BackstageDoc["expect"]> = {}): BackstageDoc[] => {
+    const d = docs();
+    d[0] = { ...d[0]!, expect: { ...d[0]!.expect, expectVerifyFail: ["primaryDate"], verifyFailNote: "引用に日付がなく時刻だけだったので、プログラムは日付を確かめられず、確認中に回しました", ...over } };
+    return d;
+  };
+
+  it("前提: 時刻だけの引用は、照合が primaryDate を落とす", () => {
+    const v = verifyA(timeOnly(readA()));
+    expect(v.pass).toBe(false);
+    expect(v.issues.some((i) => i.field === "primaryDate" && i.mandatory)).toBe(true);
+  });
+
+  it("expectVerifyFail の項目だけが落ち、読みが期待どおりなら、止めずに書く。その文書に『照合で止めた』の印と理由を入れる", async () => {
+    const r = rig({ docs: withFail(), tweakA: timeOnly });
+    const code = await runBackstage(["--yes"], r.deps);
+    expect(r.logs.join("\n")).not.toContain("scenario と違います");
+    expect(code).toBe(0);
+    const file = r.read<BackstageFile>("backstage.json");
+    const [a, b] = file.entries;
+    expect(a!.verifyPass).toBe(false);
+    expect(a!.verifyStopped).toEqual({ fields: ["primaryDate"], reason: "引用に日付がなく時刻だけだったので、プログラムは日付を確かめられず、確認中に回しました" });
+    expect(b!.verifyStopped ?? null).toBeNull();
+  });
+
+  it("読み（primaryDate）そのものが期待と違えば、expectVerifyFail に書いてあっても止める", async () => {
+    const r = rig({ docs: withFail(), tweakA: (x) => ({ ...timeOnly(x), primaryDate: { year: 2025, month: 12, day: 21, time: null } }) });
+    expect(await runBackstage(["--yes"], r.deps)).toBe(1);
+    expect(r.logs.join("\n")).toContain("primaryDate");
+    expect(r.read<BackstageFile>("backstage.json").status).toBe("unmeasured");
+  });
+
+  it("読みの年月日が期待と違えば（年違い）止める。読みが空でも止める", async () => {
+    const wrongYear = rig({ docs: withFail(), tweakA: (x) => ({ ...timeOnly(x), primaryDate: { year: 2024, month: 12, day: 20, time: null } }) });
+    expect(await runBackstage(["--yes"], wrongYear.deps)).toBe(1);
+    const empty = rig({ docs: withFail(), tweakA: (x) => ({ ...x, primaryDate: null, primaryDateQuote: null }) });
+    expect(await runBackstage(["--yes"], empty.deps)).toBe(1);
+  });
+
+  it("expectVerifyFail にない項目が食い違えば、止める（日付が書いてあっても、ほかの項目が落ちたら止める）", async () => {
+    const r = rig({ docs: withFail({ muniCode: "31202" }), tweakA: timeOnly });
+    expect(await runBackstage(["--yes"], r.deps)).toBe(1);
+    const out = r.logs.join("\n");
+    expect(out).toContain("muniCode");
+    expect(r.read<BackstageFile>("backstage.json").status).toBe("unmeasured");
+  });
+
+  it("expectVerifyFail がなければ、日付が落ちた文書は今までどおり止める", async () => {
+    const r = rig({ tweakA: timeOnly });
+    expect(await runBackstage(["--yes"], r.deps)).toBe(1);
+    expect(r.logs.join("\n")).toContain("primaryDate");
+  });
+
+  it("出来事に結びつかない文書でも、同じ規則（読みが合えば印をつけて書く。読みが違えば項目を記録）", async () => {
+    const d = withFail();
+    d[0] = { ...d[0]!, eventOrder: null };
+    const r = rig({ docs: d, tweakA: timeOnly });
+    expect(await runBackstage(["--yes"], r.deps)).toBe(0);
+    expect(r.read<BackstageFile>("backstage.json").entries[0]!.verifyStopped?.fields).toEqual(["primaryDate"]);
+  });
+});
+
 describe("checkBackstageData", () => {
-  const scenario = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "replay", "scenario.json"), "utf8")) as ReplayScenario;
+  // 実物の scenario.json は測り済みで backstageId が入っている。この試験は作った文書（t-*）を使うので、測る前の形（backstageId なし）から組む。
+  // 実物の測り済みデータが規則を満たすことは、backstage-data.test.ts が見る
+  const realScenario = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "replay", "scenario.json"), "utf8")) as ReplayScenario;
+  const scenario: ReplayScenario = { ...realScenario, events: realScenario.events.map((e) => ({ ...e, backstageId: null })) };
   const base = (): Parameters<typeof checkBackstageData>[0] => ({
     docs: { docs: docs() },
     backstage: { ...UNMEASURED_BACKSTAGE },
