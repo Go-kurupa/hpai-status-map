@@ -1,0 +1,1689 @@
+{
+  "runId": "20261104-1793773865149-sync",
+  "mode": "sync",
+  "models": {
+    "primary": "claude-opus-5-5",
+    "effort": "medium",
+    "second": "claude-haiku-5-5"
+  },
+  "passes": true,
+  "costUsd": 1.469838,
+  "summary": {
+    "measuredAt": "2026-11-04T15:33:17+09:00",
+    "metrics": [
+      {
+        "name": "documents",
+        "value": 54,
+        "denominator": null,
+        "unit": "文書",
+        "note": "試みた全文書"
+      },
+      {
+        "name": "read_refusals",
+        "value": 0,
+        "denominator": 108,
+        "unit": "件",
+        "note": "主と別の読み手の呼び出しの合計"
+      },
+      {
+        "name": "format_errors",
+        "value": 0,
+        "denominator": 108,
+        "unit": "件",
+        "note": "主と別の読み手の呼び出しの合計"
+      },
+      {
+        "name": "primary_muni_errors",
+        "value": 0,
+        "denominator": 54,
+        "unit": "文書",
+        "note": "読めた文書のうち、市町村の読み違い"
+      },
+      {
+        "name": "primary_stage_errors",
+        "value": 0,
+        "denominator": 54,
+        "unit": "文書",
+        "note": "読めた文書のうち、段階の読み違い。種類の取り違え 0 件（家きんの事例、野鳥、対象外の区別、否定かどうか）は合否に入れない"
+      },
+      {
+        "name": "primary_date_errors",
+        "value": 0,
+        "denominator": 54,
+        "unit": "文書",
+        "note": "読めた文書のうち、日付の読み違い"
+      },
+      {
+        "name": "primary_headcount_errors",
+        "value": 7,
+        "denominator": 54,
+        "unit": "文書",
+        "note": "羽数の読み違い。合否には入れない（照合で空欄になる）"
+      },
+      {
+        "name": "published_mandatory_errors",
+        "value": 0,
+        "denominator": 11,
+        "unit": "文書",
+        "note": "自動で載せると決めた文書の、必須の項目の誤り"
+      },
+      {
+        "name": "published_headcount_errors",
+        "value": 0,
+        "denominator": 11,
+        "unit": "文書",
+        "note": "自動で載せると決めた文書の、羽数の誤り"
+      },
+      {
+        "name": "auto_published_documents",
+        "value": 11,
+        "denominator": 54,
+        "unit": "文書",
+        "note": "自動で載せる設定を入にして測った"
+      },
+      {
+        "name": "review_documents",
+        "value": 39,
+        "denominator": 54,
+        "unit": "文書",
+        "note": "人の確認に回った"
+      },
+      {
+        "name": "second_reader_mismatches",
+        "value": 19,
+        "denominator": 54,
+        "unit": "文書",
+        "note": "主と別の読み手の食い違い"
+      },
+      {
+        "name": "tamper_rejected",
+        "value": 17,
+        "denominator": 17,
+        "unit": "件",
+        "note": "わざと入れ替えた結果と誤った読み手のうち、載らずに落ちた数"
+      },
+      {
+        "name": "detection_prev_season",
+        "value": 24,
+        "denominator": 24,
+        "unit": "件",
+        "note": "前季の確認の発表が国の事例の一覧と一致"
+      },
+      {
+        "name": "detection_title_classification",
+        "value": 70,
+        "denominator": 70,
+        "unit": "題",
+        "note": "確認/解除/それ以外 = 24/21/25"
+      }
+    ],
+    "unmeasured": [],
+    "costPerDocumentUsd": 0.02721922222222222
+  },
+  "tamperFailures": [],
+  "counts": {
+    "kindClassErrors": 0,
+    "radiusWrong": 0,
+    "rerunNeeded": 0
+  },
+  "documents": [
+    {
+      "id": "c-maff-gifu",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "関市",
+      "stageRead": "confirmed",
+      "headCountRead": 20000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "c-maff-ibaraki",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "城里町",
+      "stageRead": "confirmed",
+      "headCountRead": 970000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "c-maff-kyoto",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "亀岡市",
+      "stageRead": "confirmed",
+      "headCountRead": 280000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "c-maff-mie",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "津市",
+      "stageRead": "confirmed",
+      "headCountRead": 25000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "c-maff-okayama",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "津山市",
+      "stageRead": "confirmed",
+      "headCountRead": 430000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "c-maff-saitama",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "嵐山町",
+      "stageRead": "confirmed",
+      "headCountRead": 240000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "c-okayama-pref",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "津山市",
+      "stageRead": "confirmed",
+      "headCountRead": 430000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "c-saitama-pref",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "嵐山町",
+      "stageRead": "confirmed",
+      "headCountRead": 240000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "c-tottori-pref",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "米子市",
+      "stageRead": "confirmed",
+      "headCountRead": 75000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "kind:stage_word",
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "d-chiba-pref",
+      "answerKind": "control_done",
+      "readKind": "control_done",
+      "muniRead": "旭市",
+      "stageRead": "control_done",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "d-ibaraki-pref",
+      "answerKind": "control_done",
+      "readKind": "control_done",
+      "muniRead": "城里町",
+      "stageRead": "control_done",
+      "headCountRead": 959920,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": true,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "d-kyoto-meeting",
+      "answerKind": "control_done",
+      "readKind": "control_done",
+      "muniRead": "亀岡市",
+      "stageRead": "control_done",
+      "headCountRead": 281786,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "d-okayama-special",
+      "answerKind": "control_done",
+      "readKind": "control_done",
+      "muniRead": "津山市",
+      "stageRead": "control_done",
+      "headCountRead": 424190,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": true,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "f-confirmed-base",
+      "answerKind": "confirmed",
+      "readKind": "confirmed",
+      "muniRead": "朝倉市",
+      "stageRead": "confirmed",
+      "headCountRead": 50000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "f-drill",
+      "answerKind": "drill",
+      "readKind": "drill",
+      "muniRead": null,
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "discard",
+      "reasons": [
+        "both_read:drill"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "f-irrelevant",
+      "answerKind": "irrelevant",
+      "readKind": "irrelevant",
+      "muniRead": null,
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "discard",
+      "reasons": [
+        "both_read:irrelevant"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "f-kyoto-type",
+      "answerKind": "suspected",
+      "readKind": "suspected",
+      "muniRead": "唐津市",
+      "stageRead": "suspected",
+      "headCountRead": 30000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "f-negated-1",
+      "answerKind": "negated",
+      "readKind": "negated",
+      "muniRead": "玉名市",
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_private",
+      "reasons": [
+        "kind:stage_word"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "f-negated-2",
+      "answerKind": "negated",
+      "readKind": "negated",
+      "muniRead": "宇佐市",
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_private",
+      "reasons": [
+        "kind:stage_word"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "i-gunma-school",
+      "answerKind": "irrelevant",
+      "readKind": "irrelevant",
+      "muniRead": null,
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "discard",
+      "reasons": [
+        "both_read:irrelevant"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "n-okayama-thanks",
+      "answerKind": "notice",
+      "readKind": "notice",
+      "muniRead": null,
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "discard",
+      "reasons": [
+        "both_read:notice"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "o-okayama-himeji-done",
+      "answerKind": "other_pref",
+      "readKind": "other_pref",
+      "muniRead": "姫路市",
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "kind"
+      ],
+      "decision": "review_private",
+      "reasons": [
+        "compare:kind"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "o-okayama-himeji-hq",
+      "answerKind": "other_pref",
+      "readKind": "other_pref",
+      "muniRead": null,
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "kind"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "compare:kind"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-chiba-culling",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": "旭市",
+      "stageRead": "culling_done",
+      "headCountRead": 81096,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": true,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-ibaraki-1226",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": "城里町",
+      "stageRead": null,
+      "headCountRead": 970000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-ibaraki-culling",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": "城里町",
+      "stageRead": "culling_done",
+      "headCountRead": 959920,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": true,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-kyoto-0224",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": null,
+      "stageRead": null,
+      "headCountRead": 280000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_private",
+      "reasons": [
+        "municipality:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-kyoto-1230",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": null,
+      "stageRead": "culling_done",
+      "headCountRead": 280000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_private",
+      "reasons": [
+        "municipality:value_in_quote",
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-maff-gene-okayama",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": "津山市",
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "primaryStage",
+        "primaryDate"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "compare:primaryStage",
+        "compare:primaryDate"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-okayama-culling",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": "津山市",
+      "stageRead": "culling_done",
+      "headCountRead": 424191,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": true,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-okayama-r2",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": "津山市",
+      "stageRead": null,
+      "headCountRead": 424245,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-okayama-r3",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": "津山市",
+      "stageRead": null,
+      "headCountRead": 424245,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-saitama-culling",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": "嵐山町",
+      "stageRead": "culling_done",
+      "headCountRead": 233456,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "kind"
+      ],
+      "decision": "review_private",
+      "reasons": [
+        "compare:kind"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": true,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "p-tottori-r4",
+      "answerKind": "progress",
+      "readKind": "progress",
+      "muniRead": "米子市",
+      "stageRead": "culling_done",
+      "headCountRead": 75137,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": true,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "s-gifu-pref",
+      "answerKind": "suspected",
+      "readKind": "suspected",
+      "muniRead": "関市",
+      "stageRead": "suspected",
+      "headCountRead": 20000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "kind:stage_word"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "s-ibaraki-pref",
+      "answerKind": "suspected",
+      "readKind": "suspected",
+      "muniRead": "城里町",
+      "stageRead": "suspected",
+      "headCountRead": 970000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "s-kyoto-meeting",
+      "answerKind": "suspected",
+      "readKind": "suspected",
+      "muniRead": "亀岡市",
+      "stageRead": "suspected",
+      "headCountRead": 280000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "s-mie-pref",
+      "answerKind": "suspected",
+      "readKind": "suspected",
+      "muniRead": "津市",
+      "stageRead": "suspected",
+      "headCountRead": 25000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "s-okayama-meeting",
+      "answerKind": "suspected",
+      "readKind": "suspected",
+      "muniRead": "津山市",
+      "stageRead": "suspected",
+      "headCountRead": 430000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "s-saitama-pref",
+      "answerKind": "suspected",
+      "readKind": "suspected",
+      "muniRead": "嵐山町",
+      "stageRead": "suspected",
+      "headCountRead": 240000,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "w-maff-tomakomai",
+      "answerKind": "wild_bird",
+      "readKind": "wild_bird",
+      "muniRead": "苫小牧市",
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_private",
+      "reasons": [
+        "wildBirds:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "w-moe-kurihara-negative",
+      "answerKind": "wild_bird",
+      "readKind": "wild_bird",
+      "muniRead": "栗原市",
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_private",
+      "reasons": [
+        "wildBirds:value_in_quote",
+        "wildBirds:stage_word"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "w-moe-kurihara-suspected",
+      "answerKind": "wild_bird",
+      "readKind": "wild_bird",
+      "muniRead": "栗原市",
+      "stageRead": null,
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-ibaraki-movement",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "城里町",
+      "stageRead": "movement_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-ibaraki-shipment",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "城里町",
+      "stageRead": "shipment_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-kyoto-surveillance",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "亀岡市",
+      "stageRead": "surveillance_lifted",
+      "headCountRead": 281786,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "review_public",
+      "reasons": [
+        "primaryDate:value_in_quote"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-maff-arashiyama",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "嵐山町",
+      "stageRead": "movement_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-maff-shiraoi",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "白老町",
+      "stageRead": "movement_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-maff-tsuyama",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "津山市",
+      "stageRead": "movement_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-maff-yonago",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "米子市",
+      "stageRead": "movement_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-mie-surveillance",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "津市",
+      "stageRead": "surveillance_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-okayama-movement",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "津山市",
+      "stageRead": "movement_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-okayama-shipment",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "津山市",
+      "stageRead": "shipment_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [
+        "prefecture"
+      ],
+      "decision": "review_public",
+      "reasons": [
+        "prefecture:value_in_quote",
+        "primaryDate:value_in_quote",
+        "compare:prefecture"
+      ],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": false,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    },
+    {
+      "id": "z-saitama-movement",
+      "answerKind": "zone_lifted",
+      "readKind": "zone_lifted",
+      "muniRead": "嵐山町",
+      "stageRead": "movement_lifted",
+      "headCountRead": null,
+      "primaryFailure": null,
+      "secondFailure": null,
+      "primaryDetail": null,
+      "secondDetail": null,
+      "compareMismatches": [],
+      "decision": "publish",
+      "reasons": [],
+      "errors": {
+        "muni": false,
+        "stage": false,
+        "date": false,
+        "headCount": false,
+        "kindClass": false
+      },
+      "radiusWrong": false,
+      "published": true,
+      "publishedMandatoryError": false,
+      "publishedHeadcountError": false
+    }
+  ]
+}

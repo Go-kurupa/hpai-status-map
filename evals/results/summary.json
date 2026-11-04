@@ -1,0 +1,112 @@
+{
+  "measuredAt": "2026-11-04T15:33:17+09:00",
+  "metrics": [
+    {
+      "name": "documents",
+      "value": 54,
+      "denominator": null,
+      "unit": "文書",
+      "note": "試みた全文書"
+    },
+    {
+      "name": "read_refusals",
+      "value": 0,
+      "denominator": 108,
+      "unit": "件",
+      "note": "主と別の読み手の呼び出しの合計"
+    },
+    {
+      "name": "format_errors",
+      "value": 0,
+      "denominator": 108,
+      "unit": "件",
+      "note": "主と別の読み手の呼び出しの合計"
+    },
+    {
+      "name": "primary_muni_errors",
+      "value": 0,
+      "denominator": 54,
+      "unit": "文書",
+      "note": "読めた文書のうち、市町村の読み違い"
+    },
+    {
+      "name": "primary_stage_errors",
+      "value": 0,
+      "denominator": 54,
+      "unit": "文書",
+      "note": "読めた文書のうち、段階の読み違い。種類の取り違え 0 件（家きんの事例、野鳥、対象外の区別、否定かどうか）は合否に入れない"
+    },
+    {
+      "name": "primary_date_errors",
+      "value": 0,
+      "denominator": 54,
+      "unit": "文書",
+      "note": "読めた文書のうち、日付の読み違い"
+    },
+    {
+      "name": "primary_headcount_errors",
+      "value": 7,
+      "denominator": 54,
+      "unit": "文書",
+      "note": "羽数の読み違い。合否には入れない（照合で空欄になる）"
+    },
+    {
+      "name": "published_mandatory_errors",
+      "value": 0,
+      "denominator": 11,
+      "unit": "文書",
+      "note": "自動で載せると決めた文書の、必須の項目の誤り"
+    },
+    {
+      "name": "published_headcount_errors",
+      "value": 0,
+      "denominator": 11,
+      "unit": "文書",
+      "note": "自動で載せると決めた文書の、羽数の誤り"
+    },
+    {
+      "name": "auto_published_documents",
+      "value": 11,
+      "denominator": 54,
+      "unit": "文書",
+      "note": "自動で載せる設定を入にして測った"
+    },
+    {
+      "name": "review_documents",
+      "value": 39,
+      "denominator": 54,
+      "unit": "文書",
+      "note": "人の確認に回った"
+    },
+    {
+      "name": "second_reader_mismatches",
+      "value": 19,
+      "denominator": 54,
+      "unit": "文書",
+      "note": "主と別の読み手の食い違い"
+    },
+    {
+      "name": "tamper_rejected",
+      "value": 17,
+      "denominator": 17,
+      "unit": "件",
+      "note": "わざと入れ替えた結果と誤った読み手のうち、載らずに落ちた数"
+    },
+    {
+      "name": "detection_prev_season",
+      "value": 24,
+      "denominator": 24,
+      "unit": "件",
+      "note": "前季の確認の発表が国の事例の一覧と一致"
+    },
+    {
+      "name": "detection_title_classification",
+      "value": 70,
+      "denominator": 70,
+      "unit": "題",
+      "note": "確認/解除/それ以外 = 24/21/25"
+    }
+  ],
+  "unmeasured": [],
+  "costPerDocumentUsd": 0.02721922222222222
+}
