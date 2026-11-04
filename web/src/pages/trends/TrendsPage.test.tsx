@@ -1,0 +1,99 @@
+import { findWordingViolations } from "@hpai/shared/wording";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import TrendsPage from "./TrendsPage";
+import { parseTrendSummary, type TrendSummary } from "./types";
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+// 画面の試験に使う、作った集計（実測ではない。data/ には入れない）
+const SUMMARY: TrendSummary = {
+  generatedAt: "2026-11-08T10:00:00+09:00",
+  seasons: [
+    {
+      season: 2025,
+      surveyed: 24,
+      items: [
+        { key: "external_clothing", label: "外部事業者の専用の衣服や靴", issueCount: 13, notMentionedCount: 5 },
+        { key: "rodent_signs", label: "ねずみの痕跡", issueCount: 14, notMentionedCount: 4 },
+        { key: "wall_net_damage", label: "壁やネットの破損", issueCount: 6, notMentionedCount: 10 },
+      ],
+    },
+  ],
+  sourceUrls: ["https://www.maff.go.jp/j/syouan/douei/tori/r7_hpai_kokunai.html"],
+};
+
+type Reply = unknown | "missing" | "html" | "error";
+function stub(r: Reply) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) => {
+      if (!String(url).endsWith("trends/summary.json")) return Promise.reject(new Error(`想定しない通信: ${url}`));
+      if (r === "missing") return Promise.resolve(new Response("", { status: 404 }));
+      if (r === "html") return Promise.resolve(new Response("<!doctype html><html></html>", { status: 200, headers: { "content-type": "text/html" } }));
+      if (r === "error") return Promise.resolve(new Response("", { status: 500 }));
+      return Promise.resolve(new Response(JSON.stringify(r), { status: 200, headers: { "content-type": "application/json" } }));
+    }),
+  );
+}
+const show = () =>
+  render(
+    <MemoryRouter>
+      <TrendsPage />
+    </MemoryRouter>,
+  );
+
+describe("全国の傾向（/trends）", () => {
+  it("集計があれば、全国の傾向であること、人が全件を確かめていないこと、時点を出す", async () => {
+    stub(SUMMARY);
+    show();
+    expect(await screen.findByText(/全国の傾向です/u)).toBeTruthy();
+    expect(screen.getByText(/自由記述を Claude が項目に揃えた結果で、全件を人が確かめたものではありません/u)).toBeTruthy();
+    expect(screen.getByText(/2026-11-08 10:00 時点/u)).toBeTruthy();
+  });
+
+  it("3 つの項目は報告書の言い方のままで、数と出典を出す", async () => {
+    stub(SUMMARY);
+    show();
+    const table = await screen.findByRole("table");
+    for (const label of ["外部事業者の専用の衣服や靴", "ねずみの痕跡", "壁やネットの破損"]) expect(within(table).getByText(label)).toBeTruthy();
+    const row = within(table).getByText("ねずみの痕跡").closest("tr")!;
+    expect(row.textContent).toContain("14");
+    expect(row.textContent).toContain("4");
+    expect(screen.getByText(/24 件/u)).toBeTruthy();
+    const link = screen.getByRole("link", { name: /r7_hpai_kokunai|国内における|農林水産省/u });
+    expect(link.getAttribute("href")).toBe(SUMMARY.sourceUrls[0]);
+  });
+
+  it("禁句がない", async () => {
+    stub(SUMMARY);
+    const { container } = show();
+    await screen.findByRole("table");
+    expect(findWordingViolations(container.textContent ?? "")).toEqual([]);
+  });
+
+  it.each(["missing", "html"] as const)("集計がまだないとき（%s）は「準備中です」のまま", async (r) => {
+    stub(r);
+    const { container } = show();
+    expect(await screen.findByText(/準備中です/u)).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(findWordingViolations(container.textContent ?? "")).toEqual([]);
+  });
+
+  it("読めなかったときは、準備中と分けて知らせる", async () => {
+    stub("error");
+    show();
+    expect(await screen.findByText(/読み込めませんでした/u)).toBeTruthy();
+  });
+
+  it("形の違う集計は読めなかった扱い（市町村や事例のキーを持つものも拒む）", () => {
+    expect(parseTrendSummary(SUMMARY)).toEqual(SUMMARY);
+    expect(parseTrendSummary({ ...SUMMARY, seasons: "x" })).toBeNull();
+    expect(parseTrendSummary({ ...SUMMARY, seasons: [{ ...SUMMARY.seasons[0], muniName: "試験町" }] })).toBeNull();
+    expect(parseTrendSummary({ ...SUMMARY, seasons: [{ ...SUMMARY.seasons[0], items: [{ ...SUMMARY.seasons[0]!.items[0], key: "other" }] }] })).toBeNull();
+  });
+});
