@@ -766,3 +766,42 @@ describe("MapPage: 並びと出典", () => {
     spy.mockRestore();
   });
 });
+
+describe("MapPage: 読めないとき（T10）", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const tick = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
+
+  it("事例が読めないまま 14,999ms では案内を出さず、15,000ms で出る。『読めるまで』の文は残る", () => {
+    const r = rig();
+    show(r);
+    tick(14_999);
+    expect(document.body.textContent).not.toContain(TEXT.slowLoad);
+    tick(1);
+    expect(document.body.textContent).toContain(TEXT.slowLoad);
+    expect(document.body.textContent).toContain("今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。");
+  });
+
+  it("15 秒たった後でも、事例が読めると案内が消える", () => {
+    const r = rig();
+    show(r);
+    tick(15_000);
+    expect(document.body.textContent).toContain(TEXT.slowLoad);
+    r.deliverCases([]);
+    expect(document.body.textContent).not.toContain(TEXT.slowLoad);
+  });
+
+  it("町を選んでいるとき、町の帯の読み込み中の文にも案内が付く", () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    tick(15_000);
+    const wait = document.querySelector(".town-banner .state-wait")!;
+    expect(wait.textContent).toContain(TEXT.loading);
+    expect(wait.textContent).toContain(TEXT.slowLoad);
+  });
+});

@@ -8,6 +8,8 @@ import { buildSeasonView, listSeasonBars, type SeasonView } from "./seasonView";
 import { watchLine, type WatchLineResult } from "./watchLineText";
 
 const MINUTE_MS = 60_000;
+/** 今季の事例がこれだけたっても読めなければ、読み込み直しの案内を出す（データの口の型は変えない） */
+export const CASES_SLOW_MS = 15_000;
 
 export interface SeasonData {
   current: Season;
@@ -31,6 +33,8 @@ export interface SeasonData {
   watchLoaded: boolean;
   /** 直近の確認の時刻。確認できた県がなければ null */
   asOf: IsoDateTime | null;
+  /** 今季の事例が 15 秒たっても読めていない */
+  casesSlow: boolean;
   historyFailed: boolean;
   retryHistory(): void;
 }
@@ -42,6 +46,7 @@ export function useSeasonData(): SeasonData {
   const current = currentSeason(now);
 
   const [cases, setCases] = useState<Case[] | null>(null);
+  const [casesSlow, setCasesSlow] = useState(false);
   const [birds, setBirds] = useState<WildBird[]>([]);
   const [watch, setWatch] = useState<WatchStatus[] | null>(null);
   const [history, setHistory] = useState<HistoryCase[] | null>(null);
@@ -58,6 +63,13 @@ export function useSeasonData(): SeasonData {
     setCases(null);
     return ds.subscribeCases(current, setCases);
   }, [ds, current]);
+
+  useEffect(() => {
+    setCasesSlow(false);
+    if (cases !== null) return;
+    const id = setTimeout(() => setCasesSlow(true), CASES_SLOW_MS);
+    return () => clearTimeout(id);
+  }, [ds, current, cases === null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setBirds([]);
@@ -112,6 +124,7 @@ export function useSeasonData(): SeasonData {
     failedPrefCodes: line.failedPrefCodes,
     watchLoaded: watch !== null,
     asOf: line.asOf,
+    casesSlow,
     historyFailed,
     retryHistory,
   };

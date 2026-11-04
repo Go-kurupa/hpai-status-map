@@ -3,6 +3,7 @@ import { compareSeasons, seasonSpan, TOP_PREF_LIMIT } from "@hpai/shared/seasonC
 import type { Case, HistoryCase, IsoDate, IsoDateTime, Season } from "@hpai/shared/types";
 import { formatAsOf } from "../../ui/AsOf";
 import { caseDate } from "./seasonView";
+import { TEXT } from "./texts";
 
 /** 過去の事例（国の事例一覧）を取得した日。docs/data-sources.md「過去の事例」の取得日 */
 export const HISTORY_CHECKED_ON = "2026-11-02";
@@ -148,7 +149,14 @@ export function SeasonCompare(p: SeasonCompareProps) {
       )}
       <p className="map-notice">{COMPARE_DISCLAIMER}</p>
       <p className="as-of">時点: 国の事例一覧、確認日 {HISTORY_CHECKED_ON}</p>
-      <p className="as-of">今季のデータの時点: {p.asOf ? formatAsOf(p.asOf) : "確認できていません"}</p>
+      <p className="as-of">
+        今季のデータの時点:{" "}
+        {p.asOf
+          ? p.allUnchecked
+            ? `${TEXT.watchAttemptOnly} ${formatAsOf(p.asOf).replace(/ 時点$/, "")} です`
+            : formatAsOf(p.asOf)
+          : "確認できていません"}
+      </p>
     </section>
   );
 }

@@ -168,6 +168,7 @@ export default function MapPage() {
         line={townLine.line}
         lineFailed={townLine.failed || (town !== null && geoFailed)}
         past={past}
+        slow={d.casesSlow}
         showPastDisclaimer={view.isCurrent || !view.loaded}
       >
         {town === null ? picker : null}
@@ -205,6 +206,7 @@ export default function MapPage() {
       {view.isCurrent && !view.loaded ? (
         <p className="state-unknown" role="status">
           今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。
+          {d.casesSlow ? <> {TEXT.slowLoad}</> : null}
         </p>
       ) : null}
       {!view.isCurrent && !view.loaded ? (

@@ -22,6 +22,8 @@ export interface TownBannerProps {
   line: TownLine | null;
   lineFailed: boolean;
   past: PastState;
+  /** 事例が 15 秒たっても読めていない。読み込み中の文の後ろに読み込み直しの案内を足す */
+  slow?: boolean;
   /** 過去のシーズンを見ているとき、ページが pastDisclaimer を出しているので重ねない */
   showPastDisclaimer: boolean;
   /** 町の選び方、場所の決め方 */
@@ -71,6 +73,7 @@ export function TownBanner(p: TownBannerProps) {
     now = (
       <p className="state-wait" role="status">
         {TEXT.loading}
+        {p.slow ? <> {TEXT.slowLoad}</> : null}
       </p>
     );
   } else {

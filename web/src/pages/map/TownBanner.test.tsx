@@ -72,6 +72,20 @@ function show(p: TownBannerProps) {
 
 afterEach(cleanup);
 
+describe("TownBanner: 読めないとき（T10）", () => {
+  it("slow でなければ読み込み直しの案内を出さない", () => {
+    show(props({ loaded: false, line: null }));
+    expect(screen.getByText(TEXT.loading)).toBeTruthy();
+    expect(document.body.textContent).not.toContain(TEXT.slowLoad);
+  });
+  it("slow なら読み込み中の文を残したまま、案内を同じ枠に足す", () => {
+    show(props({ loaded: false, line: null, slow: true }));
+    const wait = document.querySelector(".state-wait")!;
+    expect(wait.textContent).toContain(TEXT.loading);
+    expect(wait.textContent).toContain(TEXT.slowLoad);
+  });
+});
+
 describe("TownBanner", () => {
   it("色（data-tone）は今季の段階の行だけ。過去の行とその中に data-tone がない（§15）", () => {
     const { container } = show(props());

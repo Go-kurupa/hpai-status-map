@@ -58,6 +58,18 @@ describe("SeasonCompare", () => {
     expect(screen.getByTestId("compare-lead").textContent).toContain("まだ確認できていません");
     expect(screen.getByTestId("compare-lead").textContent).not.toMatch(/今季.*(^|[^0-9])0 件/);
   });
+  it("確認できた県がなく時刻があるときは、『時点』と言わず最後に確認を試した時刻にする（T10）", () => {
+    render(<SeasonCompare {...base} unchecked={47} allUnchecked />);
+    expect(text()).toContain("今季のデータの時点: 確認できた県はありません。最後に確認を試したのは 11 月 4 日 8:30 です");
+    expect(text()).not.toContain("8:30 時点");
+  });
+  it("確認できた県がなく時刻もないときは『確認できていません』、全県が失敗でないときは今のまま（T10）", () => {
+    const { rerender } = render(<SeasonCompare {...base} unchecked={47} allUnchecked asOf={null} />);
+    expect(text()).toContain("今季のデータの時点: 確認できていません");
+    rerender(<SeasonCompare {...base} unchecked={3} />);
+    expect(text()).toContain("今季のデータの時点: 11 月 4 日 8:30 時点");
+    expect(text()).not.toContain("最後に確認を試した");
+  });
   it("過去の記録が読めていなくても、但し書きと時点は出て、件数は出さない", () => {
     render(<SeasonCompare {...base} history={null} />);
     expect(text()).toContain("まだ読めていません");
