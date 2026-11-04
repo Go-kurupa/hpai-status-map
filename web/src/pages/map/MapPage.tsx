@@ -105,9 +105,12 @@ export default function MapPage() {
       {view.isCurrent ? (
         <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
       ) : (
-        <p className="as-of">
-          {view.season}年6月〜{view.season + 1}年5月の記録
-        </p>
+        <>
+          <p className="as-of">{TEXT.pastAsOf}</p>
+          <p className="as-of">
+            {view.season}年6月〜{view.season + 1}年5月の記録
+          </p>
+        </>
       )}
 
       <TownBanner

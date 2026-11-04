@@ -9,6 +9,15 @@ export function findForbiddenPhrases(text: string): string[] {
   return FORBIDDEN_PHRASES.filter((phrase) => normalized.includes(normalizeForMatch(phrase)));
 }
 
+/**
+ * 下書きの検査（drafts.ts）が見つけて落とす語。画面にもメールにも出さない検出用の語で、禁句の置き場の wording.ts に置く
+ * （文言の総点検は wording.ts を走査の対象にしない）。
+ */
+/** 煽る語。 */
+export const SENSATIONAL_WORDS = ["危険", "危ない", "緊急事態", "非常事態", "パニック", "恐怖", "壊滅", "猛威", "爆発", "まん延", "蔓延", "大流行", "絶対", "ホットスポット", "また発生しやすい"] as const;
+/** 「大丈夫」という言い切りの語。 */
+export const REASSURANCE_WORDS = ["大丈夫", "平気です", "ご安心"] as const;
+
 export const FIXED_TEXT = {
   /** 県の連絡が正 */
   prefContactIsAuthority: "県の連絡が正です",

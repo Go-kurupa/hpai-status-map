@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GeoNotLoadedError } from "../src/geo";
 import { MORTALITY_TEXT } from "../src/mortality";
 import {
+  HEALTH_STANDARD_SOURCE_URL,
   mortalityNotices,
   renderMorningDigest,
   renderNotice,
@@ -109,7 +110,7 @@ describe("selfCheckDueNotices", () => {
         timing: "immediate",
         level: null,
         relationKind: null,
-        facts: { muniName: null, prefCode: null, date: "2026-11-05", sourceUrl: null },
+        facts: { muniName: null, prefCode: null, date: "2026-11-05", sourceUrl: HEALTH_STANDARD_SOURCE_URL },
         isCorrection: false,
       },
     ]);
@@ -153,7 +154,7 @@ describe("mortalityNotices", () => {
       timing: "immediate",
       level: null,
       relationKind: null,
-      facts: { muniName: null, prefCode: null, date: "2026-11-05", sourceUrl: null },
+      facts: { muniName: null, prefCode: null, date: "2026-11-05", sourceUrl: HEALTH_STANDARD_SOURCE_URL },
       isCorrection: false,
     });
   });
@@ -243,5 +244,17 @@ describe("renderMorningDigest: 新しい 3 つの出来事を含められる", (
     expect(text).toContain(`${CTX.appUrl}/record/self-check`);
     expect(text).toContain(`${CTX.appUrl}/record/deaths`);
     expect(findForbiddenPhrases(`${subject}\n${text}`)).toEqual([]);
+  });
+});
+
+describe("自己点検の期限と死亡率の基準の知らせの出典", () => {
+  it("作り手が出す知らせは、家畜伝染病予防法施行規則（e-Gov）の URL を持ち、本文に『出典』の行で出る", () => {
+    expect(HEALTH_STANDARD_SOURCE_URL).toBe("https://laws.e-gov.go.jp/law/326M50010000035");
+    for (const n of [due({ facts: { muniName: null, prefCode: null, date: "2026-11-05", sourceUrl: HEALTH_STANDARD_SOURCE_URL } }), hit({ facts: { muniName: null, prefCode: null, date: "2026-11-05", sourceUrl: HEALTH_STANDARD_SOURCE_URL } })]) {
+      const { text } = renderNotice(n, CTX);
+      expect(text).toContain(`出典: ${HEALTH_STANDARD_SOURCE_URL}`);
+      expect(text).not.toContain("県の発表:");
+      expect(text.indexOf("出典:")).toBeLessThan(text.indexOf(FIXED_TEXT.prefContactIsAuthority));
+    }
   });
 });

@@ -54,6 +54,11 @@ export const TEXT = {
   pastLabel: "過去の記録",
   pastDetails: "過去の発生をくわしく見る",
   pastLoading: "過去の記録を読み込んでいます",
+  /**
+   * 過去のシーズンを見ているときの時点。過去の事例（data/history/cases.json）は、農林水産省の国内事例の一覧と現地調査概要から作った。
+   * 原本の一覧を取得して確かめた日は 2026-11-02（JST。private/research/20261102-history-data.md §8 の取得記録）。
+   */
+  pastAsOf: "時点: 過去の記録（国の事例一覧、確認日 2026-11-02）",
   pastFailed: "過去の記録を読めませんでした",
   areaLink: "この町のくわしい状況",
   // 確認状況（W-06）

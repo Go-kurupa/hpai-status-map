@@ -132,6 +132,7 @@ function EvalSection({ src }: { src: Src<EvalSummary> }) {
   if (src.s === "none") {
     return (
       <Unmeasured>
+        時点: まだ試験を実行していません。<br />
         試験はまだ実行していません。各項目は{UNMEASURED_METRIC}です。実行したら、正解のある文書で数えた結果をここに出します。
       </Unmeasured>
     );
@@ -169,7 +170,12 @@ function EvalSection({ src }: { src: Src<EvalSummary> }) {
 function UsageSection({ src, usage }: { src: Src<MeasuredUsage>; usage: MeasuredUsage }) {
   if (src.s === "failed") return <p role="status">使用量の記録を読めませんでした。</p>;
   if (usage.status !== "measured") {
-    return <Unmeasured>{UNMEASURED}: まだ実物の文書を読んでいないので、使用量も費用も分かりません。</Unmeasured>;
+    return (
+      <Unmeasured>
+        時点: {UNMEASURED}（まだ実物の文書を読んでいません）。<br />
+        {UNMEASURED}: まだ実物の文書を読んでいないので、使用量も費用も分かりません。
+      </Unmeasured>
+    );
   }
   return (
     <div>

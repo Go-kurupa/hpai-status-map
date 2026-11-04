@@ -4,7 +4,7 @@ import { OFFICIAL_GUIDANCE, type GuidanceTopic, type OfficialGuidance } from "./
 import { formatJaDate } from "./jaDate";
 import { normalizeForMatch } from "./text";
 import type { Case, IsoDate } from "./types";
-import { findForbiddenPhrases } from "./wording";
+import { findForbiddenPhrases, REASSURANCE_WORDS, SENSATIONAL_WORDS } from "./wording";
 
 export type DraftStage = "suspected" | "confirmed";
 
@@ -51,8 +51,6 @@ export interface CheckResult {
   failures: string[];
 }
 
-/** 煽る語。 */
-const SENSATIONAL = ["危険", "危ない", "緊急事態", "非常事態", "パニック", "恐怖", "壊滅", "猛威", "爆発", "まん延", "蔓延", "大流行", "絶対", "ホットスポット", "また発生しやすい"] as const;
 /** 人の健康を断定する語。 */
 const HEALTH = ["感染しません", "感染しない", "うつりません", "うつらない", "受診", "病院", "発症"] as const;
 
@@ -65,7 +63,7 @@ function commonFailures(normalized: string, allowedNumbers: readonly string[]): 
   const allowed = new Set(allowedNumbers);
   for (const n of new Set(normalized.match(/\d+/gu) ?? [])) if (!allowed.has(n)) out.push(`unknown_number:${n}`);
   for (const k of new Set(normalized.match(KANJI_NUMBER) ?? [])) out.push(`unknown_kanji_number:${k}`);
-  for (const w of SENSATIONAL) if (normalized.includes(normalizeForMatch(w))) out.push(`sensational:${w}`);
+  for (const w of SENSATIONAL_WORDS) if (normalized.includes(normalizeForMatch(w))) out.push(`sensational:${w}`);
   for (const p of findForbiddenPhrases(normalized)) out.push(`forbidden:${p}`);
   for (const w of HEALTH) if (normalized.includes(normalizeForMatch(w))) out.push(`health:${w}`);
   return out;
@@ -100,7 +98,7 @@ const NEG = "(?:ありません|ございません|ありえません|ない(?!�
 const NEG_OR_LOW = `(?:${NEG}|低い|低く(?!なる|する|す)|低め)`;
 const ASSURANCES: ReadonlyArray<{ label: string; re: RegExp }> = [
   { label: "問題ないという言い切り", re: new RegExp(`問題${P}${NEG}|問題なく`, "gu") },
-  { label: "大丈夫という言い切り", re: /大丈夫|平気です|ご安心/gu },
+  { label: "大丈夫という言い切り", re: new RegExp(REASSURANCE_WORDS.join("|"), "gu") },
   { label: "差し支えないという言い切り", re: new RegExp(`(?:差し支え|支障)${P}${NEG}|支障なく`, "gu") },
   {
     label: "心配いらないという言い切り",

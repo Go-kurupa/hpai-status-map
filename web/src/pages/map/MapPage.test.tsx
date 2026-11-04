@@ -198,6 +198,17 @@ describe("MapPage", () => {
     expect(lastProps().failedPrefCodes).toEqual([]);
   });
 
+  it("過去のシーズンでも『時点』を出す（国の事例一覧の確認日）", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    expect(screen.getByText("時点: 過去の記録（国の事例一覧、確認日 2026-11-02）")).toBeTruthy();
+    expect(screen.getByText(/2025年6月〜2026年5月の記録/)).toBeTruthy();
+  });
+
   it("過去の記録が届かないうちの昨季は『まだ読めていません』で、0 件にしない", async () => {
     const r = rig({ history: "deferred" });
     show(r);

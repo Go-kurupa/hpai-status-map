@@ -37,6 +37,12 @@ export interface SentNotice {
   cappedAlert?: "pending";
 }
 
+/**
+ * 自己点検の期限、死亡率の基準の知らせの出典。家畜伝染病予防法施行規則（e-Gov）。別表第二 三 が飼養衛生管理基準で、項目 32 が特定症状の通報。
+ * guidance/official.ts の RULE と同じ URL（原本を取得して確かめ済み。docs/official-text-review.md）。
+ */
+export const HEALTH_STANDARD_SOURCE_URL = "https://laws.e-gov.go.jp/law/326M50010000035";
+
 export interface Notice {
   farmId: string;
   uid: string;
@@ -285,7 +291,7 @@ export function selfCheckDueNotices(farm: Farm & { id: string }, today: IsoDate,
     for (const uid of uids) {
       out.push({
         farmId: farm.id, uid, subjectId: month, event: "self_check_due", timing: "immediate", level: null, relationKind: null,
-        facts: { muniName: null, prefCode: null, date, sourceUrl: null }, isCorrection: false,
+        facts: { muniName: null, prefCode: null, date, sourceUrl: HEALTH_STANDARD_SOURCE_URL }, isCorrection: false,
       });
     }
   }
@@ -301,7 +307,7 @@ export function mortalityNotices(farm: Farm & { id: string }, recordId: string, 
   if (uids === null) return [];
   return uids.map((uid) => ({
     farmId: farm.id, uid, subjectId: recordId, event: "mortality_hit" as const, timing: "immediate" as const, level: null, relationKind: null,
-    facts: { muniName: null, prefCode: null, date, sourceUrl: null }, isCorrection: false,
+    facts: { muniName: null, prefCode: null, date, sourceUrl: HEALTH_STANDARD_SOURCE_URL }, isCorrection: false,
   }));
 }
 
@@ -325,6 +331,13 @@ function placeOf(n: Notice): string {
 
 /** 「12月20日、」。日付がなければ空。 */
 const dateLead = (n: Notice): string => (n.facts.date === null ? "" : `${formatJaDate(n.facts.date)}、`);
+
+/** 出典の行の見出し。野鳥は環境省などの発表、期限と死亡率は法令、ほかは県の発表。 */
+function sourceLabel(event: NoticeEvent): string {
+  if (event === "wild_bird_confirmed") return "発表";
+  if (event === "self_check_due" || event === "mortality_hit") return "出典";
+  return "県の発表";
+}
 
 function unsupported(event: NoticeEvent): never {
   throw new RangeError(`この出来事の文面はありません: ${event}`);
@@ -439,7 +452,7 @@ function itemLines(n: Notice, ctx: RenderCtx): string[] {
   if (level !== null) lines.push(level);
   if (n.event === "self_check_due" || n.event === "mortality_hit") lines.push(fixedSentence(n, ctx)); // 次にすることが本文にないと伝わらない
   const src = safeUrl(n.facts.sourceUrl);
-  if (src !== null) lines.push(`${n.event === "wild_bird_confirmed" ? "発表" : "県の発表"}: ${src}`);
+  if (src !== null) lines.push(`${sourceLabel(n.event)}: ${src}`);
   return lines;
 }
 
@@ -457,7 +470,7 @@ export function renderNotice(n: Notice, ctx: RenderCtx): { subject: string; text
   const lines = [factsLine(n)];
   if (level !== null) lines.push(level);
   lines.push(fixedSentence(n, ctx));
-  if (src !== null) lines.push("", `${n.event === "wild_bird_confirmed" ? "発表" : "県の発表"}: ${src}`);
+  if (src !== null) lines.push("", `${sourceLabel(n.event)}: ${src}`);
   lines.push("", ...footer(ctx));
   return { subject, text: lines.join("\n") };
 }

@@ -93,6 +93,9 @@ describe("/results（まだ何も測っていない）", () => {
     expect(region(/読み取りの試験/).textContent).toContain("試験はまだ実行していません");
     expect(region(/読み取りの試験/).textContent).toContain("未実測");
     expect(region(/再現 1 回分/).textContent).toContain("未計測");
+    // 未実測でも『時点』と状態を出す（全画面に時点、§15）
+    expect(region(/読み取りの試験/).textContent).toContain("時点: まだ試験を実行していません");
+    expect(region(/再現 1 回分/).textContent).toContain("時点: 未計測");
     expect(calls.sort()).toEqual(["/evals/summary.json", "/replay/measured-usage.json"]);
   });
 
