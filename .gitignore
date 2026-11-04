@@ -25,6 +25,8 @@ coverage/
 *.log
 
 # 公開しない素材・データ
+HANDOFF.md
+.superpowers/
 private/
 data/private/
 

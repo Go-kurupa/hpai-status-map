@@ -1,5 +1,30 @@
 {
   "enabledPlugins": {
     "firebase@claude-plugins-official": false
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/HANDOFF.md\"; if [ -f \"$f\" ]; then printf '%s\\n\\n' '【必読】引き継ぎ（HANDOFF.md）の中身です。作業の前に読み、進捗があるたびに更新してください。'; cat \"$f\"; else echo 'HANDOFF.md が見つかりません。リポジトリ直下に作ってください。'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/public-precommit.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
   }
 }
