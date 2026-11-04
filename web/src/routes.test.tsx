@@ -64,7 +64,7 @@ describe("骨格", () => {
     const nav = screen.getByRole("navigation", { name: "メイン" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((a) => a.textContent)).toEqual(["地図", "やること", "記録"]);
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/", "/todo", "/record"]);
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/", "/todo", "/record/deaths"]);
     expect(links[1]!.getAttribute("aria-current")).toBe("page");
     expect(links[0]!.getAttribute("aria-current")).toBeNull();
 

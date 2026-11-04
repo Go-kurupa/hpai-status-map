@@ -1,10 +1,11 @@
 /* 平面の単色だけで作る。陰影・ぼかし・色の移り変わりは使わない（現場で読み取れることを優先）。
    本文は 18px 以上、押せるものは 48px 以上。 */
 :root {
+  color-scheme: light;
   --fg: #1b1d21;
   --bg: #ffffff;
   --surface: #ffffff;
-  --line: #c9ccd1;
+  --line: #767676;
   --soft: #f1f2f4;
   --muted: #5c6168;
   --lv1: #b3261e;
@@ -17,6 +18,10 @@
   --font-base: 18px;
   --tap: 48px;
   --gutter: 16px;
+  --s1: 8px;
+  --s2: 16px;
+  --s3: 24px;
+  --s4: 48px;
   --font-sans: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", "Meiryo", system-ui, sans-serif;
 }
 
@@ -28,6 +33,10 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  scroll-padding-bottom: 64px;
+}
+html:has(.app-context) {
+  scroll-padding-top: 56px;
 }
 
 body {
@@ -37,20 +46,21 @@ body {
   font-family: var(--font-sans);
   font-size: var(--font-base);
   line-height: 1.7;
+  letter-spacing: .02em;
   overflow-wrap: anywhere;
 }
 
 h1,
 h2,
 h3 {
-  line-height: 1.4;
+  line-height: 1.5;
   margin: 0 0 0.5em;
 }
 h1 {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
 }
 h2 {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
 }
 p {
   margin: 0 0 0.8em;
@@ -69,8 +79,9 @@ button:focus-visible {
 /* ── 画面の骨格 ── */
 .app-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-header {
@@ -87,6 +98,9 @@ button:focus-visible {
   font-weight: 700;
 }
 .app-title a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
   color: var(--fg);
   text-decoration: none;
 }
@@ -101,6 +115,7 @@ button:focus-visible {
 }
 
 .app-main {
+  flex: 1 1 auto;
   min-width: 0;
   padding: var(--gutter);
 }
@@ -164,7 +179,7 @@ button:focus-visible {
   padding: 0 8px;
   border: 2px solid currentColor;
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.6;
   white-space: nowrap;
@@ -197,13 +212,13 @@ button:focus-visible {
 .as-of {
   margin: 0 0 0.8em;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 .source-line {
   margin: 0 0 0.5em;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 /* やること（§7）。線の種類で、義務かどうかを見分けられるようにする */
@@ -222,11 +237,131 @@ button:focus-visible {
   border: 2px solid var(--fg);
 }
 .class-if_in_zone {
-  border: 2px solid var(--lv1);
-  border-left-width: 10px;
+  border: 3px solid var(--lv1);
 }
 .class-good_to_check {
   border: 2px dashed var(--muted);
+}
+
+.source-line a {
+  padding-block: 11px;
+}
+.tap-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
+/* 状態の 3 種類（色を増やさず、枠の線で分ける。左の色帯は使わない） */
+.state-ok {
+  margin: 0 0 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+}
+.state-wait {
+  margin: 0 0 8px;
+  padding: 6px 12px;
+  border: 2px solid var(--muted);
+  background: var(--soft);
+}
+.state-unknown {
+  margin: 0 0 8px;
+  padding: 6px 12px;
+  border: 2px dashed var(--fg);
+  background: var(--soft);
+}
+
+/* 表 */
+.data-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.data-table th,
+.data-table td {
+  padding: 6px 8px;
+  vertical-align: top;
+  text-align: left;
+}
+.data-table th {
+  font-weight: 700;
+}
+.data-table thead th {
+  border-bottom: 2px solid var(--fg);
+}
+.data-table td,
+.data-table tbody th {
+  border-bottom: 1px solid var(--line);
+}
+.data-table th[scope="row"] {
+  min-width: 8em;
+}
+.data-table th[scope="col"] {
+  min-width: 4em;
+}
+.data-table th.num,
+.data-table td.num {
+  text-align: right;
+}
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+
+/* 札 */
+.stat {
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  padding: var(--s2);
+  background: var(--surface);
+}
+.stat-title {
+  margin: 0;
+  font-size: 1rem;
+}
+.stat-value {
+  margin: 0;
+  color: var(--fg);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s2);
+  margin: 0 0 var(--s2);
+}
+@media (min-width: 40rem) {
+  .stat-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 畳む部品 */
+.fold > summary {
+  min-height: var(--tap);
+  padding-block: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 今の画面の帯（再現と見本の中だけ） */
+.app-context {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 0 var(--gutter);
+  background: var(--soft);
+  border-bottom: 2px solid var(--fg);
 }
 
 .placeholder {
@@ -235,6 +370,7 @@ button:focus-visible {
 
 @media print {
   .app-header,
+  .app-context,
   .app-nav {
     display: none;
   }
