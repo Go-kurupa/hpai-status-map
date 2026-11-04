@@ -109,6 +109,18 @@ claude mcp add --transport http hpai https://<本番の URL>/mcp
 
   1 つ目と 3 つ目は出力がないこと。2 つ目に出たコミットは、例示用のドメインだけかを見て確かめる。
 - [ ] `.claude/settings.json` の hook の登録と、`.gitignore` の守りの設定が、HEAD に入っている（`git show HEAD:.claude/settings.json`、`git show HEAD:.gitignore`）
+- [ ] **履歴の書き換え（push の前に 1 回だけ）。** 公開しない文書（大会の決まりのまとめ `docs/rules.md`）が、最初の commit から履歴に残っている。次の順で行う。
+  1. 利用者が、公開しない語の一覧（非公開のフォルダの `public-denylist.txt`）を作る。
+  2. 全履歴を、上の鍵の形と、一覧の語の両方で検査する。語の検査は、語ごとに `git log --all -S"<語>" --format='%h'` を回し、commit の短い名前だけを出す（語そのものは出さない）。
+  3. `docs/rules.md` と、2 で見つかったものを、**1 回の書き換え**でまとめて消す。道具は `git filter-repo` を使う（この機械には未導入。`pip install --user git-filter-repo` で入れる）。`git filter-repo --invert-paths --path docs/rules.md`。filter-repo は commit の文の中の hash を自動で直し、古い hash と新しい hash の対応を `.git/filter-repo/commit-map` に残す。
+  4. 書き換えると、すべての commit の hash が変わる。追跡中の文書（`docs/security-review.md` など）の中の hash は、ファイルの中身なので自動では直らない。`commit-map` を使って直し、次の検査で、文書の中の hash がすべて実在することを確かめる（出力がないこと。数字だけの 7 桁は番号なので見ない）:
+
+     ```
+     grep -rhoE '`[0-9a-f]{7}`' README.md docs | tr -d '`' | grep '[a-f]' | sort -u | while read h; do git cat-file -e "$h^{commit}" 2>/dev/null || echo "missing $h"; done
+     ```
+  5. 1 と 2 の検査、`--all-tracked`、試験をもう一度回す。
+  6. `main` を強制的に上書きして push する（`git push --force-with-lease`）。
+  - **もう一方のアカウントとの段取り:** 同じフォルダと同じ `.git` を使っている。書き換えの間は、もう一方のセッションを止めておく。書き換えの後は、作業ツリーに書きかけがないことを確かめてから再開する。
 - [x] `CLAUDE.md` は「Codex は使わない」の行だけを公開し、参加者ガイドの写しは公開しない（2026-11-04 利用者の決定）
 - [ ] 利用者の確認のあとに push し、リポジトリを公開にする
 
