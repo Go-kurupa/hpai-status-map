@@ -38,6 +38,23 @@ describe("SeasonCompare", () => {
     for (const total of ["52 件", "25 件", "84 件", "11 件", "51 件", "24 件"]) expect(rows.some((r) => r.includes(total))).toBe(true);
     expect(screen.getByText("12 月").parentElement!.textContent).toContain("72 件");
   });
+  it("2 つの表は data-table で .table-scroll の中にあり、件数のセルは .num", () => {
+    render(<SeasonCompare {...base} />);
+    const tables = [...document.querySelectorAll("table")];
+    expect(tables).toHaveLength(2);
+    for (const t of tables) {
+      expect(t.classList.contains("data-table")).toBe(true);
+      expect(t.classList.contains("compare-table")).toBe(true);
+      expect(t.parentElement!.classList.contains("table-scroll")).toBe(true);
+    }
+    expect(tables[1]!.classList.contains("compare-months")).toBe(true);
+    for (const tr of tables[0]!.querySelectorAll("tbody tr")) {
+      for (const td of [...tr.querySelectorAll("td")].slice(1)) {
+        if (/件/.test(td.textContent ?? "")) expect(td.classList.contains("num")).toBe(true);
+      }
+    }
+    expect(tables[1]!.querySelectorAll("tbody td.num")).toHaveLength(tables[1]!.querySelectorAll("tbody tr").length);
+  });
   it("但し書きと 2 つの時点が出る", () => {
     render(<SeasonCompare {...base} />);
     expect(text()).toContain(COMPARE_DISCLAIMER);
@@ -76,9 +93,12 @@ describe("SeasonCompare", () => {
     expect(text()).toContain(COMPARE_DISCLAIMER);
     expect(screen.queryByRole("table")).toBeNull();
   });
-  it("横にはみ出さない作り: 表は幅 100% の固定レイアウト（CSS）", () => {
+  it("横にはみ出さない作り: 表は幅 100% で、狭い画面では .table-scroll の中で横に送る（CSS）", () => {
     const css = readFileSync(path.resolve(import.meta.dirname, "map.css"), "utf8");
-    expect(css).toMatch(/\.compare-table\s*\{[^}]*width: 100%[^}]*table-layout: fixed/);
+    expect(css).toMatch(/\.compare-table\s*\{[^}]*width: 100%/);
+    expect(css).not.toMatch(/\.compare-table\s*\{[^}]*table-layout: fixed/);
+    render(<SeasonCompare {...base} />);
+    expect(document.querySelectorAll(".table-scroll > table.compare-table")).toHaveLength(2);
   });
 });
 

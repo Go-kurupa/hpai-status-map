@@ -805,3 +805,85 @@ describe("MapPage: 読めないとき（T10）", () => {
     expect(wait.textContent).toContain(TEXT.slowLoad);
   });
 });
+
+describe("MapPage: 平面の札（T12）", () => {
+  const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const stats = () => [...document.querySelectorAll(".stat")];
+  const titles = () => stats().map((e) => e.querySelector(".stat-title")?.textContent);
+
+  it("今季を見ているとき 2 枚。確認中の県より後で出典より前、守る文と見回りの行より後。watch-line は 1 つ", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([
+      tsuyamaCase({ id: "rev-1", prefCode: "31", muniCode: null, muniName: null, headCount: null, stages: {}, confirmState: "reviewing", sourceUrls: ["https://example.invalid/r"] }),
+    ]);
+    r.deliverWatch(okWatch());
+    expect(stats()).toHaveLength(2);
+    expect(titles()).toEqual(["発生した件数", "時刻"]);
+    const row = document.querySelector(".stat-row")!;
+    expect(row.querySelectorAll(".stat")).toHaveLength(2);
+    expect(follows(document.querySelector(".map-disclaimer")!, row)).toBe(true);
+    expect(follows(screen.getByTestId("watch-line"), row)).toBe(true);
+    expect(follows(screen.getByText(/確認中の発表がある県/), row)).toBe(true);
+    expect(follows(row, document.querySelector(".map-attribution")!)).toBe(true);
+    expect(screen.getAllByTestId("watch-line")).toHaveLength(1);
+    expect(row.querySelector("[role=status]")).toBeNull();
+    expect(stats()[1]!.textContent).toContain("11 月 4 日 8:30 時点");
+  });
+
+  it("過去のシーズンでは 0 枚", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    expect(stats()).toHaveLength(2);
+    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    expect(stats()).toHaveLength(0);
+  });
+
+  it("再現では 0 枚", async () => {
+    const r = rig();
+    r.ds.mode = "replay";
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    expect(stats()).toHaveLength(0);
+  });
+
+  it("47 県とも未確認なら 1 枚目は『まだ確認できていません』で、件数を見出しにしない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    const value = stats()[0]!.querySelector(".stat-value")!.textContent!;
+    expect(value).toBe("まだ確認できていません");
+    expect(value).not.toMatch(/[0-9]+ 件/);
+  });
+
+  it("一部の県が未確認なら『確認できた範囲では N 件（M 県は確認できていません）』", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(["33"]));
+    expect(stats()[0]!.querySelector(".stat-value")!.textContent).toBe("確認できた範囲では 0 件（1 県は確認できていません）");
+  });
+
+  it("全県確認で 0 件でも、件数のあるときと .stat-value の class は同じ", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    const zero = stats()[0]!.querySelector(".stat-value")!;
+    expect(zero.textContent).toBe("0 件");
+    const zeroClass = zero.className;
+    r.deliverCases([tsuyamaCase()]);
+    const one = stats()[0]!.querySelector(".stat-value")!;
+    expect(one.textContent).toBe("1 件");
+    expect(one.className).toBe(zeroClass);
+  });
+});

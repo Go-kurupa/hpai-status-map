@@ -413,3 +413,24 @@ describe("機械の検査: 画面の文字に絵文字が無い", () => {
     expect(hits.map((f) => path.relative(repoRoot, f))).toEqual([]);
   });
 });
+
+describe("文字の大きさの下限", () => {
+  const walk = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const f = path.join(dir, e.name);
+      return e.isDirectory() ? walk(f) : f.endsWith(".css") ? [f] : [];
+    });
+  it("web/src の css に、14px 以下の font-size（px か rem）がない", () => {
+    const root = path.resolve(import.meta.dirname, "..");
+    const files = walk(root);
+    expect(files.length).toBeGreaterThan(3);
+    const small: string[] = [];
+    for (const f of files) {
+      for (const m of fs.readFileSync(f, "utf8").matchAll(/font-size\s*:\s*([0-9.]+)(px|rem)\s*[;}]/g)) {
+        const px = Number(m[1]) * (m[2] === "rem" ? 16 : 1);
+        if (px <= 14) small.push(`${path.relative(root, f)}: ${m[0]}`);
+      }
+    }
+    expect(small).toEqual([]);
+  });
+});

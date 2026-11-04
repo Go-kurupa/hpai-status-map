@@ -74,7 +74,8 @@ export function SeasonCompare(p: SeasonCompareProps) {
               </>
             ) : null}
           </p>
-          <table className="compare-table">
+          <div className="table-scroll">
+          <table className="compare-table data-table">
             <caption>シーズンごとの件数（{md}までと、シーズンの合計）</caption>
             <thead>
               <tr>
@@ -88,28 +89,30 @@ export function SeasonCompare(p: SeasonCompareProps) {
               <tr className="is-now">
                 <th scope="row">今季 {seasonSpan(p.current)}</th>
                 <td>―</td>
-                <td>
+                <td className="num">
                   {nowCount === null ? "読めていません" : p.allUnchecked ? "確認できていません" : `${nowCount} 件`}
                   {nowCount !== null && !p.allUnchecked ? bar(nowCount, max) : null}
                 </td>
-                <td>途中</td>
+                <td className="num">途中</td>
               </tr>
               {[...rows].reverse().map((r) => (
                 <tr key={r.season}>
                   <th scope="row">{seasonSpan(r.season)}</th>
                   <td>{r.firstDate ? jaMonthDay(r.firstDate) : "なし"}</td>
-                  <td>
+                  <td className="num">
                     {r.countToDate} 件{bar(r.countToDate, max)}
                   </td>
-                  <td>
+                  <td className="num">
                     {r.total} 件{bar(r.total, max)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
 
-          <table className="compare-table compare-months">
+          <div className="table-scroll">
+          <table className="compare-table data-table compare-months">
             <caption>月ごとの件数（過去 {rows.length} シーズンの合計）</caption>
             <thead>
               <tr>
@@ -121,13 +124,14 @@ export function SeasonCompare(p: SeasonCompareProps) {
               {(monthTotals ?? []).map((m) => (
                 <tr key={m.month}>
                   <th scope="row">{m.month} 月</th>
-                  <td>
+                  <td className="num">
                     {m.count} 件{bar(m.count, monthMax)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
           {peak.length > 0 ? (
             <p className="map-note">
               過去 {rows.length} シーズンでは、{peak.map((m) => `${m.month} 月（${m.count} 件）`).join("と")}に多く出ています。

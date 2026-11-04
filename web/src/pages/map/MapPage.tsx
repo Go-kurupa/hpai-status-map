@@ -14,7 +14,7 @@ import { MapChunkBoundary } from "./MapChunkBoundary";
 import { MapLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import type { PickTarget } from "./pickSpot";
-import { SeasonBar } from "./SeasonBar";
+import { countText, SeasonBar } from "./SeasonBar";
 import { SeasonCompare } from "./SeasonCompare";
 import { SpotPicker } from "./SpotPicker";
 import { TEXT } from "./texts";
@@ -129,6 +129,8 @@ export default function MapPage() {
       : b,
   );
 
+  const currentBar = bars.find((b) => b.season === d.current) ?? null;
+
   const picker = (
     <>
       <TownPicker
@@ -228,6 +230,18 @@ export default function MapPage() {
           確認中の発表がある県: {names(view.reviewingPrefCodes)}
           。件数にはまだ入れていません。
         </p>
+      ) : null}
+      {view.isCurrent && ds.mode !== "replay" && currentBar ? (
+        <div className="stat-row">
+          <div className="stat">
+            <p className="stat-title">発生した件数</p>
+            <p className="stat-value">{countText(currentBar)}</p>
+          </div>
+          <div className="stat">
+            <p className="stat-title">時刻</p>
+            <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
+          </div>
+        </div>
       ) : null}
       {mapless ? null : (
         <p className="map-attribution">
