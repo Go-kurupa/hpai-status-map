@@ -85,7 +85,9 @@ describe("KNOWN_FINDINGS（データ）", () => {
 
   it("効果の大きさを示す数字（何割減る、何倍）を、対策の行に書いていない", () => {
     const row = KNOWN_FINDINGS.find((f) => f.id === "standard-measures");
-    for (const s of row ? strings(row) : []) expect(s).not.toMatch(/[0-9０-９]\s*(割|倍)|%|％/u);
+    for (const s of row ? strings(row) : []) expect(s).not.toMatch(/[0-9０-９]\s*(割|倍)/u);
+    // 割合の % は、金網の設置の割合の 1 行だけ（効果の大きさではなく、調査の数）
+    for (const line of row ? strings(row) : []) if (/[%％]/u.test(line)) expect(line).toContain("金網");
   });
 
   it("どの行にも短い見出しがあり、見出しは重ならない", () => {
@@ -114,11 +116,15 @@ describe("KNOWN_FINDINGS（データ）", () => {
   it("基準の対策: 調査の項目ごとに、分かることだけを書く（ねずみ対策の農場数、金網、消石灰は調査の項目にない）", () => {
     const f = byId("standard-measures");
     const all = whole(f);
-    expect(all).toMatch(/58[^。]*52|52[^。]*58/u);
-    expect(all).toMatch(/26[^。]*24|24[^。]*26/u);
-    expect(all).toMatch(/ねずみ対策[^。]*差(が分かりません|は分かりません)/u);
+    const rat = f.limit.split("\n").find((l) => l.startsWith("ねずみ対策"));
+    expect(rat).toContain("発生した農場の鶏舎 58 棟のうち 52 棟");
+    expect(rat).toContain("比較の農場の鶏舎 26 棟のうち 24 棟");
+    expect(rat).toMatch(/この項目では差は分かりません/u);
     const mesh = f.limit.split("\n").find((l) => l.includes("金網"));
-    expect(mesh).toMatch(/差ははっきりしません/u);
+    expect(mesh).toContain("発生した農場の鶏舎で 71%（58 棟中 41 棟）");
+    expect(mesh).toContain("比較の農場で 85%（26 棟中 22 棟）");
+    expect(mesh).toContain("差ははっきりしません");
+    expect(mesh).not.toContain("傾向");
     expect(all).toMatch(/消石灰は、この調査の項目にありません/u);
     // 調査が見ていない対策について、調査の結果を言っていない
     expect(all).not.toMatch(/比べられませんでした/u);
@@ -138,14 +144,54 @@ describe("KNOWN_FINDINGS（データ）", () => {
     expect(all).toMatch(/基準ではありません/u);
     expect(all).toContain("先の農場から感染した可能性も否定できない");
     expect(all).not.toContain("両方が考えられる");
+    // 日本の今季の型（報告書: 家きんの発生はすべて H5N1）との違いを書く
+    expect(all).toMatch(/2025\/26 シーズンの発生はすべて H5N1/u);
+    // 報告書の言い方に近づける
+    expect(all).toContain("相次いで野鳥などに由来するウイルスに触れた可能性");
+    expect(all).not.toContain("別々に触れた");
     const guinat = f.sources.find((s) => s.title.includes("Guinat"));
     expect(guinat?.title).toContain("Poultry farm density and proximity drive highly pathogenic avian influenza spread");
   });
 
-  it("羽数の下限: 1,000 羽未満の農場は調べていないと書き、約 6,000 羽は数羽〜数百羽の飼育とは別の規模だと書く", () => {
+  it("国内の続発: 報告書の 3 組（同じ道県内、1 か月以内、11 km 以内、同じ遺伝子型）を 3 組として書く", () => {
+    const f = byId("neighbor-cases");
+    const lines = f.text.split("\n");
+    expect(lines).toHaveLength(2); // 国内と海外で段落を分ける
+    const [domestic, overseas] = lines as [string, string];
+    expect(domestic).toMatch(/3 組/u);
+    for (const pair of ["新潟県の 3・4 例目", "千葉県の 18・19 例目", "北海道の 21・22 例目"]) expect(domestic).toContain(pair);
+    expect(domestic).toContain("1 か月以内");
+    expect(domestic).toContain("11 km 以内");
+    expect(domestic).toContain("同じ遺伝子型");
+    expect(domestic).not.toMatch(/オランダ|フランス/u);
+    expect(overseas).toMatch(/オランダ/u);
+    expect(overseas).toMatch(/フランス/u);
+    expect(overseas).not.toMatch(/新潟|千葉|北海道/u);
+    // 3 組のうち 1 組だけを挙げる書き方（安心する側に傾く）をしない
+    expect(whole(f)).not.toMatch(/1 組/u);
+    const pairs = f.limit.split("\n").filter((l) => l.startsWith("この 3 組"));
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0]).toContain("農場間の伝播の可能性は否定できない");
+    expect(pairs[0]).toContain("野生の哺乳類から別々に入った可能性");
+    expect(pairs[0]).toContain("明らかではない");
+    // 新潟の組（先の農場から否定できない）と千葉の組（直接の感染源とは考えにくい）を、組ごとに書く
+    const detail = f.limit.split("\n").find((l) => l.startsWith("新潟県の組"));
+    expect(detail).toContain("先の農場から感染した可能性も否定できない");
+    expect(detail).toContain("千葉県の組");
+    expect(detail).toContain("直接の感染源になったとは考えにくい");
+  });
+
+  it("羽数の下限: 1,000 羽未満を調べていないのは Yamaguchi 2025。Yamaguchi 2024 の下限は確かめていないと分けて書く", () => {
     for (const id of ["water-and-flock-size", "small-flock"]) {
-      expect(byId(id).limit, id).toContain("1,000 羽未満の農場は調べていません");
+      const line = byId(id).limit.split("\n").find((l) => l.includes("1,000 羽未満の農場は調べていません"));
+      expect(line, id).toBeDefined();
+      expect(line, id).toContain("Yamaguchi 2025");
+      expect(line, id).not.toContain("Yamaguchi 2024");
     }
+    const l24 = byId("water-and-flock-size").limit.split("\n").find((l) => l.includes("Yamaguchi 2024"));
+    expect(l24).toContain("要旨");
+    expect(l24).toContain("下限の羽数は、確かめられていません");
+    expect(l24).not.toContain("1,000 羽未満の農場は調べていません");
     expect(byId("small-flock").limit).toMatch(/数羽から数百羽[^。]*別の規模/u);
   });
 
@@ -159,6 +205,11 @@ describe("KNOWN_FINDINGS（データ）", () => {
     expect(byId("changing-shoes").limit).toMatch(/聞き取り[^。]*数か月後/u);
     expect(byId("changing-shoes").limit).toContain("要旨");
     expect(whole(byId("water-and-flock-size"))).toContain("要旨");
+  });
+
+  it("見出しは本文と限界の欄と食い違わない形（羽数、靴）", () => {
+    expect(byId("small-flock").heading).toBe("約 6,000 羽の農場でも発生している");
+    expect(byId("changing-shoes").heading).toBe("靴の履き替えは、発生しなかった農場に多い");
   });
 
   it("確からしさが『低い』の行には、何についての評価かの補足がある", () => {
@@ -201,7 +252,7 @@ describe("KnownPage（画面）", () => {
     expect(items.map((el) => el.getAttribute("data-id"))).toEqual(shown.map((f) => f.id));
     shown.forEach((f, i) => {
       const el = items[i] as HTMLElement;
-      expect(el.textContent, f.id).toContain(f.text);
+      for (const para of f.text.split("\n")) expect(el.textContent, f.id).toContain(para);
       expect(el.textContent, f.id).toContain(f.region);
       expect(el.textContent, f.id).toContain(f.period);
       expect(el.textContent, f.id).toContain(`確からしさ: ${f.certainty}`);

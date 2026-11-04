@@ -63,7 +63,11 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
             {shown.map((f) => (
               <li key={f.id} id={f.id} data-role="finding" data-id={f.id} className="guidance-notes known-finding">
                 <h2 className="known-heading">{f.heading}</h2>
-                <p className="known-text">{f.text}</p>
+                {f.text.split("\n").map((para) => (
+                  <p key={para} className="known-text">
+                    {para}
+                  </p>
+                ))}
                 <p className="known-meta">
                   研究の地域: {f.region}
                   <br />
