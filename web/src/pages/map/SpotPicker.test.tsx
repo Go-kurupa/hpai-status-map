@@ -5,6 +5,9 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PickTarget } from "./pickSpot";
 import { SpotPicker, type SpotPickerProps } from "./SpotPicker";
+import { latLngToMesh3 } from "@hpai/shared/mesh";
+import { findWordingViolations } from "@hpai/shared/wording";
+import { TEXT } from "./texts";
 
 const entry = (code: string, name: string, prefCode: string): MuniEntry => ({ code, name, prefCode, center: [0, 0], bbox: [0, 0, 0, 0] });
 const GEO = { index: { "13101": entry("13101", "千代田区", "13"), "33203": entry("33203", "津山市", "33") } } as unknown as Pick<GeoStore, "index">;
@@ -113,5 +116,36 @@ describe("SpotPicker", () => {
     fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせる" }));
     fireEvent.click(screen.getByRole("button", { name: "ここに決める" }));
     expect(screen.getByRole("alert").textContent).toMatch(/地図を読み込んでいます/);
+  });
+});
+
+describe("SpotPicker（WebGL2 が使えない端末、mapless）", () => {
+  const NISHI: MuniEntry = { code: "33643", name: "西粟倉村", prefCode: "33", center: [134.33, 35.17], bbox: [134.26, 35.11, 134.42, 35.25] };
+  const geo = { index: { "33643": NISHI } } as unknown as Pick<GeoStore, "index">;
+
+  it("十字で合わせるボタンを出さず、町の中心あたりのマス目を使うボタンと短い注記を出す。確かめてから保存する", () => {
+    const onSet = vi.fn();
+    const onAimingChange = vi.fn();
+    render(<SpotPicker getMap={() => null} geo={geo} deviceSpot={null} readOnly={false} saveFailed={false} aiming={false} onAimingChange={onAimingChange} onSet={onSet} onClear={vi.fn()} mapless town="33643" />);
+    expect(screen.queryByRole("button", { name: TEXT.spotStart })).toBeNull();
+    expect(screen.getByText(TEXT.spotNoMap)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: TEXT.meshUseCenter }));
+    expect(onSet).not.toHaveBeenCalled(); // 確かめるまで保存しない
+    expect(screen.getByText(/西粟倉村/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotDecide }));
+    expect(onSet).toHaveBeenCalledWith({ meshCode: latLngToMesh3(35.17, 134.33), muniCode: "33643", frequentMuniCodes: [] });
+    expect(onAimingChange).not.toHaveBeenCalledWith(true); // 十字は出さない
+    expect(findWordingViolations(TEXT.spotNoMap + TEXT.meshUseCenter)).toEqual([]);
+  });
+
+  it("町を選ぶ前はボタンを押せない。やりなおすと十字ではなく最初に戻る", () => {
+    const onAimingChange = vi.fn();
+    const { rerender } = render(<Harness geo={geo} mapless town={null} onAimingChange={onAimingChange} />);
+    expect((screen.getByRole("button", { name: TEXT.meshUseCenter }) as HTMLButtonElement).disabled).toBe(true);
+    rerender(<Harness geo={geo} mapless town="33643" onAimingChange={onAimingChange} />);
+    fireEvent.click(screen.getByRole("button", { name: TEXT.meshUseCenter }));
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotRetry }));
+    expect(onAimingChange).not.toHaveBeenCalledWith(true);
+    expect(screen.getByRole("button", { name: TEXT.meshUseCenter })).toBeTruthy();
   });
 });

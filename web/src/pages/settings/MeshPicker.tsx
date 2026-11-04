@@ -42,12 +42,21 @@ function cellFeature(code: MeshCode | null): GeoJSON.FeatureCollection {
 
 type GeoSource = { setData(data: GeoJSON.GeoJSON): void };
 
-export function MeshPicker({ muni, onPick }: { muni: MuniEntry | null; onPick: (patch: FarmPick) => void }) {
+export function MeshPicker({
+  muni,
+  onPick,
+  onUnsupported,
+}: {
+  muni: MuniEntry | null;
+  onPick: (patch: FarmPick) => void;
+  /** 地図が描けない端末（WebGL2 がない）。親が案内の文を切り替える */
+  onUnsupported?: () => void;
+}) {
   const boxRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const readyRef = useRef<Promise<void> | null>(null);
-  const latest = useRef({ muni, onPick });
-  latest.current = { muni, onPick };
+  const latest = useRef({ muni, onPick, onUnsupported });
+  latest.current = { muni, onPick, onUnsupported };
   const [pickedMesh, setPickedMesh] = useState<MeshCode | null>(null);
   const [outside, setOutside] = useState(false);
   const [unsupported, setUnsupported] = useState(false);
@@ -73,6 +82,7 @@ export function MeshPicker({ muni, onPick }: { muni: MuniEntry | null; onPick: (
       });
     } catch {
       setUnsupported(true); // WebGL2 が使えない端末。画面を落とさず、町の中心あたりのマス目を使うボタンを出す
+      latest.current.onUnsupported?.();
       return;
     }
     map.touchZoomRotate.disableRotation();

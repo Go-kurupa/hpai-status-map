@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataSourceProvider } from "../../data/context";
 import { SpotProvider } from "../../data/spotContext";
 import type { DataSource } from "../../data/types";
+import { SPOT_KEY } from "../../data/spot";
 import { TEXT } from "./texts";
 
 // WebGL2 が使えない端末では、MapLibre の初期化が投げる。それを再現する
@@ -100,5 +101,25 @@ describe("WebGL2 が使えない端末", () => {
     const muni = await screen.findByRole("group", { name: /岡山県の市町村/ });
     fireEvent.click(await within(muni).findByRole("button", { name: /^西粟倉村/ }));
     expect((await screen.findByText("西粟倉村", { selector: "strong" })).textContent).toBe("西粟倉村");
+  });
+
+  it("「くわしい場所を決める」は、十字ではなく町の中心あたりのマス目を使うボタンになり、この端末に保存する", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { container } = mount();
+    const japan = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    const spot = screen.getByRole("region", { name: TEXT.spotTitle });
+    expect(within(spot).queryByRole("button", { name: TEXT.spotStart })).toBeNull();
+    expect(within(spot).getByText(TEXT.spotNoMap)).toBeTruthy();
+    // 町を選ぶ（代わりの地図から）
+    fireEvent.click(screen.getByRole("button", { name: TEXT.myTown }));
+    fireEvent.click(within(japan).getByRole("button", { name: /^岡山県/ }));
+    const muni = await screen.findByRole("group", { name: /岡山県の市町村/ });
+    fireEvent.click(await within(muni).findByRole("button", { name: /^西粟倉村/ }));
+    fireEvent.click(within(spot).getByRole("button", { name: TEXT.meshUseCenter }));
+    fireEvent.click(within(spot).getByRole("button", { name: TEXT.spotDecide }));
+    const saved = JSON.parse(localStorage.getItem(SPOT_KEY) ?? "null") as { meshCode: string; muniCode: string } | null;
+    expect(saved?.muniCode).toBe("33643");
+    expect(saved?.meshCode).toMatch(/^\d{8}$/);
+    expect(container.querySelector(".crosshair")).toBeNull();
   });
 });

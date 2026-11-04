@@ -59,6 +59,7 @@ export default function MapPage() {
   const [picking, setPicking] = useState(false);
   const [aiming, setAiming] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [mapless, setMapless] = useState(false); // 地図が描けない端末（代わりの地図を出している）
   const mapRef = useRef<PickTarget | null>(null);
   const nonce = useRef(0);
   // 会員の農場が後から届いたら、端末内の町や場所を変える画面は閉じる（変えても見える形が変わらない）
@@ -155,9 +156,13 @@ export default function MapPage() {
             onMapReady={(map) => {
               mapRef.current = map as unknown as PickTarget;
             }}
+            onUnsupported={() => {
+              setMapless(true);
+              setAiming(false);
+            }}
           />
         </Suspense>
-        {aiming && canEdit ? <div className="crosshair" aria-hidden="true" /> : null}
+        {aiming && canEdit && !mapless ? <div className="crosshair" aria-hidden="true" /> : null}
       </div>
 
       <SpotPicker
@@ -173,6 +178,8 @@ export default function MapPage() {
           setNotice(null);
         }}
         onClear={spotState.clearDeviceSpot}
+        mapless={mapless}
+        town={town}
       />
 
       <Legend isCurrent={view.isCurrent} />

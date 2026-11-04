@@ -1,8 +1,9 @@
 import type { GeoStore } from "@hpai/shared/geo";
 import { PREFS } from "@hpai/shared/pref";
-import type { FarmPoint } from "@hpai/shared/types";
+import type { FarmPoint, MuniCode } from "@hpai/shared/types";
 import { useState } from "react";
 import { Button } from "../../ui/Button";
+import { spotFromPick } from "../../data/spot";
 import { pickFromMap, type PickTarget } from "./pickSpot";
 import { TEXT } from "./texts";
 
@@ -20,6 +21,10 @@ export interface SpotPickerProps {
   onAimingChange(on: boolean): void;
   onSet(spot: FarmPoint): void;
   onClear(): void;
+  /** 地図が描けない端末（WebGL2 がない）。十字の代わりに、町の中心あたりのマス目を使うボタンを出す */
+  mapless?: boolean;
+  /** 選んでいる町（mapless のときに使う） */
+  town?: MuniCode | null;
 }
 
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
@@ -48,6 +53,14 @@ export function SpotPicker(p: SpotPickerProps) {
     setCandidate(null);
     p.onAimingChange(false);
   }
+  /** 町の中心（索引の center、[経度, 緯度]）をマス目にする。座標は spotFromPick の中で捨てる */
+  function pickCenter() {
+    const e = p.town ? p.geo?.index[p.town] : undefined;
+    if (!e) return;
+    setMessage(null);
+    setCandidate(spotFromPick(e.center[1], e.center[0], e.code, p.deviceSpot?.frequentMuniCodes ?? []));
+  }
+  const canUseCenter = !!(p.town && p.geo?.index[p.town]);
   function decide() {
     const map = p.getMap();
     if (!map) {
@@ -90,7 +103,18 @@ export function SpotPicker(p: SpotPickerProps) {
             >
               {TEXT.spotDecide}
             </Button>
-            <Button onClick={start}>{TEXT.spotRetry}</Button>
+            <Button onClick={p.mapless ? () => setCandidate(null) : start}>{TEXT.spotRetry}</Button>
+          </div>
+        </div>
+      ) : p.mapless ? (
+        <div>
+          <p className="map-note">{TEXT.spotNoMap}</p>
+          {canUseCenter ? null : <p className="map-note">{TEXT.noTown}</p>}
+          <div className="town-actions">
+            <Button disabled={!canUseCenter} onClick={pickCenter}>
+              {TEXT.meshUseCenter}
+            </Button>
+            {p.deviceSpot ? <Button onClick={p.onClear}>{TEXT.spotClear}</Button> : null}
           </div>
         </div>
       ) : p.aiming ? (

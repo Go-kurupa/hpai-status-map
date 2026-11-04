@@ -22,6 +22,8 @@ export interface MapViewProps {
   pickMode?: boolean;
   onSelectMuni?: (code: MuniCode) => void;
   onMapReady?: (map: MlMap) => void;
+  /** 地図が描けない（WebGL2 がない、初期化に失敗）。代わりの地図に切り替えたことを親に知らせる */
+  onUnsupported?: () => void;
 }
 
 type Geo = Awaited<ReturnType<typeof loadWebGeoStore>>;
@@ -71,6 +73,7 @@ export default function MapView(props: MapViewProps) {
     } catch {
       // WebGL2 が使えない端末では、ここで投げる。画面全体を落とさず、境の線だけの代わりの地図（SvgMap）を出す
       setUnsupported(true);
+      latest.current.onUnsupported?.();
       return;
     }
     map.touchZoomRotate.disableRotation();

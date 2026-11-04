@@ -13,6 +13,7 @@ import { savedAtLabel } from "./farmForm";
 import { FarmBasicsForm, KahoContactForm } from "./FarmProfileForm";
 import { HouseList } from "./HouseList";
 import { MeshPicker, type FarmPick } from "./MeshPicker";
+import { TEXT } from "../map/texts";
 import { MuniMultiPicker } from "./MuniMultiPicker";
 import "./settings.css";
 
@@ -31,6 +32,7 @@ function FarmSettings() {
   const [prefCode, setPrefCode] = useState("");
   const [muniCode, setMuniCode] = useState("");
   const [pick, setPick] = useState<FarmPick | null>(null);
+  const [mapless, setMapless] = useState(false); // 地図が描けない端末（MeshPicker が代わりのボタンを出す）
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -195,8 +197,18 @@ function FarmSettings() {
             </p>
           ) : null}
         </div>
-        <MeshPicker muni={muni} onPick={setPick} />
-        <p role="status">{pick ? "地点を選びました。保存すると、約 1km のマス目で登録されます。" : muni ? "地図で、農場のあたりをおしてください。" : "市町村を選ぶと、地図がその町に寄ります。"}</p>
+        <MeshPicker muni={muni} onPick={setPick} onUnsupported={() => setMapless(true)} />
+        <p role="status">
+          {pick
+            ? "地点を選びました。保存すると、約 1km のマス目で登録されます。"
+            : mapless
+              ? muni
+                ? TEXT.meshPressCenter
+                : TEXT.meshPickMuniFirst
+              : muni
+                ? "地図で、農場のあたりをおしてください。"
+                : "市町村を選ぶと、地図がその町に寄ります。"}
+        </p>
         <Button variant="primary" disabled={!pick || saving} onClick={() => void save()}>
           地点を保存
         </Button>

@@ -1,7 +1,8 @@
 import type { MuniEntry } from "@hpai/shared/geo";
 import { formatJaDate } from "@hpai/shared/jaDate";
 import type { Farm } from "@hpai/shared/types";
-import { findForbiddenPhrases } from "@hpai/shared/wording";
+import { latLngToMesh3 } from "@hpai/shared/mesh";
+import { findForbiddenPhrases, findWordingViolations } from "@hpai/shared/wording";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
@@ -11,6 +12,7 @@ import { DEFAULT_NOTIFY_FIXTURE, farmFixture } from "../../../../shared/test/hel
 import { DataSourceProvider, RecordStoreProvider } from "../../data/context";
 import type { DataSource, RecordStore } from "../../data/types";
 import { MultipleFarmsError } from "../auth/firestoreRecordStore";
+import { TEXT } from "../map/texts";
 
 // 地図（WebGL）は jsdom にないので、maplibre の入口を偽物にする。クリックは偽の地図から起こす
 interface FakeMap {
@@ -20,12 +22,15 @@ interface FakeMap {
   removed: boolean;
 }
 const maps: FakeMap[] = [];
+// true にすると、WebGL2 が使えない端末のように地図の初期化が投げる
+const noWebgl = vi.hoisted(() => ({ value: false }));
 vi.mock("../../geo/maplibre", () => {
   class MlMap {
     fake: FakeMap;
     touchZoomRotate = { disableRotation() {} };
     keyboard = { disableRotation() {} };
     constructor(options: Record<string, unknown>) {
+      if (noWebgl.value) throw new Error("GPUInitializationError: WebGL2 is required to display this map");
       this.fake = { options, handlers: new Map(), sources: new Map(), removed: false };
       maps.push(this.fake);
     }
@@ -103,6 +108,7 @@ const dataSource = { mode: "live", now: () => NOW } as unknown as DataSource;
 
 beforeEach(() => {
   maps.length = 0;
+  noWebgl.value = false;
   geoStore.ensured.length = 0;
   authState.value = { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} };
   farm = { id: "f1", ...farmFixture("u1") };
@@ -310,6 +316,29 @@ describe("/settings/farm", () => {
     await waitFor(() => expect((screen.getByRole("button", { name: "地点を保存" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.change(screen.getByLabelText("都道府県"), { target: { value: "33" } });
     await waitFor(() => expect((screen.getByRole("button", { name: "地点を保存" }) as HTMLButtonElement).disabled).toBe(true));
+  });
+});
+
+describe("/settings/farm（WebGL2 が使えない端末）", () => {
+  it("案内の文は地図をおす操作ではなく、代わりのボタンに合う。押すと町の中心あたりのマス目で保存できる", async () => {
+    noWebgl.value = true;
+    farm = null;
+    mount("/settings/farm");
+    const save = await screen.findByRole("button", { name: "地点を保存" });
+    expect(screen.getByText(TEXT.meshPickMuniFirst)).toBeTruthy();
+    expect(screen.queryByText(/地図がその町に寄ります/)).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("都道府県"), { target: { value: "13" } });
+    fireEvent.change(await screen.findByLabelText("市町村"), { target: { value: "13101" } });
+    expect(await screen.findByText(TEXT.meshPressCenter)).toBeTruthy();
+    expect(screen.queryByText(/地図で、農場のあたりをおしてください/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: TEXT.meshUseCenter }));
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(save);
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    expect(saveFarm).toHaveBeenCalledWith({ meshCode: latLngToMesh3(CHIYODA.center[1], CHIYODA.center[0]), muniCode: "13101", prefCode: "13" });
+    expect(findWordingViolations(TEXT.meshPickMuniFirst + TEXT.meshPressCenter)).toEqual([]);
   });
 });
 
