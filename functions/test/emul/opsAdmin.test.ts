@@ -3,7 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { getAuth } from "firebase-admin/auth";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { logger } from "firebase-functions";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
 import type { Invite, Source, SourceSeed } from "@hpai/shared/types";
 import { db } from "../../src/admin";
@@ -216,6 +217,32 @@ describe("set-setting", () => {
   });
 });
 
+describe("usage-status（読むだけ。--unpause が上限を越えたまま戻さないために使う）", () => {
+  const NOW = new Date("2026-11-05T03:00:00Z"); // 日本時間 2026-11-05
+  it("今月（日本時間）の費用と止める線を返す。設定がなければ既定の線", async () => {
+    await db.doc("usage/2026-11").set({ estimatedJpy: 10600 });
+    await db.doc("usage/2026-10").set({ estimatedJpy: 1 });
+    expect(await handleOp({ op: "usage-status" }, { now: () => NOW })).toEqual({
+      ok: true,
+      op: "usage-status",
+      month: "2026-11",
+      estimatedJpy: 10600,
+      hardLimitJpy: DEFAULT_RUNTIME_SETTINGS.hardLimitJpy,
+    });
+  });
+
+  it("文書がなければ 0 円。月の境は日本時間（UTC の月末でも日本は翌月）。設定の上限を読む", async () => {
+    await db.doc("usage/settings").set({ ...DEFAULT_RUNTIME_SETTINGS, hardLimitJpy: 12000 });
+    expect(await handleOp({ op: "usage-status" }, { now: () => new Date("2026-11-30T16:00:00Z") })).toMatchObject({ month: "2026-12", estimatedJpy: 0, hardLimitJpy: 12000 });
+  });
+
+  it("書き込まない。余計な項目は 400", async () => {
+    await handleOp({ op: "usage-status" }, { now: () => NOW });
+    expect((await db.doc("usage/settings").get()).exists).toBe(false);
+    expect((await rejection(handleOp({ op: "usage-status", extra: 1 } as never))).status).toBe(400);
+  });
+});
+
 describe("serveOps（HTTP の入口）", () => {
   function fakeReq(init: { method?: string; auth?: string; body?: unknown }) {
     return {
@@ -278,5 +305,47 @@ describe("serveOps（HTTP の入口）", () => {
     );
     expect(out.status).toBe(500);
     expect(JSON.stringify(out.body)).not.toContain(tmp);
+  });
+
+  describe("OpError でない失敗の汎用 catch（S-10）", () => {
+    const SECRET_EMAIL = "member-private@example.com";
+    /** handleOp の先で、OpError でない例外を投げさせる（seed-sources が opts.sourcesPath を読むときに投げる）。 */
+    const throwing = (err: unknown) => ({
+      get sourcesPath(): string {
+        throw err;
+      },
+    });
+    const seed = { auth: `Bearer ${BEARER_VALUE}`, body: { op: "seed-sources" } };
+
+    it("500 で固定の文だけを返し、原因の文（email など）を応答にも記録にも出さない。記録は code だけ", async () => {
+      const spy = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+      try {
+        const err = Object.assign(new Error(`lookup failed for ${SECRET_EMAIL}`), { code: "auth/internal-error" });
+        const out = await call(seed, throwing(err));
+        expect(out.status).toBe(500);
+        expect(out.body).toEqual({ ok: false, error: "内部エラーです" });
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy).toHaveBeenCalledWith("opsAdmin failed", { code: "auth/internal-error" });
+        expect(JSON.stringify(spy.mock.calls)).not.toContain(SECRET_EMAIL);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it("code のない例外・Error でない値でも 500。記録は code: unknown だけで、原因の文を出さない", async () => {
+      const spy = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+      try {
+        for (const err of [new Error(SECRET_EMAIL), SECRET_EMAIL, null]) {
+          spy.mockClear();
+          const out = await call(seed, throwing(err));
+          expect(out.status).toBe(500);
+          expect(out.body).toEqual({ ok: false, error: "内部エラーです" });
+          expect(spy).toHaveBeenCalledWith("opsAdmin failed", { code: "unknown" });
+          expect(JSON.stringify(spy.mock.calls)).not.toContain(SECRET_EMAIL);
+        }
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 });

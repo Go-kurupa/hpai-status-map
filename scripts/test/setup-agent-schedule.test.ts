@@ -1,5 +1,6 @@
 // setup-agent の定期実行の操作（X-14）。--schedule、--restore-schedule、--unpause。API は偽物。有料の呼び出しはしない。
 import { describe, expect, it, vi } from "vitest";
+import type { UsageStatus } from "../ops";
 import { isFiveFieldCron, parseScheduleArgs, runScheduleCommand, type ScheduleClient } from "../setup-agent";
 
 describe("isFiveFieldCron", () => {
@@ -13,6 +14,12 @@ describe("parseScheduleArgs", () => {
   it("--restore-schedule、--unpause", () => {
     expect(parseScheduleArgs(["--restore-schedule"])).toEqual({ kind: "restore" });
     expect(parseScheduleArgs(["--unpause"])).toEqual({ kind: "unpause" });
+    expect(parseScheduleArgs(["--unpause", "--force"])).toEqual({ kind: "unpause", force: true });
+  });
+  it("--force は --unpause と一緒のときだけ（単独、ほかの操作との組は error）", () => {
+    for (const argv of [["--force"], ["--restore-schedule", "--force"], ["--schedule", "30 15 4 11 *", "--force"]]) {
+      expect(parseScheduleArgs(argv), argv.join(" ")).toHaveProperty("error");
+    }
   });
   it.each(["* * * * *", "*/5 * * * *", "0 * * * *", "0 7,19 * * *", "0,30 7 * * *", "0 */6 * * *", "0 7-9 * * *", "60 7 * * *", "0 24 * * *"])(
     "1 日に 1 回より多く動く（または範囲外の）cron は error: %s",
@@ -30,12 +37,15 @@ describe("parseScheduleArgs", () => {
   });
 });
 
-function harness(ids: { deploymentId?: string } | null = { deploymentId: "depl_x" }) {
+const BELOW: UsageStatus = { month: "2026-11", estimatedJpy: 9000, hardLimitJpy: 10000 };
+
+function harness(ids: { deploymentId?: string } | null = { deploymentId: "depl_x" }, usage: UsageStatus | null = BELOW) {
   const update = vi.fn(async () => ({ status: "active", schedule: { upcoming_runs_at: ["2026-11-09T07:00:00+09:00"] } }));
   const unpause = vi.fn(async () => ({ status: "active", schedule: { upcoming_runs_at: ["2026-11-09T07:00:00+09:00"] } }));
   const client = { beta: { deployments: { update, unpause } } } as unknown as ScheduleClient;
   let out = "";
-  return { update, unpause, deps: { client, readIds: () => ids, write: (s: string) => (out += s) }, out: () => out };
+  const readUsage = vi.fn(async () => usage);
+  return { update, unpause, readUsage, deps: { client, readIds: () => ids, readUsage, write: (s: string) => (out += s) }, out: () => out };
 }
 
 describe("runScheduleCommand", () => {
@@ -58,6 +68,46 @@ describe("runScheduleCommand", () => {
     expect(await runScheduleCommand(h.deps, { kind: "unpause" })).toBe(0);
     expect(h.unpause).toHaveBeenCalledWith("depl_x");
     expect(h.update).not.toHaveBeenCalled();
+  });
+
+  describe("--unpause は、今月の費用が上限を越えている間は断る（S-13）", () => {
+    it("上限を越えていれば（以上、ちょうども）戻さず 2。月と金額を出し、--force を案内する", async () => {
+      for (const estimatedJpy of [10000, 10600]) {
+        const h = harness(undefined, { month: "2026-11", estimatedJpy, hardLimitJpy: 10000 });
+        expect(await runScheduleCommand(h.deps, { kind: "unpause" }), String(estimatedJpy)).toBe(2);
+        expect(h.unpause).not.toHaveBeenCalled();
+        expect(h.out()).toContain("2026-11");
+        expect(h.out()).toContain("--force");
+      }
+    });
+
+    it("今月の費用を確かめられない（null）ときも戻さず 2（確かめられないなら費用を守る側に倒す）", async () => {
+      const h = harness(undefined, null);
+      expect(await runScheduleCommand(h.deps, { kind: "unpause" })).toBe(2);
+      expect(h.unpause).not.toHaveBeenCalled();
+      expect(h.out()).toContain("--force");
+    });
+
+    it("上限の手前なら戻す", async () => {
+      const h = harness(undefined, { month: "2026-12", estimatedJpy: 0, hardLimitJpy: 10000 });
+      expect(await runScheduleCommand(h.deps, { kind: "unpause" })).toBe(0);
+      expect(h.unpause).toHaveBeenCalledTimes(1);
+    });
+
+    it("--force は確かめずに戻す（越えていても、確かめられなくても）。費用を読みにいかない", async () => {
+      for (const usage of [{ month: "2026-11", estimatedJpy: 12000, hardLimitJpy: 10000 }, null]) {
+        const h = harness(undefined, usage);
+        expect(await runScheduleCommand(h.deps, { kind: "unpause", force: true })).toBe(0);
+        expect(h.unpause).toHaveBeenCalledWith("depl_x");
+        expect(h.readUsage).not.toHaveBeenCalled();
+      }
+    });
+
+    it("--schedule と --restore-schedule は費用を確かめない", async () => {
+      const h = harness(undefined, null);
+      expect(await runScheduleCommand(h.deps, { kind: "restore" })).toBe(0);
+      expect(h.readUsage).not.toHaveBeenCalled();
+    });
   });
 
   it("控えに deploymentId がなければ何も呼ばず 2", async () => {

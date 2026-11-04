@@ -432,11 +432,14 @@ describe("全体", () => {
 // ── useReviewQueue ──
 describe("useReviewQueue", () => {
   it("devToken は模擬環境のときだけ使う", () => {
-    expect(devTokenOf("?emulator=1&devToken=abc", false)).toBe("abc");
-    expect(devTokenOf("?devToken=abc", true)).toBe("abc"); // dev server は常に模擬環境
-    expect(devTokenOf("?devToken=abc", false)).toBeNull(); // 本番の設定では使わない
-    expect(devTokenOf("?emulator=1", false)).toBeNull();
-    expect(devTokenOf("?emulator=1&devToken=", false)).toBeNull();
+    const E2E = { DEV: false, MODE: "e2e" };
+    const PROD = { DEV: false, MODE: "production" };
+    expect(devTokenOf("?emulator=1&devToken=abc", E2E)).toBe("abc");
+    expect(devTokenOf("?devToken=abc", { DEV: true, MODE: "development" })).toBe("abc"); // dev server は常に模擬環境
+    expect(devTokenOf("?devToken=abc", E2E)).toBeNull(); // ?emulator=1 がなければ使わない
+    expect(devTokenOf("?emulator=1&devToken=abc", PROD)).toBeNull(); // 本番の build では ?emulator=1 が付いても使わない
+    expect(devTokenOf("?emulator=1", E2E)).toBeNull();
+    expect(devTokenOf("?emulator=1&devToken=", E2E)).toBeNull();
   });
 
   it("ログインしていなければ signed-out", async () => {

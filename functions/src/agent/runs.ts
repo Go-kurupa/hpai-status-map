@@ -18,8 +18,10 @@ export interface AgentHeartbeat {
   lastAuthedCallAt: IsoDateTime | null;
   /** 費用を足した実行の id。同じ実行を 2 度足さない。 */
   countedRunIds: string[];
-  /** 費用の上限で定期実行を止めた月（YYYY-MM）。同じ月に 2 度止めない。 */
+  /** 費用の上限で定期実行を止めた月（YYYY-MM）。同じ月、同じ上限では 2 度止めない。 */
   pausedMonth?: string;
+  /** 止めたときの上限（円）。運営者が上限を上げて戻したら、同じ月でも新しい上限で止め直せるようにする（S-13）。 */
+  pausedLimitJpy?: number;
   lastManualRunAt?: IsoDateTime;
 }
 
@@ -123,15 +125,32 @@ interface RunInspection {
   costGuessed: boolean;
 }
 
-/** 実行 1 件の見え方を作る。セッションがまだ終わっていなければ null（次の回に見る）。 */
+/** 作成から COST_WAIT_MS たった（作成日時が読めないときも、たったものとして扱う）。 */
+const waitedOut = (run: RunRecord, now: Date): boolean => !(now.getTime() - Date.parse(run.created_at) < COST_WAIT_MS);
+
+/**
+ * まだ終わっていない実行（running、停止の理由のない idle、セッションのない実行）。待つ間は null（次の回に見る）。
+ * COST_WAIT_MS たっても終わらないものは、14 日の窓（LOOKBACK_MS）を出て数え漏れる前に、最悪値（セッションの上限）で確定する。
+ * 後で終わっても、数え済みの id は 2 度足さない（足しすぎる側に倒れる）。
+ */
+function unfinished(run: RunRecord, now: Date): RunInspection | null {
+  if (!waitedOut(run, now)) return null;
+  return {
+    view: { runId: run.id, errorType: null, finished: false, stopReason: null, listCostCents: MAX_SESSION_COST_CENTS },
+    costSettled: true,
+    costGuessed: true,
+  };
+}
+
+/** 実行 1 件の見え方を作る。セッションがまだ終わっていなければ null（次の回に見る。待ちきったものは最悪値で確定）。 */
 async function inspect(client: RunsClient, run: RunRecord, now: Date): Promise<RunInspection | null> {
   if (run.error !== null) {
     return { view: { runId: run.id, errorType: run.error.type, finished: true, stopReason: null, listCostCents: null }, costSettled: true, costGuessed: false };
   }
-  if (run.session_id === null) return null;
+  if (run.session_id === null) return unfinished(run, now);
 
   const session = await client.beta.sessions.retrieve(run.session_id);
-  if (session.status !== "idle" && session.status !== "terminated") return null;
+  if (session.status !== "idle" && session.status !== "terminated") return unfinished(run, now);
 
   let stopReason: string | null = null;
   for await (const ev of client.beta.sessions.events.list(run.session_id, { types: ["session.status_idle"], order: "desc" })) {
@@ -139,7 +158,7 @@ async function inspect(client: RunsClient, run: RunRecord, now: Date): Promise<R
     break; // 最後の 1 件だけ
   }
   // idle は始まる前の状態でもある。停止の理由がまだ無い idle は、終わったとは見ない。
-  if (session.status === "idle" && stopReason === null) return null;
+  if (session.status === "idle" && stopReason === null) return unfinished(run, now);
 
   const amount = session.usage?.list_cost?.amount;
   const measured = typeof amount === "string" && /^\d{1,12}$/.test(amount) ? Number(amount) : null;
@@ -148,7 +167,7 @@ async function inspect(client: RunsClient, run: RunRecord, now: Date): Promise<R
   }
   // 費用が測れていない（list_cost が無い、または形が想定外）。0 円で確定せず、次の回に取り直す。
   // 待ちきったら、セッションの上限を最悪値として足す（不明を 0 としない）。作成日時が読めないときも待ちきったものとして扱う。
-  const waited = !(now.getTime() - Date.parse(run.created_at) < COST_WAIT_MS);
+  const waited = waitedOut(run, now);
   return {
     view: { runId: run.id, errorType: null, finished: true, stopReason, listCostCents: waited ? MAX_SESSION_COST_CENTS : null },
     costSettled: waited,
@@ -221,29 +240,32 @@ export async function handleCheckAgentRuns(deps: CheckDeps): Promise<CheckResult
   return { counted: added.n, addedJpy: added.jpy, failures: failures.length, paused };
 }
 
-/** 今月の費用が止める線以上なら、定期実行を止めて運営者に知らせる。同じ月に 1 回だけ。止めたら true。 */
+/** 今月の費用が止める線以上なら、定期実行を止めて運営者に知らせる。同じ月、同じ上限では 1 回だけ。止めたら true。 */
 async function pauseIfOverLimit(deps: CheckDeps, now: Date, hardLimitJpy: number): Promise<boolean> {
   const month = await readUsageMonth(now);
   if (month.estimatedJpy < hardLimitJpy) return false;
 
   const key = usageMonthKey(now);
   const stateRef = db.doc("usage/agent");
-  if (((await stateRef.get()).data() as Partial<AgentHeartbeat> | undefined)?.pausedMonth === key) return false;
+  const state = (await stateRef.get()).data() as Partial<AgentHeartbeat> | undefined;
+  // 同じ月でも、止めたときと上限が違うなら（運営者が上げて戻した後）止め直す。上限の記録がない古い文書は、月だけで見る。
+  const alreadyPaused = state?.pausedMonth === key;
+  if (alreadyPaused && (state?.pausedLimitJpy === undefined || state.pausedLimitJpy === hardLimitJpy)) return false;
 
   // 止めるのが先。止められなければ例外のまま終わり、次の回にやり直す。
   await deps.client.beta.deployments.pause(deps.deploymentId);
   await enqueueReview(
     {
-      id: reviewAlertId("agent_run_failed", `paused-${key}`),
+      id: reviewAlertId("agent_run_failed", alreadyPaused ? `paused-${key}-jpy${hardLimitJpy}` : `paused-${key}`),
       kind: "alert",
       alert: "agent_run_failed",
       prefCode: null,
       caseId: null,
-      message: `今月の費用が上限（${hardLimitJpy}円）に達したため、入口を直すエージェントの定期実行を止めました。戻すときは scripts/setup-agent.ts の --unpause を使います。`,
+      message: `今月の費用が上限（${hardLimitJpy}円）に達したため、入口を直すエージェントの定期実行を止めました。戻すときは scripts/setup-agent.ts の --unpause を使います（今月の費用が上限を越えている間は断られます。意図して戻すときだけ --force を付けます）。`,
     },
     now,
   );
-  await stateRef.set({ pausedMonth: key }, { merge: true });
+  await stateRef.set({ pausedMonth: key, pausedLimitJpy: hardLimitJpy }, { merge: true });
   logger.warn("agent deployment paused: monthly cost limit");
   return true;
 }

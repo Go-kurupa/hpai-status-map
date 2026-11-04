@@ -7,6 +7,7 @@ import { z } from "zod";
 import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
 import type { Invite, RuntimeSettings, Source, SourceKind, SourceSeed } from "@hpai/shared/types";
 import { db } from "../admin";
+import { readRuntimeSettings, readUsageMonth, usageMonthKey } from "../usage/settings";
 import { checkBearer } from "./auth";
 
 // 手元から本番を管理する opsAdmin の中身（契約 1.7）。応答にもログにも、Secret、招待コード（作った 1 度を除く）、email を出さない。
@@ -15,13 +16,15 @@ export type OpRequest =
   | { op: "set-claims"; email: string; operator?: boolean; member?: boolean }
   | { op: "create-invite"; kind: "signup"; maxUses: number }
   | { op: "seed-sources" }
-  | { op: "set-setting"; key: string; value: unknown };
+  | { op: "set-setting"; key: string; value: unknown }
+  | { op: "usage-status" };
 
 export type OpResult =
   | { ok: true; op: "set-claims"; claims: string[] }
   | { ok: true; op: "create-invite"; code: string; maxUses: number }
   | { ok: true; op: "seed-sources"; added: number; skipped: number; total: number }
-  | { ok: true; op: "set-setting"; key: string; value: unknown };
+  | { ok: true; op: "set-setting"; key: string; value: unknown }
+  | { ok: true; op: "usage-status"; month: string; estimatedJpy: number; hardLimitJpy: number };
 
 /** 呼び出し側に返してよい失敗。message は固定の文で、入力の値を含めない。 */
 export class OpError extends Error {
@@ -48,6 +51,7 @@ const RequestSchema = z.discriminatedUnion("op", [
     .strict(),
   z.object({ op: z.literal("seed-sources") }).strict(),
   z.object({ op: z.literal("set-setting"), key: z.string().min(1).max(100), value: z.unknown() }).strict(),
+  z.object({ op: z.literal("usage-status") }).strict(),
 ]);
 
 const SourceSeedSchema = z.object({
@@ -68,7 +72,7 @@ function parseRequest(raw: unknown): OpRequest {
   return parsed.data as OpRequest;
 }
 
-export async function handleOp(body: OpRequest, opts: { sourcesPath?: string } = {}): Promise<OpResult> {
+export async function handleOp(body: OpRequest, opts: { sourcesPath?: string; now?: () => Date } = {}): Promise<OpResult> {
   const req = parseRequest(body);
   switch (req.op) {
     case "set-claims":
@@ -79,6 +83,8 @@ export async function handleOp(body: OpRequest, opts: { sourcesPath?: string } =
       return seedSources(opts.sourcesPath);
     case "set-setting":
       return setSetting(req);
+    case "usage-status":
+      return usageStatus((opts.now ?? (() => new Date()))());
   }
 }
 
@@ -169,6 +175,14 @@ async function seedSources(sourcesPath: string | undefined): Promise<OpResult> {
   return { ok: true, op: "seed-sources", added, skipped: rows.length - added, total: rows.length };
 }
 
+// ── usage-status: 今月の費用と止める線を読むだけ（setup-agent --unpause が、上限を越えたまま戻さないために使う）──
+// 月の境と換算は、定期実行を止める側（agent/runs.ts）と同じ関数を使う。Secret も個人情報も返さない。
+
+async function usageStatus(now: Date): Promise<OpResult> {
+  const [settings, month] = await Promise.all([readRuntimeSettings(), readUsageMonth(now)]);
+  return { ok: true, op: "usage-status", month: usageMonthKey(now), estimatedJpy: month.estimatedJpy, hardLimitJpy: settings.hardLimitJpy };
+}
+
 // ── set-setting: usage/settings。無ければ既定値で作る ──
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -208,7 +222,7 @@ export interface OpsRes {
   json(body: unknown): unknown;
 }
 
-export async function serveOps(req: OpsReq, res: OpsRes, expectedToken: string, opts: { sourcesPath?: string } = {}): Promise<void> {
+export async function serveOps(req: OpsReq, res: OpsRes, expectedToken: string, opts: { sourcesPath?: string; now?: () => Date } = {}): Promise<void> {
   if (!checkBearer(req.get("authorization"), expectedToken)) {
     res.status(401).json({ ok: false, error: "認証できません" });
     return;

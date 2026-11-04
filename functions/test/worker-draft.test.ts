@@ -3,7 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { dateNumbers, workerMessageTemplate } from "@hpai/shared/drafts";
 import { DRAFT_MODEL, DRAFT_SYSTEM, buildDraftUser, callDraft } from "../src/drafts/claude";
-import { decideDraft } from "../src/drafts/workerDraft";
+import { decideDraft, WORKER_MAX_OUTPUT } from "../src/drafts/workerDraft";
 
 const FACTS = { muniName: "津山市", date: "2025-12-19", stage: "confirmed" as const };
 const SUSPECT = { ...FACTS, stage: "suspected" as const };
@@ -116,6 +116,22 @@ describe("decideDraft（Claude の返事を採るか、雛形に戻すか）", (
   it("煽る語と事実にない数字は雛形", () => {
     expect(decideDraft(FACTS, ok(`${GOOD_CONFIRMED}大変危険です。`)).source).toBe("template");
     expect(decideDraft(FACTS, ok(`${GOOD_CONFIRMED}約43万羽です。`)).source).toBe("template");
+  });
+  it("S-28: 長すぎる文（500 字を超える）は雛形。URL を含む文も雛形（検査には通る内容でも）", () => {
+    const filler = "出勤の前後に消毒と着替えをお願いします。".repeat(30); // 検査の語は満たすが 500 字を超える
+    const long = decideDraft(FACTS, ok(`${GOOD_CONFIRMED}${filler}`));
+    expect(long).toMatchObject({ source: "template", message: workerMessageTemplate(FACTS) });
+    expect(long.failures).toContain("too_long");
+    // 上限ちょうどは通る
+    const exact = GOOD_CONFIRMED + "あ".repeat(WORKER_MAX_OUTPUT - Array.from(GOOD_CONFIRMED).length);
+    expect(Array.from(exact)).toHaveLength(WORKER_MAX_OUTPUT);
+    expect(decideDraft(FACTS, ok(exact)).source).toBe("claude");
+    expect(decideDraft(FACTS, ok(`${exact}あ`)).failures).toContain("too_long");
+    for (const url of ["https://example.test/x", "http://example.test", "www.example.test", "ＨＴＴＰＳ：//example.test", "HTTPS://EXAMPLE.TEST"]) {
+      const d = decideDraft(FACTS, ok(`${GOOD_CONFIRMED}くわしくは ${url} を見てください。`));
+      expect(d, url).toMatchObject({ source: "template", message: workerMessageTemplate(FACTS) });
+      expect(d.failures, url).toContain("url");
+    }
   });
   it("疑いの段階なのに「疑い」がなければ雛形", () => {
     const noSuspect = "12月19日、津山市で鳥インフルエンザの発表がありました。発生地の近くには行かないでください。出勤の前後に消毒と着替えをお願いします。";

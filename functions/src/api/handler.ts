@@ -202,8 +202,9 @@ function done(body: unknown, now: Date): ApiResult {
   const dataAsOf = (body as { dataAsOf?: string }).dataAsOf;
   let cacheControl = OK_HEADERS["Cache-Control"];
   if (dataAsOf !== undefined) {
-    const age = now.getTime() - Date.parse(dataAsOf);
-    cacheControl = Number.isFinite(age) && age >= 0 && age < 60_000 ? `public, max-age=${60 - Math.floor(age / 1000)}` : "no-cache";
+    // 時計のずれで記録の時刻が今より先に見えるとき（負）は、古さ 0 として扱う（no-cache にすると毎回読みに来る）。
+    const age = Math.max(0, now.getTime() - Date.parse(dataAsOf));
+    cacheControl = Number.isFinite(age) && age < 60_000 ? `public, max-age=${60 - Math.floor(age / 1000)}` : "no-cache";
   }
   return { status: 200, headers: { ...OK_HEADERS, "Cache-Control": cacheControl }, body };
 }

@@ -411,13 +411,23 @@ describe("verifyRead: 野鳥", () => {
     expect(run(wild([bird({ quote: "本文にない行" })]), wtext).pass).toBe(false);
     expect(run(wild([bird(), bird({ date: date(null, 10, 28) })]), wtext).pass).toBe(false);
   });
-  it("市町村の不一致は muniCode を null にして名前を残し、pass のまま", () => {
+  it("N-3: 市町村が引用にない行は muniCode も muniName も null にして（読み手の出力を公開に残さない）、pass のまま", () => {
     const r = run(wild([bird({ municipality: "鳥取市" })]), wtext);
     expect(r.pass).toBe(true);
-    expect(r.normalized?.wildBirds[0]).toMatchObject({ muniCode: null, muniName: "鳥取市" });
+    expect(r.normalized?.wildBirds[0]).toMatchObject({ muniCode: null, muniName: null });
     const issue = r.issues.find((i) => i.field.startsWith("wildBirds"));
     expect(issue?.mandatory).toBe(false);
+    expect(issue?.detail).toBe("row0:muni_value_not_in_quote");
     expect(issue?.detail).not.toContain("鳥取市");
+    expect(JSON.stringify(r.normalized)).not.toContain("鳥取市");
+  });
+  it("N-3: 市町村が引用にはあるが、その県の索引にない行も muniName を null にする（引用にある名前を、索引で確かめられないまま出さない）", () => {
+    // 引用には書かれている名前だが、宮城県の索引にない（実在しない市）
+    const quote = "10/27 回収 宮城県 架空市 死亡野鳥 カモ 陰性";
+    const r = run(wild([bird({ municipality: "架空市", quote })]), quote);
+    expect(r.pass).toBe(true);
+    expect(r.normalized?.wildBirds[0]).toMatchObject({ muniCode: null, muniName: null });
+    expect(r.issues.find((i) => i.field.startsWith("wildBirds"))?.detail).toBe("row0:muni_not_in_prefecture");
   });
   it("市町村が null の行は muniCode も muniName も null", () => {
     const r = run(wild([bird({ municipality: null })]), wtext);

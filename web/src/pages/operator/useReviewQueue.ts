@@ -6,7 +6,7 @@ import type { IsoDateTime } from "@hpai/shared/types";
 import { signInWithCustomToken } from "firebase/auth";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { getFirebase, resolveFirebaseMode } from "../../firebase";
+import { getFirebase, resolveFirebaseMode, type BuildEnv } from "../../firebase";
 
 export type ReviewQueueState =
   | { status: "loading" }
@@ -16,8 +16,8 @@ export type ReviewQueueState =
   | { status: "ready"; items: ReviewItem[]; asOf: IsoDateTime | null };
 
 /** 模擬環境のときだけ、URL の devToken を返す（本番の設定では使わない。scripts/dev-operator.ts が URL を作る） */
-export function devTokenOf(search: string, isDev: boolean): string | null {
-  if (resolveFirebaseMode(search, isDev) !== "emulator") return null;
+export function devTokenOf(search: string, env: BuildEnv): string | null {
+  if (resolveFirebaseMode(search, env) !== "emulator") return null;
   const t = new URLSearchParams(search).get("devToken");
   return t !== null && t !== "" ? t : null;
 }
@@ -53,7 +53,7 @@ export function useReviewQueue(): ReviewQueueState {
       const { auth, db } = handles;
 
       try {
-        const token = devTokenOf(location.search, import.meta.env.DEV);
+        const token = devTokenOf(location.search, import.meta.env);
         if (token !== null) {
           await auth.authStateReady();
           if (auth.currentUser === null) await signInWithCustomToken(auth, token);

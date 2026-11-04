@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRequest, runOps } from "../ops";
+import { buildRequest, fetchUsageStatus, runOps } from "../ops";
 
 describe("buildRequest（契約 1.7 の 4 操作）", () => {
   it("set-claims", () => {
@@ -91,5 +91,106 @@ describe("runOps", () => {
     d.env = {};
     expect(await runOps(["seed-sources"], d)).not.toBe(0);
     expect(sent).toHaveLength(0);
+  });
+
+  describe("OPS_URL の scheme（S-11。Bearer を平文で出さない）", () => {
+    it("https は通す。ローカルの模擬環境だけ http://localhost と http://127.0.0.1 を通す", async () => {
+      for (const url of [
+        "https://example.test/opsAdmin",
+        "http://localhost:5001/demo-hpai/asia-northeast1/opsAdmin",
+        "http://127.0.0.1:5001/demo-hpai/asia-northeast1/opsAdmin",
+      ]) {
+        const { sent, d } = deps({ status: 200, body: { ok: true, op: "seed-sources" } });
+        d.env = { OPS_URL: url };
+        expect(await runOps(["seed-sources"], d), url).toBe(0);
+        expect(sent, url).toHaveLength(1);
+        expect(sent[0]!.url).toBe(url);
+      }
+    });
+
+    it("それ以外の http、別の scheme、URL でない値、ローカルに見せかけたホストは、送らずに止まる。値は出さない", async () => {
+      for (const url of [
+        "http://example.test/opsAdmin",
+        "http://192.168.0.5:5001/opsAdmin",
+        "http://localhost.example.test/opsAdmin",
+        "http://127.0.0.1.example.test/opsAdmin",
+        "http://localhost@example.test/opsAdmin",
+        "http://[::1]:5001/opsAdmin",
+        "ftp://example.test/opsAdmin",
+        "file:///tmp/opsAdmin",
+        "example.test/opsAdmin",
+      ]) {
+        const { out, sent, d } = deps({ status: 200, body: { ok: true } });
+        d.env = { OPS_URL: url };
+        expect(await runOps(["seed-sources"], d), url).toBe(2);
+        expect(sent, url).toHaveLength(0);
+        expect(out.join(""), url).toContain("OPS_URL");
+        expect(out.join(""), url).not.toContain(FAKE);
+        expect(out.join(""), url).not.toContain(url);
+      }
+    });
+
+    it("probe の PROBE_URL も同じ検査を通す。http の別のホストは、送らずに止まる", async () => {
+      for (const url of ["http://example.test/probeEntrances", "ftp://example.test/probeEntrances", "example.test/probeEntrances"]) {
+        const { out, sent, d } = deps({ status: 200, body: { ok: true } });
+        d.env = { PROBE_URL: url };
+        expect(await runOps(["probe", "--from-sources"], d), url).toBe(2);
+        expect(sent, url).toHaveLength(0);
+        expect(out.join(""), url).toContain("PROBE_URL");
+        expect(out.join(""), url).not.toContain(url);
+      }
+    });
+  });
+});
+
+describe("fetchUsageStatus（setup-agent --unpause が今月の費用を読む。読めなければ null）", () => {
+  const FAKE = "fake-ops-value-for-test";
+  const OK = { ok: true, op: "usage-status", month: "2026-11", estimatedJpy: 10600, hardLimitJpy: 10000 };
+  function io(over: { env?: Record<string, string | undefined>; token?: string | null; res?: () => Response | Promise<Response> } = {}) {
+    const sent: Array<{ url: string; init: RequestInit }> = [];
+    return {
+      sent,
+      d: {
+        env: over.env ?? { FIREBASE_PROJECT: "demo-test" },
+        readToken: () => (over.token === undefined ? FAKE : over.token),
+        fetch: (async (url: string, init: RequestInit) => {
+          sent.push({ url, init });
+          return over.res ? over.res() : new Response(JSON.stringify(OK));
+        }) as typeof fetch,
+      },
+    };
+  }
+
+  it("Bearer で usage-status を POST し、月・費用・上限を返す", async () => {
+    const { sent, d } = io();
+    expect(await fetchUsageStatus(d)).toEqual({ month: "2026-11", estimatedJpy: 10600, hardLimitJpy: 10000 });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.url).toBe("https://asia-northeast1-demo-test.cloudfunctions.net/opsAdmin");
+    expect((sent[0]!.init.headers as Record<string, string>).authorization).toBe(`Bearer ${FAKE}`);
+    expect(JSON.parse(sent[0]!.init.body as string)).toEqual({ op: "usage-status" });
+  });
+
+  it("URL がない、https でない OPS_URL、控えがないときは、送らずに null（Bearer を平文で出さない）", async () => {
+    for (const over of [{ env: {} }, { env: { OPS_URL: "http://example.test/opsAdmin" } }, { token: null }]) {
+      const { sent, d } = io(over);
+      expect(await fetchUsageStatus(d)).toBeNull();
+      expect(sent).toHaveLength(0);
+    }
+  });
+
+  it("HTTP の失敗、通信の失敗、形が違う応答は null", async () => {
+    const bad: Array<() => Response | Promise<Response>> = [
+      () => new Response("{}", { status: 401 }),
+      () => {
+        throw new Error("down");
+      },
+      () => new Response("not json"),
+      () => new Response(JSON.stringify({ ...OK, estimatedJpy: "10600" })),
+      () => new Response(JSON.stringify({ ...OK, hardLimitJpy: null })),
+      () => new Response(JSON.stringify({ ...OK, op: "seed-sources" })),
+      () => new Response(JSON.stringify({ ...OK, ok: false })),
+      () => new Response("null"),
+    ];
+    for (const res of bad) expect(await fetchUsageStatus(io({ res }).d)).toBeNull();
   });
 });

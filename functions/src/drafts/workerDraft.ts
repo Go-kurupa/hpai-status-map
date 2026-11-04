@@ -13,6 +13,10 @@ import type { ReadAttempt } from "../read/claude";
 import { recordUsage } from "../usage/record";
 import { readRuntimeSettings, readUsageMonth } from "../usage/settings";
 import { DRAFT_MODEL, DRAFT_SYSTEM, buildDraftUser, callDraft } from "./claude";
+import { lengthAndUrlFailures } from "./outputGuards";
+
+/** 声かけ文の長さの上限（文字の数）。システムの指示は 3 文以内。超えたら雛形に戻す。 */
+export const WORKER_MAX_OUTPUT = 500;
 
 export interface DraftDecision {
   message: string;
@@ -27,6 +31,9 @@ export function decideDraft(facts: DraftFacts, attempt: ReadAttempt<{ message: s
   if (attempt === null) return template([]);
   if (!attempt.ok) return template([`claude:${attempt.reason}`]);
   const message = attempt.value.message.trim();
+  // 長さの上限と URL の拒否は、近隣への説明文と同じ検査（outputGuards）。声かけ文は 3 文以内なので上限は短い。
+  const guard = lengthAndUrlFailures(message, WORKER_MAX_OUTPUT);
+  if (guard.length > 0) return template(guard);
   const check = checkWorkerMessage(message, { muniName: facts.muniName, date: facts.date, allowedNumbers: dateNumbers(facts.date) });
   if (!check.ok) return template(check.failures);
   // 疑いの段階の文は「疑い」と書く（確定と読まれないように）

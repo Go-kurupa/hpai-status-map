@@ -163,6 +163,18 @@ describe("firebase.json", () => {
     }
   });
 
+  it("N-7: 全ページに X-Frame-Options: DENY と X-Content-Type-Options: nosniff。ただし /__/ の下（Google ログインの iframe）は除く。既存の Cache-Control は残す", () => {
+    const headers = firebase.hosting.headers as Array<{ source: string; headers: Array<{ key: string; value: string }> }>;
+    // 「/__/ 以外のすべて」を表す glob。Firebase の予約パス /__/auth/iframe は、ログインの画面が自分の中に埋め込むので、DENY にすると Google ログインが壊れる
+    const security = headers.find((h) => h.source === "!/__/**");
+    expect(security?.headers).toEqual([
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+    ]);
+    // 他の項目は消えていない
+    expect(headers.map((h) => h.source).sort()).toEqual(["!/__/**", "/geo/**", "/history/**"]);
+  });
+
   it("emulators", () => {
     const { emulators } = firebase;
     expect(emulators.firestore.port).toBe(8080);

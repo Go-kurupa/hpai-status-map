@@ -69,6 +69,17 @@ describe("I-1: 回数の制限を偽れない、費用を食えない", () => {
     expect(limit("203.0.113.9", t + 60_000)).toBe("ok"); // 次の分は表が空
   });
 
+  it("S-02: 送り手が分からない（unknown）要求は共有の 1 つの枠にまとめず、表にも足さずに shed（キャッシュだけ）。429 にしない", () => {
+    const limit = createRateLimiter(3, { globalPerMinute: 1000 });
+    const t = Date.UTC(2026, 10, 4, 3, 0, 5);
+    for (let i = 0; i < 500; i++) expect(limit("unknown", t)).toBe("shed"); // 1 人の連打が、別の unknown の人を 429 にしない
+    expect(limit("203.0.113.1", t)).toBe("ok"); // 追跡済みの IP を締め出さない
+    // 表に足していない: 表が満杯でなくても、unknown が枠を使わない
+    const tiny = createRateLimiter(3, { globalPerMinute: 1000, maxTrackedIps: 1 });
+    for (let i = 0; i < 10; i++) expect(tiny("unknown", t)).toBe("shed");
+    expect(tiny("203.0.113.1", t)).toBe("ok"); // 表の 1 枠を unknown が埋めていない
+  });
+
   it("clientIp は右端", () => {
     expect(clientIp("1.1.1.1, 2.2.2.2, 203.0.113.9")).toBe("203.0.113.9");
     expect(clientIp(["1.1.1.1", "203.0.113.9"])).toBe("203.0.113.9");
@@ -458,6 +469,15 @@ describe("4回目: 古い答えは長く共有の置き場に残さない", () =
     expect(await cc(at(60_000))).toBe("no-cache");
     expect(await cc(at(7 * 60_000))).toBe("no-cache");
     for (const p of ["/api/v1/cases", "/api/v1/areas/33203", "/api/v1/wild-birds"]) expect((await get(at(7 * 60_000), p)).headers["Cache-Control"], p).toBe("no-cache");
+  });
+
+  it("S-01: 記録の時刻が今より先（時計のずれ）でも no-cache にしない。古さは 0 として扱い、max-age=60", async () => {
+    const { deps } = await makeDeps();
+    const at = (ageMs: number): ApiDeps => ({ ...deps, dataAt: () => NOW.getTime() - ageMs });
+    const cc = async (d: ApiDeps) => (await get(d, "/api/v1/watch-status")).headers["Cache-Control"];
+    expect(await cc(at(-1_000))).toBe("public, max-age=60");
+    expect(await cc(at(-30 * 60_000))).toBe("public, max-age=60");
+    expect(await cc(at(60_000))).toBe("no-cache"); // 古い側は従来どおり
   });
 
   it("IPv4 マップの 16 進の書き方も IPv4 として扱う", () => {

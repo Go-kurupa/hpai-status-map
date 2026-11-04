@@ -14,7 +14,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { OpRequest } from "../functions/src/ops/handlers";
+import { isAllowedOpsUrl, urlRefused } from "./lib/opsUrl";
 import { runProbe } from "./lib/reachability";
+
+export { isAllowedOpsUrl };
 
 const USAGE = `使い方:
   ops.ts set-claims --email <メール> --operator [--member]
@@ -88,6 +91,7 @@ export interface OpsDeps {
 
 export async function runOps(argv: string[], deps: OpsDeps): Promise<number> {
   if (argv[0] === "probe") {
+    // PROBE_URL の scheme の検査は、Bearer を付ける直前（runProbe の中）で行う。
     return runProbe(argv.slice(1), {
       env: deps.env,
       readToken: deps.readToken,
@@ -109,6 +113,11 @@ export async function runOps(argv: string[], deps: OpsDeps): Promise<number> {
     (deps.env.FIREBASE_PROJECT ? `https://asia-northeast1-${deps.env.FIREBASE_PROJECT}.cloudfunctions.net/opsAdmin` : null);
   if (!url) {
     deps.write("FIREBASE_PROJECT（または OPS_URL）を設定してください\n");
+    return 2;
+  }
+  if (!isAllowedOpsUrl(url)) {
+    // 値は出さない（URL に何が入っているか分からない）。Bearer を平文で出さないため、送らずに止まる。
+    deps.write(`${urlRefused("OPS_URL")}\n`);
     return 2;
   }
   const token = deps.readToken();
@@ -144,7 +153,43 @@ export async function runOps(argv: string[], deps: OpsDeps): Promise<number> {
   return 0;
 }
 
-function readTokenFile(): string | null {
+/** 今月の費用と止める線（opsAdmin の usage-status）。 */
+export interface UsageStatus {
+  month: string;
+  estimatedJpy: number;
+  hardLimitJpy: number;
+}
+
+/**
+ * opsAdmin の usage-status を呼ぶ。読めなかったとき（URL や控えがない、通信の失敗、形が違う）は null。呼び側は null を「確かめられない」として扱う。
+ * Bearer を付ける直前に、URL の scheme を検査する（OPS_URL と同じ）。値は出さない。
+ */
+export async function fetchUsageStatus(deps: Pick<OpsDeps, "env" | "readToken" | "fetch">): Promise<UsageStatus | null> {
+  const url =
+    deps.env.OPS_URL ??
+    (deps.env.FIREBASE_PROJECT ? `https://asia-northeast1-${deps.env.FIREBASE_PROJECT}.cloudfunctions.net/opsAdmin` : null);
+  if (!url || !isAllowedOpsUrl(url)) return null;
+  const token = deps.readToken();
+  if (!token) return null;
+  try {
+    const res = await deps.fetch(url, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ op: "usage-status" } satisfies OpRequest),
+    });
+    if (!res.ok) return null;
+    const j = (await res.json()) as Record<string, unknown> | null;
+    if (!j || j.ok !== true || j.op !== "usage-status") return null;
+    const { month, estimatedJpy, hardLimitJpy } = j;
+    if (typeof month !== "string" || typeof estimatedJpy !== "number" || typeof hardLimitJpy !== "number") return null;
+    if (!Number.isFinite(estimatedJpy) || !Number.isFinite(hardLimitJpy)) return null;
+    return { month, estimatedJpy, hardLimitJpy };
+  } catch {
+    return null;
+  }
+}
+
+export function readTokenFile(): string | null {
   try {
     return fs.readFileSync(path.join(os.homedir(), ".config", "hpai", "ops-token"), "utf8").trim() || null;
   } catch {

@@ -457,7 +457,7 @@ function verifyWildBirds(
     let muniName: string | null = null;
     if (row.municipality !== null) {
       const core = muniCoreName(row.municipality);
-      muniName = core;
+      // 引用に名前がないとき、または索引にないときは、読み手の出力をそのまま公開に残さない（muniName も null）。
       if (!muniInQuote(core, row.quote, geo)) optional("value_in_quote", "muni_value_not_in_quote");
       else {
         muniCode = findMuniByName(prefCode, core, geo);

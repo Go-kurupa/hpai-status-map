@@ -6,6 +6,7 @@ import { toJstIso } from "@hpai/shared/dates";
 import { PREFS } from "@hpai/shared/pref";
 import type { IsoDateTime, SourceSeed } from "@hpai/shared/types";
 import type { ProbeRow, ProbeVerdict } from "../../functions/src/probe/run";
+import { isAllowedOpsUrl, urlRefused } from "./opsUrl";
 import { buildProbeTargets, targetsFromSources } from "./probe-targets";
 
 const EXPECTED_NATIONAL_TITLES = 24;
@@ -214,6 +215,11 @@ export async function runProbe(argv: string[], io: ProbeIo): Promise<number> {
   const token = io.readToken();
   if (!token) {
     io.write("~/.config/hpai/ops-token がありません。bash scripts/set-ops-token.sh を先に実行してください\n");
+    return 2;
+  }
+  // Bearer を付けて送る前の検査（S-11）。https だけ許す。値は出さない。
+  if (!isAllowedOpsUrl(url)) {
+    io.write(`${urlRefused("PROBE_URL")}\n`);
     return 2;
   }
 

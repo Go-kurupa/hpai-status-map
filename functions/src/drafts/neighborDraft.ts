@@ -18,10 +18,10 @@ import {
   type NeighborDraftResult,
 } from "@hpai/shared/drafts";
 import type { OfficialGuidance } from "@hpai/shared/guidance/official";
-import { normalizeForMatch } from "@hpai/shared/text";
 import type { RuntimeSettings } from "@hpai/shared/types";
 import type { ReadAttempt } from "../read/claude";
 import { DRAFT_MODEL, callDraft } from "./claude";
+import { lengthAndUrlFailures } from "./outputGuards";
 
 export const NEIGHBOR_SYSTEM =
   "あなたは養鶏場が近隣の住民へ配る説明文の、農場の対策の部分だけを下書きします。入力された対策だけを使います。入力にない数字と事実を足しません。人の健康、感染、卵や肉について書きません。不安をあおる語を使いません。";
@@ -71,8 +71,7 @@ export function decideNeighborDraft(
   const farmPart = attempt.value.message.trim();
   const failures: string[] = [];
   if (farmPart === "") failures.push("empty");
-  if (Array.from(farmPart).length > NEIGHBOR_MAX_OUTPUT) failures.push("too_long");
-  if (/https?:|www\./iu.test(normalizeForMatch(farmPart))) failures.push("url");
+  failures.push(...lengthAndUrlFailures(farmPart, NEIGHBOR_MAX_OUTPUT));
   failures.push(...checkNeighborText(farmPart, allowed, { input: measures }).failures);
   if (failures.length > 0) return template(failures);
   return { farmPart, source: "claude", failures: [] };

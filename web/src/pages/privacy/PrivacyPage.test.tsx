@@ -44,6 +44,13 @@ const REVIEW_R1_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
   { heading: "消し方", phrase: "送ったメールの控えは Gmail に残ります" },
   { heading: "消し方", phrase: "端末の中の保存は、その端末のブラウザの設定で消してください" },];
 
+// N-6（X-23 のセキュリティ確認）: 運営者に見えるものと、メールの控えに残るものを、ありのままに書く
+const N6_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
+  { heading: "保存場所", phrase: "基準の知らせが 1 日の上限で止まったときは、運営者の箱に日付つきの知らせが出ます" },
+  { heading: "保存場所", phrase: "送ったメールの控えには、会員のアドレスと、死亡率が基準に当たる可能性があることが残ります" },
+  { heading: "保存場所", phrase: "死亡数そのものは、運営者に見えません" },
+];
+
 // W-03 の申し送り: 『自分の町』として選んだ町を、端末のブラウザに保存する（src/data/spot.ts の TOWN_KEY。市町村コードの 5 桁だけ）
 const TOWN_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
   { heading: "保存場所", phrase: "選んだ町は、市町村コード" },
@@ -86,6 +93,16 @@ describe("PRIVACY_NOTICE（文の正）", () => {
   it.each(TOWN_PHRASES)("『$heading』の節に、選んだ町の保存の説明『$phrase』がある", ({ heading, phrase }) => {
     const section = PRIVACY_NOTICE.find((x) => x.heading === heading)!.paragraphs.join("\n");
     expect(section).toContain(phrase);
+  });
+
+  it.each(N6_PHRASES)("『$heading』の節に、運営者に見えるものとメールの控えの説明『$phrase』がある", ({ heading, phrase }) => {
+    const section = PRIVACY_NOTICE.find((x) => x.heading === heading)!.paragraphs.join("\n");
+    expect(section).toContain(phrase);
+  });
+
+  it("N-6 の文は画面にも出る", () => {
+    renderPage();
+    for (const { phrase } of N6_PHRASES) expect(pageText(), phrase).toContain(phrase);
   });
 
   it("Claude に渡すものを 2 つ書く: 声かけ文は公開の事実だけを自動で、近隣への説明文は本人が操作したときに入力した文を", () => {

@@ -177,6 +177,29 @@ describe("checkAgentRuns の費用", () => {
     expect(alerts[0]).toMatchObject({ kind: "alert", alert: "agent_run_failed", prefCode: null });
   });
 
+  it("S-15: 3 日たっても終わらない実行（running、停止の理由のない idle、セッションのない実行）も、窓を出る前に最悪値の 1 ドルで数え、費用が測れない旨を 1 回だけ知らせる", async () => {
+    const f = makeClient({
+      runs: [
+        { created_at: OLD_RUN, id: "drun_stuck", session_id: "ses_stuck", error: null },
+        { created_at: OLD_RUN, id: "drun_idle", session_id: "ses_idle", error: null },
+        { created_at: OLD_RUN, id: "drun_nosession", session_id: null, error: null },
+        { created_at: RECENT, id: "drun_young", session_id: "ses_young", error: null },
+      ],
+      sessions: { ses_stuck: { status: "running", usage: { list_cost: { amount: "10" } } }, ses_idle: { status: "idle" }, ses_young: { status: "running" } },
+      idle: {},
+    });
+    expect(await check(f.client)).toMatchObject({ counted: 3, addedJpy: 450, failures: 0 }); // 150 円 × 3。若い実行は待つ
+    expect(await month()).toBe(450);
+    expect([...(await counted())].sort()).toEqual(["drun_idle", "drun_nosession", "drun_stuck"]);
+    await check(f.client); // 2 度目は足さない
+    expect(await month()).toBe(450);
+    expect((await queue()).map((i) => i.id).sort()).toEqual([
+      "alert-agent_run_failed-cost-unknown-drun_idle",
+      "alert-agent_run_failed-cost-unknown-drun_nosession",
+      "alert-agent_run_failed-cost-unknown-drun_stuck",
+    ]);
+  });
+
   it("測れていない間も、失敗（refusal）は知らせる。費用は待つ", async () => {
     const f = makeClient({
       runs: [{ created_at: RECENT, id: "drun_r", session_id: "ses_r", error: null }],
@@ -263,6 +286,22 @@ describe("checkAgentRuns の費用の上限（hardLimitJpy 10,000 円）", () =>
     const alerts = (await queue()).filter((i) => i.id === "alert-agent_run_failed-paused-2026-11");
     expect(alerts).toHaveLength(1);
     expect(alerts[0]).toMatchObject({ kind: "alert", alert: "agent_run_failed", prefCode: null, resolvedAt: null });
+  });
+
+  it("S-13: 同じ月でも、止めた後に運営者が上限を上げて戻し、費用がその新しい上限に届いたら、もう一度止める。同じ上限では 2 度止めない", async () => {
+    await db.doc("usage/2026-11").set({ estimatedJpy: 10600 });
+    const f = makeClient({ runs: [], sessions: {}, idle: {} });
+    expect((await check(f.client)).paused).toBe(true); // 上限 10,000 円で止まる
+    // 運営者が上限を 12,000 円に上げ、setup-agent --unpause で戻した（API 側の状態はこの試験の外）
+    await db.doc("usage/settings").set({ ...DEFAULT_RUNTIME_SETTINGS, hardLimitJpy: 12000 });
+    expect((await check(f.client)).paused).toBe(false); // 10,600 円は新しい上限の手前
+    await db.doc("usage/2026-11").set({ estimatedJpy: 12100 });
+    expect((await check(f.client)).paused).toBe(true); // 同じ月でも、新しい上限に届いたら止める
+    expect(f.pause).toHaveBeenCalledTimes(2);
+    expect((await check(f.client)).paused).toBe(false); // 同じ上限では 2 度止めない
+    expect(f.pause).toHaveBeenCalledTimes(2);
+    const ids = (await queue()).map((i) => i.id).sort();
+    expect(ids).toEqual(["alert-agent_run_failed-paused-2026-11", "alert-agent_run_failed-paused-2026-11-jpy12000"]);
   });
 
   it("新しい実行がなくても、すでに上限以上なら止める", async () => {

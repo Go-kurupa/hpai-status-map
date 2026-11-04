@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { decideReadBudget } from "@hpai/shared/budget";
 import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
-import { agentCostJpy, detectAgentRunFailures, type AgentRunView } from "../src/agent/runs";
+import { agentCostJpy, detectAgentRunFailures, MAX_SESSION_COST_CENTS, type AgentRunView } from "../src/agent/runs";
+import { AGENT_BUDGET } from "../../scripts/lib/agent-config";
 
 const view = (over: Partial<AgentRunView> = {}): AgentRunView => ({ runId: "drun_1", errorType: null, finished: true, stopReason: "end_turn", listCostCents: 100, ...over });
 
@@ -62,5 +63,12 @@ describe("費用の線（hardLimitJpy 10,000 円）", () => {
 
   it("止める線に週 1 回の 150 円が足されても 10,500 円以内（超えても 1 回分の小さな幅）", () => {
     expect(s.hardLimitJpy + agentCostJpy(100, s.jpyPerUsd)).toBeLessThanOrEqual(10500);
+  });
+});
+
+describe("最悪値の定数（S-17。模擬環境なしの通常の試験でも縛る）", () => {
+  it("費用が測れないときに足す額 MAX_SESSION_COST_CENTS は、セッションの上限 AGENT_BUDGET（セント）と同じ", () => {
+    expect(String(MAX_SESSION_COST_CENTS)).toBe(AGENT_BUDGET.max_list_cost.amount);
+    expect(MAX_SESSION_COST_CENTS).toBe(Number(AGENT_BUDGET.max_list_cost.amount)); // 数としても同じ（1 ドル = 100 セント）
   });
 });

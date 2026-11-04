@@ -11,9 +11,19 @@ export interface FirebaseHandles {
   functions: Functions;
 }
 
-/** 開発（dev server）か ?emulator=1 は模擬環境、それ以外は Hosting の設定 */
-export function resolveFirebaseMode(search: string, isDev: boolean): "emulator" | "hosting" {
-  if (isDev) return "emulator";
+/** build の種類。vite の環境の DEV と MODE だけを見る（試験で値を差し込める）。 */
+export interface BuildEnv {
+  DEV: boolean;
+  MODE: string;
+}
+
+/**
+ * 開発（dev server）は模擬環境。E2E の build（mode=e2e）は ?emulator=1 のときだけ模擬環境。
+ * 本番の build は ?emulator=1 が付いても無視して、Hosting の設定を使う（本番のリンクに付けられても、模擬環境の口に繋がない）。
+ */
+export function resolveFirebaseMode(search: string, env: BuildEnv): "emulator" | "hosting" {
+  if (env.DEV) return "emulator";
+  if (env.MODE !== "e2e") return "hosting";
   return new URLSearchParams(search).get("emulator") === "1" ? "emulator" : "hosting";
 }
 
@@ -27,7 +37,7 @@ const REGION = "asia-northeast1";
 let handles: Promise<FirebaseHandles> | null = null;
 
 async function init(): Promise<FirebaseHandles> {
-  const mode = resolveFirebaseMode(location.search, import.meta.env.DEV);
+  const mode = resolveFirebaseMode(location.search, import.meta.env);
   if (mode === "emulator") {
     // 利用者は別の機械から開くので、接続先は開いたホストの名前にする（localhost にしない）
     const host = location.hostname;

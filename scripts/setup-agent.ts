@@ -9,12 +9,14 @@
 // 定期実行の操作（X-14。作った後に使う。控えの deploymentId を使い、環境や agent は作らない）:
 //   npx tsx scripts/setup-agent.ts --schedule "<5 項目の cron>"   受け入れ用に一時的に実行の時刻を替える（タイムゾーンは Asia/Tokyo）
 //   npx tsx scripts/setup-agent.ts --restore-schedule            毎週月曜 07:00 JST に戻す
-//   npx tsx scripts/setup-agent.ts --unpause                     費用の上限で止まった定期実行を、運営者が戻す
+//   npx tsx scripts/setup-agent.ts --unpause                     費用の上限で止まった定期実行を、運営者が戻す（今月の費用が上限を越えている間は断る）
+//   npx tsx scripts/setup-agent.ts --unpause --force             上限を越えていても、意図して戻す（同じ月は、上限を上げない限り自動で止め直さない）
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { fetchUsageStatus, readTokenFile, type UsageStatus } from "./ops";
 import {
   AGENT_SCHEDULE,
   buildAgentParams,
@@ -150,7 +152,7 @@ export async function runSetup(deps: SetupDeps): Promise<number> {
 
 // ── 定期実行の操作（X-14）──
 
-export type ScheduleCommand = { kind: "schedule"; cron: string } | { kind: "restore" } | { kind: "unpause" };
+export type ScheduleCommand = { kind: "schedule"; cron: string } | { kind: "restore" } | { kind: "unpause"; force?: true };
 
 /** 使う SDK のメソッドだけ（SetupClient とは別。setup の試験の偽物を変えないため）。 */
 export interface ScheduleClient {
@@ -165,6 +167,8 @@ export interface ScheduleClient {
 export interface ScheduleDeps {
   client: ScheduleClient;
   readIds: () => SetupIds | null;
+  /** 今月の費用と止める線（opsAdmin の usage-status）。読めなければ null（確かめられない）。 */
+  readUsage: () => Promise<UsageStatus | null>;
   write: (s: string) => void;
 }
 
@@ -188,10 +192,11 @@ export function firesAtMostDaily(expression: string): boolean {
 export function parseScheduleArgs(argv: readonly string[]): ScheduleCommand | { error: string } | null {
   const has = (f: string) => argv.includes(f);
   const chosen = ["--schedule", "--restore-schedule", "--unpause"].filter(has);
-  if (chosen.length === 0) return null;
+  if (chosen.length === 0) return has("--force") ? { error: "--force は --unpause と一緒に使います" } : null;
+  if (has("--force") && !has("--unpause")) return { error: "--force は --unpause と一緒に使います" };
   if (chosen.length > 1) return { error: `${chosen.join("、")} は同時に使えません` };
   if (has("--restore-schedule")) return { kind: "restore" };
-  if (has("--unpause")) return { kind: "unpause" };
+  if (has("--unpause")) return has("--force") ? { kind: "unpause", force: true } : { kind: "unpause" };
   const i = argv.indexOf("--schedule");
   const cron = argv[i + 1];
   if (cron === undefined || cron.startsWith("--") || !isFiveFieldCron(cron)) return { error: '--schedule には 5 項目の cron を 1 つ渡してください（例: --schedule "30 15 4 11 *"）' };
@@ -213,6 +218,22 @@ export async function runScheduleCommand(deps: ScheduleDeps, cmd: ScheduleComman
     return 2;
   }
   if (cmd.kind === "unpause") {
+    // 費用を守る側に倒す。今月の費用が上限を越えているか、確かめられないときは戻さない。--force だけが確かめずに戻す。
+    // 同じ月に戻すと、上限を上げない限りサーバーは止め直さない（同じ月、同じ上限では 2 度止めない）ので、無自覚には戻させない。
+    if (cmd.force !== true) {
+      const usage = await deps.readUsage();
+      if (usage === null) {
+        write("今月の費用を確かめられなかったので、戻しません（何も変えていません）。OPS_URL（または FIREBASE_PROJECT）と運営用の控えを確かめてください。確かめずに戻すときは --force を付けます\n");
+        return 2;
+      }
+      if (usage.estimatedJpy >= usage.hardLimitJpy) {
+        write(
+          `今月（${usage.month}）の費用が止める線に達しています（${Math.round(usage.estimatedJpy)} 円 / 上限 ${usage.hardLimitJpy} 円）。戻しません（何も変えていません）。` +
+            "戻すと、同じ月は上限を上げない限り自動で止め直されず、有料の実行が続きます。来月に戻すか、上限を上げてから戻してください。意図して戻すときだけ --force を付けます\n",
+        );
+        return 2;
+      }
+    }
     const d = await client.beta.deployments.unpause(id);
     write(`定期実行を戻しました（状態: ${d.status ?? "不明"}）\n`);
     showUpcoming(write, d);
@@ -275,7 +296,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     process.exit(1);
   };
   if (command !== null) {
-    runScheduleCommand({ client, readIds, write: (s) => process.stdout.write(s) }, command).then((code) => process.exit(code), onFail);
+    const readUsage = () => fetchUsageStatus({ env: process.env, readToken: readTokenFile, fetch });
+    runScheduleCommand({ client, readIds, readUsage, write: (s) => process.stdout.write(s) }, command).then((code) => process.exit(code), onFail);
   } else {
     runSetup({
       env: process.env,

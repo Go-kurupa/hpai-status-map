@@ -12,6 +12,8 @@ export interface RateLimitOptions {
 
 export const INSTANCE_LIMIT_PER_MINUTE = 600;
 const MAX_TRACKED_IPS = 10_000;
+/** clientIp が IP の形を読み取れなかったときの値。 */
+const UNKNOWN_IP = "unknown";
 
 /** ok: 通す。ip: その IP の上限を超えた（429）。shed: インスタンス全体の枠が尽きた（断らず、キャッシュから返す）。 */
 export type RateDecision = "ok" | "ip" | "shed";
@@ -21,6 +23,7 @@ export type RateDecision = "ok" | "ip" | "shed";
  * インスタンス全体が globalPerMinute 回に達していたら shed。誰かが全員を止められないよう、shed は断らずにキャッシュから答える。
  * 全体の枠は IP の上限の中の要求だけが使う。数える IP が上限に達したら、新しい IP は表に足さず shed にする
  * （429 にも共有の鍵にもしない。攻撃者が表を埋めても、ほかの人を断らず、キャッシュから答える）。
+ * IP を読み取れなかった要求（"unknown"）も同じ扱い。1 つの共有の枠にまとめると、1 人の連打で全員が 429 になる。
  */
 export function createRateLimiter(limitPerMinute: number, opts: RateLimitOptions = {}): (ip: string, nowMs: number) => RateDecision {
   const globalLimit = opts.globalPerMinute ?? INSTANCE_LIMIT_PER_MINUTE;
@@ -35,6 +38,8 @@ export function createRateLimiter(limitPerMinute: number, opts: RateLimitOptions
       counts = new Map();
       total = 0;
     }
+    // 送り手が分からない要求は、共有の 1 つの枠にまとめない。新しい送信元（表が満杯のとき）と同じく、表に足さずキャッシュだけで答える。
+    if (ip === UNKNOWN_IP) return "shed";
     const known = counts.get(ip);
     if (known === undefined && counts.size >= maxTracked) return "shed";
     const n = known ?? 0;
@@ -76,5 +81,5 @@ export function clientIp(xForwardedFor: string | string[] | undefined): string {
   const parts = raw?.split(",").map((x) => x.trim()).filter((x) => x !== "") ?? [];
   const last = unmapV4(parts[parts.length - 1] ?? "");
   const kind = isIP(last);
-  return kind === 4 ? last : kind === 6 ? v6Prefix64(last) : "unknown";
+  return kind === 4 ? last : kind === 6 ? v6Prefix64(last) : UNKNOWN_IP;
 }
