@@ -105,7 +105,7 @@ claude mcp add --transport http hpai https://<本番の URL>/mcp
 
   1 つ目と 3 つ目は出力がないこと。2 つ目に出たコミットは、例示用のドメインだけかを見て確かめる。
 - [ ] `.claude/settings.json` の hook の登録と、`.gitignore` の守りの設定が、HEAD に入っている（`git show HEAD:.claude/settings.json`、`git show HEAD:.gitignore`）
-- [ ] 公開してよいか、利用者が確認する対象: `CLAUDE.md`（出所と範囲を知る利用者が決める）。参加者ガイドの写しは公開しない（非公開のフォルダへ移した）
+- [x] `CLAUDE.md` は「Codex は使わない」の行だけを公開し、参加者ガイドの写しは公開しない（2026-11-04 利用者の決定）
 - [ ] 利用者の確認のあとに push し、リポジトリを公開にする
 
 ## 9. 手順の確認
