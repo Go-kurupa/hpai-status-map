@@ -53,6 +53,11 @@
     min-width: 0;
     margin: 0;
   }
+  /* 県ごとの塊。1 行に入らない長さのときだけ塊の中で折れる */
+  .near-unmarked-item {
+    display: inline-block;
+    max-width: 100%;
+  }
   .near-unmarked button {
     flex: 0 0 auto;
     min-height: 44px;

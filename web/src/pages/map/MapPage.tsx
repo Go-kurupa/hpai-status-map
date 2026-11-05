@@ -524,7 +524,13 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           <div className="near-unmarked">
             <p>
               {TEXT.nearUnmarkedLead}
-              {unmarked.slice(0, 3).join("、")}
+              {/* 県ごとに 1 つの塊にして、「確／認中」のように語の途中で折らない */}
+              {unmarked.slice(0, 3).map((item, i) => (
+                <span key={item}>
+                  {i > 0 ? "、" : null}
+                  <span className="near-unmarked-item">{item}</span>
+                </span>
+              ))}
               {unmarked.length > 3 ? TEXT.nearUnmarkedMore(unmarked.length - 3) : null}
             </p>
             <button type="button" onClick={() => moveTo("japan", [])}>
