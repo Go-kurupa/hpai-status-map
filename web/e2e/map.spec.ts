@@ -98,7 +98,7 @@ test.describe("地図（入口）", () => {
     expect(topoRequests).toHaveLength(1);
   });
 
-  test("case-* は minzoom 7 から（全国の倍率では県のバッジ）", async ({ page }) => {
+  test("case-* は minzoom 6 から（全国の倍率では県のバッジ）", async ({ page }) => {
     await open(page);
     const minzooms = await page.evaluate(() =>
       Object.fromEntries(
@@ -108,7 +108,7 @@ test.describe("地図（入口）", () => {
           .map((l) => [l.id, l.minzoom]),
       ),
     );
-    expect(minzooms).toEqual({ "case-suspected": 7, "case-confirmed": 7 });
+    expect(minzooms).toEqual({ "case-suspected": 6, "case-confirmed": 6 });
   });
 
   test("幅 360px で、地理院タイルの要求の形と、出典の全文が見える", async ({ page }) => {

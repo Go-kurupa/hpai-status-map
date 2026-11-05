@@ -8,8 +8,11 @@ import { PREFS } from "@hpai/shared/pref";
 import { seasonAgoLabel } from "@hpai/shared/season";
 import type { Case, HistoryCase, IsoDate, MuniCode, PrefCode, Season } from "@hpai/shared/types";
 
-/** この倍率より小さいと県のバッジ、以上だと市町村の塗り（設計書 §15） */
-export const MUNI_ZOOM = 7;
+/**
+ * この倍率より小さいと県のバッジ、以上だと市町村の塗り（設計書 §15）。
+ * 60km の輪が入る広さでは町を塗る。実測で、輪の広さは一番狭い地図（360 幅、高さ 220px）で 6.56、北海道の地点で 6.82。全国の広さは 3〜3.9
+ */
+export const MUNI_ZOOM = 6;
 /** [[西, 南], [東, 北]]。日本全体 */
 export const JAPAN_BOUNDS: [[number, number], [number, number]] = [
   [122.9, 24.0],

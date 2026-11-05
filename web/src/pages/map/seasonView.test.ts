@@ -193,8 +193,8 @@ describe("棒の一覧", () => {
 });
 
 describe("バッジと定数", () => {
-  it("MUNI_ZOOM は 7、JAPAN_BOUNDS は日本全体", () => {
-    expect(MUNI_ZOOM).toBe(7);
+  it("MUNI_ZOOM は 6、JAPAN_BOUNDS は日本全体", () => {
+    expect(MUNI_ZOOM).toBe(6);
     expect(JAPAN_BOUNDS).toEqual([
       [122.9, 24.0],
       [146.0, 45.6],
@@ -206,11 +206,11 @@ describe("バッジと定数", () => {
     const con2 = mkCase({ id: "b", prefCode: "33", muniCode: "33204" });
     const rev = mkCase({ id: "rev-x", confirmState: "reviewing", muniCode: null, muniName: null, prefCode: "31" });
     const v = buildSeasonView({ season: 2026, current: 2026, currentCases: [con, con2, rev], history: [] });
-    expect(badgeStates(v, 6.9)).toEqual([
+    expect(badgeStates(v, 5.9)).toEqual([
       { prefCode: "31", text: "確認中" },
       { prefCode: "33", text: "2" },
     ]);
-    expect(badgeStates(v, 7)).toEqual([]);
+    expect(badgeStates(v, 6)).toEqual([]);
   });
 
   it("件数と確認中の両方がある県は両方を書く。読み込み前は出さない", () => {

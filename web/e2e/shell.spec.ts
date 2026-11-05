@@ -237,6 +237,41 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
     expect((await box(page.locator(".stat-row"))).y).toBeGreaterThan((await box(page.locator(".map-risk"))).y);
   });
 
+  // 倍率が町の塗りの閾値より下だと、発生が県のバッジになる。60 km の輪が入る広さでは町を塗る
+  async function nearShowsTowns(page: Page) {
+    const state = () =>
+      page.evaluate(() => {
+        const map = (window as unknown as { __hpaiMap: { getZoom(): number; getLayer(id: string): { minzoom?: number }; queryRenderedFeatures(q: undefined, o: { layers: string[] }): unknown[] } }).__hpaiMap;
+        return {
+          zoom: map.getZoom(),
+          min: map.getLayer("case-confirmed").minzoom!,
+          painted: map.queryRenderedFeatures(undefined, { layers: ["case-confirmed"] }).length,
+          badges: [...document.querySelectorAll<HTMLElement>(".pref-badge")].filter((e) => !e.hidden).length,
+        };
+      });
+    await expect.poll(async () => (await state()).painted, { timeout: 15_000 }).toBeGreaterThan(0);
+    const near = await state();
+    expect(near.zoom).toBeGreaterThanOrEqual(near.min);
+    expect(near.badges).toBe(0);
+    await expect(page.locator(".ring-label").filter({ hasText: "60" })).toBeVisible();
+    await page.getByRole("button", { name: "全国", exact: true }).click();
+    await expect.poll(async () => (await state()).zoom, { timeout: 15_000 }).toBeLessThan(near.min);
+    await expect.poll(async () => (await state()).badges, { timeout: 15_000 }).toBeGreaterThan(0);
+  }
+
+  for (const [width, height] of [
+    [360, 740],
+    [360, 640],
+  ] as const) {
+    test(`${width}x${height} の全国の流れ: 自分の近くは 60 km の輪が入る広さで町を塗り、全国の広さは県のバッジのまま`, async ({ page }) => {
+      await openReplay(page, width, height);
+      await goNational(page);
+      for (let i = 1; i <= 8; i++) await page.getByRole("button", { name: "次へ" }).click();
+      await expect(page.getByText("8 / 24")).toBeVisible();
+      await nearShowsTowns(page);
+    });
+  }
+
   for (const [name, total] of [
     ["4 事例", 14],
     ["全国の流れ", 24],
