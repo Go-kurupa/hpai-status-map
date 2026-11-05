@@ -646,7 +646,7 @@ function digestItemLines(list: readonly Notice[], ctx: RenderCtx): string[] {
 }
 
 /**
- * 会員への 1 通。全国まとめがあれば先頭に置き、ほかの知らせを続ける（送り直しで 2 日分が重なったら新しい日だけ）。
+ * 会員への 1 通。全国まとめがあれば先頭に置き、ほかの知らせを続ける（送り直しで 2 日分が重なったら、数字は新しい日だけで、古い日の訂正を合わせて出す）。
  * なければ今までと同じ（1 件ならその知らせ、2 件以上なら朝のまとめ）。
  */
 export function renderMemberMail(list: readonly Notice[], ctx: RenderCtx): { subject: string; text: string } {
@@ -654,7 +654,8 @@ export function renderMemberMail(list: readonly Notice[], ctx: RenderCtx): { sub
   const rest = list.filter((n) => n.event !== "daily_overview");
   const latest = overviews.reduce<Notice | null>((best, n) => (best === null || n.subjectId > best.subjectId ? n : best), null);
   if (latest === null) return list.length === 1 ? renderNotice(list[0]!, ctx) : renderMorningDigest(list, ctx);
-  const lines = [...overviewLines(latest.overview!.day, latest.overview!.near, ctx.appUrl), ""];
+  const earlier = overviews.filter((n) => n !== latest).map((n) => n.overview!.day);
+  const lines = [...overviewLines(latest.overview!.day, latest.overview!.near, ctx.appUrl, earlier), ""];
   if (rest.length > 0) lines.push(`ほかに ${rest.length} 件のお知らせがあります。`, "", ...digestItemLines(rest, ctx));
   lines.push(...footer(ctx));
   return { subject: rest.length === 0 ? subjectOf(latest) : `【朝のまとめ】全国の状況とお知らせ ${rest.length} 件`, text: lines.join("\n") };

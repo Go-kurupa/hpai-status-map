@@ -6,7 +6,9 @@ import {
   hasOverviewChange,
   nearFactsOf,
   overviewClaudeInput,
+  OVERVIEW_MAX_PLACES,
   overviewLines,
+  type OverviewCorrection,
   type OverviewDay,
 } from "../src/overview";
 import { renderMemberMail, type Notice } from "../src/notices";
@@ -243,6 +245,38 @@ describe("本文", () => {
     it("全県を確認できていれば、素の件数", () => {
       expect(render(OK_WATCH)).toContain("今季の全国の発生: 1 件");
     });
+
+    describe("今回新しく載せた発生", () => {
+      const seen = { caseIds: ["c1"], birdIds: [] };
+      const body = (watch: WatchStatus[] | null, marker: typeof seen | typeof NO_SEEN) => overviewLines(day({ watch, marker }), near, "https://app.example.test").join("\n");
+
+      it("一部の県が未確認の朝は、0 件を素の件数として書かない", () => {
+        const text = body(partial, seen);
+        expect(text).toContain("今回新しく載せた発生: 確認できた範囲では 0 件（2 県は確認できていません）");
+        expect(text).not.toContain("今回新しく載せた発生: 0 件");
+        expect(findWordingViolations(text)).toEqual([]);
+      });
+      it.each([["全県が未確認", [] as WatchStatus[]], ["確認の状況を読めない", null]])("%s: 0 件と書かない", (_name, watch) => {
+        const text = body(watch, seen);
+        expect(text).toContain("今回新しく載せた発生: まだ確認できていません");
+        expect(text).not.toMatch(/今回新しく載せた発生: .*0 件/u);
+      });
+      it("一部の県が未確認の朝は、載せる町があっても確認できた範囲の形で、町を並べる", () => {
+        const text = body(partial, NO_SEEN);
+        expect(text).toContain("今回新しく載せた発生: 確認できた範囲では 1 件（2 県は確認できていません）");
+        expect(text).toContain("・岡山県町A（11月4日）");
+      });
+      it.each([["全県が未確認", [] as WatchStatus[]], ["確認の状況を読めない", null]])("%s: 載せる町があれば、町の見出しを「まだ確認できていません」にしない（町が未確認と読める）", (_name, watch) => {
+        const text = body(watch, NO_SEEN);
+        expect(text).toContain("今回新しく載せた発生: 確認できた範囲では 1 件（47 県は確認できていません）");
+        expect(text).toContain("・岡山県町A（11月4日）");
+        expect(findWordingViolations(text)).toEqual([]);
+      });
+      it("全県を確認できていれば、素の件数", () => {
+        expect(body(OK_WATCH, seen)).toContain("今回新しく載せた発生: 0 件");
+        expect(body(OK_WATCH, NO_SEEN)).toContain("今回新しく載せた発生: 1 件");
+      });
+    });
   });
 
   it("確認中の事例がある県を、画面と同じ文で書く（件数には入れない）", () => {
@@ -337,6 +371,54 @@ describe("1 通の組み立て", () => {
     expect(mail.text).toContain("11月5日");
   });
 
+  describe("2 日分が重なった通の訂正", () => {
+    const negated: OverviewCorrection = { target: "case", change: "negated", place: "岡山県町A" };
+    const toConfirmed: OverviewCorrection = { target: "case", change: "to_confirmed", place: "岡山県町B" };
+    const olderDay = (corrections: OverviewCorrection[]) => ({ ...day(), asOf: "2026-11-04T06:00:00+09:00", date: "2026-11-04", corrections });
+
+    it("古い日の訂正を消さず、日付を付けて出す（新しい日に訂正がなくても）", () => {
+      const mail = renderMemberMail([ov("2026-11-04", olderDay([negated])), ov("2026-11-05", day())], ctx);
+      expect(mail.text.match(/■ 全国の状況/gu)).toHaveLength(1);
+      expect(mail.text).toContain("■ 全国の状況（11月5日");
+      expect(mail.text).toContain("訂正: 岡山県町Aの疑いは否定されました（11月4日の時点）");
+      expect(findWordingViolations(mail.text)).toEqual([]);
+    });
+
+    it("古い日の訂正を先に、新しい日の訂正を後に並べる。新しい日には日付を付けない。並びの順によらない", () => {
+      const newer = { ...day(), corrections: [toConfirmed] };
+      for (const list of [[ov("2026-11-04", olderDay([negated])), ov("2026-11-05", newer)], [ov("2026-11-05", newer), ov("2026-11-04", olderDay([negated]))]]) {
+        const text = renderMemberMail(list, ctx).text;
+        expect(text).toContain("訂正: 岡山県町Aの疑いは否定されました（11月4日の時点）");
+        expect(text).toContain("訂正: 岡山県町Bは疑いから確定に変わりました\n");
+        expect(text.indexOf("岡山県町Aの疑いは否定")).toBeLessThan(text.indexOf("岡山県町Bは疑いから確定"));
+      }
+    });
+
+    it("同じ町で同じ文の訂正でも、2 件を 1 行にまとめない（訂正に id がないので数を落とさない）", () => {
+      const newer = { ...day(), corrections: [negated] };
+      const text = renderMemberMail([ov("2026-11-04", olderDay([negated])), ov("2026-11-05", newer)], ctx).text;
+      expect(text.match(/岡山県町Aの疑いは否定されました/gu)).toHaveLength(2);
+    });
+
+    it("上限は 2 日分を合わせて数え、超えた分の数を書く", () => {
+      const many = Array.from({ length: 7 }, (_, i): OverviewCorrection => ({ target: "case", change: "negated", place: `岡山県町${i}` }));
+      const text = renderMemberMail([ov("2026-11-04", olderDay(many)), ov("2026-11-05", { ...day(), corrections: many })], ctx).text;
+      expect(text.match(/訂正:/gu)).toHaveLength(OVERVIEW_MAX_PLACES);
+      expect(text).toContain("ほか 4 件の訂正があります");
+    });
+
+    it("訂正の欄がない古い形の文書でも投げない", () => {
+      const { corrections: _c, ...old } = olderDay([]);
+      expect(renderMemberMail([ov("2026-11-04", old as unknown as OverviewDay), ov("2026-11-05", day())], ctx).text).not.toContain("訂正:");
+    });
+
+    it("ほかの知らせが同じ通にあっても出る", () => {
+      const mail = renderMemberMail([confirmed, ov("2026-11-04", olderDay([negated])), ov("2026-11-05", day())], ctx);
+      expect(mail.subject).toBe("【朝のまとめ】全国の状況とお知らせ 1 件");
+      expect(mail.text).toContain("否定されました");
+    });
+  });
+
   it("まとめがなければ今までと同じ", () => {
     expect(renderMemberMail([confirmed], ctx).subject).toBe("【確定】岡山県津山市で鳥インフルエンザの発生");
   });
@@ -364,6 +446,15 @@ describe("Claude に渡す入力", () => {
       expect(parsed).not.toHaveProperty("recent14DaysCount");
     }
   });
+  it("未確認の県がある朝は、新規の件数も渡さない（今朝 0 件と書かせない）。町は発表の事実なので渡す", () => {
+    for (const watch of [[], null, OK_WATCH.slice(1)]) {
+      const zero = JSON.parse(overviewClaudeInput(day({ watch, marker: { caseIds: ["c1"], birdIds: [] } }))) as Record<string, unknown>;
+      expect(zero).not.toHaveProperty("newCaseCount");
+      const fresh = JSON.parse(overviewClaudeInput(day({ watch, marker: NO_SEEN }))) as { places: unknown[] };
+      expect(fresh).not.toHaveProperty("newCaseCount");
+      expect(fresh.places).toEqual([{ prefecture: "岡山県", town: "町A", kind: "農場", suspected: false }]);
+    }
+  });
   it("町ごとに種別と段階を渡す", () => {
     const parsed = JSON.parse(overviewClaudeInput(day({ birds: [wildBirdFixture({ id: "b1", test: "screening_positive" })], marker: NO_SEEN }))) as { places: unknown[] };
     expect(parsed.places).toEqual([
@@ -388,8 +479,8 @@ describe("総括の検査", () => {
 
   it.each([
     "今季は全国で 3 件、直近 14 日は 2 件で、新たに岡山県町Aで発生しました。",
-    "今季は３件、直近14日は２件です。",
-    "今季は 3 件で、例年の同じ日までは 1〜2 件、野鳥の陽性は 1 件です。",
+    "今季は3件、直近14日は2件です。",
+    "今季は 3 件で、過去 2 シーズンの同じ日までは 1〜2 件、野鳥の陽性は 1 件です。",
     "過去 2 シーズンの同じ日までは 1〜2 件で、今季は 3 件です。",
   ])("通る: %s", (s) => {
     expect(check(s)).toEqual({ ok: true, failures: [] });
@@ -407,8 +498,8 @@ describe("総括の検査", () => {
     ["項目のない数字", "全国で 3 件です。", "number_without_item"],
     ["単位のない数字", "今季は 3 です。", "number_without_item"],
     ["日付", "11月4日に今季は 3 件です。", "number_without_item"],
-    ["幅の違い", "例年の同じ日までは 0〜2 件です。", "number_mismatch:past"],
-    ["幅の片方だけ", "例年の同じ日までは 1 件です。", "number_mismatch:past"],
+    ["幅の違い", "過去 2 シーズンの同じ日までは 0〜2 件です。", "number_mismatch:past"],
+    ["幅の片方だけ", "過去 2 シーズンの同じ日までは 1 件です。", "number_mismatch:past"],
     ["同じ日までと言わない例年", "例年は 1〜2 件です。", "residual"],
     ["比べたシーズンの数の違い", "過去 6 シーズンの同じ日までは 1〜2 件です。", "number_mismatch:past"],
     ["漢数字", "今季は三件です。", "residual"],
@@ -461,7 +552,7 @@ describe("総括の検査", () => {
     ["0〜4件を上回っています。", "residual"],
     ["今季は5件だけです。", "residual"],
     ["今季は5件にとどまります。", "residual"],
-    ["例年の同じ日までの0〜4件を上回っています。", "residual"],
+    ["過去6シーズンの同じ日までの0〜4件を上回っています。", "residual"],
     // 値と項目の組が崩れた文
     ["岡山県で5件です。", "residual"],
     ["今季は5件で、岡山県で5件です。", "residual"],
@@ -499,7 +590,7 @@ describe("総括の検査", () => {
     "今季は5件、直近14日は2件です。",
     "今季は全国で 5 件です。",
     "今シーズンの全国の発生は 5 件です。",
-    "例年の同じ日までは0〜4件で、今季は5件です。",
+    "過去6シーズンの同じ日までは0〜4件で、今季は5件です。",
     "過去6シーズンの同じ日までは0〜4件です。",
     "野鳥の陽性は3件です。",
     "野鳥の高病原性の確定は1件、野鳥の検査中は2件です。",
@@ -512,8 +603,8 @@ describe("総括の検査", () => {
 
   it("過去の幅が 1 つの値なら「N 件」で書ける", () => {
     const d = { ...rich, past: { seasons: 6, min: 2, max: 2 } };
-    expect(check("例年の同じ日までは2件です。", d).ok).toBe(true);
-    expect(check("例年の同じ日までは2〜2件です。", d).ok).toBe(false);
+    expect(check("過去6シーズンの同じ日までは2件です。", d).ok).toBe(true);
+    expect(check("過去6シーズンの同じ日までは2〜2件です。", d).ok).toBe(false);
   });
 
   it("最初の朝は、新規の件数も町も書けない", () => {
@@ -532,9 +623,104 @@ describe("総括の検査", () => {
     }
   });
 
+  it("未確認の県がある朝は、新規の件数を書けない（町は書ける）", () => {
+    for (const watch of [[], null, OK_WATCH.slice(1)]) {
+      expect(check("新たに 0 件です。", day({ watch, marker: { caseIds: ["c1"], birdIds: [] } })).failures).toContain("number_unchecked");
+      const fresh = day({ watch, marker: NO_SEEN });
+      expect(check("新たに 1 件です。", fresh).failures).toContain("number_unchecked");
+      expect(check("新たに岡山県町Aで発生しました。", fresh)).toEqual({ ok: true, failures: [] });
+    }
+  });
+
+  it("全県を確認できた朝は、新たに 0 件と書ける", () => {
+    expect(check("新たに 0 件です。", day({ marker: { caseIds: ["c1"], birdIds: [] } }))).toEqual({ ok: true, failures: [] });
+  });
+
+  it("「例年」はプロンプトにない語なので書けない（過去 1 シーズンの朝に例年と読ませない）", () => {
+    const one = { ...rich, past: { seasons: 1, min: 2, max: 2 } };
+    expect(check("例年の同じ日までは2件です。", one).failures).toContain("residual");
+    expect(check("例年の同じ日までは 1〜2 件です。").failures).toContain("residual");
+    expect(check("過去 1 シーズンの同じ日までは 2 件です。", one)).toEqual({ ok: true, failures: [] });
+  });
+
+  describe("送る文そのものの字の形（検査は正規化した文、送るのは元の文）", () => {
+    const counted = (seasonCount: number) => ({ ...base, seasonCount });
+    const town = (prefName: string, muniName: string) => ({ ...base, newCases: [place(prefName, muniName)], newBirds: [] });
+
+    it.each([
+      ["行区切り U+2028", "今季は 3 件\u2028です。", "not_one_sentence"],
+      ["段落区切り U+2029", "今季は 3 件\u2029です。", "not_one_sentence"],
+      ["垂直タブ", "今季は 3 件\vです。", "not_one_sentence"],
+      ["改ページ", "今季は 3 件\fです。", "not_one_sentence"],
+      ["CR", "今季は 3 件\rです。", "not_one_sentence"],
+      ["末尾の行区切り", "今季は 3 件です。\u2028", "not_one_sentence"],
+      ["タブ", "今季は\t3 件です。", "not_plain_text"],
+      ["文中の U+FEFF", "今季は\uFEFF3 件です。", "not_plain_text"],
+      ["先頭の U+FEFF", "\uFEFF今季は 3 件です。", "not_plain_text"],
+      ["全角の空白", "今季は　3 件です。", "not_plain_text"],
+      ["改行しない空白 U+00A0", "今季は\u00A03 件です。", "not_plain_text"],
+      ["全角の数字", "今季は３件です。", "not_plain_text"],
+      ["全角のチルダ", "過去 2 シーズンの同じ日までは 1～2 件です。", "not_plain_text"],
+      ["合字の記号", "㈲今季は 3 件です。", "not_plain_text"],
+    ])("落ちる: %s", (_name, s, code) => {
+      const r = check(s);
+      expect(r.ok).toBe(false);
+      expect(r.failures).toContain(code);
+    });
+
+    it("部首の字で書いた町は落ちる（正規化で本物の町と同じになるが、送るのは部首の字のまま）", () => {
+      const r = check("⻘森県⻘森市で発生しました。", town("青森県", "青森市"));
+      expect(r.ok).toBe(false);
+      expect(r.failures).toContain("not_plain_text");
+    });
+
+    it.each([
+      ["数字の間の空白", "今季は 1 234 件です。", 1234],
+      ["数字の間の空白（2 桁）", "今季は 3 4 件です。", 34],
+      ["先頭が 0", "今季は 01234 件です。", 1234],
+      ["先頭が 0 の 1 桁", "今季は 03 件です。", 3],
+      ["0 が 2 つ", "今季は 00 件です。", 0],
+    ])("落ちる: %s", (_name, s, n) => {
+      const r = check(s, counted(n));
+      expect(r.ok).toBe(false);
+      expect(r.failures).toContain("number_form");
+    });
+
+    it("シーズンの数も同じ（先頭の 0、間の空白）", () => {
+      expect(check("過去 02 シーズンの同じ日までは 1〜2 件です。").failures).toContain("number_form");
+      expect(check("過去 1 2 シーズンの同じ日までは 1〜2 件です。", { ...base, past: { seasons: 12, min: 1, max: 2 } }).failures).toContain("number_form");
+    });
+
+    it.each([
+      ["0 件", "今季は 0 件です。", 0],
+      ["0 件（詰めた形）", "今季は0件です。", 0],
+      ["10 件", "今季は 10 件です。", 10],
+      ["100 件", "今季は100件です。", 100],
+    ])("通る: %s", (_name, s, n) => {
+      expect(check(s, counted(n))).toEqual({ ok: true, failures: [] });
+    });
+
+    it("幅の 0 と波線（U+301C）、半角のチルダは通る", () => {
+      const d = { ...rich, past: { seasons: 6, min: 0, max: 4 } };
+      expect(check("過去 6 シーズンの同じ日までは 0〜4 件です。", d)).toEqual({ ok: true, failures: [] });
+      expect(check("過去 6 シーズンの同じ日までは 0 〜 4 件です。", d)).toEqual({ ok: true, failures: [] });
+      expect(check("過去 6 シーズンの同じ日までは 0~4 件です。", d)).toEqual({ ok: true, failures: [] });
+    });
+
+    it("ヶの付く町は通る（索引の名前のまま）", () => {
+      expect(check("千葉県鎌ヶ谷市で発生しました。", town("千葉県", "鎌ヶ谷市"))).toEqual({ ok: true, failures: [] });
+    });
+
+    it("理由の符号に文の断片を入れない", () => {
+      const r = check("架空市の\t秘密３です。");
+      expect(r.failures.join(" ")).not.toContain("架空市");
+      expect(r.failures.join(" ")).not.toContain("秘密");
+    });
+  });
+
   it("過去の記録を読めないのに例年の数字を書いたら落ちる", () => {
     const d = day({ history: null });
-    expect(check("例年の同じ日までは 1〜2 件です。", d).failures).toContain("number_mismatch:past");
+    expect(check("過去 2 シーズンの同じ日までは 1〜2 件です。", d).failures).toContain("number_mismatch:past");
   });
 
   it("疑いの段階の町を疑いと書かなければ落ちる", () => {

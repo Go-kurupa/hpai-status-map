@@ -7,7 +7,7 @@ import type { DocumentSnapshot } from "firebase-admin/firestore";
 import { isDraftBudgetStopped } from "@hpai/shared/budget";
 import { jstDateOf, toJstIso } from "@hpai/shared/dates";
 import type { GeoStore } from "@hpai/shared/geo";
-import { noticeDocId, planOverviewNotices, type Notice } from "@hpai/shared/notices";
+import { planOverviewNotices, type Notice } from "@hpai/shared/notices";
 import {
   buildOverviewDay,
   checkOverviewSentence,
@@ -171,19 +171,25 @@ async function settleOverviewNotices(deps: NotifyDeps, notices: readonly Notice[
 }
 
 /**
- * 毎時の送り直しの追いつき。今日の文書があるのに印が進んでいない（朝に記録を作れなかった、途中で止まった）ときだけ、記録のない会員の分を作り直し、
- * 届けるために今日の全国まとめの queued の記録を返す。朝の分のほかの queued は送らない。Claude は呼ばない。
+ * 毎時の送り直しの追いつき。今日の文書があれば、今日の全国まとめの queued の記録を印によらず返す（朝の実行や前の回の追いつきが、印を進めた後で止まった分。
+ * queued の morning は readQueue では朝まで読まないので、ここで拾わないと翌朝まで届かない）。朝の分のほかの queued は送らない。Claude は呼ばない。
+ * 印が進んでいない（朝に記録を作れなかった、途中で止まった）ときは、先に記録のない会員の分を作る。
+ * 二重に送らない: 朝の実行とは時間が重ならず（6 時台は動かない）、送る直前に記録を読み直す（deliverQueued）。問い合わせは索引（subjectId、event）に合わせ、状態はここで絞る。
  */
 export async function catchUpDailyOverview(deps: NotifyDeps): Promise<DocumentSnapshot[]> {
   const date = jstDateOf(deps.now());
   const daySnap = await deps.db.doc(`${OVERVIEW_COLLECTION}/${date}`).get();
   if (!daySnap.exists) return [];
   const marker = (await deps.db.doc(OVERVIEW_MARKER_PATH).get()).data() as OverviewMarker | undefined;
-  if (marker?.date === date) return [];
-  const farmSnap = await deps.db.collection("farms").get();
-  const notices = planOverviewNotices(farmSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Farm) })), date);
-  await settleOverviewNotices(deps, notices, daySnap.data() as OverviewDay);
-  if (notices.length === 0) return [];
-  const snaps = await deps.db.getAll(...notices.map((n) => deps.db.doc(`sentNotices/${noticeDocId(n.farmId, n.uid, n.subjectId, n.event)}`)));
-  return snaps.filter((snap) => snap.exists && (snap.data() as { state?: unknown }).state === "queued");
+  if (marker?.date !== date) {
+    try {
+      const farmSnap = await deps.db.collection("farms").get();
+      const notices = planOverviewNotices(farmSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Farm) })), date);
+      await settleOverviewNotices(deps, notices, daySnap.data() as OverviewDay);
+    } catch (e) {
+      console.error("[notify] 全国まとめの記録を作り足せませんでした（次の回にもう一度試します。作れている分は届けます）", { code: codeOf(e) });
+    }
+  }
+  const snap = await deps.db.collection("sentNotices").where("subjectId", "==", date).where("event", "==", "daily_overview").get();
+  return snap.docs.filter((d) => (d.data() as { state?: unknown }).state === "queued");
 }

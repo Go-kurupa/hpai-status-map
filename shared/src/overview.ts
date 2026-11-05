@@ -394,6 +394,12 @@ function countedText(n: number, watch: OverviewDay["watch"]): string {
   return unchecked > 0 ? `確認できた範囲では ${n} 件（${unchecked} 県は確認できていません）` : `${n} 件`;
 }
 
+/** 今回新しく載せた発生の件数の書き方。全県が未確認でも載せる町があれば、町の見出しを「まだ確認できていません」にしない（載せた町が未確認と読めるので）。 */
+function newCaseCountText(n: number, watch: OverviewDay["watch"]): string {
+  const unchecked = watch === null ? PREFS.length : watch.failedPrefCodes.length;
+  return n > 0 && unchecked >= PREFS.length ? `確認できた範囲では ${n} 件（${unchecked} 県は確認できていません）` : countedText(n, watch);
+}
+
 function correctionLine(c: OverviewCorrection): string {
   const place = c.place ?? "";
   if (c.target === "case") {
@@ -422,8 +428,12 @@ function correctionLine(c: OverviewCorrection): string {
 
 const asOfText = (d: Pick<OverviewDay, "date" | "asOf">): string => `${formatJaDate(d.date)} ${d.asOf.slice(11, 16)}`;
 
-/** 全国まとめの節。先頭に riskAnywhere（件数の札の前に置く決まり）。near が null は近くの件数を計算できなかった（0 と書かない）。 */
-export function overviewLines(d: OverviewDay, near: NearFacts | null, appUrl: string): string[] {
+/**
+ * 全国まとめの節。先頭に riskAnywhere（件数の札の前に置く決まり）。near が null は近くの件数を計算できなかった（0 と書かない）。
+ * earlier は同じ通に載せる古い日の文書。その日の分は届いていないので、訂正だけを日付を付けて先に出す（印は進んでいて、新しい日の文書には出てこない）。
+ * 訂正に id がないので、同じ文でも 1 行にまとめない。
+ */
+export function overviewLines(d: OverviewDay, near: NearFacts | null, appUrl: string, earlier: ReadonlyArray<Pick<OverviewDay, "date" | "corrections">> = []): string[] {
   const lines = [`■ 全国の状況（${asOfText(d)} 時点）`, FIXED_TEXT.riskAnywhere];
   if (d.sentence !== null) lines.push(`${AI_LABEL}: ${d.sentence}`);
   lines.push(`今季の全国の発生: ${countedText(d.seasonCount, d.watch)}`, `直近 ${RECENT_DAYS} 日の全国の発生: ${countedText(d.recentCount, d.watch)}`);
@@ -437,15 +447,18 @@ export function overviewLines(d: OverviewDay, near: NearFacts | null, appUrl: st
 
   const changes: string[] = [];
   if (d.newCaseCount !== null) {
-    changes.push(`今回新しく載せた発生: ${d.newCaseCount} 件`, ...d.newCases.map(placeLine));
+    changes.push(`今回新しく載せた発生: ${newCaseCountText(d.newCaseCount, d.watch)}`, ...d.newCases.map(placeLine));
     if (d.newCaseCount > d.newCases.length) changes.push(`ほか ${d.newCaseCount - d.newCases.length} 件`);
   }
   if (d.newBirdCount !== null && d.newBirdCount > 0) {
     changes.push(`今回新しく載せた野鳥の発表: ${d.newBirdCount} 件`, ...d.newBirds.map(placeLine));
     if (d.newBirdCount > d.newBirds.length) changes.push(`ほか ${d.newBirdCount - d.newBirds.length} 件`);
   }
-  const corrections = d.corrections ?? [];
-  changes.push(...corrections.slice(0, OVERVIEW_MAX_PLACES).map(correctionLine));
+  const corrections = [
+    ...[...earlier].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).flatMap((e) => (e.corrections ?? []).map((c) => `${correctionLine(c)}（${formatJaDate(e.date)}の時点）`)),
+    ...(d.corrections ?? []).map(correctionLine),
+  ];
+  changes.push(...corrections.slice(0, OVERVIEW_MAX_PLACES));
   if (corrections.length > OVERVIEW_MAX_PLACES) changes.push(`ほか ${corrections.length - OVERVIEW_MAX_PLACES} 件の訂正があります`);
   if (changes.length > 0) lines.push("", ...changes);
 
@@ -478,7 +491,7 @@ const allPrefsChecked = (d: Pick<OverviewDay, "watch">): boolean => d.watch !== 
 
 /**
  * Claude に渡す公開の事実。件数と、新しく載せた町だけ。農場、会員、URL、文書の原文を入れない。
- * 比べる印がない朝は、新規の件数と町を渡さない。未確認の県がある朝は、今季と直近の件数を渡さない。
+ * 比べる印がない朝は、新規の件数と町を渡さない。未確認の県がある朝は、今季、直近、新規の件数を渡さない（町は発表の事実なので渡す）。
  */
 export function overviewClaudeInput(d: OverviewDay): string {
   const places = [...d.newCases.map((p) => ({ p, kind: "農場" as const })), ...d.newBirds.map((p) => ({ p, kind: "野鳥" as const }))]
@@ -490,7 +503,7 @@ export function overviewClaudeInput(d: OverviewDay): string {
     wildBirdCount: d.birds.total,
     wildBirdConfirmedCount: d.birds.confirmed,
     wildBirdScreeningCount: d.birds.screening,
-    ...(d.newCaseCount === null ? {} : { newCaseCount: d.newCaseCount, places }),
+    ...(d.newCaseCount === null ? {} : { ...(allPrefsChecked(d) ? { newCaseCount: d.newCaseCount } : {}), places }),
   });
 }
 
@@ -499,7 +512,7 @@ type CountItem = "season" | "recent" | "past" | "bird" | "bird_confirmed" | "bir
 /** 件数の項目の語。項目ごとに、その値の「N 件」しか続けられない。 */
 const COUNT_ITEMS: ReadonlyArray<readonly [RegExp, CountItem]> = [
   [/^直近14日(?:の全国の発生|の発生)?(?:は全国で|は|全国で)?/u, "recent"],
-  [/^(?:例年の同じ日まで|過去(\d+)シーズンの同じ日まで)(?:の件数)?は?/u, "past"],
+  [/^過去(\d+)シーズンの同じ日まで(?:の件数)?は?/u, "past"],
   [/^(?:今季|今シーズン)(?:の全国の発生|の発生)?(?:は全国で|は|全国で)?/u, "season"],
   [/^野鳥の高病原性の確定(?:の件数)?は?/u, "bird_confirmed"],
   [/^野鳥の検査中(?:の件数)?は?/u, "bird_screening"],
@@ -530,11 +543,11 @@ function countFailure(item: CountItem, value: RegExpExecArray, d: OverviewDay, s
     new: d.newCaseCount,
   };
   if (item === "past") {
-    if (d.past === null || (seasons !== undefined && Number(seasons) !== d.past.seasons)) return "number_mismatch:past";
+    if (d.past === null || Number(seasons) !== d.past.seasons) return "number_mismatch:past";
     const ok = single === null ? d.past.min < d.past.max && Number(value[1]) === d.past.min && Number(value[2]) === d.past.max : d.past.min === d.past.max && single === d.past.min;
     return ok ? null : "number_mismatch:past";
   }
-  if ((item === "season" || item === "recent") && !allPrefsChecked(d)) return "number_unchecked";
+  if ((item === "season" || item === "recent" || item === "new") && !allPrefsChecked(d)) return "number_unchecked";
   return single !== null && single === expected[item] ? null : `number_mismatch:${item}`;
 }
 
@@ -620,13 +633,16 @@ function residueFailures(t: string, d: OverviewDay): string[] {
 /**
  * 総括の検査。落ちたら総括を外し、定型だけを送る。理由の符号に文の断片を入れない（出力は外部の文字として扱う）。
  * 1 文かと、残余（許した語だけでできているか）を見る。意味の判断はしないので、形から外れる言い回しはすべて落とす。
- * 長さと URL は functions の lengthAndUrlFailures が見る。
+ * 残余は正規化した文を見るが、送るのは渡された文そのもの。正規化で字が変わる文は通さない（空白は半角スペースだけ。全角の数字、行区切り、部首の字なども落ちる）。
+ * 空白を消すと 1 つの数に読める「1 234 件」、値が同じに読める「01234 件」も落とす。ヶ→ケ だけは索引の町の名前にあるので許す。
+ * 長さと URL は functions の lengthAndUrlFailures が見る（前後の空白は呼ぶ側が取ってから渡す）。
  */
 export function checkOverviewSentence(text: string, d: OverviewDay): CheckResult {
-  const raw = text.trim();
   const failures: string[] = [];
-  const stops = raw.match(/[。．.！!？?]/gu) ?? [];
-  if (/[\r\n]/u.test(raw) || stops.length !== 1 || !raw.endsWith("。")) failures.push("not_one_sentence");
-  failures.push(...residueFailures(normalizeForMatch(raw), d));
+  const stops = text.match(/[。．.！!？?]/gu) ?? [];
+  if (/[\n\r\v\f\u2028\u2029]/u.test(text) || stops.length !== 1 || !text.endsWith("。")) failures.push("not_one_sentence");
+  if (normalizeForMatch(text) !== text.replace(/ /gu, "").replace(/ヶ/gu, "ケ")) failures.push("not_plain_text");
+  if (/\d +\d|(?<!\d)0\d/u.test(text)) failures.push("number_form");
+  failures.push(...residueFailures(normalizeForMatch(text), d));
   return { ok: failures.length === 0, failures: [...new Set(failures)] };
 }
