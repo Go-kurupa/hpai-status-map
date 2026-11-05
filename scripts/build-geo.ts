@@ -179,7 +179,7 @@ export async function buildGeo(opts: BuildOptions): Promise<Record<string, unkno
     pageUrl: N03_RELEASE.pageUrl,
     sourceUrl: N03_RELEASE.zipUrl,
     attribution:
-      "国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、形の簡略化、政令市の区の統合、隣り合いの計算を行って作成",
+      "国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、この作品の作者が形の簡略化、政令市の区の統合、隣り合いの計算を行って作成",
     simplify: {
       work: `-dissolve c（quantization=${SIMPLIFY.work.quantization}）。隣り合いはこの形から`,
       japan: `-simplify ${SIMPLIFY.japan.percentage} ${SIMPLIFY.japan.options} -clean（quantization=${SIMPLIFY.japan.quantization}）`,

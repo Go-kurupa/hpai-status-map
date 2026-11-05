@@ -4,7 +4,7 @@
  "license": "CC BY 4.0",
  "pageUrl": "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html",
  "sourceUrl": "https://nlftp.mlit.go.jp/ksj/gml/data/N03/N03-2026/N03-20260101_GML.zip",
- "attribution": "国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、形の簡略化、政令市の区の統合、隣り合いの計算を行って作成",
+ "attribution": "国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、この作品の作者が形の簡略化、政令市の区の統合、隣り合いの計算を行って作成",
  "simplify": {
   "work": "-dissolve c（quantization=1000000）。隣り合いはこの形から",
   "japan": "-simplify 1.5% keep-shapes -clean（quantization=10000）",
