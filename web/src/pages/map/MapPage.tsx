@@ -1,5 +1,6 @@
 import { jstDateOf } from "@hpai/shared/dates";
 import { PREFS } from "@hpai/shared/pref";
+import { DISTANCE_BAND_KM, isCountable } from "@hpai/shared/level";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import type { MuniCode } from "@hpai/shared/types";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -13,6 +14,7 @@ import { listRows, wildBirdRows } from "./listRows";
 import { MapChunkBoundary } from "./MapChunkBoundary";
 import { MapLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
+import { countRecentDays, PAST_SEASONS, pastRangeToDate, rangeText } from "./overviewCounts";
 import type { PickTarget } from "./pickSpot";
 import { countText, SeasonBar, type SeasonBarItem } from "./SeasonBar";
 import { SeasonCompare } from "./SeasonCompare";
@@ -20,7 +22,8 @@ import { SpotPicker } from "./SpotPicker";
 import { TEXT } from "./texts";
 import { TownBanner } from "./TownBanner";
 import { TownPicker } from "./TownPicker";
-import { useGeoStore, usePast, useTownLine } from "./useTownView";
+import { monthDay } from "./townLine";
+import { useBandCounts, useGeoStore, usePast, useTownLine, type BandCount } from "./useTownView";
 import { WatchAsOf, WatchLine } from "./WatchLine";
 import { useSeasonData } from "./useSeasonData";
 import "./map.css";
@@ -53,6 +56,16 @@ export default function MapPage() {
   });
   const past = usePast({
     town,
+    history: d.history,
+    historyFailed: d.historyFailed,
+    geo,
+    geoFailed,
+    current: d.current,
+  });
+  const farmMeshCode = spotState.spot?.meshCode ?? null;
+  const band = useBandCounts({
+    meshCode: farmMeshCode,
+    cases: d.currentCases,
     history: d.history,
     historyFailed: d.historyFailed,
     geo,
@@ -131,6 +144,24 @@ export default function MapPage() {
 
   const currentBar: SeasonBarItem | null = bars.find((b) => b.season === d.current) ?? null;
 
+  // 毎朝の札。未確認の断りは今季の件数と同じ形にする（0 件を素の「0 件」と読ませない）
+  const showStats = view.isCurrent && ds.mode !== "replay" && currentBar !== null;
+  const today = jstDateOf(now);
+  const watchFlags = { unchecked: d.failedPrefCodes.length, allUnchecked: noneConfirmed };
+  const needsWide = watchFlags.unchecked > 0 && !noneConfirmed;
+  const recentCount = useMemo(
+    () => (d.currentCases === null ? null : countRecentDays(d.currentCases, d.current, today)),
+    [d.currentCases, d.current, today],
+  );
+  const pastRange = useMemo(() => (d.history === null ? null : pastRangeToDate(d.history, today)), [d.history, today]);
+  const pastSeasons = pastRange?.seasons ?? PAST_SEASONS;
+  const bandNowText = (c: BandCount) => (c === "failed" ? TEXT.statFailed : countText({ count: c, ...watchFlags }));
+  const bandPastText = (c: BandCount) => (c === "failed" ? TEXT.statFailed : countText({ count: c }));
+  // 町が分からない発表は距離を計算できない。約 60km 以内の件数に入らないことを札に書く
+  const unplaced = (d.currentCases ?? []).filter((c) => c.season === d.current && isCountable(c) && c.muniCode === null).length;
+  // 発生が 0 件のときと同じく、札に 0 件が出るときは札のすぐ前に置く（0 件だけが先に読まれないように）
+  const zeroStat = showStats && (recentCount === 0 || (farmMeshCode !== null && band.now === 0));
+
   const picker = (
     <>
       <TownPicker
@@ -185,6 +216,7 @@ export default function MapPage() {
               failedPrefCodes={d.failedPrefCodes}
               myMuniCode={town}
               nearMuniCodes={townLine.nearMuniCodes}
+              farmMeshCode={farmMeshCode}
               focus={focus}
               pickMode={picking && canEdit}
               onSelectMuni={picking && canEdit ? choose : undefined}
@@ -202,6 +234,7 @@ export default function MapPage() {
       </div>
 
       <p className="map-disclaimer">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
+      {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : null}
       {town !== null ? picker : null}
       <Legend isCurrent={view.isCurrent} />
 
@@ -232,19 +265,43 @@ export default function MapPage() {
         </p>
       ) : null}
       {/* 札の「0 件」だけが先に読まれないよう、札のすぐ前に置く */}
-      {view.isCurrent && view.loaded && view.total === 0 && !townLine.line?.details.includes(FIXED_TEXT.riskAnywhere) ? (
+      {view.isCurrent && view.loaded && (view.total === 0 || zeroStat) && !townLine.line?.details.includes(FIXED_TEXT.riskAnywhere) ? (
         <p className="map-notice">{FIXED_TEXT.riskAnywhere}</p>
       ) : null}
-      {view.isCurrent && ds.mode !== "replay" && currentBar ? (
+      {showStats ? (
         <div className="stat-row">
           <div className={currentBar.unchecked && !currentBar.allUnchecked ? "stat stat-wide" : "stat"}>
             <p className="stat-title">発生した件数</p>
             <p className="stat-value">{countText(currentBar)}</p>
           </div>
+          <div className={needsWide ? "stat stat-wide" : "stat"}>
+            <p className="stat-title">{TEXT.statRecent}</p>
+            <p className="stat-value">{countText({ count: recentCount, ...watchFlags })}</p>
+          </div>
+          {d.history !== null && pastRange === null ? null : (
+            <div className="stat">
+              <p className="stat-title">{TEXT.statPastToDate(pastSeasons, monthDay(today))}</p>
+              <p className="stat-value">{pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null })}</p>
+            </div>
+          )}
           <div className="stat">
             <p className="stat-title">時刻</p>
             <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
           </div>
+          {farmMeshCode !== null ? (
+            <div className="stat stat-wide">
+              <p className="stat-title">{TEXT.statBand(DISTANCE_BAND_KM)}</p>
+              <p className="stat-value">
+                {TEXT.statBandNow} {bandNowText(band.now)}
+              </p>
+              <p className="stat-value">
+                {TEXT.statBandPast(pastSeasons)} {bandPastText(band.past)}
+              </p>
+              <p className="stat-note">{TEXT.statBandRelated}</p>
+              {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
+              {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {mapless ? null : (
@@ -285,7 +342,7 @@ export default function MapPage() {
       {/* 再現（去年の再現）は日付を過去に置いた画面なので、今日の比べは出さない */}
       {ds.mode === "replay" ? null : (
         <SeasonCompare
-          today={jstDateOf(now)}
+          today={today}
           current={d.current}
           currentCases={d.currentCases}
           history={d.history}

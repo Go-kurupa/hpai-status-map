@@ -2,6 +2,7 @@
 // 形の source（muni）の setData は呼ばない（形は最初に 1 度だけ渡す）。
 // maplibre の Map ではなく、必要な 3 つの操作だけの型を受けるので、偽の map で試験できる。
 import type { MuniCode, PrefCode, WildBird } from "@hpai/shared/types";
+import type { DistanceRings } from "../../geo/distanceRings";
 import { codeFilter, PAINT, wildBirdFilter } from "./mapStyle";
 import type { SeasonView } from "./seasonView";
 
@@ -103,4 +104,9 @@ export function applyWildBirds(
   const { features, unplaced } = wildBirdFeatures(birds, locate);
   map.getSource("wild-birds")?.setData({ type: "FeatureCollection", features });
   return { unplaced };
+}
+
+/** 距離の輪を distance-rings の source に渡す。地点がなければ空にする */
+export function applyDistanceRings(map: ViewTarget, rings: DistanceRings | null): void {
+  map.getSource("distance-rings")?.setData(rings ?? { type: "FeatureCollection", features: [] });
 }

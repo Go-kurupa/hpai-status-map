@@ -167,6 +167,9 @@ test("公開: 町と地点を指定しても、全要求に緯度経度がなく
   await page.getByRole("button", { name: "ここに決める" }).click();
   await page.getByRole("button", { name: "決める", exact: true }).click();
   await expect(page.getByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeVisible();
+  // 距離の輪と約 60km の札が地点から作られた後でも、通信に緯度経度を出さない（下で調べる）
+  await expect(page.getByText("輪は距離の目安で、発表の区域ではありません。")).toBeVisible();
+  await expect(page.locator(".stat", { hasText: "約 60 km 以内" })).toContainText(/今季 \d+ 件/);
 
   // 端末の中には、3 つのキーだけ（hpai.spot.v1）
   const saved = await page.evaluate(() => window.localStorage.getItem("hpai.spot.v1"));

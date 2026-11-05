@@ -92,6 +92,15 @@ describe("WebGL2 が使えない端末", () => {
     expect(text).not.toMatch(/WebGL|GPUInitializationError|ハードウェアアクセラレーション/);
   });
 
+  it("地点があれば、代わりの地図にも距離の輪を描き、輪の断りを出す", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
+    mount();
+    const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    expect(map.querySelectorAll(".svg-ring")).toHaveLength(3);
+    expect(screen.getByText(TEXT.ringNote)).toBeTruthy();
+  });
+
   it("「町を選ぶ」の後、県を押して市町村を押すと、その町が自分の町になる", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mount();

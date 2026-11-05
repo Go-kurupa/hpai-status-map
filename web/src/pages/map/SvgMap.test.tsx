@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGeoStore } from "@hpai/shared/geo";
+import { latLngToMesh3 } from "@hpai/shared/mesh";
 import { findWordingViolations } from "@hpai/shared/wording";
 import adjacencyJson from "../../../../data/geo/adjacency.json";
 import indexJson from "../../../../data/geo/muni-index.json";
@@ -210,6 +211,47 @@ describe("代わりの地図（SVG）", () => {
     const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
     await waitFor(() => expect(map.querySelectorAll("[data-bird='hpai_confirmed']")).toHaveLength(1));
     expect(onUnplaced).toHaveBeenLastCalledWith(1);
+  });
+
+  describe("距離の輪", () => {
+    const FARM_MESH = latLngToMesh3(35.07, 134.0); // 津山市のあたり（試験の地点）
+
+    it("地点がなければ輪を描かない", async () => {
+      render(<SvgMap {...props({ myMuniCode: "33203" })} />);
+      const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+      expect(map.querySelectorAll(".svg-ring")).toHaveLength(0);
+      expect(map.querySelectorAll(".svg-ring-label")).toHaveLength(0);
+    });
+
+    it("全国の図は輪を 3 本描く。輪が小さいのでラベルは出さない。点線で、面を塗らない", async () => {
+      render(<SvgMap {...props({ farmMeshCode: FARM_MESH, myMuniCode: "33203" })} />);
+      const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+      const rings = [...map.querySelectorAll(".svg-ring")];
+      expect(rings.map((r) => r.getAttribute("data-km"))).toEqual(["10", "30", "60"]);
+      for (const r of rings) {
+        expect(r.getAttribute("fill")).toBe("none");
+        expect(r.getAttribute("stroke-dasharray")).toBeTruthy();
+        expect(r.getAttribute("d")).toMatch(/^M.*Z$/);
+      }
+      expect(map.querySelectorAll(".svg-ring-label")).toHaveLength(0);
+    });
+
+    it("県の図は輪と km のラベルを出す。距離に「約」が付き、文字は画面で 14px 以上", async () => {
+      render(<SvgMap {...props({ farmMeshCode: FARM_MESH, myMuniCode: "33203" })} />);
+      await openPref(/^岡山県/);
+      const map = await screen.findByRole("group", { name: /岡山県の市町村/ });
+      expect(map.querySelectorAll(".svg-ring")).toHaveLength(3);
+      const labels = [...map.querySelectorAll(".svg-ring-label")];
+      expect(labels.map((l) => l.textContent)).toEqual(["約 10 km", "約 30 km", "約 60 km"]);
+      // 実測できない jsdom では幅 480px の目安で計算する
+      for (const l of labels) expect(Number(l.getAttribute("font-size")) * (480 / 1000)).toBeGreaterThanOrEqual(14);
+    });
+
+    it("不正なマス目でも落ちず、輪を描かない", async () => {
+      render(<SvgMap {...props({ farmMeshCode: "abc", myMuniCode: "33203" })} />);
+      const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+      expect(map.querySelectorAll(".svg-ring")).toHaveLength(0);
+    });
   });
 
   it("文言は禁句の検査を通る", () => {

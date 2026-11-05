@@ -56,6 +56,18 @@ export const TEXT = {
   spotFromFarm: "登録した農場の場所で見ています",
   spotFixed: "この画面では場所を変えられません",
   townCleared: "町を選び直したので、くわしい場所は消しました",
+  // 距離の輪（発表の区域と別物であることを、地図の下に常に出す）
+  ringNote: "輪は距離の目安で、発表の区域ではありません。",
+  // 毎朝の札。多い少ないを書かない。題に「時点」を入れない（E2E が時刻の表示を「時点」で確かめている）
+  statRecent: "直近 14 日の件数",
+  statPastToDate: (seasons: number, monthDay: string): string => `過去 ${seasons} シーズンの ${monthDay}まで`,
+  statBand: (km: number): string => `農場から約 ${km} km 以内`,
+  statBandNow: "今季",
+  statBandPast: (seasons: number): string => `過去 ${seasons} シーズン`,
+  statFailed: "読めませんでした",
+  statFailedNote: "ページを読み込み直してください。読めるまで、発生がないとは言えません。",
+  statBandRelated: "過去の件数に関連農場は入れていません。",
+  statBandUnplaced: (n: number): string => `町が分からない発表が ${n} 件あり、距離に入れていません。`,
   // 過去
   pastLabel: "過去の記録",
   pastDetails: "過去の発生をくわしく見る",

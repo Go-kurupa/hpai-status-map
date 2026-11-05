@@ -3,9 +3,12 @@
 import { loadWebGeoStore } from "../../geo/loadGeo";
 import type { GeoStore } from "@hpai/shared/geo";
 import { toJstIso } from "@hpai/shared/dates";
+import { pastCasesOf } from "@hpai/shared/history";
+import { isCountable } from "@hpai/shared/level";
 import { describePast } from "@hpai/shared/past";
-import type { Case, FarmPoint, HistoryCase, MuniCode, PrefCode, Season, WildBird } from "@hpai/shared/types";
+import type { Case, FarmPoint, HistoryCase, MeshCode, MuniCode, PrefCode, Season, WildBird } from "@hpai/shared/types";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { casesWithinBand, pastSeasonsOf } from "./overviewCounts";
 import type { PastState } from "./TownBanner";
 import { neighborPrefsOf, resolveTown, withWatchState, type TownLine } from "./townLine";
 
@@ -107,4 +110,50 @@ export function usePast(i: {
       return { status: "failed" }; // 壊れた記録でページを落とさない。「発生なし」にも見せない
     }
   }, [town, history, historyFailed, geo, geoFailed, current]);
+}
+
+/** null は読み込み中、"failed" は読めなかった。どちらも 0 件にしない */
+export type BandCount = number | null | "failed";
+
+function useBandCount(meshCode: MeshCode | null, cases: readonly Case[] | null, geo: GeoStore | null): BandCount {
+  const [res, setRes] = useState<{ meshCode: MeshCode; value: BandCount } | null>(null);
+  useEffect(() => {
+    if (meshCode === null || cases === null || !geo) return;
+    let off = false;
+    casesWithinBand(meshCode, cases, geo).then(
+      (n) => {
+        if (!off) setRes({ meshCode, value: n });
+      },
+      () => {
+        if (!off) setRes({ meshCode, value: "failed" });
+      },
+    );
+    return () => {
+      off = true;
+    };
+  }, [meshCode, cases, geo]);
+  // 地点が変わった直後は古い結果を出さない。事例の更新の間は前の値のまま（ちらつかせない）
+  return cases !== null && res?.meshCode === meshCode ? res.value : null;
+}
+
+/** 約 60km 以内の今季と過去のシーズンの件数。関連農場は除く。地点がなければ計算しない（県の形を読まない） */
+export function useBandCounts(i: {
+  meshCode: MeshCode | null;
+  cases: readonly Case[] | null;
+  history: readonly HistoryCase[] | null;
+  historyFailed: boolean;
+  geo: GeoStore | null;
+  geoFailed: boolean;
+  current: Season;
+}): { now: BandCount; past: BandCount } {
+  const { cases, history, current } = i;
+  const nowCases = useMemo(() => (cases ? cases.filter((c) => c.season === current && isCountable(c)) : null), [cases, current]);
+  const pastCases = useMemo(() => {
+    if (!history) return null;
+    const seasons = new Set(pastSeasonsOf(history, current));
+    return pastCasesOf(history).filter((c) => seasons.has(c.season));
+  }, [history, current]);
+  const now = useBandCount(i.meshCode, nowCases, i.geo);
+  const past = useBandCount(i.meshCode, pastCases, i.geo);
+  return { now: i.geoFailed ? "failed" : now, past: i.geoFailed || (history === null && i.historyFailed) ? "failed" : past };
 }

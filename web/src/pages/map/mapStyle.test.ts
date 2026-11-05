@@ -8,7 +8,7 @@ import { MUNI_ZOOM } from "./seasonView";
 const layers = overlayLayers();
 
 describe("地図の層", () => {
-  it("下から gsi-pale、muni-fill、pref-unwatched、case-suspected、case-confirmed、muni-line、near-line、pref-line、my-town、野鳥 2 層", () => {
+  it("下から gsi-pale、muni-fill、pref-unwatched、case-suspected、case-confirmed、muni-line、near-line、pref-line、my-town、距離の輪、野鳥 2 層", () => {
     const base = baseStyle().layers.map((l) => l.id);
     expect([...base, ...layers.map((l) => l.id)]).toEqual([
       "gsi-pale",
@@ -20,6 +20,7 @@ describe("地図の層", () => {
       "near-line",
       "pref-line",
       "my-town",
+      "distance-rings",
       "wild-bird-screening",
       "wild-bird-confirmed",
     ]);
@@ -46,6 +47,14 @@ describe("地図の層", () => {
     expect(by["wild-bird-confirmed"]!.type).toBe("symbol");
   });
 
+  it("距離の輪は点線の line の層で、面を塗らない（発表の区域の円に見せない）", () => {
+    const ring = layers.find((l) => l.id === "distance-rings")!;
+    expect(ring.type).toBe("line");
+    expect("source" in ring && ring.source).toBe("distance-rings");
+    expect(((ring.paint as Record<string, unknown>)["line-dasharray"] as number[]).length).toBeGreaterThanOrEqual(2);
+    expect(ring.minzoom).toBeUndefined();
+  });
+
   it("text-field を使わない（glyphs の外部 URL が要る）", () => {
     expect(JSON.stringify(layers)).not.toContain("text-field");
     expect((baseStyle() as { glyphs?: string }).glyphs).toBeUndefined();
@@ -54,7 +63,7 @@ describe("地図の層", () => {
   it("muni の source は tolerance 0.3 の geojson。source の名前が層と一致する", () => {
     const style = baseStyle();
     expect(style.sources["gsi"]).toMatchObject({ type: "raster", tileSize: 256, minzoom: 2, maxzoom: 18 });
-    expect(OVERLAY_SOURCE_IDS).toEqual(["muni", "pref", "wild-birds"]);
+    expect(OVERLAY_SOURCE_IDS).toEqual(["muni", "pref", "wild-birds", "distance-rings"]);
     for (const l of layers) {
       if ("source" in l) expect(OVERLAY_SOURCE_IDS).toContain(l.source);
     }
@@ -87,6 +96,7 @@ describe("maplibre の style の検査（本物の検証器）", () => {
         muni: { type: "geojson" as const, data: empty, tolerance: 0.3 },
         pref: { type: "geojson" as const, data: empty },
         "wild-birds": { type: "geojson" as const, data: empty },
+        "distance-rings": { type: "geojson" as const, data: empty },
       },
       layers: [...base.layers, ...overlayLayers()],
     };

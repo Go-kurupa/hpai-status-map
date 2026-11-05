@@ -20,6 +20,9 @@ const WATCH_OK = Array.from({ length: 47 }, (_, i) => ({
 
 type MapHandle = {
   getStyle(): { layers: Array<{ id: string; type: string; minzoom?: number }> };
+  jumpTo(o: { center: [number, number]; zoom: number }): void;
+  querySourceFeatures(source: string): unknown[];
+  queryRenderedFeatures(q: undefined, o: { layers: string[] }): unknown[];
   getFilter(id: string): unknown;
   getLayer(id: string): unknown;
   dragRotate: { isEnabled(): boolean };
@@ -150,5 +153,40 @@ test.describe("地図（入口）", () => {
       await page.goBack();
       await expect(page.getByRole("navigation", { name: "ほかのページ" })).toBeVisible();
     }
+  });
+
+  test.describe("距離の輪", () => {
+    const RING_NOTE = "輪は距離の目安で、発表の区域ではありません。";
+    // 津山市のあたりのマス目（試験の地点）
+    const spot = { meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] as string[] };
+
+    test("地点がなければ輪も、ラベルも、断りも、約 60km の札もない", async ({ page }) => {
+      await open(page);
+      await expect(page.locator(".stat-row")).toBeVisible();
+      await expect(page.getByText(RING_NOTE)).toHaveCount(0);
+      await expect(page.locator(".ring-label")).toHaveCount(0);
+      await expect(page.getByText(/約 60 km 以内/)).toHaveCount(0);
+      expect(await page.evaluate(() => window.__hpaiMap!.getLayer("distance-rings") !== undefined)).toBe(true);
+      expect(await page.evaluate(() => window.__hpaiMap!.queryRenderedFeatures(undefined, { layers: ["distance-rings"] }).length)).toBe(0);
+    });
+
+    test("地点があれば、点線の輪が描かれ、寄せるとラベルが出る。ラベルは地図の操作を止めない", async ({ page }) => {
+      await page.addInitScript((s) => window.localStorage.setItem("hpai.spot.v1", JSON.stringify(s)), spot);
+      await open(page);
+      await expect(page.getByText(RING_NOTE)).toBeVisible();
+      await expect(page.getByText(/農場から約 60 km 以内/)).toBeVisible();
+      await page.evaluate(() => window.__hpaiMap!.jumpTo({ center: [134.0, 35.07], zoom: 8 }));
+      await expect
+        .poll(() => page.evaluate(() => window.__hpaiMap!.queryRenderedFeatures(undefined, { layers: ["distance-rings"] }).length), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+      for (const text of ["約 10 km", "約 30 km", "約 60 km"]) {
+        const label = page.locator(".ring-label", { hasText: text });
+        await expect(label).toBeVisible();
+        expect(await label.evaluate((e) => getComputedStyle(e).pointerEvents)).toBe("none");
+        expect(parseFloat(await label.evaluate((e) => getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);
+      }
+      await page.evaluate(() => window.__hpaiMap!.jumpTo({ center: [134.0, 35.07], zoom: 4 }));
+      await expect(page.locator(".ring-label", { hasText: "約 10 km" })).toBeHidden();
+    });
   });
 });

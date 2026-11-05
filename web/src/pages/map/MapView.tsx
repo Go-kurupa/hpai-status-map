@@ -1,11 +1,12 @@
 import { PREFS } from "@hpai/shared/pref";
-import type { MuniCode, PrefCode, WildBird } from "@hpai/shared/types";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import type { MeshCode, MuniCode, PrefCode, WildBird } from "@hpai/shared/types";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { feature, mesh } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
+import { distanceRingsOf, pxPerKmAtZoom, ringLabel, ringTop, visibleRingKms } from "../../geo/distanceRings";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { Marker, MlMap } from "../../geo/maplibre";
-import { applyView, applyWildBirds, type ViewTarget } from "./applyView";
+import { applyDistanceRings, applyView, applyWildBirds, type ViewTarget } from "./applyView";
 import { HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
 import { baseStyle, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
 import { TEXT } from "./texts";
@@ -17,6 +18,8 @@ export interface MapViewProps {
   failedPrefCodes: readonly PrefCode[];
   myMuniCode: MuniCode | null;
   nearMuniCodes: readonly MuniCode[];
+  /** 距離の輪の中心にする地点のマス目。緯度経度はこの部品の中で作り、外へ渡さない */
+  farmMeshCode?: MeshCode | null;
   focus: { kind: "japan" | "muni"; codes: MuniCode[]; nonce: number } | null;
   pickMode?: boolean;
   onSelectMuni?: (code: MuniCode) => void;
@@ -98,6 +101,7 @@ export default function MapView(props: MapViewProps) {
         map.addSource("muni", { type: "geojson", data: munis, tolerance: 0.3 });
         map.addSource("pref", { type: "geojson", data: { type: "Feature", properties: {}, geometry: prefBorders } });
         map.addSource("wild-birds", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addSource("distance-rings", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         for (const layer of overlayLayers()) map.addLayer(layer);
 
         map.on("click", (e) => {
@@ -157,6 +161,36 @@ export default function MapView(props: MapViewProps) {
     });
     setUnplaced(n);
   }, [ready, geo, props.wildBirds]);
+
+  // 距離の輪。ラベルは文字の層が使えない（glyphs の外部 URL が要る）ので、県のバッジと同じ Marker で出す
+  const rings = useMemo(() => distanceRingsOf(props.farmMeshCode), [props.farmMeshCode]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    applyDistanceRings(map as unknown as ViewTarget, rings);
+  }, [ready, rings]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !rings) return;
+    const labels = rings.features.map((f) => {
+      const el = document.createElement("div");
+      el.className = "ring-label";
+      el.setAttribute("aria-hidden", "true");
+      el.textContent = ringLabel(f.properties.km);
+      const top = ringTop(f);
+      return { km: f.properties.km, el, marker: new Marker({ element: el, anchor: "bottom" }).setLngLat(top).addTo(map), lat: top[1] };
+    });
+    const update = () => {
+      const shown = new Set(visibleRingKms(pxPerKmAtZoom(map.getZoom(), labels[0]!.lat)));
+      for (const l of labels) l.el.hidden = !shown.has(l.km);
+    };
+    update();
+    map.on("zoom", update);
+    return () => {
+      map.off("zoom", update);
+      for (const l of labels) l.marker.remove();
+    };
+  }, [ready, rings]);
 
   // 4) 県のバッジ（Marker は 1 度だけ作り、文字と表示だけを替える）
   useEffect(() => {
@@ -236,6 +270,7 @@ export default function MapView(props: MapViewProps) {
             failedPrefCodes={props.failedPrefCodes}
             myMuniCode={props.myMuniCode}
             nearMuniCodes={props.nearMuniCodes}
+            farmMeshCode={props.farmMeshCode}
             focus={props.focus}
             onSelectMuni={props.onSelectMuni}
             onUnplaced={setUnplaced}

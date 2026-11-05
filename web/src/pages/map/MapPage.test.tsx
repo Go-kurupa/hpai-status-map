@@ -822,7 +822,7 @@ describe("MapPage: 平面の札（T12）", () => {
   const stats = () => [...document.querySelectorAll(".stat")];
   const titles = () => stats().map((e) => e.querySelector(".stat-title")?.textContent);
 
-  it("今季を見ているとき 2 枚。確認中の県より後で出典より前、守る文と見回りの行より後。watch-line は 1 つ", async () => {
+  it("今季を見ているとき 4 枚（地点がなければ約 60km の札はない）。確認中の県より後で出典より前、守る文と見回りの行より後。watch-line は 1 つ", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
@@ -830,17 +830,17 @@ describe("MapPage: 平面の札（T12）", () => {
       tsuyamaCase({ id: "rev-1", prefCode: "31", muniCode: null, muniName: null, headCount: null, stages: {}, confirmState: "reviewing", sourceUrls: ["https://example.invalid/r"] }),
     ]);
     r.deliverWatch(okWatch());
-    expect(stats()).toHaveLength(2);
-    expect(titles()).toEqual(["発生した件数", "時刻"]);
+    expect(stats()).toHaveLength(4);
+    expect(titles()).toEqual(["発生した件数", "直近 14 日の件数", "過去 6 シーズンの 11 月 4 日まで", "時刻"]);
     const row = document.querySelector(".stat-row")!;
-    expect(row.querySelectorAll(".stat")).toHaveLength(2);
+    expect(row.querySelectorAll(".stat")).toHaveLength(4);
     expect(follows(document.querySelector(".map-disclaimer")!, row)).toBe(true);
     expect(follows(screen.getByTestId("watch-line"), row)).toBe(true);
     expect(follows(screen.getByText(/確認中の発表がある県/), row)).toBe(true);
     expect(follows(row, document.querySelector(".map-attribution")!)).toBe(true);
     expect(screen.getAllByTestId("watch-line")).toHaveLength(1);
     expect(row.querySelector("[role=status]")).toBeNull();
-    expect(stats()[1]!.textContent).toContain("11 月 4 日 8:30 時点");
+    expect(stats()[3]!.textContent).toContain("11 月 4 日 8:30 時点");
   });
 
   it("過去のシーズンでは 0 枚", async () => {
@@ -849,7 +849,7 @@ describe("MapPage: 平面の札（T12）", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    expect(stats()).toHaveLength(2);
+    expect(stats()).toHaveLength(4);
     fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
     expect(stats()).toHaveLength(0);
   });
@@ -946,5 +946,266 @@ describe("map.css（比べの表の幅と PC 幅の 2 列）", () => {
 
   it("画面の本文は 1200px までで中央に寄せる", () => {
     expect(mapCss).toMatch(/\.map-page\s*\{[^}]*max-width:\s*1200px[^}]*margin-inline:\s*auto/);
+  });
+});
+
+describe("MapPage: 距離の輪と毎朝の札", () => {
+  const FARM_MESH = latLngToMesh3(35.07, 134.0); // 津山市のあたり（試験の地点）
+  const setSpot = (mesh = FARM_MESH) => localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: mesh, muniCode: "33203", frequentMuniCodes: [] }));
+  const card = (title: string | RegExp) =>
+    [...document.querySelectorAll(".stat")].find((e) => {
+      const t = e.querySelector(".stat-title")?.textContent ?? "";
+      return typeof title === "string" ? t === title : title.test(t);
+    });
+  const recentValue = () => card("直近 14 日の件数")!.querySelector(".stat-value")!.textContent;
+  const bandCard = () => card(/約 60 km 以内/);
+  const onDate = (date: string) => ({ confirmed: { date, time: null } });
+  const failedWatch = (codes: string[]) => okWatch().map((w) => (codes.includes(w.prefCode) ? { ...w, ok: false, failingSince: "2026-11-04T01:00:00+09:00" } : w));
+
+  describe("輪と断り", () => {
+    it("地点がなければ、輪の地点を渡さず、断りも約 60km の札も出さない", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      expect(lastProps().farmMeshCode).toBeNull();
+      expect(screen.queryByText(TEXT.ringNote)).toBeNull();
+      expect(bandCard()).toBeUndefined();
+    });
+
+    it("町だけを選んだときも輪は出さない（地点がない）", async () => {
+      localStorage.setItem(TOWN_KEY, "33203");
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      expect(lastProps().farmMeshCode).toBeNull();
+      expect(screen.queryByText(TEXT.ringNote)).toBeNull();
+    });
+
+    it("地点があれば、マス目を地図に渡し、断りを色がない場所の断りのすぐ後に出す", async () => {
+      setSpot();
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      expect(lastProps().farmMeshCode).toBe(FARM_MESH);
+      const note = screen.getByText("輪は距離の目安で、発表の区域ではありません。");
+      expect(note.previousElementSibling?.className).toBe("map-disclaimer");
+    });
+
+    it("過去のシーズンを選んでも輪と断りは残る。再現でも地点があれば出る", async () => {
+      setSpot();
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+      expect(lastProps().farmMeshCode).toBe(FARM_MESH);
+      expect(screen.getByText(TEXT.ringNote)).toBeTruthy();
+      cleanup();
+
+      const replay = rig();
+      replay.ds.mode = "replay";
+      show(replay);
+      await screen.findByTestId("map");
+      expect(lastProps().farmMeshCode).toBe(FARM_MESH);
+      expect(screen.getByText(TEXT.ringNote)).toBeTruthy();
+    });
+  });
+
+  describe("直近 14 日", () => {
+    it("読み込み中は『まだ読めていません』で 0 件にしない", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      expect(recentValue()).toBe("まだ読めていません");
+    });
+
+    it("47 県とも未確認なら件数を見出しにしない", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      expect(recentValue()).toBe("まだ確認できていません");
+    });
+
+    it("一部の県が未確認なら断りを付け、広い札にする", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([tsuyamaCase({ stages: onDate("2026-11-02") }), tsuyamaCase({ id: "old", stages: onDate("2026-10-01") })]);
+      r.deliverWatch(failedWatch(["33"]));
+      expect(recentValue()).toBe("確認できた範囲では 1 件（1 県は確認できていません）");
+      expect(card("直近 14 日の件数")!.classList.contains("stat-wide")).toBe(true);
+    });
+
+    it("全県を確認できていれば件数だけ。広い札にしない", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([tsuyamaCase({ stages: onDate("2026-11-02") })]);
+      r.deliverWatch(okWatch());
+      expect(recentValue()).toBe("1 件");
+      expect(card("直近 14 日の件数")!.classList.contains("stat-wide")).toBe(false);
+    });
+
+    it("今季に発生があっても直近 14 日が 0 件なら、riskAnywhere を札のすぐ前に出す", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([tsuyamaCase({ stages: onDate("2026-10-01") })]);
+      r.deliverWatch(okWatch());
+      expect(recentValue()).toBe("0 件");
+      const risk = await screen.findByText(FIXED_TEXT.riskAnywhere);
+      expect(risk.nextElementSibling?.className).toBe("stat-row");
+    });
+
+    it("札にも発生があるときは riskAnywhere を足さない", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([tsuyamaCase({ stages: onDate("2026-11-02") })]);
+      r.deliverWatch(okWatch());
+      expect(recentValue()).toBe("1 件");
+      expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+    });
+  });
+
+  describe("過去のシーズンの同じ日まで", () => {
+    const pastCard = () => card(/過去 \d+ シーズンの/);
+
+    it("件数の幅を出し、多い少ないを書かない", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      const value = pastCard()!.querySelector(".stat-value")!.textContent!;
+      expect(value).toMatch(/^\d+(〜\d+)? 件$/);
+      expect(pastCard()!.textContent).not.toMatch(/多い|少ない/);
+    });
+
+    it("過去の記録の読み込み中と失敗で、0 件にしない", async () => {
+      const r = rig({ history: "deferred" });
+      show(r);
+      await screen.findByTestId("map");
+      expect(pastCard()!.querySelector(".stat-value")!.textContent).toBe("まだ読めていません");
+      await act(async () => {
+        r.historyDeferred.reject(new Error("読めない"));
+      });
+      expect(pastCard()!.querySelector(".stat-value")!.textContent).toBe("読めませんでした");
+    });
+  });
+
+  describe("約 60km 以内", () => {
+    it("読み込み中は 0 件にしない。今季と過去 6 シーズンを、地点から数えて出す", async () => {
+      setSpot();
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      expect(bandCard()!.textContent).toContain("今季 まだ読めていません");
+      r.deliverWatch(okWatch());
+      r.deliverCases([
+        tsuyamaCase({ id: "near", stages: onDate("2026-11-02") }),
+        tsuyamaCase({ id: "far", prefCode: "01", muniCode: "01100", muniName: "札幌市", stages: onDate("2026-11-02") }),
+        tsuyamaCase({ id: "rev", confirmState: "reviewing" }),
+      ]);
+      await waitFor(() => expect(bandCard()!.textContent).toContain("今季 1 件"));
+      await waitFor(() => expect(bandCard()!.textContent).toMatch(/過去 6 シーズン \d+ 件/));
+      expect(bandCard()!.textContent).toContain(TEXT.statBandRelated);
+      expect(bandCard()!.classList.contains("stat-wide")).toBe(true);
+    });
+
+    it("一部の県が未確認なら今季に断りを付け、47 県とも未確認なら件数を見出しにしない", async () => {
+      setSpot();
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      await waitFor(() => expect(bandCard()!.textContent).toContain("今季 まだ確認できていません"));
+      r.deliverWatch(failedWatch(["33"]));
+      expect(bandCard()!.textContent).toContain("今季 確認できた範囲では 0 件（1 県は確認できていません）");
+    });
+
+    it("過去の記録を読めなければ、過去は『読めませんでした』で今季は出す", async () => {
+      setSpot();
+      const r = rig({ history: "deferred" });
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverWatch(okWatch());
+      r.deliverCases([tsuyamaCase({ stages: onDate("2026-11-02") })]);
+      await waitFor(() => expect(bandCard()!.textContent).toContain("今季 1 件"));
+      expect(bandCard()!.textContent).toContain("過去 6 シーズン まだ読めていません");
+      await act(async () => {
+        r.historyDeferred.reject(new Error("読めない"));
+      });
+      expect(bandCard()!.textContent).toContain("過去 6 シーズン 読めませんでした");
+      expect(bandCard()!.textContent).toContain(TEXT.statFailedNote);
+    });
+
+    it("知らない町の事例があり距離を計算できなければ『読めませんでした』で、0 件にしない", async () => {
+      setSpot();
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverWatch(okWatch());
+      r.deliverCases([tsuyamaCase({ muniCode: "33999" })]);
+      await waitFor(() => expect(bandCard()!.textContent).toContain("今季 読めませんでした"));
+      expect(bandCard()!.textContent).toContain(TEXT.statFailedNote);
+    });
+
+    it("町が分からない発表は距離に入れず、その数を札に書く", async () => {
+      setSpot();
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverWatch(okWatch());
+      r.deliverCases([tsuyamaCase({ muniCode: null, muniName: null, stages: onDate("2026-11-02") })]);
+      await waitFor(() => expect(bandCard()!.textContent).toContain("今季 0 件"));
+      expect(bandCard()!.textContent).toContain("町が分からない発表が 1 件あり、距離に入れていません。");
+    });
+
+    it("約 60km の今季が 0 件で、町の 1 文に riskAnywhere がなければ、札のすぐ前に出す", async () => {
+      localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: FARM_MESH, muniCode: "33203", frequentMuniCodes: ["01100"] }));
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverWatch(okWatch());
+      r.deliverCases([tsuyamaCase({ prefCode: "01", muniCode: "01100", muniName: "札幌市", stages: onDate("2026-11-02") })]);
+      await waitFor(() => expect(bandCard()!.textContent).toContain("今季 0 件"));
+      expect(recentValue()).toBe("1 件");
+      await waitFor(() => expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(FIXED_TEXT.riskAnywhere));
+    });
+
+    it("過去のシーズンでは出さない", async () => {
+      setSpot();
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      await waitFor(() => expect(bandCard()).toBeTruthy());
+      fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+      expect(bandCard()).toBeUndefined();
+    });
+  });
+
+  it("新しい文に書かない語がない。距離に「約」が付く", () => {
+    const words = [
+      TEXT.ringNote,
+      TEXT.statRecent,
+      TEXT.statPastToDate(6, "11 月 4 日"),
+      TEXT.statBand(60),
+      TEXT.statBandPast(6),
+      TEXT.statFailed,
+      TEXT.statFailedNote,
+      TEXT.statBandRelated,
+      TEXT.statBandUnplaced(1),
+    ].join("");
+    expect(findForbiddenPhrases(words)).toEqual([]);
+    expect(words).not.toMatch(/問題ありません|多い|少ない/);
+    expect(TEXT.statBand(60)).toContain("約 60 km");
   });
 });

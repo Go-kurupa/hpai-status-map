@@ -1,7 +1,8 @@
 import type { Case, HistoryCase, WildBird } from "@hpai/shared/types";
 import { describe, expect, it, vi } from "vitest";
 import historyJson from "../../../../data/history/cases.json";
-import { applyView, applyWildBirds, wildBirdFeatures, type ViewTarget } from "./applyView";
+import { distanceRingsOf } from "../../geo/distanceRings";
+import { applyDistanceRings, applyView, applyWildBirds, wildBirdFeatures, type ViewTarget } from "./applyView";
 import { PAINT } from "./mapStyle";
 import { buildSeasonView } from "./seasonView";
 
@@ -14,7 +15,7 @@ function fakeMap() {
   const map: ViewTarget = {
     setFilter: (id, f) => void filters.set(id, f),
     setPaintProperty: (id, prop, v) => void paints.set(`${id}/${prop}`, v),
-    getSource: (id) => (id === "wild-birds" || id === "muni" ? { setData } : undefined),
+    getSource: (id) => (id === "wild-birds" || id === "muni" || id === "distance-rings" ? { setData } : undefined),
   };
   return { map, filters, paints, setData };
 }
@@ -166,5 +167,16 @@ describe("野鳥", () => {
     applyWildBirds(map, [bird({})], locate);
     expect(setData).toHaveBeenCalledTimes(1);
     expect(setData.mock.calls[0]![0]).toMatchObject({ type: "FeatureCollection" });
+  });
+});
+
+describe("applyDistanceRings", () => {
+  it("輪があれば source に渡し、なければ空にする（地点を消したら輪も消える）", () => {
+    const { map, setData } = fakeMap();
+    const rings = distanceRingsOf("53340000")!;
+    applyDistanceRings(map, rings);
+    expect(setData).toHaveBeenLastCalledWith(rings);
+    applyDistanceRings(map, null);
+    expect(setData).toHaveBeenLastCalledWith({ type: "FeatureCollection", features: [] });
   });
 });

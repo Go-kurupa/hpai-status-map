@@ -281,3 +281,13 @@ describe("ReplayPage", () => {
     for (const u of calls) expect(u).toMatch(/replay\/scenario\.json$|history\/cases\.json$/);
   });
 });
+
+describe("ReplayPage: 距離の輪", () => {
+  it("見本の仮の地点のマス目を地図に渡し、輪の断りを出す。札は今と同じく出さない", async () => {
+    await show();
+    await screen.findByTestId("map");
+    expect(lastProps().farmMeshCode).toBe(scenario.defaultSpot.meshCode);
+    expect(screen.getByText("輪は距離の目安で、発表の区域ではありません。")).toBeTruthy();
+    expect(document.querySelector(".stat-row")).toBeNull();
+  });
+});

@@ -9,6 +9,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { feature, merge } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
+import { distanceRingsOf, ringLabel, ringTop, visibleRingKms, type DistanceRings } from "../../geo/distanceRings";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { viewStyle, wildBirdFeatures, type WildBirdFeature } from "./applyView";
 import { HATCH_PERIOD, HATCH_PIXEL_RATIO, HATCH_STRIPE } from "./hatch";
@@ -18,7 +19,7 @@ import { badgeStates, JAPAN_BOUNDS } from "./seasonView";
 import { TEXT } from "./texts";
 
 export interface SvgMapProps
-  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "focus" | "onSelectMuni"> {
+  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "focus" | "onSelectMuni"> {
   /** 場所が分からず置けなかった野鳥の数（注記は MapView が出す） */
   onUnplaced?: (n: number) => void;
   /** 形を読めなかった（知らせは MapView が出す） */
@@ -43,7 +44,7 @@ const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 
 // 線の色と太さ、確定の塗りの濃さは、MapLibre の層の定義（mapStyle の overlayLayers）から読む。数を二重に書かない
 const LAYERS = new Map(overlayLayers().map((l) => [l.id, l] as const));
-function lineProps(id: "muni-line" | "near-line" | "pref-line" | "my-town") {
+function lineProps(id: "muni-line" | "near-line" | "pref-line" | "my-town" | "distance-rings") {
   const paint = (LAYERS.get(id) as { paint?: Record<string, unknown> } | undefined)?.paint ?? {};
   return {
     stroke: paint["line-color"] as string,
@@ -56,7 +57,16 @@ const LINE = {
   near: lineProps("near-line"),
   pref: lineProps("pref-line"),
   mine: lineProps("my-town"),
+  ring: lineProps("distance-rings"),
 };
+/** 輪の点線（画面の px。線は vector-effect で拡大されない）。層の line-dasharray は線の太さが単位 */
+const RING_DASH = (((LAYERS.get("distance-rings") as { paint?: Record<string, unknown> } | undefined)?.paint?.["line-dasharray"] as number[] | undefined) ?? [])
+  .map((n) => n * LINE.ring.strokeWidth)
+  .join(" ");
+/** 輪のラベルの文字の大きさ（画面の px）。14px 未満にしない */
+const RING_LABEL_PX = 14.4;
+/** 南北 1 度の距離（km）。輪のラベルを出す縮尺の目安に使う */
+const KM_PER_LAT_DEG = 111.2;
 const CONFIRMED_OPACITY =
   ((LAYERS.get("case-confirmed") as { paint?: Record<string, unknown> } | undefined)?.paint?.["fill-opacity"] as number | undefined) ?? 0.8;
 
@@ -213,6 +223,29 @@ function Hatch({ id, color }: { id: string; color: string }) {
   );
 }
 
+/** 距離の輪と km のラベル。scale は viewBox の 1 単位が画面の何 px か */
+function RingMarks({ rings, proj, scale }: { rings: DistanceRings; proj: Projection; scale: number }) {
+  const unitsPerKm = (proj.at(0, 0)[1] - proj.at(0, 1)[1]) / KM_PER_LAT_DEG;
+  const shown = new Set(visibleRingKms(unitsPerKm * scale));
+  return (
+    <>
+      {rings.features.map((f) => (
+        <path key={f.properties.km} className="svg-ring" data-km={f.properties.km} d={pathOf(f.geometry, proj)} fill="none" {...LINE.ring} strokeDasharray={RING_DASH} />
+      ))}
+      {rings.features
+        .filter((f) => shown.has(f.properties.km))
+        .map((f) => {
+          const [x, y] = proj.at(...ringTop(f));
+          return (
+            <text key={f.properties.km} className="svg-ring-label" x={x} y={y} fontSize={RING_LABEL_PX / scale} aria-hidden="true">
+              {ringLabel(f.properties.km)}
+            </text>
+          );
+        })}
+    </>
+  );
+}
+
 function BirdMark({ f, proj }: { f: WildBirdFeature; proj: Projection }) {
   const [lng, lat] = f.geometry.coordinates;
   const [x, y] = proj.at(lng, lat);
@@ -231,8 +264,11 @@ export default function SvgMap(props: SvgMapProps) {
   const [japan, setJapan] = useState<JapanData | null>(null);
   const [prefCode, setPrefCode] = useState<PrefCode | null>(null);
   const [pref, setPref] = useState<PrefData | null>(null);
+  const [scale, setScale] = useState(REF_WIDTH / W); // viewBox の 1 単位が画面の何 px か（実測できるまでは目安）
+  const wrapRef = useRef<HTMLDivElement>(null);
   const latest = useRef(props);
   latest.current = props;
+  const rings = useMemo(() => distanceRingsOf(props.farmMeshCode), [props.farmMeshCode]);
 
   // 1) 全国の形、索引、県の代表の位置を読む（1 度だけ）
   useEffect(() => {
@@ -312,6 +348,19 @@ export default function SvgMap(props: SvgMapProps) {
     if (unplaced !== undefined) latest.current.onUnplaced?.(unplaced);
   }, [unplaced]);
 
+  // 輪のラベルの大きさと、出すかどうかは画面の px で決める。図の縮尺は幅と、図の切り替えで変わる
+  const shownSvg = prefCode === null ? (japan ? "japan" : null) : pref ? prefCode : null;
+  useEffect(() => {
+    if (!rings || shownSvg === null) return;
+    const measure = () => {
+      const k = wrapRef.current?.querySelector<SVGSVGElement>("svg.svg-map")?.getScreenCTM?.()?.a;
+      if (k) setScale(k);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [rings, shownSvg]);
+
   const hatchId = (id: string) => `${uid}-${id}`;
   const defs = (
     <defs>
@@ -370,6 +419,7 @@ export default function SvgMap(props: SvgMapProps) {
             {lines(sets.mine).map((d, i) => (
               <path key={i} className="svg-mine-line" d={d} fill="none" {...LINE.mine} />
             ))}
+            {rings ? <RingMarks rings={rings} proj={japan.proj} scale={scale} /> : null}
             {style.showWildBirds ? birds?.features.map((f) => <BirdMark key={f.properties.id} f={f} proj={japan.proj} />) : null}
             {japan.prefs
               .filter((s) => badges.has(s.code))
@@ -466,6 +516,7 @@ export default function SvgMap(props: SvgMapProps) {
                   .map((s) => (
                     <path key={s.code} className="svg-mine-line" d={s.d} fill="none" {...LINE.mine} />
                   ))}
+                {rings ? <RingMarks rings={rings} proj={pref.proj} scale={scale} /> : null}
                 {style.showWildBirds && store
                   ? birds?.features
                       .filter((f) => props.wildBirds.find((b) => b.id === f.properties.id)?.prefCode === prefCode)
@@ -499,7 +550,7 @@ export default function SvgMap(props: SvgMapProps) {
   }
 
   return (
-    <div className="svg-map-wrap">
+    <div className="svg-map-wrap" ref={wrapRef}>
       {body}
       <p className="svg-map-note">
         {TEXT.svgMapNote}{" "}

@@ -33,7 +33,7 @@ export const HATCH_COLORS: ReadonlyArray<readonly [id: string, color: string]> =
 
 export const IMAGE_IDS = { birdScreening: "bird-screening", birdConfirmed: "bird-confirmed" } as const;
 
-export const OVERLAY_SOURCE_IDS = ["muni", "pref", "wild-birds"] as const;
+export const OVERLAY_SOURCE_IDS = ["muni", "pref", "wild-birds", "distance-rings"] as const;
 
 export const LAYER_IDS = [
   "gsi-pale",
@@ -45,6 +45,7 @@ export const LAYER_IDS = [
   "near-line",
   "pref-line",
   "my-town",
+  "distance-rings",
   "wild-bird-screening",
   "wild-bird-confirmed",
 ] as const;
@@ -136,6 +137,13 @@ export function overlayLayers(): LayerSpecification[] {
       source: "muni",
       filter: codeFilter("c", []),
       paint: { "line-color": PAINT.mine, "line-width": 4 },
+    },
+    {
+      // 農場からの距離の目安。発表の区域と別物なので、面を塗らず点線だけにする
+      id: "distance-rings",
+      type: "line",
+      source: "distance-rings",
+      paint: { "line-color": PAINT.ink, "line-width": 1.5, "line-dasharray": [2, 2] },
     },
     {
       id: "wild-bird-screening",

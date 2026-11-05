@@ -55,8 +55,24 @@
 .map-attribution a {
   color: var(--accent);
 }
-.map-disclaimer {
+.map-disclaimer,
+.map-ring-note {
   margin: 0 0 8px;
+}
+
+/* 距離の輪のラベル。押せない（下の地図の操作を止めない） */
+.ring-label {
+  padding: 0 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ring-label[hidden] {
+  display: none;
 }
 
 /* 県のバッジ（全国の倍率の件数）。押すとその県へ拡大 */
@@ -467,6 +483,18 @@
   fill: none;
   vector-effect: non-scaling-stroke;
   stroke-linejoin: round;
+}
+.svg-ring {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.svg-ring-label {
+  font-weight: 700;
+  text-anchor: middle;
+  fill: var(--fg);
+  stroke: #ffffff;
+  stroke-width: 4px;
+  paint-order: stroke;
 }
 .svg-badge {
   font-size: 28px;

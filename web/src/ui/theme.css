@@ -378,6 +378,10 @@ button:focus-visible {
   font-weight: 700;
   line-height: 1.4;
 }
+.stat-note {
+  margin: 0;
+  font-size: 1rem;
+}
 .stat-row {
   display: grid;
   grid-template-columns: 1fr;

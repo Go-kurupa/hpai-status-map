@@ -12,7 +12,7 @@ export interface SeasonBarItem {
 }
 
 /** 件数の見出し。確認できていない県があるあいだは、0 件を「発生なし」と読ませない形にする */
-export function countText(b: SeasonBarItem): string {
+export function countText(b: Pick<SeasonBarItem, "count" | "unchecked" | "allUnchecked">): string {
   if (b.count === null) return "まだ読めていません";
   if (b.allUnchecked) return "まだ確認できていません";
   if (b.unchecked && b.unchecked > 0) return `確認できた範囲では ${b.count} 件（${b.unchecked} 県は確認できていません）`;
