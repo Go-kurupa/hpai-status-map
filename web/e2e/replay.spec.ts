@@ -72,15 +72,16 @@ test.describe("全国の流れ（/replay の切り替え）", () => {
     await (await item(page, /12 月 16 日.*姫路市/)).click();
     await expect(statText(page, "発生した件数")).toContainText("7 件");
     await expect(statText(page, "約 60 km 以内")).toContainText("今季 確認できた範囲では 1 件");
-    await expect(page.locator(".replay-now")).toHaveText("12 月 16 日 姫路市 確定。農場（仮の地点）から約 40 km");
-    await expect(page.getByText("約 40 km 先で発生しました", { exact: true })).toBeVisible();
+    await expect(page.locator(".replay-now")).toHaveText("12 月 16 日 姫路市 確定。農場（仮の地点）から約 28 km");
+    await expect(page.getByText("約 28 km 先で発生しました", { exact: true })).toBeVisible();
     await expect(page.getByText("再現の時点: 12 月 16 日（時刻の記載なし）")).toBeVisible();
     await expect(page.locator(".stat .as-of")).toHaveText("12 月 16 日 時点");
     await filterHas(page, "case-confirmed", "28201");
 
-    // 半径が空でも、基準の 10km で段階 ① になる
+    // 津山市は輪の中に入るが、段階 ① にはしない
     await (await item(page, /12 月 20 日.*津山市/)).click();
-    await expect(page.getByText(ZONE)).toBeVisible();
+    await expect(page.getByText("約 16 km 先で発生しました", { exact: true })).toBeVisible();
+    await expect(page.getByText(ZONE)).toHaveCount(0);
     await expect(statText(page, "約 60 km 以内")).toContainText("今季 確認できた範囲では 2 件");
 
     // 再現では Firestore にも Claude にも出ない
@@ -101,7 +102,7 @@ test.describe("全国の流れ（/replay の切り替え）", () => {
     await openNational(page);
     await page.setViewportSize({ width: 360, height: 800 });
     await (await item(page, /12 月 16 日.*姫路市/)).click();
-    await expect(page.locator(".replay-now")).toContainText("約 40 km");
+    await expect(page.locator(".replay-now")).toContainText("約 28 km");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
     const box = await page.getByRole("button", { name: "全国の流れ" }).boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);

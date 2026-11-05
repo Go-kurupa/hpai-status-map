@@ -1,5 +1,5 @@
 import { createGeoStore } from "@hpai/shared/geo";
-import { eventStage, type ReplayScenario } from "@hpai/shared/replay";
+import { NATIONAL_FLOW_SPOT, eventStage, type ReplayScenario } from "@hpai/shared/replay";
 import { findForbiddenPhrases, findWordingViolations, FIXED_TEXT } from "@hpai/shared/wording";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
@@ -339,6 +339,8 @@ describe("ReplayPage: 全国の流れ", () => {
     expect(band()).not.toMatch(/4 事例だけ/);
     expect(band()).toContain(FIXED_TEXT.replayBanner);
     expect(band()).toContain("仮の地点で見ています");
+    expect(band()).toContain("作者の農場がある村の中心付近");
+    expect(band()).toContain("農場の場所を指すものではありません");
     expect(band()).toContain("再現の時点: はじまる前");
     expect(band()).toMatch(/説明のための例/);
     expect(band()).toContain(`${TOTAL} 件`);
@@ -346,7 +348,7 @@ describe("ReplayPage: 全国の流れ", () => {
     expect(band()).toMatch(/移動制限の解除の日は入っていません/);
     expect(band()).not.toMatch(/このときメールが届く/);
     expect(band()).toMatch(/実際には送りません/);
-    expect(lastProps().farmMeshCode).toBe(scenario.defaultSpot.meshCode);
+    expect(lastProps().farmMeshCode).toBe(NATIONAL_FLOW_SPOT.meshCode);
   });
 
   it("地図は輪が見える広さで始まる（全国の広さでは輪と町の塗りが見えない）。4 事例は全国の広さのまま", async () => {
@@ -356,7 +358,7 @@ describe("ReplayPage: 全国の流れ", () => {
     fireEvent.click(flowButton(NATIONAL));
     await screen.findByText(`0 / ${TOTAL}`);
     await waitFor(() => expect(lastProps().focus?.kind).toBe("rings"));
-    expect(lastProps().focus?.codes).toEqual([scenario.defaultSpot.muniCode]);
+    expect(lastProps().focus?.codes).toEqual([NATIONAL_FLOW_SPOT.muniCode]);
     fireEvent.click(flowButton(CASES));
     await waitFor(() => expect(lastProps().focus).toBeNull());
   });
@@ -377,28 +379,29 @@ describe("ReplayPage: 全国の流れ", () => {
 
   it("進めると件数の札が増え、札の時点は再現の時計に従う。60km の外の発生には距離を書かない", async () => {
     await openNational();
-    fireEvent.click(item(/12 月 2 日.*米子市/)); // 仮の地点から約 72km で、輪の外
+    fireEvent.click(item(/12 月 2 日.*米子市/)); // 仮の地点から約 83km で、輪の外
     await waitFor(() => expect(card("発生した件数")).toContain("では 6 件"));
     await waitFor(() => expect(card("農場から約 60 km 以内")).toContain("今季 確認できた範囲では 0 件"));
     expect(card("直近 14 日の件数")).toContain("では 2 件"); // 日向市（11/22）と米子市
     expect(card("時刻")).toContain("12 月 2 日 時点");
     expect(nowLine()).toBe("12 月 2 日 米子市 確定");
 
-    fireEvent.click(item(/12 月 16 日.*姫路市/)); // 約 40km で、輪の中
+    fireEvent.click(item(/12 月 16 日.*姫路市/)); // 約 28km で、輪の中
     await waitFor(() => expect(card("農場から約 60 km 以内")).toContain("今季 確認できた範囲では 1 件"));
     expect(card("発生した件数")).toContain("では 7 件");
     expect(card("直近 14 日の件数")).toContain("では 1 件"); // 米子市（12/2）は 14 日の外
     expect(card("時刻")).toContain("12 月 16 日 時点");
-    await waitFor(() => expect(nowLine()).toBe("12 月 16 日 姫路市 確定。農場（仮の地点）から約 40 km"));
-    expect(await screen.findByText("約 40 km 先で発生しました")).toBeTruthy();
+    await waitFor(() => expect(nowLine()).toBe("12 月 16 日 姫路市 確定。農場（仮の地点）から約 28 km"));
+    expect(await screen.findByText("約 28 km 先で発生しました")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/23:59/);
   });
 
-  it("半径が空の事例でも、10km 以内は ① になる。距離は帯の文と同じ丸め方で出す", async () => {
+  it("津山市の発生は ① にせず、帯の文と同じ丸め方で距離を出す", async () => {
     await openNational();
     fireEvent.click(item(/12 月 20 日.*津山市/));
-    expect(await screen.findByText(ZONE)).toBeTruthy();
-    await waitFor(() => expect(nowLine()).toBe("12 月 20 日 津山市 確定。農場（仮の地点）から約 2 km"));
+    expect(await screen.findByText("約 16 km 先で発生しました")).toBeTruthy();
+    expect(screen.queryByText(ZONE)).toBeNull();
+    await waitFor(() => expect(nowLine()).toBe("12 月 20 日 津山市 確定。農場（仮の地点）から約 16 km"));
     await waitFor(() => expect(card("農場から約 60 km 以内")).toContain("今季 確認できた範囲では 2 件"));
   });
 
@@ -470,7 +473,7 @@ describe("ReplayPage: 全国の流れ", () => {
     fireEvent.click(flowButton(NATIONAL));
     await screen.findByText(`0 / ${TOTAL}`);
     fireEvent.click(item(/12 月 16 日.*姫路市/));
-    await waitFor(() => expect(nowLine()).toContain("約 40 km"));
+    await waitFor(() => expect(nowLine()).toContain("約 28 km"));
     const calls = (fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => String(c[0]));
     for (const u of calls) expect(u).toMatch(/replay\/scenario\.json$|history\/cases\.json$/);
   });

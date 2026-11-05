@@ -39,7 +39,7 @@ export const REPLAY_NOTES = {
 /** 全国の流れの注記。4 事例の文のうち、合わない文（4 事例だけ、メールの枠、時刻の記載のない発表）を替える */
 export const NATIONAL_NOTES = {
   flow: (count: number): string => `この流れは、過去の記録にある 2025 年シーズンの発生 ${count} 件を、確定の日の順に並べたものです。関連農場は数えていません。`,
-  noLift: "移動制限の解除の日は入っていません。一度出た段階の文は、解除の後も最後まで残ります。解除までの動きは『12 月の 4 事例』で見られます。",
+  noLift: "移動制限の解除の日は入っていません。解除までの動きは『12 月の 4 事例』で見られます。",
   noMail: "メールは実際には送りません。この流れでは、メールの下書きも出しません。",
   noTime: "過去の記録は日付だけなので『時刻の記載なし』とし、その日の終わりに置いています。",
 } as const;
@@ -74,7 +74,9 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, lead, chi
             <p className="replay-time">再現の時点: {pointInTime(scenario, order)}</p>
             <p className="replay-spot">
               {tentative
-                ? "仮の地点で見ています（津山市の範囲から 5km 以内に説明のために置いた地点で、特定の農場を指すものではありません）"
+                ? scenario.id === NATIONAL_FLOW_ID
+                  ? "仮の地点で見ています（作者の農場がある村の中心付近に置いた約 1km のマス目で、農場の場所を指すものではありません）"
+                  : "仮の地点で見ています（津山市の範囲から 5km 以内に説明のために置いた地点で、特定の農場を指すものではありません）"
                 : "この端末にある地点で見ています（端末の外へは送りません）"}
             </p>
             <ul className="replay-notes">

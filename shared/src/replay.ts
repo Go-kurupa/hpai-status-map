@@ -41,6 +41,9 @@ export interface ReplayScenario {
 export const REPLAY_SEASON = 2025;
 /** 全国の流れのシナリオの id */
 export const NATIONAL_FLOW_ID = "2025-national";
+
+/** 全国の流れの仮の地点。作者の農場がある村の中心付近の約 1km のマス目で、農場の場所を指さない */
+export const NATIONAL_FLOW_SPOT: FarmPoint = { meshCode: "52346237", muniCode: "33643", frequentMuniCodes: [] };
 export const NO_TIME_LABEL = "時刻の記載なし";
 
 /** 出典が時刻を書いていない出来事は、その日の終わりに置く（時刻を作らない） */
@@ -93,13 +96,13 @@ function assertOrder(s: ReplayScenario, order: number): void {
  * 記録にない時刻と段階（疑い、解除）は作らない。下書きも作らない。地点と見回りの例は元のシナリオのものを使い、野鳥は持たない。
  * 2025 シーズンの行がなければ投げる（出来事のない再現は時計を持てない）。
  */
-export function nationalFlowScenario(history: readonly HistoryCase[], base: Pick<ReplayScenario, "defaultSpot" | "watchStatus">): ReplayScenario {
+export function nationalFlowScenario(history: readonly HistoryCase[], base: Pick<ReplayScenario, "watchStatus">): ReplayScenario {
   const rows = history.filter((h) => h.season === REPLAY_SEASON && !h.related).sort((a, b) => a.date.localeCompare(b.date) || a.no - b.no);
   if (rows.length === 0) throw new RangeError(`過去の記録に ${REPLAY_SEASON} シーズンの事例がありません`);
   return {
     id: NATIONAL_FLOW_ID,
     title: `${REPLAY_SEASON} 年シーズンの全国の発生 ${rows.length} 件`,
-    defaultSpot: base.defaultSpot,
+    defaultSpot: NATIONAL_FLOW_SPOT,
     events: rows.map((h, i) => ({
       order: i + 1,
       date: h.date,

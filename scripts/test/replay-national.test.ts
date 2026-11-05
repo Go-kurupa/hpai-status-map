@@ -1,7 +1,8 @@
 // 全国の流れのシナリオ（shared/src/replay.ts の nationalFlowScenario）の検査。公開してよい data/ だけを読む。
 import { createGeoStore, distanceToMuniKm } from "@hpai/shared/geo";
 import { DISTANCE_BAND_KM, prefsToLoad, relationToCase } from "@hpai/shared/level";
-import { casesAt, eventStage, nationalFlowScenario, replayNowAt, watchAt, type ReplayScenario } from "@hpai/shared/replay";
+import { latLngToMesh3 } from "@hpai/shared/mesh";
+import { casesAt, eventStage, NATIONAL_FLOW_SPOT, nationalFlowScenario, replayNowAt, watchAt, type ReplayScenario } from "@hpai/shared/replay";
 import type { HistoryCase } from "@hpai/shared/types";
 import fs from "node:fs";
 import path from "node:path";
@@ -37,9 +38,11 @@ describe("全国の流れのシナリオ", () => {
     }
   });
 
-  it("仮の地点と見回りの例は 4 事例と同じものを使う。作っていない野鳥は入れない", () => {
+  it("仮の地点は村の中心のマス目で、見回りの例は 4 事例と同じものを使う。作っていない野鳥は入れない", () => {
     expect(flow.id).not.toBe(base.id);
-    expect(flow.defaultSpot).toEqual(base.defaultSpot);
+    const center = (read("data/geo/muni-index.json") as Record<string, { center: [number, number] }>)[NATIONAL_FLOW_SPOT.muniCode]!.center;
+    expect(NATIONAL_FLOW_SPOT.meshCode).toBe(latLngToMesh3(center[1], center[0]));
+    expect(flow.defaultSpot).toEqual(NATIONAL_FLOW_SPOT);
     expect(flow.watchStatus).toEqual(base.watchStatus);
     expect(flow.wildBirds).toEqual([]);
     expect(flow.title).toContain("24 件");
@@ -60,7 +63,7 @@ describe("全国の流れのシナリオ", () => {
     expect(() => nationalFlowScenario(history.filter((h) => h.season !== 2025), base)).toThrow(RangeError);
   });
 
-  it("半径が空でも段階が崩れない: 仮の地点から姫路は距離の帯（③）、津山は基準の 10km で ①、それより遠い発生は帯に入らない", async () => {
+  it("半径が空でも段階が崩れない: 仮の地点から姫路と津山は距離の帯（③）で ① にならず、それより遠い発生は帯に入らない", async () => {
     const geo = createGeoStore({
       index: read("data/geo/muni-index.json") as Parameters<typeof createGeoStore>[0]["index"],
       adjacency: read("data/geo/adjacency.json") as Parameters<typeof createGeoStore>[0]["adjacency"],
@@ -70,7 +73,8 @@ describe("全国の流れのシナリオ", () => {
     await geo.ensurePrefs(prefsToLoad(cases));
     const by = (name: string) => cases.filter((c) => c.muniName === name);
     for (const c of by("姫路市")) expect(relationToCase(flow.defaultSpot, c, geo).reason?.kind).toBe("distance_band");
-    expect(relationToCase(flow.defaultSpot, by("津山市")[0]!, geo).level).toBe(1);
+    expect(relationToCase(flow.defaultSpot, by("津山市")[0]!, geo).reason?.kind).toBe("distance_band");
+    for (const c of cases) expect(relationToCase(flow.defaultSpot, c, geo).level).toBeGreaterThan(2);
     expect(relationToCase(flow.defaultSpot, by("米子市")[0]!, geo).level).toBe(4);
     const inBand = cases.filter((c) => distanceToMuniKm(flow.defaultSpot.meshCode, c.muniCode!, geo) <= DISTANCE_BAND_KM).map((c) => c.muniName);
     expect(inBand).toEqual(["姫路市", "津山市", "姫路市"]);
