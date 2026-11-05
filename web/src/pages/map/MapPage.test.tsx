@@ -1521,3 +1521,140 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
     expect(TEXT.statBand(60)).toContain("約 60 km");
   });
 });
+
+describe("幅 64rem 未満の地図の前（スマホ）", () => {
+  const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const failing = (codes: readonly string[]): WatchStatus[] => okWatch().map((w) => (codes.includes(w.prefCode) ? { ...w, ok: false, failingSince: w.checkedAt } : w));
+  const textBeforeMap = () => {
+    const box = document.querySelector(".map-box")!;
+    return [...document.querySelector(".map-page")!.children]
+      .filter((e) => before(e, box))
+      .map((e) => e.textContent)
+      .join("\n");
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("守る文は札のすぐ前で、出典は短いリンクにする。URL の全文は地図の下", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    const risk = await waitFor(() => document.querySelector(".map-risk")!);
+    expect(risk.textContent).toBe("件数が少なくても、シーズン中はどこでも感染のリスクがあります（出典）");
+    expect(FIXED_TEXT.riskAnywhere.startsWith("件数が少なくても、シーズン中はどこでも感染のリスクがあります（出典")).toBe(true);
+    expect(risk.nextElementSibling?.className).toBe("stat-row");
+    const url = FIXED_TEXT.riskAnywhere.match(/https:\S+(?=）)/)![0];
+    expect(within(risk as HTMLElement).getByRole("link", { name: /出典/ }).getAttribute("href")).toBe(url);
+    expect(textBeforeMap()).not.toContain("https://");
+    const source = document.querySelector(".map-risk-source")!;
+    expect(before(document.querySelector(".map-box")!, source)).toBe(true);
+    expect(source.textContent).toContain(url);
+    expect(screen.getAllByTestId("watch-line")).toHaveLength(1);
+    expect(before(document.querySelector(".map-box")!, screen.getByTestId("watch-line"))).toBe(true);
+  });
+
+  it("町を選ぶ前は、地図の隅のボタンで全国へ戻れる。切り替えは出さない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    expect(screen.queryByRole("group", { name: TEXT.mapScopeAria })).toBeNull();
+    const home = within(document.querySelector(".map-box") as HTMLElement).getByRole("button", { name: TEXT.japan });
+    fireEvent.click(home);
+    expect(lastProps().focus?.kind).toBe("japan");
+  });
+
+  it("一部未確認: 断りを 1 文にまとめ、確認の行の全文は地図の下。札の断りは .stat-long に入れてスマホで隠す", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failing(["33"]));
+    await waitFor(() => expect(document.querySelector(".stat-unchecked")?.textContent).toBe(`確認できた範囲の件数です。岡山県は確認できていません。${TEXT.watchFailedTail}`));
+    expect(document.querySelector(".stat-national .stat-value")!.textContent).toBe("確認できた範囲では 0 件（1 県は確認できていません）");
+    expect([...document.querySelectorAll(".stat-national .stat-long")].map((e) => e.textContent)).toEqual(["確認できた範囲では ", "（1 県は確認できていません）"]);
+    expect(document.querySelector(".stat-national .stat-value b")).toBeNull();
+    const watchLine = screen.getByTestId("watch-line");
+    expect(watchLine.textContent).toContain("47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）");
+    expect(before(document.querySelector(".map-box")!, watchLine)).toBe(true);
+  });
+
+  it("3 県以上が未確認なら県の数で書く。全県未確認は件数の文を出さず、同じ文の札を繰り返さない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failing(["01", "02", "33"]));
+    await waitFor(() => expect(document.querySelector(".stat-unchecked")?.textContent).toContain("確認できた範囲の件数です。3 県は確認できていません。"));
+    r.deliverWatch(failing(PREFS.map((p) => p.code)));
+    await waitFor(() => expect(document.querySelector(".stat-unchecked")?.textContent).toBe(`47 県は確認できていません。${TEXT.watchFailedTail}`));
+    expect(document.querySelector(".stat-national .stat-value")!.textContent).toBe("まだ確認できていません");
+    expect(document.querySelector(".stat-recent")).toBeNull();
+  });
+
+  it("見回りの結果が届く前は、確認の行を地図の前に置き、まとめの文を出さない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    await waitFor(() => expect(document.querySelector(".stat-row")).not.toBeNull());
+    expect(document.querySelector(".stat-unchecked")).toBeNull();
+    expect(before(screen.getByTestId("watch-line"), document.querySelector(".map-box")!)).toBe(true);
+  });
+
+  it("段階 ②: 段階の文だけが地図の前。事例の行、町の名、過去は地図の下。町の文の守る文は札の前へ移る", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverWatch(okWatch());
+    r.deliverCases([tsuyamaCase()]);
+    const main = await screen.findByText(TEXT.adjacent);
+    const box = document.querySelector(".map-box")!;
+    const lead = document.querySelector(".town-lead")!;
+    expect(lead.textContent).toBe(TEXT.adjacent);
+    expect(lead.querySelector("[data-tone]")?.getAttribute("data-tone")).toBe("lv2");
+    expect(main.closest(".town-lead")).toBe(lead);
+    expect(before(document.querySelector(".stat-row")!, lead)).toBe(true);
+    expect(before(lead, box)).toBe(true);
+    const banner = document.querySelector(".town-banner")!;
+    expect(before(box, banner)).toBe(true);
+    expect(banner.textContent).toContain("津山市で確定");
+    expect(banner.querySelector(".town-main")).toBeNull();
+    expect(document.querySelector(".stat-row")!.previousElementSibling?.className).toContain("map-risk");
+    expect(banner.textContent).not.toContain("https://");
+  });
+
+  it("町の県が未確認の文（色なし）は地図の前に残す。町の名と残りの行は地図の下", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failing(["33"]));
+    const main = await screen.findByText(TEXT.prefUnwatched);
+    const box = document.querySelector(".map-box")!;
+    expect(main.closest(".town-lead")).not.toBeNull();
+    expect(before(main, box)).toBe(true);
+    expect(before(box, document.querySelector(".town-banner")!)).toBe(true);
+    expect(document.querySelector(".town-banner .town-main")).toBeNull();
+    expect(document.querySelector(".stat-unchecked")?.textContent).toContain("岡山県は確認できていません");
+  });
+
+  it("知らない町の文（色なし）は地図の前に残す", async () => {
+    localStorage.setItem(TOWN_KEY, "99999");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    await screen.findByText(TEXT.unknownTown);
+    expect(before(screen.getByText(TEXT.unknownTown), document.querySelector(".map-box")!)).toBe(true);
+  });
+});

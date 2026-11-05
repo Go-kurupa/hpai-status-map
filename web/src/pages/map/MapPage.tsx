@@ -25,6 +25,7 @@ import { TEXT } from "./texts";
 import { TownBanner } from "./TownBanner";
 import { TownPicker } from "./TownPicker";
 import { monthDay } from "./townLine";
+import { useNarrow } from "./useNarrow";
 import { useBandCounts, useGeoStore, useNearbyPast, usePast, useTownLine, type BandCount } from "./useTownView";
 import { WatchAsOf, WatchLine } from "./WatchLine";
 import { useSeasonData } from "./useSeasonData";
@@ -36,9 +37,13 @@ const MapView = lazy(() => import("./MapView"));
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 const names = (codes: readonly string[]) => codes.map((c) => PREF_NAME.get(c) ?? c).join("、");
 
-/** 札の値。「N 件」の数字だけを太く大きくできる形にする。文（未確認、読めないなど）は文の大きさのまま */
-function StatCount({ text, lead }: { text: string; lead?: string }) {
+/**
+ * 札の値。「N 件」の数字だけを太く大きくできる形にする。文（未確認、読めないなど）は文の大きさのまま。
+ * スマホは未確認の断りを各数字に繰り返さず、数字の前の 1 文（stat-unchecked）にまとめる。隠す語は .stat-long（スマホで非表示）
+ */
+function StatCount({ text, lead, narrow }: { text: string; lead?: string; narrow?: boolean }) {
   const count = /^(\d+) 件$/.exec(text);
+  const partial = narrow ? /^(確認できた範囲では )(\d+ 件)(（.+）)$/.exec(text) : null;
   return (
     <p className={count ? "stat-value" : "stat-value is-sentence"}>
       {lead ? <span className="stat-long">{lead} </span> : null}
@@ -46,12 +51,22 @@ function StatCount({ text, lead }: { text: string; lead?: string }) {
         <>
           <b>{count[1]}</b> 件
         </>
+      ) : partial ? (
+        <>
+          <span className="stat-long">{partial[1]}</span>
+          {partial[2]}
+          <span className="stat-long">{partial[3]}</span>
+        </>
       ) : (
         text
       )}
     </p>
   );
 }
+
+// 守る文を、文と出典に分ける。文の正は FIXED_TEXT のまま
+const RISK_PARTS = /^(.*)（出典: (.*) (https:\S+)）$/.exec(FIXED_TEXT.riskAnywhere)!;
+const [, RISK_SENTENCE, RISK_SOURCE, RISK_URL] = RISK_PARTS;
 
 /**
  * 入口の画面。DOM の順はスマホで見る順で、上から 確認の行、守る文、数字の札、切り替え、地図、断り、一覧、残りの札、棒。
@@ -64,6 +79,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
   const ds = useDataSource();
   const spotState = useSpotState();
   const { geo, failed: geoFailed } = useGeoStore();
+  const narrow = useNarrow();
 
   // 自分の町の 1 文は、選んだシーズンではなく今季の事例で計算する（棒を押しても色が変わらない）
   const town = spotState.town;
@@ -225,7 +241,11 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
   // 守る文を含む町の文は札より後ろにある。0 件の札を出すときと、町の文が地図の下に動くときは、守る文を札のすぐ前に移す
   const zeroShown = view.total === 0 || zeroStat;
   const lineHasRisk = townLine.line?.details.includes(FIXED_TEXT.riskAnywhere) ?? false;
-  const riskMovedUp = showStats && view.loaded && lineHasRisk && (bannerBelowMap || zeroShown);
+  // スマホは町の文の全部を地図の下に置く。段階 ①② の文と、読めない断り、町の県が未確認の文（色なし）だけは、地図の前に残す
+  const narrowTown = narrow && town !== null;
+  const townLead = narrowTown && (lineFailed || (d.currentCases !== null && (townLine.line?.tone === "lv1" || townLine.line?.tone === "lv2" || townLine.line?.tone === "none")));
+  const bannerAfterMap = bannerBelowMap || narrowTown;
+  const riskMovedUp = showStats && view.loaded && lineHasRisk && (bannerAfterMap || zeroShown);
   const riskAboveStats = view.isCurrent && view.loaded && (riskMovedUp || (zeroShown && !lineHasRisk));
   const bannerLine = riskMovedUp && townLine.line ? { ...townLine.line, details: townLine.line.details.filter((t) => t !== FIXED_TEXT.riskAnywhere) } : townLine.line;
 
@@ -245,22 +265,62 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
     </>
   );
 
+  const bannerProps = {
+    muniCode: town,
+    muniName: townName,
+    loaded: d.currentCases !== null,
+    line: bannerLine,
+    lineFailed,
+    past,
+    nearby,
+    slow: d.casesSlow,
+    showPastDisclaimer: view.isCurrent || !view.loaded,
+    riskShownAbove: riskMovedUp,
+  };
   const banner = (
-    <TownBanner
-      muniCode={town}
-      muniName={townName}
-      loaded={d.currentCases !== null}
-      line={bannerLine}
-      lineFailed={lineFailed}
-      past={past}
-      nearby={nearby}
-      slow={d.casesSlow}
-      showPastDisclaimer={view.isCurrent || !view.loaded}
-      riskShownAbove={riskMovedUp}
-    >
+    <TownBanner {...bannerProps} part={townLead ? "rest" : "all"}>
       {town === null ? picker : null}
     </TownBanner>
   );
+  // スマホの地図の下に送るもの。確認の行の全文、札の残り（数字の 1 行に入らないもの）
+  const watchAfterMap = narrow && showStats && d.watchLoaded;
+  const failedCount = d.failedPrefCodes.length;
+  const failedWho = failedCount <= 2 ? names(d.failedPrefCodes) : TEXT.watchShortCount(failedCount);
+  const bandMore = (
+    <>
+      <p className="stat-value">
+        {TEXT.statBandPast(pastSeasons)} {bandPastText(band.past)}
+      </p>
+      <p className="stat-note">{TEXT.statBandRelated}</p>
+      {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
+      {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
+    </>
+  );
+  const frequentStat = hasFrequent ? (
+    <div className="stat stat-wide stat-frequent">
+      <p className="stat-title">{TEXT.statFrequent}</p>
+      {geoFailed ? (
+        <p className="stat-value">{TEXT.statFailed}</p>
+      ) : geo === null || frequentCounts === null ? (
+        <p className="stat-value">{countText({ count: null })}</p>
+      ) : (
+        frequentCounts.map((c) => (
+          <p className="stat-value" key={c.muniCode}>
+            {geo.index[c.muniCode]?.name ?? c.muniCode}{" "}
+            {countText({
+              count: c.count,
+              unchecked: d.failedPrefCodes.includes(geo.index[c.muniCode]?.prefCode ?? c.muniCode.slice(0, 2)) ? 1 : 0,
+              allUnchecked: noneConfirmed,
+            })}
+          </p>
+        ))
+      )}
+    </div>
+  ) : null;
+  // スマホで、全国の件数と同じ文だけの札（まだ確認できていません、など）は繰り返さない
+  const repeatsHead = (text: string) => narrow && currentBar !== null && !text.includes("件") && text === countText(currentBar);
+  const bandNow = bandNowText(band.now);
+  const recentText = countText({ count: recentCount, ...watchFlags });
   // 最初は全国の広さ（focus なし）。動かした先で押された状態を決める
   const showingNear = focus !== null && focus.kind !== "japan";
 
@@ -297,7 +357,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           ) : null}
         </p>
       ) : null}
-      {view.isCurrent ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
+      {view.isCurrent && !watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
       {view.reviewingPrefCodes.length > 0 ? (
         <p className="state-wait">
           確認中の発表がある県: {names(view.reviewingPrefCodes)}
@@ -305,61 +365,55 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         </p>
       ) : null}
       {/* 札の「0 件」だけが先に読まれないよう、札のすぐ前に置く */}
-      {riskAboveStats ? <p className="map-notice map-risk">{FIXED_TEXT.riskAnywhere}</p> : null}
+      {riskAboveStats ? (
+        narrow ? (
+          <p className="map-notice map-risk">
+            {RISK_SENTENCE}（
+            <a href={RISK_URL} target="_blank" rel="noopener noreferrer" aria-label={`${TEXT.listSource}: ${RISK_SOURCE}`}>
+              {TEXT.listSource}
+            </a>
+            ）
+          </p>
+        ) : (
+          <p className="map-notice map-risk">{FIXED_TEXT.riskAnywhere}</p>
+        )
+      ) : null}
       {showStats ? (
         <div className="stat-row">
           <p className="stat-headline">{TEXT.statHeadline}</p>
-          {farmMeshCode !== null ? (
+          {narrow && d.watchLoaded && failedCount > 0 ? (
+            <p className="stat-unchecked">
+              {noneConfirmed ? null : TEXT.watchShortRange}
+              {TEXT.watchShortWho(failedWho)}
+              {TEXT.watchFailedTail}
+            </p>
+          ) : null}
+          {farmMeshCode !== null && !repeatsHead(bandNow) ? (
             <div className="stat stat-wide stat-band">
               <div className="stat-band-main">
                 <p className="stat-title">
                   {TEXT.statBand(DISTANCE_BAND_KM).slice(0, -TEXT.statBandTail.length)}
                   <span className="stat-long">{TEXT.statBandTail}</span>
                 </p>
-                <StatCount text={bandNowText(band.now)} lead={TEXT.statBandNow} />
+                <StatCount text={bandNow} lead={TEXT.statBandNow} narrow={narrow} />
               </div>
-              <div className="stat-band-more">
-                <p className="stat-value">
-                  {TEXT.statBandPast(pastSeasons)} {bandPastText(band.past)}
-                </p>
-                <p className="stat-note">{TEXT.statBandRelated}</p>
-                {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
-                {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
-              </div>
+              {narrow ? null : <div className="stat-band-more">{bandMore}</div>}
             </div>
           ) : null}
-          {hasFrequent ? (
-            <div className="stat stat-wide stat-frequent">
-              <p className="stat-title">{TEXT.statFrequent}</p>
-              {geoFailed ? (
-                <p className="stat-value">{TEXT.statFailed}</p>
-              ) : geo === null || frequentCounts === null ? (
-                <p className="stat-value">{countText({ count: null })}</p>
-              ) : (
-                frequentCounts.map((c) => (
-                  <p className="stat-value" key={c.muniCode}>
-                    {geo.index[c.muniCode]?.name ?? c.muniCode}{" "}
-                    {countText({
-                      count: c.count,
-                      unchecked: d.failedPrefCodes.includes(geo.index[c.muniCode]?.prefCode ?? c.muniCode.slice(0, 2)) ? 1 : 0,
-                      allUnchecked: noneConfirmed,
-                    })}
-                  </p>
-                ))
-              )}
-            </div>
-          ) : null}
+          {narrow ? null : frequentStat}
           <div className={currentBar.unchecked && !currentBar.allUnchecked ? "stat stat-wide stat-national" : "stat stat-national"}>
             <p className="stat-title">発生した件数</p>
-            <StatCount text={countText(currentBar)} />
+            <StatCount text={countText(currentBar)} narrow={narrow} />
           </div>
-          <div className={needsWide ? "stat stat-wide stat-recent" : "stat stat-recent"}>
-            <p className="stat-title">
-              {TEXT.statRecent.slice(0, -TEXT.statRecentTail.length)}
-              <span className="stat-long">{TEXT.statRecentTail}</span>
-            </p>
-            <StatCount text={countText({ count: recentCount, ...watchFlags })} />
-          </div>
+          {repeatsHead(recentText) ? null : (
+            <div className={needsWide ? "stat stat-wide stat-recent" : "stat stat-recent"}>
+              <p className="stat-title">
+                {TEXT.statRecent.slice(0, -TEXT.statRecentTail.length)}
+                <span className="stat-long">{TEXT.statRecentTail}</span>
+              </p>
+              <StatCount text={recentText} narrow={narrow} />
+            </div>
+          )}
           {hideAsOfStat ? null : (
             <div className="stat stat-time">
               <p className="stat-title">時刻</p>
@@ -368,7 +422,8 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           )}
         </div>
       ) : null}
-      {bannerBelowMap ? null : banner}
+      {townLead ? <TownBanner {...bannerProps} part="lead" /> : null}
+      {bannerAfterMap ? null : banner}
 
       {town !== null ? (
         <div className="map-scope" role="group" aria-label={TEXT.mapScopeAria}>
@@ -405,11 +460,37 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           </Suspense>
         </MapChunkBoundary>
         {aiming && canEdit && !mapless ? <div className="crosshair" aria-hidden="true" /> : null}
+        {/* 町を選ぶ前は切り替えがないので、拡大の後に全国へ戻る口を地図の隅に置く */}
+        {narrow && town === null && !mapless ? (
+          <button type="button" className="map-home-btn" onClick={() => moveTo("japan", [])}>
+            {TEXT.japan}
+          </button>
+        ) : null}
       </div>
 
       <p className="map-disclaimer">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
       {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : null}
-      {bannerBelowMap ? banner : null}
+      {narrow && riskAboveStats ? (
+        <p className="map-risk-source">
+          {TEXT.listSource}: {RISK_SOURCE}{" "}
+          <a href={RISK_URL} target="_blank" rel="noopener noreferrer">
+            {RISK_URL}
+          </a>
+        </p>
+      ) : null}
+      {watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
+      {narrow && showStats && (farmMeshCode !== null || hasFrequent) ? (
+        <div className="stat-below">
+          {farmMeshCode !== null ? (
+            <div className="stat-band-more">
+              <p className="stat-title">{TEXT.statBand(DISTANCE_BAND_KM)}</p>
+              {bandMore}
+            </div>
+          ) : null}
+          {frequentStat}
+        </div>
+      ) : null}
+      {bannerAfterMap ? banner : null}
       {town !== null ? picker : null}
       <Legend isCurrent={view.isCurrent} />
 

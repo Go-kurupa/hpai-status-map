@@ -24,18 +24,35 @@
   min-width: 0;
   margin: 0 0 8px;
 }
-/* 横幅いっぱいで、最初の画面に地図の下端と地図の断りが入る高さ。引く高さは 360x740 の実測から決めた。
-   輪の断りが増えるときと、未確認の文で数字が長いときは、そのぶん低くする */
+/* スマホの地図は横幅に合わせた高さ。読み込みで高さが変わると輪が切れるので、中身では変えない。
+   0.95 は 360x740 で一番長い形（段階 ①、一部未確認、0 件の札）でも下のタブより上に入る値。実測は e2e/shell.spec.ts */
 @media (max-width: 63.99rem) {
   .map-box {
-    --map-reserve: 510px;
-    --map-h: clamp(200px, min(100vw - 2 * var(--gutter), 100svh - var(--map-reserve)), 480px);
+    --map-h: clamp(280px, (100vw - 2 * var(--gutter)) * 0.95, 480px);
   }
-  .map-box:has(~ .map-ring-note) {
-    --map-reserve: 535px;
+  /* 町を選ぶ前の、全国へ戻る口。全国の広さで陸に重ならない右下の隅 */
+  .map-home-btn {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    z-index: 2;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 8px;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--accent);
+    font: inherit;
+    font-size: 14.4px;
+    font-weight: 700;
+    cursor: pointer;
   }
-  .map-page:has(> .stat-row .is-sentence) > .map-box {
-    --map-reserve: 540px;
+  /* 輪のラベルは文字を小さくせず、枠だけ小さくする */
+  .ring-label {
+    padding: 0 2px;
+    font-size: 14.4px;
+    line-height: 1.15;
   }
 }
 .map-canvas {
@@ -696,11 +713,24 @@
     font-size: 14.4px;
     line-height: 1.35;
   }
+  /* 出典のリンクは文の高さのまま、押せる範囲だけを広げる */
+  .map-risk a {
+    position: relative;
+  }
+  .map-risk a::after {
+    content: "";
+    position: absolute;
+    inset: -14px -8px;
+  }
   .map-disclaimer,
-  .map-ring-note {
+  .map-ring-note,
+  .map-risk-source {
     margin: 0 0 4px;
     font-size: 14.4px;
     line-height: 1.35;
+  }
+  .map-risk-source {
+    overflow-wrap: anywhere;
   }
   .map-box {
     margin-bottom: 4px;
@@ -736,6 +766,14 @@
     font-weight: 700;
     line-height: 1.3;
   }
+  /* 未確認の断りをまとめた 1 文。数字より前に置く */
+  .stat-unchecked {
+    flex: 0 0 100%;
+    order: 1;
+    margin: 0;
+    font-size: 14.4px;
+    line-height: 1.35;
+  }
   .stat-row .as-of {
     order: 2;
     margin: 0;
@@ -770,11 +808,8 @@
   .stat-band-main {
     order: 6;
   }
-  .stat-band-more {
-    flex: 0 0 100%;
-    order: 7;
-  }
-  .stat-row :is(.stat-recent, .stat-band-main, .stat-band-more) :is(.stat-title, .stat-value, .stat-note) {
+  .stat-row :is(.stat-recent, .stat-band-main) :is(.stat-title, .stat-value, .stat-note),
+  .stat-below :is(.stat-title, .stat-value, .stat-note) {
     font-size: 14.4px;
     font-weight: 400;
     line-height: 1.35;
@@ -783,26 +818,42 @@
     font-size: 1.15rem;
     font-variant-numeric: tabular-nums;
   }
-  /* 未確認の断りが付く数字は、大きくせず文の大きさで 1 行を取る */
+  /* 未確認の断りが付く数字は、大きくせず文の大きさにする */
   .stat-national .stat-value.is-sentence {
-    flex: 0 0 100%;
     font-size: 1rem;
     font-weight: 700;
     line-height: 1.35;
   }
-  .stat-row .stat-recent:has(.is-sentence),
-  .stat-row .stat-band-main:has(.is-sentence) {
-    flex: 0 0 100%;
-    margin-right: 0;
+  /* 数字の 1 行に入らない札の残りは、地図の下に枠なしで置く */
+  .stat-below {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 0 8px;
   }
-  /* 残りの札は罫線で区切る */
-  .stat-row .stat-frequent {
-    flex: 0 0 100%;
-    order: 8;
+  .stat-below .stat {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
   }
-  .stat-row .stat-frequent :is(.stat-title, .stat-value) {
+  /* 地図の前に残す段階の文は 1〜2 行に収める */
+  .town-lead {
+    margin: 0 0 6px;
+  }
+  .town-lead .town-now {
+    margin: 0;
+    padding: 4px 8px;
+    border-width: 2px 2px 2px 8px;
+  }
+  .town-lead .town-main {
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+  .town-lead .state-unknown {
+    margin: 0;
+    padding: 4px 8px;
     font-size: 14.4px;
-    font-weight: 400;
     line-height: 1.35;
   }
   .stat-rest {

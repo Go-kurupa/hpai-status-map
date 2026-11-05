@@ -117,6 +117,10 @@ export const TEXT = {
   // 確認状況（W-06）
   watchNotLoaded: "見回りの結果をまだ読めていません。どの県も確認できていない扱いです。",
   watchFailedTail: "地図の斜線の県は、発生がないとは言えません。",
+  // スマホの地図の前に出す短い 1 文。確認の行の全文は地図の下に置く
+  watchShortRange: "確認できた範囲の件数です。",
+  watchShortWho: (who: string): string => `${who}は確認できていません。`,
+  watchShortCount: (n: number): string => `${n} 県`,
   // 一覧（W-06）
   listClosed: "一覧",
   listNotLoaded: "まだ読めていません",

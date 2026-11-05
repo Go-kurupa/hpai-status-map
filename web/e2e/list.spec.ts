@@ -127,7 +127,9 @@ test.describe("確認状況", () => {
   test("自分の町の県（岡山県）が未確認なら、町の 1 文に『この県は確認できていません』", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33214"));
     await open(page, { watch: watchWith33Failed() });
-    await expect(page.locator(".town-banner")).toContainText("この県は、見回りで確認できていません");
+    // 幅 390px は、段階の文を地図の前の .town-lead に置く
+    await expect(page.locator(".town-lead")).toContainText("この県は、見回りで確認できていません");
+    await expect(page.locator(".town-lead")).not.toContainText("全国の動きをお知らせしています");
     await expect(page.locator(".town-banner")).not.toContainText("全国の動きをお知らせしています");
   });
 });

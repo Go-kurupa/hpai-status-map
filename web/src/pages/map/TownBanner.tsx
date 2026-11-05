@@ -33,6 +33,8 @@ export interface TownBannerProps {
   riskShownAbove?: boolean;
   /** 町の選び方、場所の決め方 */
   children?: ReactNode;
+  /** スマホの段階の文を地図の前に置くとき、lead は段階の文だけ、rest はそれ以外を描く。既定は全部 */
+  part?: "all" | "lead" | "rest";
 }
 
 function PastRow({ past, nearby, town, line, showDisclaimer, riskShownAbove }: { past: PastState; nearby?: NearbyPastState; town: MuniCode | null; line: TownLine | null; showDisclaimer: boolean; riskShownAbove: boolean }) {
@@ -63,6 +65,7 @@ function PastRow({ past, nearby, town, line, showDisclaimer, riskShownAbove }: {
 /** 「自分の町の 1 文」。色は今季の段階だけ。過去の発生は別の行で、色を使わない（設計書 §15） */
 export function TownBanner(p: TownBannerProps) {
   const noTown = p.muniCode === null;
+  const part = p.part ?? "all";
   let now: ReactNode;
   if (noTown) {
     // 案内の文と町を選ぶボタンを 1 行に並べる。選ぶ画面を開くと、その下に折り返す
@@ -77,7 +80,35 @@ export function TownBanner(p: TownBannerProps) {
       </section>
     );
   }
-  if (p.lineFailed) {
+  if (part === "lead") {
+    return (
+      <section className="town-lead" aria-label={TEXT.myTown}>
+        {p.lineFailed ? (
+          <p className="state-unknown" role="alert">
+            {TEXT.loadFailed}
+          </p>
+        ) : (
+          <div className="town-now" data-tone={p.line?.tone} role="status">
+            <p className="town-main">{p.line?.main}</p>
+          </div>
+        )}
+      </section>
+    );
+  }
+  if (part === "rest") {
+    // 段階の文と読めない断りは地図の前にあるので、ここでは残りの行だけを描く
+    now =
+      !p.lineFailed && p.line && p.line.details.length > 0 ? (
+        // 段階の色は地図の前の文だけが持つ
+        <div className="town-now">
+          <ul className="town-details">
+            {p.line.details.map((d, i) => (
+              <li key={i}>{d}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null;
+  } else if (p.lineFailed) {
     now = (
       <p className="state-unknown" role="alert">
         {TEXT.loadFailed}
