@@ -418,7 +418,8 @@ describe("機械の検査: css", () => {
   // 影は地図のカードだけ（設計書 2-2）。今の画面に地図のポップアップはない
   const SHADOW_ALLOWED = new Set([`${MAP} .map-canvas, .svg-map`, "web/src/pages/settings/settings.css .picker-canvas"]);
   // 角丸の上限を上げてよいものを名指しする。カードは 12px、押す部品と入力は 8px、ほかは 4px
-  const RADIUS_CARD = SHADOW_ALLOWED;
+  // 地図のカードの下の端に重ねる「地図に印のない発表」の帯は、カードの下の角と同じ角丸（影は付けない）
+  const RADIUS_CARD = new Set([...SHADOW_ALLOWED, `${MAP} .near-unmarked`]);
   const RADIUS_CONTROL = new Set([
     ".btn",
     ".map-home-btn",
