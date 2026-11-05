@@ -150,18 +150,37 @@ describe("theme.css", () => {
     for (const [name, hex] of [
       ["lv1", "#B3261E"],
       ["lv2", "#8A5A00"],
-      ["lv3", "#00639B"],
+      ["lv3", "#0017C1"],
       ["lv4", "#4A4F57"],
-      ["muted", "#5C6168"],
+      ["muted", "#666666"],
+      ["accent", "#0017C1"],
+      ["fg", "#1A1A1A"],
+      ["soft", "#F2F2F2"],
+      ["divider", "#CCCCCC"],
     ] as const) {
       expect(css, name).toMatch(new RegExp(`--${name}:\\s*${hex}\\b`, "i"));
     }
+  });
+  it("段階の青と押す所の青は同じ値（似た青を 2 つにしない）", () => {
+    const hex = (name: string) => css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`))![1]!.toLowerCase();
+    expect(hex("lv3")).toBe(hex("accent"));
   });
   it("段階の色と補助の文字色は白とのコントラスト 4.5 以上", () => {
     for (const name of ["lv1", "lv2", "lv3", "lv4", "muted"]) {
       const m = css.match(new RegExp(`--${name}:\\s*#([0-9a-fA-F]{6})`));
       expect(m, name).not.toBeNull();
       expect(contrastWithWhite(m![1]!), name).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+  it("選択中のタブと主のボタンは濃い青に白い文字で、比は 4.5 以上", () => {
+    expect(css).toMatch(/--on-accent:\s*#ffffff\b/i);
+    const m = css.match(/--accent:\s*#([0-9a-fA-F]{6})/);
+    expect(m).not.toBeNull();
+    expect(contrastWithWhite(m![1]!)).toBeGreaterThanOrEqual(4.5);
+    for (const sel of [/\.app-nav a\[aria-current="page"\]/, /\.btn-primary/]) {
+      const body = css.match(new RegExp(`${sel.source}\\s*{([^}]*)}`))?.[1];
+      expect(body, sel.source).toMatch(/background:\s*var\(--accent\)/);
+      expect(body, sel.source).toMatch(/(?:^|[\s;])color:\s*var\(--on-accent\)/);
     }
   });
 });
@@ -315,6 +334,8 @@ describe("theme.css の土台", () => {
   };
   it("色・文字・余白の値", () => {
     expect(css).toMatch(/--line:\s*#767676/i);
+    expect(css).toMatch(/\.data-table tbody th\s*{[^}]*1px solid var\(--divider\)/);
+    expect(rule(".btn:disabled")).toMatch(/border-color:\s*var\(--line\)/);
     expect(css).toMatch(/color-scheme:\s*light/);
     expect(css).toMatch(/--s1:\s*8px[\s\S]*--s4:\s*48px/);
     expect(rule("body")).toMatch(/letter-spacing:\s*\.02em/);
@@ -389,6 +410,16 @@ describe("機械の検査: css", () => {
   ]);
   const RADIUS_ALLOWED = new Set([`${MAP} .pref-badge`, `${MAP} .swatch-ring`]);
 
+  it("棒はどれも濃い青で塗る", () => {
+    const rules = cssRules().filter((r) => r.file === MAP && /(?:season-bar|month-bar|compare)-fill/.test(r.selector));
+    expect(rules.map((r) => r.selector).join(" ")).toMatch(/season-bar-fill[\s\S]*month-bar-fill[\s\S]*compare-fill/);
+    for (const r of rules) expect(r.body, r.selector).toMatch(/background:\s*var\(--accent\)/);
+  });
+  it("前の配色の値が画面のコードに残っていない", () => {
+    const files = listFiles(webSrc, /\.(?:css|tsx?)$/).filter((f) => !/\.test\./.test(path.basename(f)));
+    const hits = files.filter((f) => /#(?:00639b|5c6168|1b1d21|f1f2f4|e6eef5)\b/i.test(fs.readFileSync(f, "utf8")));
+    expect(hits.map((f) => path.relative(repoRoot, f))).toEqual([]);
+  });
   it("グラデーション・影・ぼかしは許可の 3 つ以外に無い", () => {
     const bad = cssRules().filter(
       (r) =>

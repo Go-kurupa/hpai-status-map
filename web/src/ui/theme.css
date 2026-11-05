@@ -2,18 +2,19 @@
    本文は 18px 以上、押せるものは 48px 以上。 */
 :root {
   color-scheme: light;
-  --fg: #1b1d21;
+  --fg: #1a1a1a;
   --bg: #ffffff;
   --surface: #ffffff;
   --line: #767676;
-  --soft: #f1f2f4;
-  --muted: #5c6168;
+  --divider: #cccccc;
+  --soft: #f2f2f2;
+  --muted: #666666;
   --lv1: #b3261e;
   --lv2: #8a5a00;
-  --lv3: #00639b;
+  --lv3: #0017c1;
   --lv4: #4a4f57;
   --on-lv: #ffffff;
-  --accent: #00639b;
+  --accent: #0017c1;
   --on-accent: #ffffff;
   --font-base: 18px;
   --tap: 48px;
@@ -297,7 +298,7 @@ button:focus-visible {
 }
 .data-table td,
 .data-table tbody th {
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--divider);
 }
 .data-table th[scope="row"] {
   min-width: 8em;
@@ -339,7 +340,7 @@ button:focus-visible {
   }
   .data-table-stack tr {
     padding: 6px 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--divider);
   }
   .data-table-stack th,
   .data-table-stack td {

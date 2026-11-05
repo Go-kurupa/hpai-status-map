@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { loadWebGeoStore } from "../../geo/loadGeo";
 import { MlMap } from "../../geo/maplibre";
-import { baseStyle } from "../map/mapStyle";
+import { baseStyle, PAINT } from "../map/mapStyle";
 import { TEXT } from "../map/texts";
 import { Button } from "../../ui/Button";
 import { insideMuniBox, pickToFarmPatch } from "./farmForm";
@@ -103,9 +103,9 @@ export function MeshPicker({
       added = true;
       map.addSource(MUNI_SOURCE, { type: "geojson", data: EMPTY });
       map.addSource(CELL_SOURCE, { type: "geojson", data: EMPTY });
-      map.addLayer({ id: "picker-muni-line", type: "line", source: MUNI_SOURCE, paint: { "line-color": "#00639b", "line-width": 3 } });
-      map.addLayer({ id: "picker-cell-fill", type: "fill", source: CELL_SOURCE, paint: { "fill-color": "#b3261e", "fill-opacity": 0.45 } });
-      map.addLayer({ id: "picker-cell-line", type: "line", source: CELL_SOURCE, paint: { "line-color": "#b3261e", "line-width": 2 } });
+      map.addLayer({ id: "picker-muni-line", type: "line", source: MUNI_SOURCE, paint: { "line-color": PAINT.mine, "line-width": 3 } });
+      map.addLayer({ id: "picker-cell-fill", type: "fill", source: CELL_SOURCE, paint: { "fill-color": PAINT.current, "fill-opacity": 0.45 } });
+      map.addLayer({ id: "picker-cell-line", type: "line", source: CELL_SOURCE, paint: { "line-color": PAINT.current, "line-width": 2 } });
     });
 
     map.on("click", (e) => {

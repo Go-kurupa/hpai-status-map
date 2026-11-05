@@ -208,7 +208,7 @@
 .month-bar-fill {
   display: block;
   height: 100%;
-  background: var(--fg);
+  background: var(--accent);
 }
 .season-bar-track {
   grid-area: track;
@@ -233,7 +233,7 @@
 .month-bars th,
 .month-bars td {
   padding: 4px 6px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--divider);
   text-align: left;
   vertical-align: top;
 }
@@ -432,7 +432,7 @@
 }
 .case-row {
   padding: 8px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--divider);
   overflow-wrap: anywhere;
 }
 .case-source {
@@ -471,11 +471,11 @@
   cursor: pointer;
 }
 .svg-area.is-pressable:hover {
-  fill: #e6eef5;
+  fill: #e6e8f9;
 }
 .svg-area:focus-visible {
   outline: none;
-  stroke: #00639b;
+  stroke: var(--accent);
   stroke-width: 4px;
   vector-effect: non-scaling-stroke;
 }
@@ -586,7 +586,7 @@
 .compare-fill {
   display: block;
   height: 100%;
-  background: var(--fg);
+  background: var(--accent);
 }
 .compare-months th {
   width: 4.5em;

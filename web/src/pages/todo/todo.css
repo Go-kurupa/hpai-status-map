@@ -17,7 +17,7 @@
 }
 .todo-items > li {
   padding: 8px 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--divider);
 }
 .todo-items > li:first-child {
   border-top: 0;
@@ -34,7 +34,7 @@
 .lift-block + .lift-block {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--divider);
 }
 .lift-dates {
   margin: 0 0 0.8em;

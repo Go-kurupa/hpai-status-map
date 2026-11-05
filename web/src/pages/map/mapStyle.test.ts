@@ -76,12 +76,15 @@ describe("地図の層", () => {
     expect(urls).toEqual([GSI_TILE_URL]);
   });
 
-  it("色は theme.css の --lv1 / --lv4 / --muted と同じ値", () => {
+  it("色は theme.css の --lv1 / --lv2 / --lv4 / --muted / --fg / --accent と同じ値", () => {
     const css = fs.readFileSync(path.resolve(import.meta.dirname, "../../ui/theme.css"), "utf8");
     const v = (n: string) => css.match(new RegExp(`--${n}:\\s*(#[0-9a-fA-F]{6})`))![1]!.toLowerCase();
     expect(PAINT.current.toLowerCase()).toBe(v("lv1"));
     expect(PAINT.past.toLowerCase()).toBe(v("lv4"));
     expect(PAINT.muted.toLowerCase()).toBe(v("muted"));
+    expect(PAINT.ink.toLowerCase()).toBe(v("fg"));
+    expect(PAINT.near.toLowerCase()).toBe(v("lv2"));
+    expect(PAINT.mine.toLowerCase()).toBe(v("accent"));
   });
 });
 

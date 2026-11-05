@@ -12,13 +12,13 @@ export const PAINT = {
   /** 過去のシーズンの発生。段階の色を使わない事実の色。--lv4 */
   past: "#4a4f57",
   /** 確認できていない県の斜線、補助の線。--muted */
-  muted: "#5c6168",
+  muted: "#666666",
   /** 文字と県境の色。--fg */
-  ink: "#1b1d21",
+  ink: "#1a1a1a",
   /** 隣の町の線。--lv2 */
   near: "#8a5a00",
   /** 自分の町の線。--accent */
-  mine: "#00639b",
+  mine: "#0017c1",
   hatchCurrent: "hatch-lv1",
   hatchPast: "hatch-past",
   hatchMuted: "hatch-muted",
