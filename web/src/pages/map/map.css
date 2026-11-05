@@ -353,58 +353,120 @@
   font-weight: 700;
 }
 .week-bars {
-  --week-bar-h: 72px;
-  container-type: inline-size;
+  --week-bar-h: 96px;
+  --week-axis-w: 2.2em;
+}
+/* 週の棒（2026-11-06 作者の決定）: 左に縦軸の目盛り、右に棒。棒の上に数字は置かず、当てると詳細を出す */
+.week-plot {
+  position: relative;
+  display: flex;
+  margin-top: 10px;
+}
+.week-ticks {
+  position: relative;
+  flex: 0 0 var(--week-axis-w);
+  height: var(--week-bar-h);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.week-ticks > li {
+  position: absolute;
+  right: 6px;
+  bottom: calc(var(--week-bar-h) * var(--t));
+  color: var(--sub);
+  font-size: 14.4px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transform: translateY(50%);
+}
+.week-area {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+/* 薄い横線（0 は棒の下の線と重なるので引かない）。棒の後ろに置く */
+.week-grid {
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--week-bar-h);
+  pointer-events: none;
+}
+.week-grid > span {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--week-bar-h) * var(--t));
+  left: 0;
+  border-top: 1px solid var(--hair);
 }
 .week-bar-list {
+  position: relative;
   display: flex;
   align-items: stretch;
   gap: 1px;
-  height: calc(var(--week-bar-h) + 36px); /* 1 番高い棒の上に 2 桁の数字が入る高さ */
+  height: var(--week-bar-h);
   margin: 0;
   padding: 0;
   border-bottom: 1px solid var(--line);
   list-style: none;
+  touch-action: pan-y;
+  cursor: pointer;
 }
 .week-bar-list > li {
   position: relative;
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
-  align-items: center;
   justify-content: flex-end;
   min-width: 0;
+}
+.week-bar-list > li:focus {
+  outline: none;
+}
+.week-bar-list > li:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 .week-bar-fill {
   display: block;
   width: 100%;
   height: calc(var(--week-bar-h) * var(--r));
+  border-radius: 2px 2px 0 0;
   background: var(--accent);
 }
-/* 2 桁でも 1 字の幅に収め、細い列で隣と重ならないようにする */
-.week-count {
-  margin-bottom: 4px;
-  color: var(--navy);
-  font-size: 14.4px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0;
-  text-combine-upright: all;
-  writing-mode: vertical-rl;
+.week-bar-list > li.is-on .week-bar-fill {
+  background: var(--navy);
 }
-/* 週が多く列が細いときは、隣の数字が「33」と続いて読めないよう、数字を棒の上の 2 段に交互に置く */
-@container (max-width: 30rem) {
-  .week-bar-list.is-dense .week-count {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    white-space: nowrap;
-    writing-mode: horizontal-tb;
-  }
-  .week-bar-list.is-dense > li:nth-child(even) .week-count {
-    top: 16px;
-  }
+/* 当てた週の詳細。棒の領域のすぐ上（高さは週によらず同じ）に置き、左右の端は部品が寄せる。
+   棒の上に置くと、高い棒で見出しより上へはみ出し、スマホでは指の下に隠れる */
+.week-tip {
+  position: absolute;
+  bottom: calc(var(--week-bar-h) + 6px);
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  max-width: min(18rem, 100%);
+  padding: 4px 8px;
+  border: 1px solid var(--navy);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 14.4px;
+  line-height: 1.35;
+  pointer-events: none;
+  transform: translateX(-50%); /* 影は地図のカードだけの決まりなので付けない。枠線で分ける */
+}
+.week-tip-date {
+  white-space: nowrap;
+}
+.week-tip b {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+.week-tip-place {
+  overflow-wrap: anywhere;
 }
 .week-label {
   position: absolute;
@@ -426,6 +488,7 @@
   justify-content: space-between;
   gap: 0 8px;
   margin-top: 2px;
+  padding-left: var(--week-axis-w); /* 棒の左端（縦軸の目盛りの右）にそろえる */
 }
 
 /* 地図の下のリンク */

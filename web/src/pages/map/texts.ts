@@ -173,6 +173,12 @@ export const TEXT = {
   weekBarsAria: "週ごとの全国の発生の棒",
   weekOf: (monthDay: string): string => `${monthDay}の週`,
   weekMax: (n: number): string => `最大 ${n} 件`,
+  // 週の棒に当てたときの詳細（2026-11-06 作者の決定）。県と町は県ごとに 1 行
+  weekRange: (from: string, to: string): string => `${from}〜${to}`,
+  weekPlaceUnknown: "町名なし",
+  weekPlaceCount: (name: string, n: number): string => (n > 1 ? `${name}（${n} 件）` : name),
+  weekPlacesMore: (n: number): string => `ほか ${n} 県`,
+  weekAxisAria: "縦軸の目盛り（件）",
   weekUndated: (n: number): string => `週の棒に置ける日付のない事例が ${n} 件あり、棒には入っていません。`,
   chartsSourceLive: "出典: 農林水産省と各県の発表",
   chartsSourceReplay: "出典: 国の事例一覧",

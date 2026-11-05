@@ -93,6 +93,8 @@ function buildMonths(counted: readonly Case[]): { months: MonthBar[]; undated: n
 export interface WeekBar {
   monday: IsoDate;
   count: number;
+  /** その週の事例の県と町（町の分からない発表は null）。事例の順のまま */
+  places: Array<{ prefCode: PrefCode; muniName: string | null }>;
 }
 
 /** 2024-01-01 は月曜。ここからの日数で曜日を出す（機械の時刻帯に頼らない） */
@@ -115,7 +117,7 @@ function mondayOf(date: IsoDate): IsoDate | null {
  */
 export function buildWeeks(cases: readonly Case[], season: Season, today: IsoDate): { weeks: WeekBar[]; undated: number } {
   const seasonStart = `${season}-06-01`;
-  const byWeek = new Map<IsoDate, number>();
+  const byWeek = new Map<IsoDate, WeekBar["places"]>();
   let undated = 0;
   for (const c of cases) {
     if (c.season !== season || !isCountable(c)) continue;
@@ -125,12 +127,17 @@ export function buildWeeks(cases: readonly Case[], season: Season, today: IsoDat
       undated++;
       continue;
     }
-    byWeek.set(monday, (byWeek.get(monday) ?? 0) + 1);
+    const places = byWeek.get(monday) ?? [];
+    places.push({ prefCode: c.prefCode, muniName: c.muniName });
+    byWeek.set(monday, places);
   }
   const first = [...byWeek.keys(), mondayOf(`${season}-10-01`)!].sort()[0]!;
   const last = mondayOf(today)!;
   const weeks: WeekBar[] = [];
-  for (let w = first; w <= last; w = addDays(w, 7)) weeks.push({ monday: w, count: byWeek.get(w) ?? 0 });
+  for (let w = first; w <= last; w = addDays(w, 7)) {
+    const places = byWeek.get(w) ?? [];
+    weeks.push({ monday: w, count: places.length, places });
+  }
   return { weeks, undated };
 }
 

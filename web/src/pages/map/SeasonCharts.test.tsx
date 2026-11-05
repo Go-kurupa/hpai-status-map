@@ -39,13 +39,15 @@ describe("SeasonCharts", () => {
     expect(parseFloat((rows[1]!.querySelector(".month-bar-fill") as HTMLElement).style.width)).toBeCloseTo(100 / 3);
   });
 
-  it("週ごとの棒は最初と最後の週の日付、最大値を書く。読み上げは事例のある週だけで、0 件を読ませない", () => {
+  it("週ごとの棒は最初と最後の週の日付と縦軸の目盛りを書く。読み上げは事例のある週だけで、県と町も読める。0 件を読ませない", () => {
     render(<SeasonCharts {...base} />);
     const list = screen.getByRole("list", { name: "週ごとの全国の発生の棒" });
     const items = within(list).getAllByRole("listitem");
-    expect(items.map((i) => i.textContent)).toEqual(["10 月 5 日の週 1 件", "11 月 2 日の週 3 件"]);
+    expect(items.map((i) => i.textContent)).toEqual(["10 月 5 日の週 1 件（岡山県 町名なし）", "11 月 2 日の週 3 件（北海道 町名なし（3 件））"]);
     expect(list.children).toHaveLength(6); // 9/28〜11/2 の 6 週
-    expect(text()).toContain("最大 3 件");
+    // 縦軸の目盛り（最大 3 件なので 1 刻み）。棒の上に数字は置かない（2026-11-06 作者の決定）
+    expect(within(screen.getByRole("list", { name: "縦軸の目盛り（件）" })).getAllByRole("listitem").map((i) => i.textContent)).toEqual(["0", "1", "2", "3"]);
+    expect(document.querySelector(".week-count")).toBeNull();
     expect(text()).toContain("9 月 28 日の週");
     expect(text()).not.toMatch(/(^|[^0-9])0 件/);
     const fills = [...list.querySelectorAll<HTMLElement>(".week-bar-fill")];

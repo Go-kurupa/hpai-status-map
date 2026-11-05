@@ -219,7 +219,7 @@ test.describe("地図（入口）", () => {
       await expect(page.locator(".season-charts")).toBeVisible({ timeout: 20_000 });
     };
 
-    test("幅 360px で 35 週と 2 桁の数字を描いても横にはみ出さず、数字は 14px を下回らない", async ({ page }) => {
+    test("幅 360px で 35 週を描いても横にはみ出さず、目盛りの数字は 14px を下回らない。棒を押すと詳細が画面の中に出る", async ({ page }) => {
       await openCharts(page, 360);
       const weeks = page.getByRole("list", { name: "週ごとの全国の発生の棒" });
       await expect(weeks.locator("> li")).toHaveCount(35);
@@ -228,29 +228,38 @@ test.describe("地図（入口）", () => {
       await expect(page.locator(".season-charts")).toContainText("愛知県は確認できていません。");
       await expect(page.locator(".season-charts")).toContainText("9 月 28 日の週");
       await expect(page.locator(".season-charts")).toContainText("5 月 24 日の週");
-      const m = await page.evaluate(() => {
-        const counts = [...document.querySelectorAll<HTMLElement>(".week-count")];
-        const rects = counts.map((c) => c.getBoundingClientRect());
-        const overlap = rects.some((r, i) => rects.slice(0, i).some((q) => r.left < q.right && r.right > q.left && r.top < q.bottom && r.bottom > q.top));
-        // 数字は自分の棒の真上にある
-        const offCenter = counts.some((c) => {
-          const a = c.getBoundingClientRect();
-          const b = c.parentElement!.getBoundingClientRect();
-          return Math.abs(a.left + a.width / 2 - (b.left + b.width / 2)) > 1;
+      // 縦軸の目盛り。棒の上に数字は置かない（2026-11-06 作者の決定）
+      await expect(page.getByRole("list", { name: "縦軸の目盛り（件）" }).locator("> li").first()).toHaveText("0");
+      await expect(page.locator(".week-count")).toHaveCount(0);
+      // 一番多い週の棒を押すと、件数と県の詳細が画面の中に出る
+      const tallest = await weeks.evaluate((ol) => {
+        const items = [...ol.children] as HTMLElement[];
+        let best = -1;
+        let at = 0;
+        items.forEach((li, i) => {
+          const r = Number(li.querySelector<HTMLElement>(".week-bar-fill")?.style.getPropertyValue("--r") ?? 0);
+          if (r > best) [best, at] = [r, i];
         });
-        const texts = [...document.querySelectorAll<HTMLElement>(".season-charts p, .season-charts li, .week-count")];
+        return at;
+      });
+      await weeks.locator("> li").nth(tallest).scrollIntoViewIfNeeded();
+      const bar = (await weeks.locator("> li").nth(tallest).boundingBox())!;
+      await page.mouse.click(bar.x + bar.width / 2, bar.y + bar.height - 4);
+      const tip = page.locator(".week-tip");
+      await expect(tip).toBeVisible();
+      await expect(tip).toContainText(" 件");
+      await expect(tip).toContainText("県");
+      const t = (await tip.boundingBox())!;
+      expect(t.x).toBeGreaterThanOrEqual(0);
+      expect(t.x + t.width).toBeLessThanOrEqual(360);
+      const m = await page.evaluate(() => {
+        const texts = [...document.querySelectorAll<HTMLElement>(".season-charts p, .season-charts li, .week-ticks span, .week-tip")];
         return {
           doc: document.documentElement.scrollWidth,
-          right: Math.max(...rects.map((r) => r.right)),
-          overlap,
-          offCenter,
-          smallest: Math.min(...texts.map((t) => parseFloat(getComputedStyle(t).fontSize))),
+          smallest: Math.min(...texts.map((x) => parseFloat(getComputedStyle(x).fontSize))),
         };
       });
       expect(m.doc).toBeLessThanOrEqual(360);
-      expect(m.right).toBeLessThanOrEqual(360);
-      expect(m.overlap).toBe(false);
-      expect(m.offCenter).toBe(false);
       expect(m.smallest).toBeGreaterThanOrEqual(14);
       expect(await page.locator(".season-charts").innerText()).not.toMatch(/区域の外です|安全|安心|問題ありません/);
     });
