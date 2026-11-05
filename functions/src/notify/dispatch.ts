@@ -99,6 +99,7 @@ export async function markSent(ref: DocumentReference, sentAt: string): Promise<
  * 2 段目: 今回作った immediate を 1 件ずつ、記録を読み直して queued のときだけ送り、sent か failed にする。morning は queued のまま。
  * 認証、上限、一時的な制限、通信の失敗が出たら、残りは送らず queued のまま残し（M-13 の送り直しが拾う）、noteMailStop（連打しない）。
  * 記録の書き込みの失敗は件数をログに残し、呼び出し側の処理は止めない。
+ * 1 段目で記録を作れなかった数は recordFailures で返す（すでにある記録は数えない）。記録がない会員には送り直しも届かない。
  */
 export interface DispatchHooks {
   /**
@@ -114,10 +115,11 @@ export async function dispatchNotices(
   deps: NotifyDeps,
   notices: readonly Notice[],
   hooks: DispatchHooks = {},
-): Promise<{ mailStopped: boolean }> {
+): Promise<{ mailStopped: boolean; recordFailures: number }> {
   const { gate, onDelivered } = hooks;
   let mailStopped = false;
   let errors = 0;
+  let recordFailures = 0;
   const gates = new Map<string, Promise<Gate>>();
   const gateOf = (farmId: string): Promise<Gate> => {
     let g = gates.get(farmId);
@@ -153,6 +155,7 @@ export async function dispatchNotices(
       if (gate.kind === "ok" && n.timing === "immediate") toSend.push({ n, ref });
     } catch (e) {
       errors += 1;
+      recordFailures += 1;
       console.error("[notify] 記録の書き込みに失敗しました", { code: codeOf(e) });
     }
   }
@@ -176,7 +179,7 @@ export async function dispatchNotices(
     }
     if (!allowed) {
       if (errors > 0) console.error("[notify] 記録に失敗した知らせがあります", { count: errors });
-      return { mailStopped };
+      return { mailStopped, recordFailures };
     }
   }
 
@@ -219,5 +222,5 @@ export async function dispatchNotices(
     }
   }
   if (errors > 0) console.error("[notify] 記録に失敗した知らせがあります", { count: errors }); // 呼び出し側の処理は止めない。mailStopped の信号も失わない
-  return { mailStopped };
+  return { mailStopped, recordFailures };
 }

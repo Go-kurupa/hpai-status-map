@@ -178,6 +178,11 @@ describe("全国まとめ（daily_overview）", () => {
   const day: OverviewDay = {
     date: "2026-11-05", asOf: "2026-11-05T06:00:00+09:00", season: 2026, seasonCount: 0, recentCount: 0, past: { seasons: 6, min: 0, max: 5 },
     birds: { total: 1, confirmed: 1, screening: 0 }, newCaseCount: 0, newCases: [], newBirdCount: 1,
+    corrections: [
+      { target: "case", change: "negated", place: "岡山県津山市" }, { target: "case", change: "to_confirmed", place: "岡山県津山市" }, { target: "case", change: "to_suspected", place: "岡山県津山市" }, { target: "case", change: "withdrawn", place: null },
+      { target: "bird", change: "negated", place: "岡山県津山市" }, { target: "bird", change: "to_confirmed", place: "岡山県津山市" }, { target: "bird", change: "to_screening", place: "岡山県津山市" }, { target: "bird", change: "withdrawn", place: "岡山県津山市" },
+    ],
+    reviewingPrefCodes: ["31"], caseMarks: {}, birdMarks: {},
     newBirds: [{ prefName: "岡山県", muniName: "津山市", date: "2026-11-04", suspected: false, sourceUrl: SOURCE }],
     muniCounts: {}, unknownMuniCount: 1, watch: { okCount: 46, failedPrefCodes: ["33"] }, caseIds: [], birdIds: ["b1"], sentence: "今季は 0 件です。", sentenceFailures: [],
   };

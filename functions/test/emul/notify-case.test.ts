@@ -454,7 +454,7 @@ describe("dispatchNotices: 送信", () => {
     await seedImmediate();
     const { deps, mail } = makeDeps();
     const r = await dispatchNotices(deps, await plan());
-    expect(r).toEqual({ mailStopped: false });
+    expect(r).toEqual({ mailStopped: false, recordFailures: 0 });
     expect(mail.calls.sort()).toEqual(["u1@example.test", "u1b@example.test", "u5@example.test"]);
     expect(mail.calls.every((to) => !/[,;\s]/.test(to))).toBe(true);
   });
@@ -467,7 +467,7 @@ describe("dispatchNotices: 送信", () => {
       const { deps, mail } = makeDeps({ fail: (to) => (to === "u1@example.test" ? bad : undefined) });
       const c = caseFixture();
       const r = await dispatchNotices(deps, await plan(c));
-      expect(r).toEqual({ mailStopped: false });
+      expect(r).toEqual({ mailStopped: false, recordFailures: 0 });
       expect(mail.sent.map((m) => m.to).sort()).toEqual(["u1b@example.test", "u5@example.test"]);
       const docs = await sentNoticeDocs();
       expect(docs[idOf("f1", "u1", c, "confirmed")]).toMatchObject({ state: "failed", sentAt: null });
@@ -495,7 +495,7 @@ describe("dispatchNotices: 送信", () => {
       const notices = await plan(c);
       expect(notices.map((n) => n.timing)).toEqual(expect.arrayContaining(["immediate", "morning"]));
       const r = await dispatchNotices(deps, notices);
-      expect(r).toEqual({ mailStopped: true });
+      expect(r).toEqual({ mailStopped: true, recordFailures: 0 });
       expect(mail.calls).toHaveLength(1); // 最初の 1 回だけ
       const docs = await sentNoticeDocs();
       const immediate = notices.filter((n) => n.timing === "immediate");
@@ -574,7 +574,7 @@ describe("dispatchNotices: 送信", () => {
     });
     const c = caseFixture();
     const r = await dispatchNotices(deps, await plan(c));
-    expect(r).toEqual({ mailStopped: false });
+    expect(r).toEqual({ mailStopped: false, recordFailures: 0 });
     expect(mail.sent.map((m) => m.to)).toEqual(["u5@example.test"]);
     const docs = await sentNoticeDocs();
     expect(docs[idOf("f1", "u1", c, "confirmed")]).toMatchObject({ state: "failed" });

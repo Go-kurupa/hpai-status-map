@@ -24,7 +24,7 @@ const EVENTS: ReadonlySet<string> = new Set<NoticeEvent>([
 ]);
 
 /** 形の壊れた記録は読まない。 */
-function asRec(ref: DocumentReference, id: string, data: unknown): QueueRec | null {
+export function asRec(ref: DocumentReference, id: string, data: unknown): QueueRec | null {
   const d = data as Partial<SentNotice> | undefined;
   if (!d || typeof d.farmId !== "string" || typeof d.uid !== "string" || typeof d.subjectId !== "string") return null;
   if (typeof d.event !== "string" || !EVENTS.has(d.event)) return null;

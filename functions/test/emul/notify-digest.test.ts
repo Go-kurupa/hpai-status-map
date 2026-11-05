@@ -1,9 +1,11 @@
 // M-13: 朝のまとめ（runMorningDigest）と送り直し（runRetryFailed）。模擬環境（demo-hpai）。本物のメールは送らない。
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SELF_CHECK_MAX_MONTHS_PER_RUN } from "@hpai/shared/notices";
+import { PREFS } from "@hpai/shared/pref";
 import type { Case, WildBird } from "@hpai/shared/types";
 import { db } from "../../src/admin";
 import { deliverQueued, readQueue, runMorningDigest } from "../../src/notify/digest";
+import { dispatchNotices } from "../../src/notify/dispatch";
 import { handleCaseWrite } from "../../src/notify/onCaseWritten";
 import { handleWildBirdWrite } from "../../src/notify/onWildBirdWritten";
 import { runRetryFailed } from "../../src/notify/retryFailed";
@@ -618,7 +620,7 @@ describe("野鳥の知らせ", () => {
 });
 
 describe("毎朝の全国まとめ", () => {
-  const SENTENCE = "今季は 1 件、直近 14 日は 1 件で、新たに岡山県町Aで発生しました。";
+  const SENTENCE = "今季は 1 件、直近 14 日は 1 件です。";
   const AI_LABEL = "AI の要約";
   const HISTORY: HistoryCase[] = [
     { season: 2025, no: 1, prefCode: "33", muniCode: GEO_A, muniNameThen: "町A", date: "2025-10-30", birdUse: null, housing: null, headCount: null, sourceUrl: "https://example.test/h.pdf", related: false },
@@ -632,10 +634,22 @@ describe("毎朝の全国まとめ", () => {
   };
   const firstCase = () => caseFixture({ id: "c1", stages: { confirmed: stage("2026-11-04") } });
   const nextMorning = () => new Date(NOW.getTime() + 86_400_000);
+  /** 47 県を確認済みにする（except の県は未確認）。確認は 6 時間で古くなるので、翌朝の試験は入れ直す。 */
+  const seedWatch = async (at: Date = NOW, except: readonly string[] = []) => {
+    const batch = db.batch();
+    for (const p of PREFS) batch.set(db.doc(`watchStatus/${p.code}`), { prefCode: p.code, checkedAt: jst(at), ok: !except.includes(p.code), lastOkAt: jst(at), failingSince: null });
+    await batch.commit();
+  };
+  /** 前回のまとめの印（前の朝に送った）。 */
+  const seedMarker = (over: Record<string, unknown> = {}) => db.doc("usage/overviewMarker").set({ date: "2026-11-04", caseIds: [], birdIds: [], ...over });
+  const overviewOf = async (date = "2026-11-05") => (await db.doc(`dailyOverviews/${date}`).get()).data()!;
+
+  beforeEach(() => seedWatch());
 
   it("変化があった朝は、待ち行列のない会員にも 1 通送り、記録と日付の文書を残す", async () => {
     await seedFarm("f4", "u4", { meshCode: IN_D, muniCode: GEO_D, prefCode: "34" });
     await seedCase(firstCase());
+    await seedMarker();
     const { deps, mail } = makeDeps();
     const { overview, calls } = options();
     await runMorningDigest(deps, fakeGeo(), overview);
@@ -644,12 +658,13 @@ describe("毎朝の全国まとめ", () => {
     const m = mail.sent[0]!;
     expect(m.to).toBe("u4@example.test");
     expect(m.subject).toBe("【全国の状況】11月5日");
-    for (const s of ["今季の全国の発生: 1 件", "直近 14 日の全国の発生: 1 件", "過去 2 シーズンの同じ日までの件数: 1〜2 件", "野鳥の陽性: 0 件", "岡山県町A（11月4日）", "約 60km 以内の今季の発生: 0 件", "確認できていません", "時点", "出典", "https://app.example.test", SENTENCE, FIXED_TEXT.riskAnywhere]) {
+    for (const s of ["今季の全国の発生: 1 件", "直近 14 日の全国の発生: 1 件", "過去 2 シーズンの同じ日までの件数: 1〜2 件", "野鳥の陽性: 0 件", "岡山県町A（11月4日）", "約 60km 以内の今季の発生: 0 件", "今回新しく載せた発生: 1 件", "時点", "出典", "https://app.example.test", SENTENCE, FIXED_TEXT.riskAnywhere]) {
       expect(m.text).toContain(s);
     }
     expect(m.text).toContain("配信停止: https://app.example.test/unsubscribe?farm=f4&uid=u4&sig=");
     expect(findWordingViolations(`${m.subject}\n${m.text}`)).toEqual([]);
     expect(calls).toHaveLength(1);
+    expect(JSON.stringify(calls[0]!.messages)).toContain("newCaseCount");
     const docs = await sentNoticeDocs();
     expect(docs[idOf("f4", "u4", "2026-11-05", "daily_overview")]).toMatchObject({ state: "sent", timing: "morning" });
     expect((await db.doc("dailyOverviews/2026-11-05").get()).data()).toMatchObject({ seasonCount: 1, sentence: SENTENCE });
@@ -705,6 +720,7 @@ describe("毎朝の全国まとめ", () => {
     expect(calls).toHaveLength(1);
 
     // 間に増えた事例は、翌朝の変化として残る
+    await seedWatch(nextMorning());
     const next = makeDeps({ now: nextMorning });
     await runMorningDigest(next.deps, fakeGeo(), overview);
     expect(next.mail.sent).toHaveLength(1);
@@ -731,6 +747,7 @@ describe("毎朝の全国まとめ", () => {
     const c = suspected({ id: "c1" });
     await handleCaseWrite(deps, null, c, fakeGeo());
     await seedCase(c);
+    await seedMarker();
     const { overview } = options(claudeMessage("今季は 1 件で、岡山県町Aで疑いの発表がありました。"));
     await runMorningDigest(deps, fakeGeo(), overview);
     expect(mail.sent).toHaveLength(1);
@@ -742,6 +759,8 @@ describe("毎朝の全国まとめ", () => {
     const docs = await sentNoticeDocs();
     expect(docs[idOf("f2", "u2", "c1", "suspected")]).toMatchObject({ state: "sent" });
     expect(docs[idOf("f2", "u2", "2026-11-05", "daily_overview")]).toMatchObject({ state: "sent" });
+    expect(m.text).toContain(`AI の要約`);
+    expect(m.text).toContain("今季は 1 件で、岡山県町Aで疑いの発表がありました。");
   });
 
   it("送れなかった分の送り直しは Claude を呼ばず、同じ総括と数字で届く", async () => {
@@ -790,6 +809,8 @@ describe("毎朝の全国まとめ", () => {
     ["少なさを軽く読ませる語", "今季は 1 件で、落ち着いています。"],
     ["2 文", "今季は 1 件です。直近 14 日は 1 件です。"],
     ["URL", "今季は 1 件です https://example.test/x。"],
+    ["打ち消しで軽く読ませる", "今季は 1 件のみで、近くでは確認されていません。"],
+    ["最初の朝の新規の件数", "新たに 1 件です。"],
   ])("検査に落ちた総括（%s）は外し、定型だけを送る", async (_name, sentence) => {
     await seedFarm("f4", "u4", { meshCode: IN_D, muniCode: GEO_D, prefCode: "34" });
     await seedCase(firstCase());
@@ -994,5 +1015,252 @@ describe("毎朝の全国まとめ", () => {
     const fake = fakeClient(claudeMessage(SENTENCE));
     await runMorningDigest(deps, fakeGeo(), { client: () => fake.client, history: () => Promise.reject(new Error("no file")) });
     expect(mail.sent[0]!.text).toContain("過去のシーズンの同じ日までの件数は、今朝は出せませんでした");
+  });
+
+  describe("最初の朝（印がない）", () => {
+    it("今季の全件を新規に数えず、新規の節を出さず、Claude にも新規の件数と町を渡さない", async () => {
+      await seedFarm("f4", "u4", { meshCode: IN_D, muniCode: GEO_D, prefCode: "34" });
+      await seedCase(firstCase());
+      await seedCase(caseFixture({ id: "c2", muniCode: GEO_B, muniName: "町B", stages: { confirmed: stage("2026-11-01") } }));
+      await seedBird(wildBirdFixture({ id: "b1" }));
+      const { deps, mail } = makeDeps();
+      const { overview, calls } = options(claudeMessage("今季は 2 件です。"));
+      await runMorningDigest(deps, fakeGeo(), overview);
+
+      expect(mail.sent).toHaveLength(1);
+      const text = mail.sent[0]!.text;
+      expect(text).toContain("今季の全国の発生: 2 件");
+      expect(text).toContain("今季は 2 件です。");
+      expect(text).not.toContain("今回新しく載せた");
+      const prompt = JSON.stringify(calls[0]!.messages);
+      expect(prompt).not.toContain("newCaseCount");
+      expect(prompt).not.toContain("places");
+      expect(prompt).not.toContain("町B");
+      expect(await overviewOf()).toMatchObject({ newCaseCount: null, newBirdCount: null, newCases: [], newBirds: [] });
+    });
+
+    it("シーズンの途中で最初の会員が登録した朝も同じ。次の朝からは新規の節が出る", async () => {
+      await seedCase(firstCase());
+      const { overview } = options();
+      const nobody = makeDeps();
+      await runMorningDigest(nobody.deps, fakeGeo(), overview);
+      expect((await db.doc("usage/overviewMarker").get()).exists).toBe(false); // 宛先がない間は進まない
+
+      await seedFarm("f4", "u4", { meshCode: IN_D, muniCode: GEO_D, prefCode: "34" });
+      const first = makeDeps();
+      await runMorningDigest(first.deps, fakeGeo(), overview);
+      expect(first.mail.sent[0]!.text).not.toContain("今回新しく載せた");
+
+      await seedCase(caseFixture({ id: "c2", stages: { confirmed: stage("2026-11-05") } }));
+      await seedWatch(nextMorning());
+      const next = makeDeps({ now: nextMorning });
+      await runMorningDigest(next.deps, fakeGeo(), options(new Error("api down")).overview);
+      expect(next.mail.sent[0]!.text).toContain("今回新しく載せた発生: 1 件");
+    });
+  });
+
+  describe("訂正", () => {
+    const u4 = () => seedFarm("f4", "u4", { meshCode: IN_D, muniCode: GEO_D, prefCode: "34" });
+    /** 1 日目に送り、翌朝に変えて送る。翌朝の本文を返す。 */
+    const nextAfter = async (first: Case[], change: () => Promise<void>) => {
+      await u4();
+      for (const c of first) await seedCase(c);
+      await runMorningDigest(makeDeps().deps, fakeGeo(), options().overview);
+      await change();
+      await seedWatch(nextMorning());
+      const next = makeDeps({ now: nextMorning });
+      const { overview, calls } = options(new Error("api down"));
+      await runMorningDigest(next.deps, fakeGeo(), overview);
+      return { mail: next.mail, calls };
+    };
+
+    it("疑いが否定された朝にまとめが出て、訂正の行があり、印から消える", async () => {
+      const c = suspected({ id: "c1" });
+      const { mail, calls } = await nextAfter([c], () => seedCase({ ...c, negation: "negated", negatedAt: "2026-11-05T15:00:00+09:00" }));
+      expect(mail.sent).toHaveLength(1);
+      const text = mail.sent[0]!.text;
+      expect(text).toContain("訂正: 岡山県町Aの疑いは否定されました");
+      expect(text).toContain("今季の全国の発生: 0 件");
+      expect(findWordingViolations(text)).toEqual([]);
+      expect(calls).toHaveLength(1);
+      expect((await db.doc("usage/overviewMarker").get()).data()).toMatchObject({ date: "2026-11-06", caseIds: [] });
+    });
+
+    it("否定の候補の段階では、まとめも訂正も出さない（人が確かめて消す）", async () => {
+      const c = suspected({ id: "c1" });
+      const { mail, calls } = await nextAfter([c], () => seedCase({ ...c, negation: "candidate" }));
+      expect(mail.sent).toEqual([]);
+      expect(calls).toEqual([]);
+    });
+
+    it("疑いから確定に変わった朝にまとめが出て、翌々朝は同じ訂正を繰り返さない", async () => {
+      const c = suspected({ id: "c1" });
+      const { mail } = await nextAfter([c], () => seedCase({ ...c, stages: { suspected: stage("2026-11-04"), confirmed: stage("2026-11-05") } }));
+      expect(mail.sent).toHaveLength(1);
+      expect(mail.sent[0]!.text).toContain("訂正: 岡山県町Aは疑いから確定に変わりました");
+
+      const later = () => new Date(NOW.getTime() + 2 * 86_400_000);
+      await seedWatch(later());
+      const after = makeDeps({ now: later });
+      await runMorningDigest(after.deps, fakeGeo(), options().overview);
+      expect(after.mail.sent).toEqual([]);
+    });
+
+    it("文書が消えた朝にまとめが出て、前回の名前で書く", async () => {
+      const { mail } = await nextAfter([firstCase()], async () => {
+        await db.collection("cases").doc("c1").delete();
+      });
+      expect(mail.sent[0]!.text).toContain("訂正: 前回載せた岡山県町Aの発生は、今回の件数に入れていません");
+    });
+
+    it("段階を持たない古い印で、配備の朝に訂正を出さない", async () => {
+      await u4();
+      await seedCase(suspected({ id: "c1" }));
+      await seedMarker({ caseIds: ["c1"] });
+      const { deps, mail } = makeDeps();
+      await runMorningDigest(deps, fakeGeo(), options().overview);
+      expect(mail.sent).toEqual([]);
+    });
+
+    it("印の段階を書く前の日付の文書（古い形）でも、やり直しで投げず本文を組める", async () => {
+      await u4();
+      await seedCase(firstCase());
+      await seedMarker();
+      await runMorningDigest(makeDeps({ fail: () => badRecipient }).deps, fakeGeo(), options().overview);
+      const ref = db.doc("dailyOverviews/2026-11-05");
+      const { corrections: _c, reviewingPrefCodes: _r, caseMarks: _m, birdMarks: _b, ...old } = (await ref.get()).data()!;
+      await ref.set(old);
+      const later = makeDeps();
+      await runRetryFailed(later.deps, fakeGeo());
+      expect(later.mail.sent).toHaveLength(1);
+      expect(later.mail.sent[0]!.text).not.toContain("訂正:");
+    });
+  });
+
+  describe("未確認の県", () => {
+    const seedOne = async () => {
+      await seedFarm("f4", "u4", { meshCode: IN_D, muniCode: GEO_D, prefCode: "34" });
+      await seedCase(firstCase());
+    };
+
+    it("一部の県が未確認の朝は、確認できた範囲の形にし、今季の件数を総括に書かせない", async () => {
+      await seedOne();
+      await seedWatch(NOW, ["33", "34"]);
+      const { deps, mail } = makeDeps();
+      const { overview, calls } = options();
+      await runMorningDigest(deps, fakeGeo(), overview);
+      const text = mail.sent[0]!.text;
+      expect(text).toContain("今季の全国の発生: 確認できた範囲では 1 件（2 県は確認できていません）");
+      expect(text).toContain("約 60km 以内の今季の発生: 確認できた範囲では 0 件（2 県は確認できていません）");
+      expect(text).not.toContain(SENTENCE); // 素の件数の総括は外す
+      expect(JSON.stringify(calls[0]!.messages)).not.toContain("seasonCount");
+      expect((await overviewOf()).sentenceFailures).toContain("number_unchecked");
+    });
+
+    it("全県が未確認の朝は、件数を見出しにしない", async () => {
+      await seedOne();
+      await seedWatch(NOW, PREFS.map((p) => p.code));
+      const { deps, mail } = makeDeps();
+      await runMorningDigest(deps, fakeGeo(), options(claudeMessage("野鳥の陽性は 0 件です。")).overview);
+      const text = mail.sent[0]!.text;
+      expect(text).toContain("今季の全国の発生: まだ確認できていません");
+      expect(text).not.toContain("今季の全国の発生: 1 件");
+      expect(text).toContain("野鳥の陽性は 0 件です。");
+    });
+
+    it("確認中の事例がある県を書く（件数には入れず、町を出さない）", async () => {
+      await seedOne();
+      await seedCase(caseFixture({ id: "rev-1", prefCode: "31", muniCode: null, muniName: null, confirmState: "reviewing" }));
+      const { deps, mail } = makeDeps();
+      await runMorningDigest(deps, fakeGeo(), options().overview);
+      const text = mail.sent[0]!.text;
+      expect(text).toContain("確認中の発表がある県: 鳥取県。件数にはまだ入れていません。");
+      expect(text).toContain("今季の全国の発生: 1 件");
+    });
+  });
+
+  describe("記録を作れなかった朝", () => {
+    /** u5 の全国まとめの記録だけ作れない db。 */
+    const failingCreate = (uid: string) =>
+      new Proxy(db, {
+        get: (t, k) => {
+          if (k !== "doc") return Reflect.get(t, k);
+          return (p: string) => {
+            const ref = t.doc(p);
+            if (!p.startsWith(`sentNotices/f5__${uid}__`)) return ref;
+            return new Proxy(ref, { get: (r, key) => (key === "create" ? () => Promise.reject(Object.assign(new Error("unavailable"), { code: 14 })) : Reflect.get(r, key)) });
+          };
+        },
+      });
+    const seedTwo = async () => {
+      await seedFarm("f4", "u4", { meshCode: IN_D, muniCode: GEO_D, prefCode: "34" });
+      await seedFarm("f5", "u5", { meshCode: IN_D, muniCode: GEO_D, prefCode: "34" });
+      await seedCase(firstCase());
+    };
+
+    it("dispatchNotices は作れなかった数を返す（すでにある記録は失敗に数えない）", async () => {
+      await seedTwo();
+      const logs = captureLogs();
+      const notice = (farmId: string, uid: string) => ({ farmId, uid, subjectId: "2026-11-05", event: "daily_overview" as const, timing: "morning" as const, level: null, relationKind: null, facts: { muniName: null, prefCode: null, date: "2026-11-05", sourceUrl: null }, isCorrection: false });
+      try {
+        const r = await dispatchNotices({ ...makeDeps().deps, db: failingCreate("u5") }, [notice("f4", "u4"), notice("f5", "u5")]);
+        expect(r).toEqual({ mailStopped: false, recordFailures: 1 });
+        const again = await dispatchNotices(makeDeps().deps, [notice("f4", "u4")]);
+        expect(again).toEqual({ mailStopped: false, recordFailures: 0 });
+      } finally {
+        logs.restore();
+      }
+    });
+
+    it("印を進めず、作れた会員には 1 通。毎時の送り直しが残りの会員だけに送り、二重に送らず、印を進める", async () => {
+      await seedTwo();
+      const { overview, calls } = options();
+      const down = makeDeps();
+      const logs = captureLogs();
+      try {
+        await runMorningDigest({ ...down.deps, db: failingCreate("u5") }, fakeGeo(), overview);
+      } finally {
+        logs.restore();
+      }
+      expect(down.mail.calls).toEqual(["u4@example.test"]);
+      expect((await db.doc("usage/overviewMarker").get()).exists).toBe(false);
+
+      const retry = makeDeps();
+      await runRetryFailed(retry.deps, fakeGeo());
+      expect(retry.mail.calls).toEqual(["u5@example.test"]);
+      expect(calls).toHaveLength(1);
+      expect((await db.doc("usage/overviewMarker").get()).data()).toMatchObject({ date: "2026-11-05", caseIds: ["c1"] });
+
+      const again = makeDeps();
+      await runRetryFailed(again.deps, fakeGeo());
+      expect(again.mail.calls).toEqual([]);
+    });
+
+    it("送り直しでも作れなければ印を進めない。翌朝は印との差でまとめ直す", async () => {
+      await seedTwo();
+      const { overview } = options();
+      const down = makeDeps();
+      const logs = captureLogs();
+      try {
+        await runMorningDigest({ ...down.deps, db: failingCreate("u5") }, fakeGeo(), overview);
+        await runRetryFailed({ ...makeDeps().deps, db: failingCreate("u5") }, fakeGeo());
+      } finally {
+        logs.restore();
+      }
+      expect((await db.doc("usage/overviewMarker").get()).exists).toBe(false);
+
+      await seedWatch(nextMorning());
+      const next = makeDeps({ now: nextMorning });
+      await runMorningDigest(next.deps, fakeGeo(), overview);
+      expect(next.mail.calls.sort()).toEqual(["u4@example.test", "u5@example.test"]);
+    });
+
+    it("送り直しの追いつきは、その日の文書がなければ何も読まず、朝の queued を送らない", async () => {
+      await seedFarm("f4", "u4", { meshCode: IN_D, muniCode: GEO_D, prefCode: "34" });
+      await seedNotice("f4", "u4", "c1", "confirmed", "queued", "morning");
+      const later = makeDeps();
+      await runRetryFailed(later.deps, fakeGeo());
+      expect(later.mail.calls).toEqual([]);
+    });
   });
 });
