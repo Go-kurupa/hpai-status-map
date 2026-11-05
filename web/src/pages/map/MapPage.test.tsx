@@ -1034,7 +1034,7 @@ describe("MapPage: 平面の札（T12）", () => {
     expect(stats()[0]!.classList.contains("stat-wide")).toBe(true);
   });
 
-  it("PC でも一部未確認の数字を分ける。大きいのは数字だけで、断りは文の並びのまま隠さない", async () => {
+  it("PC でも一部未確認の数字を分ける。札の断り（.stat-qual、PC の CSS で隠す）の代わりに、札の上の 1 文が必ず出る", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
@@ -1044,8 +1044,23 @@ describe("MapPage: 平面の札（T12）", () => {
     expect(value.textContent).toBe("確認できた範囲では 1 件（1 県は確認できていません）");
     expect(value.querySelector(".stat-num")!.textContent).toBe("1");
     expect([...value.querySelectorAll(".stat-qual")].map((e) => e.textContent)).toEqual(["確認できた範囲では ", "（1 県は確認できていません）"]);
-    // 断りは数字より前と後ろに残る（件数だけが読まれない）
-    expect(follows(value.querySelector(".stat-qual")!, value.querySelector(".stat-num")!)).toBe(true);
+    // 件数だけが読まれないよう、札が一部未確認の数を出す間は、札の上（札の行より前）にまとめの 1 文がある（2026-11-06 作者の決定）
+    const wide = document.querySelector(".stat-unchecked-wide")!;
+    expect(wide.textContent).toBe("確認できた範囲の件数です。岡山県は確認できていません。");
+    expect(follows(wide, document.querySelector(".stat-row")!)).toBe(true);
+    expect(document.querySelector(".stat-unchecked")).toBeNull();
+  });
+
+  it("PC: 全県を確認できた朝は、札の上のまとめの 1 文を出さない。過去の札の題の日付は 1 つの塊", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed([]));
+    await waitFor(() => expect(document.querySelector(".stat-row")).not.toBeNull());
+    expect(document.querySelector(".stat-unchecked-wide")).toBeNull();
+    const date = document.querySelector(".stat-past .stat-date");
+    if (date) expect(date.textContent).toMatch(/^\d+ 月 \d+ 日$/);
   });
 
   it("全県確認の札は横に並び、stat-wide を付けない", async () => {

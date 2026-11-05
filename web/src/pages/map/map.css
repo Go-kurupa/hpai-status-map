@@ -801,6 +801,11 @@
   padding-left: 1.2em;
 }
 
+/* 札の題の日付（「10 月 21 日」）は途中で折らない */
+.stat-date {
+  white-space: nowrap;
+}
+
 /* 札の出し分け。スマホは題、時点と大きな数字、1 行の罫線の組み方で、PC は札（ui/theme.css）。DOM は 1 つ */
 .map-risk {
   overflow-wrap: anywhere;
@@ -1097,6 +1102,15 @@
   }
   .stat-value .stat-qual:last-child {
     display: block;
+  }
+  /* 未確認の断りは札ごとに出さず、札の上の 1 文（.stat-unchecked-wide）にまとめる（2026-11-06 作者の決定） */
+  .stat-row .stat-value .stat-qual {
+    display: none;
+  }
+  .map-page > .stat-unchecked-wide {
+    margin: 0 0 8px;
+    font-weight: 700;
+    line-height: 1.5;
   }
   /* 県ごとと週ごとの棒を横に並べる */
   .season-charts {

@@ -318,11 +318,13 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
     await check();
     await goNational(page);
     await check();
-    // 札は右の列の先頭で、最初の画面の中
-    const stats = await box(page.locator(".map-risk, .stat-row").first());
+    // 札は右の列の先頭で、最初の画面の中。未確認の県があれば、まとめの 1 文が先頭（2026-11-06 作者の決定）
+    const stats = await box(page.locator(".stat-unchecked-wide, .map-risk, .stat-row").first());
     const canvas = await canvasOf(page);
     expect(stats.y).toBeLessThanOrEqual(canvas.y + 1);
     expect(stats.x).toBeGreaterThanOrEqual(canvas.x + canvas.width);
+    const row = await box(page.locator(".stat-row"));
+    expect(row.y + row.height).toBeLessThanOrEqual((await tabs(page)).y);
   });
 
   test("1280x860: 区域の文とメールの枠が、地図の隣の最初の画面に入る", async ({ page }) => {
@@ -684,7 +686,13 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       await page.goto("/");
       const canvas = page.locator(".map-box .map-canvas");
       await expect(canvas).toBeVisible();
-      await expect(page.locator(".stat-national .stat-qual").first()).toBeVisible();
+      // 未確認の断りは札ごとに出さず、札の上の 1 文にまとめる（2026-11-06 作者の決定）
+      await expect(page.locator(".stat-national .stat-qual").first()).toBeHidden();
+      const unchecked = page.locator(".stat-unchecked-wide");
+      await expect(unchecked).toHaveText("確認できた範囲の件数です。岡山県は確認できていません。");
+      expect((await unchecked.boundingBox())!.y + (await unchecked.boundingBox())!.height).toBeLessThanOrEqual(
+        (await page.locator(".stat-row").boundingBox())!.y,
+      );
       await expect(page.locator(".map-page > .as-of")).toBeVisible();
       const row = (await page.locator(".stat-row").boundingBox())!;
       const wait = page.locator(".state-wait").filter({ hasText: "確認中の発表がある県" });

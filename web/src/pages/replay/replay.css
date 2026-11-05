@@ -232,7 +232,7 @@
       --map-h: clamp(320px, 100svh - 340px, 640px);
     }
   }
-  .app-main .replay-scope .replay-stage > .map-page > :is(.map-risk, .stat-row) {
+  .app-main .replay-scope .replay-stage > .map-page > :is(.map-risk, .stat-unchecked-wide, .stat-row) {
     grid-column: 2;
     order: 1;
   }
@@ -245,11 +245,6 @@
   .replay-stage > .map-page > .stat-row > .stat-recent {
     border-left: 0;
     padding-left: 0;
-  }
-  /* 狭い札では、数字と「件」を断りと同じ行に押し込まない */
-  .replay-stage > .map-page > .stat-row .stat-qual {
-    display: block;
-    text-wrap: balance;
   }
   /* 町の文のうち、今の段階の文は札の次に、過去の行などは後ろの部分より後に置く（段階の文とメールの枠を最初の画面に入れる） */
   .replay-stage > .map-page > .town-banner {

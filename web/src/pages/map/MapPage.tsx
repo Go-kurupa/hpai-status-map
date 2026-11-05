@@ -323,10 +323,18 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
   const whenLine = (text: string) => (narrow ? null : <p className="stat-when">{text}</p>);
   const casesSource = ds.mode === "replay" ? TEXT.chartsSourceReplay : TEXT.chartsSourceLive;
   // 過去の同じ日までの札。スマホは一覧より後の残りの札で、PC は数字の列の最後。過去は国の事例一覧から数える
+  // 題の日付（「10 月 21 日」）は途中で折らない
+  const pastDay = monthDay(today);
+  const pastTitle = TEXT.statPastToDate(pastSeasons, pastDay);
+  const pastDayAt = pastTitle.indexOf(pastDay);
   const pastStat =
     d.history !== null && pastRange === null ? null : (
       <div className="stat stat-past">
-        <p className="stat-title">{TEXT.statPastToDate(pastSeasons, monthDay(today))}</p>
+        <p className="stat-title">
+          {pastTitle.slice(0, pastDayAt)}
+          <span className="stat-date">{pastDay}</span>
+          {pastTitle.slice(pastDayAt + pastDay.length)}
+        </p>
         <StatCount text={pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null })} />
         {whenLine(TEXT.chartsSourceReplay)}
       </div>
@@ -400,6 +408,15 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         </p>
       ) : null}
       {/* 札の「0 件」だけが先に読まれないよう、札のすぐ前に置く */}
+      {/* PC は未確認の断りを札ごとに繰り返さず、札の上の 1 文にまとめる（2026-11-06 作者の決定）。
+          文はスマホの stat-unchecked と同じ。斜線の一文は、すぐ下の確認の行にあるので繰り返さない。
+          守る文（riskAnywhere）が札のすぐ前に来る決まりを崩さないよう、その前に置く */}
+      {showStats && !narrow && d.watchLoaded && failedCount > 0 ? (
+        <p className="stat-unchecked-wide">
+          {noneConfirmed ? null : TEXT.watchShortRange}
+          {TEXT.watchShortWho(failedWho)}
+        </p>
+      ) : null}
       {riskAboveStats ? riskText("map-notice map-risk") : null}
       {showStats ? (
         <div className="stat-row">
