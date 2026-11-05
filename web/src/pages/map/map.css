@@ -889,21 +889,9 @@
   .map-page > .map-box ~ * {
     grid-column: 2;
   }
-  /* 地図は右の列より短くならないようにする。右の列が高いときは地図を伸ばし、低いときは --map-h を下限にする */
+  /* 地図の高さは --map-h で決める。右の列が長くても伸ばさない（最初の画面に地図を収める） */
   .map-page > .map-box {
-    display: flex;
-    flex-direction: column;
-    align-self: stretch;
-  }
-  .map-page > .map-box .map-wrap {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-  }
-  .map-page > .map-box .map-canvas {
-    flex: 1 1 auto;
-    height: auto;
-    min-height: var(--map-h);
+    align-self: start;
   }
   /* 場所の合わせ方より後ろ（件数の一覧、シーズン、比べ、リンク）は全幅に戻す */
   .map-page > :is(.spot-picker, .case-list, .season-bar),
@@ -929,11 +917,12 @@
   .map-page:not(:has(> .spot-picker[data-active="true"])) > .stat-rest {
     order: 3;
   }
+  /* 町の文は地図を押し下げないよう、右の列の先頭に置く */
   .map-page > .town-banner {
-    grid-column: 1 / -1;
+    grid-column: 2;
   }
   .map-page:not(:has(> .spot-picker[data-active="true"])) > .town-banner {
-    order: 0;
+    order: 3;
   }
   .map-page:has(> .spot-picker[data-active="true"]) {
     display: flex;

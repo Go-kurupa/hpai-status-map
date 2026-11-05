@@ -376,6 +376,31 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
   });
 });
 
+test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () => {
+  const AT = "2026-11-04T08:30:00+09:00";
+  const watch = Array.from({ length: 47 }, (_, i) => ({ prefCode: String(i + 1).padStart(2, "0"), checkedAt: AT, ok: true, lastOkAt: AT, failingSince: null }));
+
+  for (const [name, spot] of [
+    ["登録なし", null],
+    ["登録あり", { meshCode: "53390000", muniCode: "13101", frequentMuniCodes: [] }],
+  ] as const) {
+    test(`${name}: 地図は右の列に伸ばされず、上端と高さが画面に収まる`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 860 });
+      await installFixture(page, { now: "2026-11-04T09:00:00+09:00", cases: [], wildBirds: [], watch });
+      if (spot) await page.addInitScript((s) => localStorage.setItem("hpai.spot.v1", s), JSON.stringify(spot));
+      await page.goto("/");
+      const canvas = page.locator(".map-box .map-canvas");
+      await expect(canvas).toBeVisible();
+      await expect(page.locator(".stat-row")).toBeVisible();
+      const box = (await canvas.boundingBox())!;
+      const nav = (await page.getByRole("navigation", { name: "メイン" }).boundingBox())!;
+      expect(box.y).toBeLessThan(320);
+      expect(box.height).toBeLessThanOrEqual(640);
+      expect(box.y + box.height).toBeLessThanOrEqual(nav.y + 180);
+    });
+  }
+});
+
 test.describe("公開の画面に Firebase を載せない", () => {
   for (const path of ["/public", "/poster", "/known"]) {
     test(`${path} は Firebase の JS を読まず、Google への要求が 0 件`, async ({ page }) => {

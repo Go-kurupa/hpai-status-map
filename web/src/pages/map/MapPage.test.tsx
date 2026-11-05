@@ -1078,11 +1078,11 @@ describe("map.css（比べの表の幅と PC 幅の 2 列）", () => {
     expect(readFileSync(path.resolve(import.meta.dirname, "../replay/replay.css"), "utf8")).toMatch(/\.replay-scope \.map-page > h1\s*\{\s*display:\s*none/);
   });
 
-  it("64rem 以上で地図は右の列より短くならない（伸びる、下限は --map-h）", () => {
+  it("64rem 以上で地図は右の列に伸ばされない。町の文は右の列に置く", () => {
     const body = mapCss.match(/@media \(min-width:\s*64rem\)\s*\{([\s\S]*?)\n\}\n/)![1]!;
-    expect(body).toMatch(/\.map-page\s*>\s*\.map-box\s*\{[^}]*align-self:\s*stretch/);
-    expect(body).toMatch(/\.map-box\s*\.map-canvas\s*\{[^}]*flex:\s*1 1 auto[^}]*min-height:\s*var\(--map-h\)/);
-    expect(body).toMatch(/\.map-box\s*\.map-canvas\s*\{[^}]*height:\s*auto/);
+    expect(body).toMatch(/\.map-page\s*>\s*\.map-box\s*\{[^}]*align-self:\s*start/);
+    expect(body).not.toMatch(/\.map-box\s*\.map-canvas\s*\{[^}]*min-height/);
+    expect(body).toMatch(/\.map-page\s*>\s*\.town-banner\s*\{[^}]*grid-column:\s*2/);
   });
 
   it("40rem から 64rem の間は今の 1 列のまま（2 列の規則は 64rem 以上だけ）", () => {
