@@ -10,7 +10,7 @@ import { applyDistanceRings, applyView, applyWildBirds, type ViewTarget } from "
 import { HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
 import { baseStyle, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
 import { TEXT } from "./texts";
-import { badgeStates, JAPAN_BOUNDS, MUNI_ZOOM, type SeasonView } from "./seasonView";
+import { BADGE_ZOOM, badgeStates, JAPAN_BOUNDS, type SeasonView } from "./seasonView";
 
 export interface MapViewProps {
   view: SeasonView;
@@ -204,7 +204,7 @@ export default function MapView(props: MapViewProps) {
       el.type = "button";
       el.className = "pref-badge";
       el.hidden = true;
-      el.addEventListener("click", () => map.easeTo({ center: at, zoom: MUNI_ZOOM + 0.5 }));
+      el.addEventListener("click", () => map.easeTo({ center: at, zoom: BADGE_ZOOM }));
       markers.push(new Marker({ element: el }).setLngLat(at).addTo(map));
       badges.set(code, el);
     }

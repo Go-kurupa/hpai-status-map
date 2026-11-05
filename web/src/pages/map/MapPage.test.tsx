@@ -959,7 +959,26 @@ describe("MapPage: 平面の札（T12）", () => {
     expect(stats()[2]!.textContent).toContain("11 月 4 日 8:30 時点");
   });
 
-  it("PC の札は札ごとに出典か断りを添え、スマホの 1 行には出さない。再現は再現の出典", async () => {
+  it("再現の全国の流れの PC の札は、再現の出典を添える", async () => {
+    const r = rig();
+    render(
+      <MemoryRouter>
+        <DataSourceProvider value={{ ...r.ds, mode: "replay" }}>
+          <SpotProvider>
+            <MapPage replayStats />
+          </SpotProvider>
+        </DataSourceProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    const when = (selector: string) => document.querySelector(`.stat-row ${selector} .stat-when`)?.textContent;
+    await waitFor(() => expect(when(".stat-national")).toBe(TEXT.chartsSourceReplay));
+    expect(when(".stat-recent")).toBe(TEXT.chartsSourceReplay);
+  });
+
+  it("PC の札は札ごとに出典か断りを添える", async () => {
     setSpotForCards();
     const r = rig();
     show(r);
@@ -1573,6 +1592,21 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("スマホでも、町が分からない発表と読めない断りは約 60 km の残りに出る", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
+    const r = rig({ history: "deferred" });
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverWatch(okWatch());
+    r.deliverCases([tsuyamaCase({ muniCode: null, muniName: null })]);
+    const more = () => document.querySelector(".stat-below .stat-band-more")?.textContent;
+    await waitFor(() => expect(more()).toContain(TEXT.statBandUnplaced(1)));
+    await act(async () => {
+      r.historyDeferred.reject(new Error("読めない"));
+    });
+    expect(more()).toContain(TEXT.statFailedNote);
   });
 
   it("スマホは数字の列が 3 枚、過去と野鳥は一覧より後の残りの札", async () => {

@@ -501,6 +501,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     await expect(page.locator(".stat-row .stat-value b")).toHaveCount(0);
     const font = (l: Locator) => l.evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
     expect(await font(page.locator(".stat-national .stat-value"))).toBeLessThanOrEqual(18);
+    expect(await font(page.locator(".stat-national .stat-num"))).toBeLessThanOrEqual(18);
     // 断りは数字より前
     const note = (await page.locator(".stat-unchecked").boundingBox())!;
     const value = (await page.locator(".stat-national .stat-value").boundingBox())!;
@@ -597,6 +598,14 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     await expect.poll(zoom, { timeout: 10_000 }).toBeCloseTo(start, 1);
   });
 
+  test("県のバッジを押すと、町が読める広さまで寄る（塗りの閾値には連動しない）", async ({ page }) => {
+    await openState(page, { name: "全国", cases: [FAR] });
+    const badge = page.locator(".pref-badge:visible").first();
+    await expect(badge).toBeVisible();
+    await badge.click();
+    const zoom = () => page.evaluate(() => (window as unknown as { __hpaiMap: { getZoom(): number } }).__hpaiMap.getZoom());
+    await expect.poll(zoom, { timeout: 15_000 }).toBeCloseTo(7.5, 1);
+  });
   test("登録あり: 地図の隅に『全国』を重ねない", async ({ page }) => {
     await openState(page, { name: "登録あり", spot: true });
     await expect(page.locator(".map-box").getByRole("button", { name: "全国" })).toHaveCount(0);
@@ -607,6 +616,26 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
 test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () => {
   const AT = "2026-11-04T08:30:00+09:00";
   const watch = Array.from({ length: 47 }, (_, i) => ({ prefCode: String(i + 1).padStart(2, "0"), checkedAt: AT, ok: true, lastOkAt: AT, failingSince: null }));
+  const REVIEWING: Case = {
+    id: "rev-pc",
+    season: 2026,
+    nationalNo: null,
+    prefNo: null,
+    prefCode: "31",
+    muniCode: null,
+    muniName: null,
+    birdUse: null,
+    housing: null,
+    headCount: null,
+    stages: {},
+    radiiKm: [],
+    prefEstimates: { shipment: null, movement: null, surveillance: null },
+    negation: "none",
+    negatedAt: null,
+    confirmState: "reviewing",
+    sourceUrls: ["https://example.invalid/review"],
+    updatedAt: AT,
+  };
 
   for (const [name, spot] of [
     ["登録なし", null],
@@ -636,6 +665,31 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
         const near = (await page.getByRole("button", { name: "自分の近く" }).boundingBox())!;
         expect(near.height).toBeGreaterThanOrEqual(44);
       }
+    });
+
+    test(`${name}: 確認中の県と一部未確認があっても、断りは札のそばで最初の画面に見え、地図も収まる`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 860 });
+      const oneFailing = watch.map((w) => (w.prefCode === "33" ? { ...w, ok: false, failingSince: AT } : w));
+      await installFixture(page, { now: "2026-11-04T09:00:00+09:00", cases: [REVIEWING], wildBirds: [], watch: oneFailing });
+      if (spot) await page.addInitScript((s) => localStorage.setItem("hpai.spot.v1", s), JSON.stringify(spot));
+      await page.goto("/");
+      const canvas = page.locator(".map-box .map-canvas");
+      await expect(canvas).toBeVisible();
+      await expect(page.locator(".stat-national .stat-qual").first()).toBeVisible();
+      await expect(page.locator(".map-page > .as-of")).toBeVisible();
+      const row = (await page.locator(".stat-row").boundingBox())!;
+      const wait = page.locator(".state-wait").filter({ hasText: "確認中の発表がある県" });
+      await expect(wait).toBeVisible();
+      const w = (await wait.boundingBox())!;
+      // 札の 0 件だけが読まれないよう、札のすぐ下（見回りの行の次）で、下のタブより上に入れる
+      const nav = (await page.getByRole("navigation", { name: "メイン" }).boundingBox())!;
+      expect(w.y).toBeGreaterThanOrEqual(row.y + row.height);
+      expect(w.y).toBeLessThan(row.y + row.height + 140);
+      expect(w.y + w.height).toBeLessThanOrEqual(nav.y);
+      // 札が伸びる分だけ、地図はふだんの 320px より少し下がる（実測 333px）
+      const box = (await canvas.boundingBox())!;
+      expect(box.y).toBeLessThan(350);
+      expect(box.y + box.height).toBeLessThanOrEqual(nav.y + 180);
     });
 
     test(`${name}: 地図は右の列に伸ばされず、上端と高さが画面に収まる`, async ({ page }) => {

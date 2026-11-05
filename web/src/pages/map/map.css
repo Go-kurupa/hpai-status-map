@@ -1030,7 +1030,11 @@
   .map-page > :is(.state-unknown, .state-wait, .watch-line, .stat-rest) {
     grid-column: 2;
   }
-  .map-page:not(:has(> .spot-picker[data-active="true"])) > :is(.state-unknown, .state-wait, .watch-line, .stat-rest) {
+  /* 札の件数の断りは、札のすぐ下（右の列の先頭）に置く。地図の後ろの order 2 より DOM が前なので先に並ぶ */
+  .map-page:not(:has(> .spot-picker[data-active="true"])) > :is(.state-unknown, .state-wait, .watch-line) {
+    order: 2;
+  }
+  .map-page:not(:has(> .spot-picker[data-active="true"])) > .stat-rest {
     order: 3;
   }
   /* 札を地図の上に置く分、地図より上の余白を詰めて、地図を最初の画面に保つ */
