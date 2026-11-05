@@ -6,12 +6,14 @@ import { baseNotices, DATA_NOT_INSTRUCTION, DROPPED_NOTICE, staleNotice } from "
 import {
   HEALTH_STANDARD_SOURCE_URL,
   mortalityNotices,
+  renderMemberMail,
   renderMorningDigest,
   renderNotice,
   selfCheckDueNotices,
   type Notice,
   type NoticeEvent,
 } from "@hpai/shared/notices";
+import type { NearFacts, OverviewDay } from "@hpai/shared/overview";
 import type { Farm, Level, LevelReasonKind } from "@hpai/shared/types";
 import { findWordingViolations, FIXED_TEXT } from "@hpai/shared/wording";
 import { unsubscribeUrlFor } from "../src/notify/dispatch";
@@ -169,6 +171,33 @@ describe("朝のまとめ", () => {
     const list = CASE_EVENTS.filter((e) => e !== "reviewing").map((e) => notice(e, { level: 1, relationKind: "same_muni", subjectId: `c-${e}`, timing: "morning" }));
     const { text } = renderMorningDigest(list, ctxOf(list[0]!));
     expect(text.split(`県の発表: ${SOURCE}`).length - 1).toBe(list.length);
+  });
+});
+
+describe("全国まとめ（daily_overview）", () => {
+  const day: OverviewDay = {
+    date: "2026-11-05", asOf: "2026-11-05T06:00:00+09:00", season: 2026, seasonCount: 0, recentCount: 0, past: { seasons: 6, min: 0, max: 5 },
+    birds: { total: 1, confirmed: 1, screening: 0 }, newCaseCount: 0, newCases: [], newBirdCount: 1,
+    newBirds: [{ prefName: "岡山県", muniName: "津山市", date: "2026-11-04", suspected: false, sourceUrl: SOURCE }],
+    muniCounts: {}, unknownMuniCount: 1, watch: { okCount: 46, failedPrefCodes: ["33"] }, caseIds: [], birdIds: ["b1"], sentence: "今季は 0 件です。", sentenceFailures: [],
+  };
+  const near: NearFacts = {
+    withinCount: 2, within: [{ prefName: "岡山県", muniName: "津山市", count: 2, distanceKm: 23, sameTown: false, registered: true }],
+    registeredCount: 2, registered: [{ prefName: "岡山県", muniName: "津山市", count: 2 }],
+  };
+  const overview = (over: Partial<NonNullable<Notice["overview"]>> = {}) =>
+    notice("daily_overview", { subjectId: "2026-11-05", timing: "morning", overview: { day, near, ...over } });
+
+  it.each([
+    ["まとめだけ", () => [overview()]],
+    ["ほかの知らせと 1 通", () => [overview(), notice("confirmed", { timing: "morning", level: 2, relationKind: "adjacent" })]],
+    ["近くの件数を出せない朝", () => [overview({ near: null })]],
+    ["過去と確認の状況を読めない朝", () => [overview({ day: { ...day, past: null, watch: null } })]],
+  ])("%s: 禁句がなく、県の連絡が正です、配信停止のリンク、出典がある", (_name, list) => {
+    const notices = list();
+    const mail = renderMemberMail(notices, ctxOf(notices[0]!));
+    expect(problemsOf(mail, notices[0]!, { source: true })).toEqual([]);
+    expect(mail.text.split("配信停止:").length - 1).toBe(1);
   });
 });
 

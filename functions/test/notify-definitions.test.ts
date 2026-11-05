@@ -19,7 +19,7 @@ describe("notify の関数の定義（契約 4.1）", () => {
     expect(ep(morningDigest).scheduleTrigger).toMatchObject({ schedule: "0 6 * * *", timeZone: "Asia/Tokyo" });
     expect(ep(morningDigest).timeoutSeconds).toBe(540);
     expect(ep(morningDigest).availableMemoryMb).toBe(512);
-    expect(declared(morningDigest)).toEqual(["GMAIL_APP_PASSWORD", "UNSUBSCRIBE_SECRET"]);
+    expect(declared(morningDigest)).toEqual(["ANTHROPIC_API_KEY", "GMAIL_APP_PASSWORD", "UNSUBSCRIBE_SECRET"]);
   });
 
   it("retryFailedNotices: 朝のまとめと重ねないよう 6 時を外す（30 0-5,7-23 * * *）、540s / 512MiB", () => {

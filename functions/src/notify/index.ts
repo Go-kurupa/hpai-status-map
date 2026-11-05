@@ -1,7 +1,9 @@
 // notify の領域。事例の書き込みで知らせる onCaseWritten（M-02）と、M-13 の朝のまとめ、送り直し、野鳥、死亡率の基準、配信停止と再開。
+import Anthropic from "@anthropic-ai/sdk";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { loadHistory } from "../api/firestoreDeps";
 import { loadGeoStore } from "../geo/loadGeo";
-import { GMAIL_APP_PASSWORD, UNSUBSCRIBE_SECRET } from "../secrets";
+import { ANTHROPIC_API_KEY, GMAIL_APP_PASSWORD, UNSUBSCRIBE_SECRET } from "../secrets";
 import { runMorningDigest } from "./digest";
 import { liveDeps } from "./liveDeps";
 import { runRetryFailed } from "./retryFailed";
@@ -12,11 +14,17 @@ export { onWildBirdWritten } from "./onWildBirdWritten";
 export { resumeMail } from "./resumeMail";
 export { unsubscribe } from "./unsubscribe";
 
-/** 毎朝 6 時（JST）。自己点検の期限の知らせと、②③の朝の知らせを会員ごとに 1 通で送る。 */
+/**
+ * 毎朝 6 時（JST）。自己点検の期限の知らせと、②③の朝の知らせを会員ごとに 1 通で送る。変化があった朝は全国まとめを先頭に入れる。
+ * 総括の Claude は 1 回 45 秒、再試行なし（切れても定型を送る。送信の時間を残す）。送り直しの関数は Claude を使わないので鍵を宣言しない。
+ */
 export const morningDigest = onSchedule(
-  { schedule: "0 6 * * *", timeZone: "Asia/Tokyo", timeoutSeconds: 540, memory: "512MiB", secrets: [GMAIL_APP_PASSWORD, UNSUBSCRIBE_SECRET] },
+  { schedule: "0 6 * * *", timeZone: "Asia/Tokyo", timeoutSeconds: 540, memory: "512MiB", secrets: [ANTHROPIC_API_KEY, GMAIL_APP_PASSWORD, UNSUBSCRIBE_SECRET] },
   async () => {
-    await runMorningDigest(liveDeps(), await loadGeoStore());
+    await runMorningDigest(liveDeps(), await loadGeoStore(), {
+      client: () => new Anthropic({ apiKey: ANTHROPIC_API_KEY.value(), timeout: 45_000, maxRetries: 0 }),
+      history: () => loadHistory(),
+    });
   },
 );
 

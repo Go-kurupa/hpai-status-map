@@ -2,9 +2,9 @@
 // 見回りの結果が届いていない県、読めない時刻の県は、確認できていない側に数える（「何もない」に見せない）。
 import { PREFS } from "@hpai/shared/pref";
 import { summarizeWatch } from "@hpai/shared/level";
+import { watchCoverageText } from "@hpai/shared/overview";
 import type { IsoDateTime, PrefCode, WatchStatus } from "@hpai/shared/types";
 
-const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 const validMs = (s: string | null): number | null => {
   if (s === null) return null;
   const t = Date.parse(s);
@@ -55,11 +55,8 @@ export interface WatchLineResult {
 export function watchLine(all: readonly WatchStatus[], now: Date): WatchLineResult {
   const rows = completeWatchStatus(all);
   const summary = summarizeWatch(rows, now);
-  const names = summary.failedPrefCodes.map((c) => PREF_NAME.get(c) ?? c);
-  // 47 県すべてのときは県名を並べない（どの県も確認できていない、と読める）
-  const tail = names.length > 0 && names.length < PREFS.length ? `（${names.join("、")}）` : "";
   return {
-    text: `${PREFS.length} 都道府県のうち ${summary.okCount} 件を確認、${summary.failedCount} 件は確認できていません${tail}`,
+    text: watchCoverageText(summary.okCount, summary.failedPrefCodes),
     // 未来の時刻（時計のずれ）は summarizeWatch が未確認にするのと同じく、asOf にも使わない
     asOf: pickBy(rows.map((r) => (validMs(r.checkedAt) !== null && Date.parse(r.checkedAt as string) <= now.getTime() ? r.checkedAt : null)), (a, b) => a > b),
     okCount: summary.okCount,

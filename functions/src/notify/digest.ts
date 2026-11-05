@@ -3,10 +3,11 @@
 import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { jstDateOf, toJstIso } from "@hpai/shared/dates";
 import type { GeoStore } from "@hpai/shared/geo";
-import { noticeDocId, renderMorningDigest, planSelfCheckDue, renderNotice, type Notice, type NoticeEvent, type SentNotice } from "@hpai/shared/notices";
+import { noticeDocId, renderMemberMail, planSelfCheckDue, type Notice, type NoticeEvent, type SentNotice } from "@hpai/shared/notices";
 import type { Farm } from "@hpai/shared/types";
 import { codeOf, dispatchNotices, isMailStopError, markSent, noteMailStop, unsubscribeUrlFor, type NotifyDeps } from "./dispatch";
 import { capHitNotices, hitDateOf, reserveHitSlot, retryCapAlerts, settleHitSlot, type HitReservation } from "./hitSlots";
+import { prepareDailyOverview, type OverviewOptions } from "./overview";
 import { createRebuildContext, isSelfCheckAnswered, loadSubjects, rebuildNotice, type QueueRec } from "./rebuild";
 
 /** 送ってから「すぐ」の知らせを拾うまでの待ち（分）。onCaseWritten が送っている間に拾わない。 */
@@ -19,7 +20,7 @@ export const MAX_RETRIES = 5;
 const BUDGET_MS = 480_000;
 
 const EVENTS: ReadonlySet<string> = new Set<NoticeEvent>([
-  "suspected", "confirmed", "reviewing", "negated", "shipment_lifted", "movement_lifted", "wild_bird_confirmed", "self_check_due", "mortality_hit",
+  "suspected", "confirmed", "reviewing", "negated", "shipment_lifted", "movement_lifted", "wild_bird_confirmed", "self_check_due", "mortality_hit", "daily_overview",
 ]);
 
 /** 形の壊れた記録は読まない。 */
@@ -97,10 +98,10 @@ function isTooOld(rec: QueueRec, now: Date): boolean {
  * - 基準の知らせ（mortality_hit）は、すぐ送る経路と同じ決まり（hitSlots.ts）: 送る直前に 1 日の枠を確保し、確保できなければ capped、
  *   送れなければその場で枠を返す。その会員に届いていた（sent の書き込みだけが失敗していた）記録は、送らずに sent にする。
  */
-export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: readonly QueueRec[], opts: { failRestOnStop: boolean }): Promise<DeliverResult> {
+export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: readonly QueueRec[], opts: { failRestOnStop: boolean; startedAt?: number }): Promise<DeliverResult> {
   let recs: readonly QueueRec[] = allRecs;
   const result: DeliverResult = { sent: 0, failed: 0, dropped: 0, skipped: 0, capped: 0, mailStopped: false };
-  const startedAt = Date.now();
+  const startedAt = opts.startedAt ?? Date.now();
   const ctx = createRebuildContext(deps.db, geo, jstDateOf(deps.now()));
 
   // 古い記録は送らない（abandoned にして、以後読まない。記録を残すので同じ知らせを作り直さない）
@@ -235,7 +236,7 @@ export async function deliverQueued(deps: NotifyDeps, geo: GeoStore, allRecs: re
         try {
           const first = sendNotices[0]!;
           const ctxRender = { unsubscribeUrl: unsubscribeUrlFor(first, deps), appUrl: deps.appUrl };
-          const mail = sendNotices.length === 1 ? renderNotice(first, ctxRender) : renderMorningDigest(sendNotices, ctxRender);
+          const mail = renderMemberMail(sendNotices, ctxRender);
           await deps.mailer(email, mail);
           delivered = true;
         } catch (e) {
@@ -336,8 +337,10 @@ async function planSelfCheck(db: Firestore, today: string): Promise<Notice[]> {
 /**
  * 朝 6 時の実行。(1) 自己点検の期限の知らせを送る → (2) 朝の queued、failed、10 分以上の queued の immediate を読んで送る。
  * (1) で送信が止まったら (2) は送らず、読んだ記録を failed にして次の送り直しに回す。
+ * overview を渡すと、(2) の前に全国まとめの記録を作る（変化があった朝だけ。1 通の先頭に入る）。準備の失敗で今までの知らせを止めない。
  */
-export async function runMorningDigest(deps: NotifyDeps, geo: GeoStore): Promise<void> {
+export async function runMorningDigest(deps: NotifyDeps, geo: GeoStore, overview?: OverviewOptions): Promise<void> {
+  const startedAt = Date.now(); // 時間の上限は関数の始まりから数える（Claude の待ちで 540 秒を超えて打ち切られないように）
   const now = deps.now();
   await retryCapAlerts(deps.db, now); // 上限で止めた知らせの、箱への登録の残り
   let stopped = false;
@@ -346,6 +349,14 @@ export async function runMorningDigest(deps: NotifyDeps, geo: GeoStore): Promise
     if (due.length > 0) stopped = (await dispatchNotices(deps, due)).mailStopped;
   } catch (e) {
     console.error("[notify] 期限の知らせを送れませんでした", { code: codeOf(e) });
+  }
+
+  if (overview) {
+    try {
+      await prepareDailyOverview(deps, geo, overview);
+    } catch (e) {
+      console.error("[notify] 全国まとめを用意できませんでした（印を残さないので、次の朝にまとめます）", { code: codeOf(e) });
+    }
   }
 
   const recs = await readQueue(deps.db, now, true);
@@ -358,5 +369,5 @@ export async function runMorningDigest(deps: NotifyDeps, geo: GeoStore): Promise
     console.log("[notify] 送信が止まっているので、朝のまとめは送りませんでした", { count: recs.length });
     return;
   }
-  await deliverQueued(deps, geo, recs, { failRestOnStop: true });
+  await deliverQueued(deps, geo, recs, { failRestOnStop: true, startedAt });
 }

@@ -1,5 +1,6 @@
 // 会員の通知（M-02、M-13）の模擬環境の試験が使う道具。本番のコードは import しない。
 // 送信は偽物（本物のメールは送らない）。メールアドレスは example.test。
+import type Anthropic from "@anthropic-ai/sdk";
 import { vi } from "vitest";
 import { db } from "../../src/admin";
 import type { NotifyDeps } from "../../src/notify/dispatch";
@@ -89,4 +90,31 @@ export function captureLogs(): { text(): string; restore(): void } {
     }),
   );
   return { text: () => lines.join("\n"), restore: () => spies.forEach((s) => s.mockRestore()) };
+}
+
+/** 総括の Claude の返事の形（本物の Claude は呼ばない）。 */
+export function claudeMessage(message: string, over: Record<string, unknown> = {}): Anthropic.Message {
+  return {
+    id: "msg_test",
+    type: "message",
+    role: "assistant",
+    model: "claude-sonnet-5-5",
+    stop_reason: "end_turn",
+    stop_details: null,
+    stop_sequence: null,
+    content: [{ type: "text", text: JSON.stringify({ message }), citations: null }],
+    usage: { input_tokens: 1000, output_tokens: 200, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+    ...over,
+  } as unknown as Anthropic.Message;
+}
+
+/** 偽の Claude。呼ばれた内容を calls に残す。Error なら投げる。 */
+export function fakeClient(reply: Anthropic.Message | Error): { client: Anthropic; calls: Anthropic.MessageCreateParamsNonStreaming[] } {
+  const calls: Anthropic.MessageCreateParamsNonStreaming[] = [];
+  const create = async (p: Anthropic.MessageCreateParamsNonStreaming) => {
+    calls.push(p);
+    if (reply instanceof Error) throw reply;
+    return reply;
+  };
+  return { client: { messages: { create } } as unknown as Anthropic, calls };
 }

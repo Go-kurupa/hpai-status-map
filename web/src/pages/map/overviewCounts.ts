@@ -1,61 +1,17 @@
 // 毎朝の札の数え方（純粋な関数と、県の形を待つ計算）。文は持たない。多い少ないを判断しない。
-import { addDays } from "@hpai/shared/dates";
 import { centerDistanceKm, distanceToMuniKm, type GeoStore } from "@hpai/shared/geo";
 import { isCountable, isWithinDistanceBand } from "@hpai/shared/level";
 import { mesh3Center } from "@hpai/shared/mesh";
 import { nearbyPast, type NearbyPastSummary } from "@hpai/shared/past";
-import { compareSeasons } from "@hpai/shared/seasonCompare";
-import { seasonOf } from "@hpai/shared/season";
-import type { Case, HistoryCase, IsoDate, MeshCode, MuniCode, Season, WildBird } from "@hpai/shared/types";
-import { wildBirdRows } from "./listRows";
-import { caseDate } from "./seasonView";
+import { pastSeasonsOf } from "@hpai/shared/overview";
+import type { Case, HistoryCase, MeshCode, MuniCode, Season } from "@hpai/shared/types";
 
-export const RECENT_DAYS = 14;
-/** 今季と比べる過去のシーズンの数（シーズンの棒と同じ） */
-export const PAST_SEASONS = 6;
+export { countRecentDays, pastRangeToDate, pastSeasonsOf, PAST_SEASONS, rangeText, RECENT_DAYS, wildBirdCounts } from "@hpai/shared/overview";
+export type { PastRange, WildBirdCount } from "@hpai/shared/overview";
 
 /** 枠で絞るときの広げ幅（度）。緯度 0.6 度は約 66km、経度 0.8 度は北緯 45.6 度でも約 62km で、距離の帯（60km）より広い */
 const BBOX_MARGIN_LAT_DEG = 0.6;
 const BBOX_MARGIN_LNG_DEG = 0.8;
-
-/** 今日を含む直近 14 日の今季の件数。日付のない事例は数える（少ない側に倒さない。countThisSeasonToDate と同じ）。未来の日付は入れない */
-export function countRecentDays(cases: readonly Case[], current: Season, today: IsoDate): number {
-  const from = addDays(today, -(RECENT_DAYS - 1));
-  return cases.filter((c) => {
-    if (c.season !== current || !isCountable(c)) return false;
-    const d = caseDate(c) ?? today;
-    return d >= from && d <= today;
-  }).length;
-}
-
-/** 比べる過去のシーズン（新しい順）。最大 6 つで、記録の最も古いシーズンより前は入れない */
-export function pastSeasonsOf(history: readonly HistoryCase[], current: Season): Season[] {
-  if (history.length === 0) return [];
-  const first = Math.min(...history.map((h) => h.season));
-  const oldest = Math.max(current - PAST_SEASONS, first);
-  const out: Season[] = [];
-  for (let s = current - 1; s >= oldest; s--) out.push(s);
-  return out;
-}
-
-export interface PastRange {
-  seasons: number;
-  min: number;
-  max: number;
-}
-
-/** 過去のシーズンの、今日と同じ日までの件数の幅。比べるシーズンがなければ null。件数のないシーズンは 0 件として入れる */
-export function pastRangeToDate(history: readonly HistoryCase[], today: IsoDate): PastRange | null {
-  const seasons = pastSeasonsOf(history, seasonOf(today));
-  if (seasons.length === 0) return null;
-  const toDate = new Map(compareSeasons(history, today).map((r) => [r.season, r.countToDate]));
-  const counts = seasons.map((s) => toDate.get(s) ?? 0);
-  return { seasons: seasons.length, min: Math.min(...counts), max: Math.max(...counts) };
-}
-
-export function rangeText(r: PastRange): string {
-  return r.min === r.max ? `${r.min} 件` : `${r.min}〜${r.max} 件`;
-}
 
 /** 枠で見て帯に入りうる町か。枠が分からない町は true（距離の計算で投げる） */
 function nearByBbox(meshCode: MeshCode, geo: GeoStore): (muni: MuniCode) => boolean {
@@ -116,17 +72,4 @@ export interface FrequentTownCount {
 /** 登録した町ごとの今季の件数（登録の順）。発生のない町も 0 として返す。多い少ないを判断しない */
 export function frequentTownCounts(cases: readonly Case[], towns: readonly MuniCode[], current: Season): FrequentTownCount[] {
   return towns.map((muniCode) => ({ muniCode, count: cases.filter((c) => c.season === current && isCountable(c) && c.muniCode === muniCode).length }));
-}
-
-export interface WildBirdCount {
-  total: number;
-  confirmed: number;
-  screening: number;
-}
-
-/** 野鳥の陽性の件数。否定を除き、検査中と確定を分ける（一覧の wildBirdRows と同じ扱い） */
-export function wildBirdCounts(birds: readonly WildBird[]): WildBirdCount {
-  const rows = wildBirdRows(birds);
-  const confirmed = rows.filter((b) => b.label === "高病原性の確定").length;
-  return { total: rows.length, confirmed, screening: rows.length - confirmed };
 }

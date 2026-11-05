@@ -2,6 +2,7 @@
 // 今季は currentCases（Firestore）、過去は history（data/history/cases.json）から数える。履歴の今季と同じ年は混ぜない。
 import { isCountable } from "@hpai/shared/level";
 import { pastCasesOf } from "@hpai/shared/history";
+import { caseDate, isSuspectedOnly } from "@hpai/shared/overview";
 import { PREFS } from "@hpai/shared/pref";
 import { seasonAgoLabel } from "@hpai/shared/season";
 import type { Case, HistoryCase, IsoDate, MuniCode, PrefCode, Season } from "@hpai/shared/types";
@@ -57,22 +58,7 @@ const SEASON_MONTHS = [6, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5] as const;
 /** 事例がなくても出す月（シーズン 10 月〜翌 5 月） */
 const ALWAYS_MONTHS = new Set([10, 11, 12, 1, 2, 3, 4, 5]);
 
-/** 疑いの段階しかない事例だけが疑い。確定より後の段階（殺処分など）が記録されていれば確定。 */
-function isSuspectedOnly(c: Case): boolean {
-  return !Object.keys(c.stages).some((k) => k !== "suspected");
-}
-
-/** 月の棒に入れる日。確定の日、なければ疑いの日、なければ最初の段階の日 */
-export function caseDate(c: Case): IsoDate | null {
-  const s = c.stages;
-  if (s.confirmed) return s.confirmed.date;
-  if (s.suspected) return s.suspected.date;
-  const dates = Object.values(s)
-    .map((st) => st?.date)
-    .filter((d): d is IsoDate => typeof d === "string")
-    .sort();
-  return dates[0] ?? null;
-}
+export { caseDate };
 
 function buildMonths(counted: readonly Case[]): { months: MonthBar[]; undated: number } {
   const byMonth = new Map<number, MonthBar>();

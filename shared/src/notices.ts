@@ -7,6 +7,7 @@ import { diffDays } from "./dates";
 import { formatJaDate } from "./jaDate";
 import { relationWithoutBand, wildBirdsNotifiable } from "./level";
 import { MORTALITY_TEXT } from "./mortality";
+import { overviewLines, type NearFacts, type OverviewDay } from "./overview";
 import { PREFS } from "./pref";
 import { seasonOf } from "./season";
 import { GeoNotLoadedError, type GeoStore } from "./geo";
@@ -15,14 +16,14 @@ import { FIXED_TEXT } from "./wording";
 
 export type NoticeEvent =
   | "suspected" | "confirmed" | "reviewing" | "negated" | "shipment_lifted" | "movement_lifted"
-  | "wild_bird_confirmed" | "self_check_due" | "mortality_hit";
+  | "wild_bird_confirmed" | "self_check_due" | "mortality_hit" | "daily_overview";
 export type NoticeTiming = "immediate" | "morning";
 
 /** sentNotices/{noticeDocId(...)}。重複防止は会員単位。 */
 export interface SentNotice {
   farmId: string;
   uid: string;
-  subjectId: string; // caseId、wildBirdId、"YYYY-MM"、deathRecordId
+  subjectId: string; // caseId、wildBirdId、"YYYY-MM"、deathRecordId、全国まとめは "YYYY-MM-DD"
   event: NoticeEvent;
   timing: NoticeTiming;
   /**
@@ -54,6 +55,8 @@ export interface Notice {
   relationKind: LevelReasonKind | null;
   facts: { muniName: string | null; prefCode: PrefCode | null; date: IsoDate | null; sourceUrl: string | null };
   isCorrection: boolean;
+  /** 全国まとめ（daily_overview）の中身。組み立て直しのときに入れる。記録には残さない。 */
+  overview?: { day: OverviewDay; near: NearFacts | null };
 }
 
 /** 事例の変化から出る出来事。 */
@@ -114,6 +117,7 @@ export function timingFor(event: NoticeEvent, relation: Level): NoticeTiming | n
     case "mortality_hit":
       return "immediate";
     case "wild_bird_confirmed":
+    case "daily_overview":
       return "morning";
   }
 }
@@ -303,6 +307,23 @@ export function wildBirdNotices(i: { bird: WildBird; farms: ReadonlyArray<Farm &
   return out;
 }
 
+/**
+ * 全国まとめの宛先（設計書 2 章の 5）。段階によらず全農場の会員へ朝に 1 通。配信停止の会員と、朝のまとめを切った農場には出さない。
+ * 読めない農場は送らない側に倒す。距離は送る直前に計算する。date は日本時間の日付（subjectId）。
+ */
+export function planOverviewNotices(farms: ReadonlyArray<Farm & { id: string }>, date: IsoDate): Notice[] {
+  const out: Notice[] = [];
+  for (const farm of farms) {
+    const uids = activeUids(farm);
+    if (uids === null || uids.length === 0) continue;
+    if ({ ...DEFAULT_NOTIFY, ...(farm.notify ?? {}) }.morningDigest === false) continue;
+    for (const uid of uids) {
+      out.push({ farmId: farm.id, uid, subjectId: date, event: "daily_overview", timing: "morning", level: null, relationKind: null, facts: { muniName: null, prefCode: null, date, sourceUrl: null }, isCorrection: false });
+    }
+  }
+  return out;
+}
+
 /** 日付の形（YYYY-MM-DD で実在する日）。 */
 function isIsoDay(v: unknown): v is IsoDate {
   if (typeof v !== "string") return false;
@@ -486,6 +507,8 @@ export function subjectOf(n: Notice): string {
       return n.facts.date === null ? "【自己点検】期限が近づいています" : `【自己点検】${formatJaDate(n.facts.date)}が期限です`;
     case "mortality_hit":
       return n.facts.date === null ? "【死亡数】死亡率が基準に当たる可能性があります" : `【死亡数】${formatJaDate(n.facts.date)}の死亡率が基準に当たる可能性があります`;
+    case "daily_overview":
+      return `【全国の状況】${formatJaDate(n.subjectId)}`;
     default:
       return unsupported(n.event);
   }
@@ -605,6 +628,13 @@ const DIGEST_ORDER: Partial<Record<NoticeEvent, number>> = { reviewing: 0, suspe
  */
 export function renderMorningDigest(list: readonly Notice[], ctx: RenderCtx): { subject: string; text: string } {
   if (list.length === 0) throw new RangeError("朝のまとめが空です。何もない日は送りません");
+  const lines = [`${list.length} 件のお知らせをまとめてお送りします。`, "", ...digestItemLines(list, ctx)];
+  lines.push(...footer(ctx));
+  return { subject: `【朝のまとめ】${list.length} 件`, text: lines.join("\n") };
+}
+
+/** 各知らせの節。同じ事例は 疑い、確定、否定 の順（事例は最初に現れた順）。引数の配列は並べ替えない。 */
+function digestItemLines(list: readonly Notice[], ctx: RenderCtx): string[] {
   const firstSeen = new Map<string, number>();
   list.forEach((n, i) => {
     if (!firstSeen.has(n.subjectId)) firstSeen.set(n.subjectId, i);
@@ -612,8 +642,20 @@ export function renderMorningDigest(list: readonly Notice[], ctx: RenderCtx): { 
   const ordered = [...list].sort(
     (a, b) => firstSeen.get(a.subjectId)! - firstSeen.get(b.subjectId)! || (DIGEST_ORDER[a.event] ?? 9) - (DIGEST_ORDER[b.event] ?? 9),
   );
-  const lines = [`${list.length} 件のお知らせをまとめてお送りします。`, ""];
-  for (const n of ordered) lines.push(`■ ${subjectOf(n)}`, ...itemLines(n, ctx), "");
+  return ordered.flatMap((n) => [`■ ${subjectOf(n)}`, ...itemLines(n, ctx), ""]);
+}
+
+/**
+ * 会員への 1 通。全国まとめがあれば先頭に置き、ほかの知らせを続ける（送り直しで 2 日分が重なったら新しい日だけ）。
+ * なければ今までと同じ（1 件ならその知らせ、2 件以上なら朝のまとめ）。
+ */
+export function renderMemberMail(list: readonly Notice[], ctx: RenderCtx): { subject: string; text: string } {
+  const overviews = list.filter((n) => n.event === "daily_overview" && n.overview !== undefined);
+  const rest = list.filter((n) => n.event !== "daily_overview");
+  const latest = overviews.reduce<Notice | null>((best, n) => (best === null || n.subjectId > best.subjectId ? n : best), null);
+  if (latest === null) return list.length === 1 ? renderNotice(list[0]!, ctx) : renderMorningDigest(list, ctx);
+  const lines = [...overviewLines(latest.overview!.day, latest.overview!.near, ctx.appUrl), ""];
+  if (rest.length > 0) lines.push(`ほかに ${rest.length} 件のお知らせがあります。`, "", ...digestItemLines(rest, ctx));
   lines.push(...footer(ctx));
-  return { subject: `【朝のまとめ】${list.length} 件`, text: lines.join("\n") };
+  return { subject: rest.length === 0 ? subjectOf(latest) : `【朝のまとめ】全国の状況とお知らせ ${rest.length} 件`, text: lines.join("\n") };
 }

@@ -4,7 +4,8 @@
 import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { diffDays } from "@hpai/shared/dates";
 import type { GeoStore } from "@hpai/shared/geo";
-import { mortalityNotices, selfCheckDueNotice, planCaseNotices, wildBirdNotices, type Notice, type SentNotice } from "@hpai/shared/notices";
+import { farmPoint, mortalityNotices, planOverviewNotices, selfCheckDueNotice, planCaseNotices, wildBirdNotices, type Notice, type SentNotice } from "@hpai/shared/notices";
+import { nearFactsOf, OVERVIEW_COLLECTION, OVERVIEW_MAX_RETRY_DAYS, type NearFacts, type OverviewDay } from "@hpai/shared/overview";
 import type { Case, Farm, IsoDate, WildBird } from "@hpai/shared/types";
 
 /** 読んだ記録。state は読んだときの状態（送る直前の読み直しと比べる）。 */
@@ -29,10 +30,11 @@ export interface RebuildContext {
   birds: Map<string, Promise<WildBird | null>>;
   sentBySubject: Map<string, Promise<SentNotice[]>>;
   answered: Map<string, Promise<boolean>>;
+  overviewDays: Map<string, Promise<OverviewDay | null>>;
 }
 
 export function createRebuildContext(db: Firestore, geo: GeoStore, today: IsoDate): RebuildContext {
-  return { db, geo, today, farms: new Map(), cases: new Map(), birds: new Map(), sentBySubject: new Map(), answered: new Map() };
+  return { db, geo, today, farms: new Map(), cases: new Map(), birds: new Map(), sentBySubject: new Map(), answered: new Map(), overviewDays: new Map() };
 }
 
 const CASE_EVENTS: ReadonlySet<string> = new Set(["suspected", "confirmed", "reviewing", "negated", "shipment_lifted", "movement_lifted"]);
@@ -65,6 +67,12 @@ const birdOf = (ctx: RebuildContext, id: string): Promise<WildBird | null> =>
   memo(ctx.birds, id, async () => {
     const snap = await ctx.db.collection("wildBirds").doc(id).get();
     return snap.exists ? { ...(snap.data() as WildBird), id: snap.id } : null;
+  });
+
+const overviewDayOf = (ctx: RebuildContext, date: string): Promise<OverviewDay | null> =>
+  memo(ctx.overviewDays, date, async () => {
+    const snap = await ctx.db.doc(`${OVERVIEW_COLLECTION}/${date}`).get();
+    return snap.exists ? (snap.data() as OverviewDay) : null;
   });
 
 /** 同じ事例の、送れた（sent）知らせ。訂正かどうかを決める。 */
@@ -122,6 +130,8 @@ const isDay = (v: unknown): v is IsoDate => {
  * （否定の訂正は planCaseNotices が決める: 先に疑い・確定が届いていれば、今 ④ でも設定を切っていても届く）。
  * 否定済みの事例の疑い・確定は drop。事例、野鳥の文書がなければ fail。
  * 期限の知らせは、記録済みの月と期限を過ぎた月を drop。基準の知らせは事例を読まず、記録の id の日付で作る。
+ * 全国まとめは、朝のまとめを切った農場と古い分を drop、日付の文書がなければ fail。数字は日付の文書のまま（Claude を呼ばない）で、
+ * 農場からの距離だけをここで計算する。計算できなければ near:null（本文は 0 と書かず、全国の分は送る）。
  */
 export async function rebuildNotice(ctx: RebuildContext, rec: QueueRec): Promise<Rebuilt> {
   const { farmId, uid, subjectId, event } = rec.data;
@@ -164,6 +174,22 @@ export async function rebuildNotice(ctx: RebuildContext, rec: QueueRec): Promise
     const day = subjectId.slice(0, 10);
     const date = isDay(day) ? day : null; // id から日付が読めなければ、日付なしの文面にする
     return pick(mortalityNotices(farm, subjectId, day).map((n) => ({ ...n, facts: { ...n.facts, date } })));
+  }
+
+  if (event === "daily_overview") {
+    if (!isDay(subjectId)) return { kind: "fail" };
+    if (diffDays(ctx.today, subjectId) > OVERVIEW_MAX_RETRY_DAYS) return { kind: "drop" };
+    const base = planOverviewNotices([farm], subjectId).find((x) => x.uid === uid);
+    if (!base) return { kind: "drop" };
+    const day = await overviewDayOf(ctx, subjectId);
+    if (day === null) return { kind: "fail" };
+    let near: NearFacts | null = null;
+    try {
+      near = await nearFactsOf(farmPoint(farm), day, ctx.geo);
+    } catch {
+      console.error("[notify] この農場の近くの件数を計算できませんでした"); // 農場の位置は出さない
+    }
+    return { kind: "send", notice: { ...base, overview: { day, near } } };
   }
 
   return { kind: "fail" };
