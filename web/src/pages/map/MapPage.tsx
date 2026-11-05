@@ -424,8 +424,9 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           守る文（riskAnywhere）が札のすぐ前に来る決まりを崩さないよう、その前に置く */}
       {showStats && !narrow && d.watchLoaded && failedCount > 0 ? (
         <p className="stat-unchecked-wide">
-          {noneConfirmed ? null : TEXT.watchShortRange}
-          {TEXT.watchShortWho(failedWho)}
+          {/* 文ごとに 1 つの塊にして、狭い右の列（再現）でも「ませ／ん。」と折らない */}
+          {noneConfirmed ? null : <span className="stat-sentence">{TEXT.watchShortRange}</span>}
+          <span className="stat-sentence">{TEXT.watchShortWho(failedWho)}</span>
         </p>
       ) : null}
       {riskAboveStats ? riskText("map-notice map-risk") : null}

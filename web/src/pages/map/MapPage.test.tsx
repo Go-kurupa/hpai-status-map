@@ -1047,6 +1047,7 @@ describe("MapPage: 平面の札（T12）", () => {
     // 件数だけが読まれないよう、札が一部未確認の数を出す間は、札の上（札の行より前）にまとめの 1 文がある（2026-11-06 作者の決定）
     const wide = document.querySelector(".stat-unchecked-wide")!;
     expect(wide.textContent).toBe("確認できた範囲の件数です。岡山県は確認できていません。");
+    expect([...wide.querySelectorAll(".stat-sentence")].map((e) => e.textContent)).toEqual(["確認できた範囲の件数です。", "岡山県は確認できていません。"]);
     expect(follows(wide, document.querySelector(".stat-row")!)).toBe(true);
     expect(document.querySelector(".stat-unchecked")).toBeNull();
   });
@@ -1059,8 +1060,8 @@ describe("MapPage: 平面の札（T12）", () => {
     r.deliverWatch(failed([]));
     await waitFor(() => expect(document.querySelector(".stat-row")).not.toBeNull());
     expect(document.querySelector(".stat-unchecked-wide")).toBeNull();
-    const date = document.querySelector(".stat-past .stat-date");
-    if (date) expect(date.textContent).toMatch(/^\d+ 月 \d+ 日$/);
+    await waitFor(() => expect(document.querySelector(".stat-past .stat-date")).not.toBeNull());
+    expect(document.querySelector(".stat-past .stat-date")!.textContent).toMatch(/^\d+ 月 \d+ 日$/);
   });
 
   it("全県確認の札は横に並び、stat-wide を付けない", async () => {

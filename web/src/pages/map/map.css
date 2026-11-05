@@ -1150,7 +1150,11 @@
     margin: 0 0 8px;
     font-weight: 700;
     line-height: 1.5;
-    text-wrap: pretty; /* 再現の狭い右の列で「ん。」だけが最後の行に残らないように */
+  }
+  /* 文ごとの塊。1 行に入らない長さのときだけ塊の中で折れる */
+  .stat-unchecked-wide .stat-sentence {
+    display: inline-block;
+    max-width: 100%;
   }
   /* 県ごとと週ごとの棒を横に並べる */
   .season-charts {
