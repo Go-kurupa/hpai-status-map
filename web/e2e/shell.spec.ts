@@ -659,6 +659,10 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
         expect(b.y + b.height).toBeLessThanOrEqual(top);
       }
       for (const card of await cards.all()) await expect(card.locator(".stat-when")).toBeVisible();
+      // 全県を確認できた朝の行は断りではないので、右の列の先頭に上げない
+      const ok = (await page.locator(".state-ok.watch-line").boundingBox())!;
+      const disclaimer = (await page.locator(".map-disclaimer").boundingBox())!;
+      expect(ok.y).toBeGreaterThan(disclaimer.y);
       if (spot) {
         const scope = (await page.locator(".map-scope").boundingBox())!;
         expect(scope.width).toBeLessThanOrEqual(320);
