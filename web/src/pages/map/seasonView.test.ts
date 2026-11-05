@@ -1,7 +1,7 @@
 import type { Case, HistoryCase } from "@hpai/shared/types";
 import { describe, expect, it } from "vitest";
 import historyJson from "../../../../data/history/cases.json";
-import { badgeStates, buildSeasonView, JAPAN_BOUNDS, listSeasonBars, MUNI_ZOOM } from "./seasonView";
+import { badgeStates, buildPrefBars, buildSeasonView, buildWeeks, JAPAN_BOUNDS, listSeasonBars, MUNI_ZOOM } from "./seasonView";
 
 const history = historyJson as HistoryCase[];
 const SEASONS = [2020, 2021, 2022, 2023, 2024, 2025];
@@ -220,5 +220,85 @@ describe("バッジと定数", () => {
     expect(badgeStates(v, 5)).toEqual([{ prefCode: "33", text: "1 件・確認中" }]);
     const loading = buildSeasonView({ season: 2026, current: 2026, currentCases: null, history: [] });
     expect(badgeStates(loading, 5)).toEqual([]);
+  });
+});
+
+describe("buildPrefBars（県ごとの棒）", () => {
+  it("多い順に並べる。同じ数は県の番号の順。発生のない県は 0 の棒にしない", () => {
+    const bars = buildPrefBars({ "33": 1, "01": 3, "46": 3, "15": 2 });
+    expect(bars.map((b) => [b.name, b.count])).toEqual([
+      ["北海道", 3],
+      ["鹿児島県", 3],
+      ["新潟県", 2],
+      ["岡山県", 1],
+    ]);
+  });
+
+  it("0 件の県と、数のない県（未確認の県を含む）は棒にしない", () => {
+    expect(buildPrefBars({ "01": 2, "23": 0 }).map((b) => b.prefCode)).toEqual(["01"]);
+    expect(buildPrefBars({})).toEqual([]);
+  });
+});
+
+describe("buildWeeks（週ごとの棒）", () => {
+  const on = (date: string, o: Partial<Case> = {}) => mkCase({ id: date, stages: { confirmed: { date, time: null } }, ...o });
+  const shape = (r: ReturnType<typeof buildWeeks>) => r.weeks.map((w) => `${w.monday}:${w.count}`);
+
+  it("週は月曜に始まる。日曜は前の週、月曜は新しい週に入る", () => {
+    const r = buildWeeks([on("2026-11-01"), on("2026-11-02"), on("2026-11-08"), on("2026-11-09")], 2026, "2026-11-10");
+    expect(r.weeks.at(-3)).toEqual({ monday: "2026-10-26", count: 1 }); // 11/1 は日曜
+    expect(r.weeks.at(-2)).toEqual({ monday: "2026-11-02", count: 2 }); // 11/2 は月曜、11/8 は日曜
+    expect(r.weeks.at(-1)).toEqual({ monday: "2026-11-09", count: 1 });
+    expect(r.undated).toBe(0);
+  });
+
+  it("10 月の最初の日を含む週から今週まで並べる。発生のない週も 0 として持つ", () => {
+    expect(shape(buildWeeks([on("2026-10-14")], 2026, "2026-10-20"))).toEqual(["2026-09-28:0", "2026-10-05:0", "2026-10-12:1", "2026-10-19:0"]);
+  });
+
+  it("年をまたいでも続く（週が 12/28 に始まり、1/3 までが同じ週）", () => {
+    const r = buildWeeks([on("2026-12-31"), on("2027-01-03"), on("2027-01-04")], 2026, "2027-01-05");
+    expect(r.weeks.at(-2)).toEqual({ monday: "2026-12-28", count: 2 });
+    expect(r.weeks.at(-1)).toEqual({ monday: "2027-01-04", count: 1 });
+    expect(new Set(r.weeks.map((w) => w.monday)).size).toBe(r.weeks.length);
+  });
+
+  it("日付のない事例は棒に入れず数える", () => {
+    const r = buildWeeks([on("2026-10-14"), mkCase({ id: "x", stages: {} })], 2026, "2026-10-20");
+    expect(r.undated).toBe(1);
+    expect(r.weeks.reduce((s, w) => s + w.count, 0)).toBe(1);
+  });
+
+  it("形の違う日付、今日より後、今季より前の日付は棒に入れず数える", () => {
+    const r = buildWeeks([on("2026-13-40"), on("2026-10-21"), on("2026-05-31"), on("2026-10-14")], 2026, "2026-10-20");
+    expect(r.undated).toBe(3);
+    expect(r.weeks.at(-1)!.monday).toBe("2026-10-19");
+    expect(r.weeks[0]!.monday).toBe("2026-09-28");
+  });
+
+  it("確認中と否定は数えない。今季でない事例も数えない。再現の事例は数える", () => {
+    const r = buildWeeks(
+      [on("2026-10-14", { confirmState: "reviewing" }), on("2026-10-14", { negation: "negated" }), on("2026-10-14", { season: 2025 }), on("2026-10-14", { confirmState: "replay" })],
+      2026,
+      "2026-10-20",
+    );
+    expect(r.weeks.reduce((s, w) => s + w.count, 0)).toBe(1);
+    expect(r.undated).toBe(0);
+  });
+
+  it("6〜9 月に事例があれば、その週までさかのぼる。週の始まりはシーズンの前でもよい（2025-06-01 は日曜）", () => {
+    expect(buildWeeks([on("2026-06-01")], 2026, "2026-06-10").weeks.map((w) => w.monday)).toEqual(["2026-06-01", "2026-06-08"]);
+    expect(buildWeeks([on("2025-06-01", { season: 2025 })], 2025, "2025-06-02").weeks).toEqual([
+      { monday: "2025-05-26", count: 1 },
+      { monday: "2025-06-02", count: 0 },
+    ]);
+  });
+
+  it("0 件なら棒の週はどれも 0。10 月より前で事例がなければ週を並べない", () => {
+    expect(buildWeeks([], 2026, "2026-10-05").weeks).toEqual([
+      { monday: "2026-09-28", count: 0 },
+      { monday: "2026-10-05", count: 0 },
+    ]);
+    expect(buildWeeks([], 2026, "2026-08-01")).toEqual({ weeks: [], undated: 0 });
   });
 });

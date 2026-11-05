@@ -158,6 +158,15 @@ export const TEXT = {
   meshPressCenter: "「市町村の中心あたりのマス目を使う」を押してください。",
   /** 地図の画面の「くわしい場所を決める」（地図がない端末）。十字は出さない */
   spotNoMap: "この端末では地図を表示できないため、選んだ町の中心あたりの約 1km のマス目を使えます。",
+  // 県ごとと週ごとの棒。多い少ないを書かない
+  prefBarsTitle: "県ごとの今季の件数",
+  weekBarsTitle: "週ごとの全国の発生（今季）",
+  weekBarsAria: "週ごとの全国の発生の棒",
+  weekOf: (monthDay: string): string => `${monthDay}の週`,
+  weekMax: (n: number): string => `最大 ${n} 件`,
+  weekUndated: (n: number): string => `週の棒に置ける日付のない事例が ${n} 件あり、棒には入っていません。`,
+  chartsSourceLive: "出典: 農林水産省と各県の発表",
+  chartsSourceReplay: "出典: 国の事例一覧",
   // 凡例（W-06）
   legendAria: "地図の見方",
 } as const;

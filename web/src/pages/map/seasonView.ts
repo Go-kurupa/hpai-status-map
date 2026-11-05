@@ -1,5 +1,6 @@
 // 地図の 1 シーズン分の見え方を、事例から計算する（純粋な関数だけ。maplibre も React も読まない）。
 // 今季は currentCases（Firestore）、過去は history（data/history/cases.json）から数える。履歴の今季と同じ年は混ぜない。
+import { addDays, diffDays } from "@hpai/shared/dates";
 import { isCountable } from "@hpai/shared/level";
 import { pastCasesOf } from "@hpai/shared/history";
 import { caseDate, isSuspectedOnly } from "@hpai/shared/overview";
@@ -80,6 +81,66 @@ function buildMonths(counted: readonly Case[]): { months: MonthBar[]; undated: n
     (m) => byMonth.get(m) ?? { month: m, count: 0, headCount: 0, unknownHeadCases: 0 },
   );
   return { months, undated };
+}
+
+/** 週の棒の 1 本。monday はその週の月曜（シーズンの前の日付のこともある） */
+export interface WeekBar {
+  monday: IsoDate;
+  count: number;
+}
+
+/** 2024-01-01 は月曜。ここからの日数で曜日を出す（機械の時刻帯に頼らない） */
+const A_MONDAY = "2024-01-01";
+
+/** その日を含む週の月曜。形の違う日付は null */
+function mondayOf(date: IsoDate): IsoDate | null {
+  try {
+    const sinceMonday = ((diffDays(date, A_MONDAY) % 7) + 7) % 7;
+    return addDays(date, -sinceMonday);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 週ごとの全国の件数。月の棒と同じく 10 月の週から今週まで並べ、それより前（6〜9 月）は事例があるときだけさかのぼる。
+ * 数えるのは今季の isCountable な事例だけ。今週より後の週は描かないので、再現では再現の時点までになる。
+ * undated は棒に置けなかった数（日付がない、形が違う、今季の初めより前、today より後）。
+ */
+export function buildWeeks(cases: readonly Case[], season: Season, today: IsoDate): { weeks: WeekBar[]; undated: number } {
+  const seasonStart = `${season}-06-01`;
+  const byWeek = new Map<IsoDate, number>();
+  let undated = 0;
+  for (const c of cases) {
+    if (c.season !== season || !isCountable(c)) continue;
+    const d = caseDate(c);
+    const monday = d === null ? null : mondayOf(d);
+    if (d === null || monday === null || d < seasonStart || d > today) {
+      undated++;
+      continue;
+    }
+    byWeek.set(monday, (byWeek.get(monday) ?? 0) + 1);
+  }
+  const first = [...byWeek.keys(), mondayOf(`${season}-10-01`)!].sort()[0]!;
+  const last = mondayOf(today)!;
+  const weeks: WeekBar[] = [];
+  for (let w = first; w <= last; w = addDays(w, 7)) weeks.push({ monday: w, count: byWeek.get(w) ?? 0 });
+  return { weeks, undated };
+}
+
+export interface PrefBar {
+  prefCode: PrefCode;
+  name: string;
+  count: number;
+}
+
+/** 県ごとの棒。1 件以上の県だけを多い順に（同じ数は県の番号の順）。未確認の県を 0 の棒にしない */
+export function buildPrefBars(countByPref: Readonly<Record<PrefCode, number>>): PrefBar[] {
+  const names = new Map(PREFS.map((p) => [p.code, p.name]));
+  return Object.entries(countByPref)
+    .filter(([, count]) => count > 0)
+    .map(([prefCode, count]) => ({ prefCode, name: names.get(prefCode) ?? prefCode, count }))
+    .sort((a, b) => b.count - a.count || a.prefCode.localeCompare(b.prefCode));
 }
 
 function sortedUnique(codes: Iterable<string>): string[] {

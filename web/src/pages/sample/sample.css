@@ -1,31 +1,42 @@
 /* 見本の農場の帯。平面の単色だけ（陰影・ぼかしは使わない） */
 .sample-band {
+  position: relative;
   border: 2px dashed var(--accent);
   background: var(--surface);
-  padding: 8px var(--gutter);
-  margin: 0 0 12px;
+  padding: 6px var(--gutter);
+  margin: 0 0 8px;
+  font-size: 14.4px;
+  line-height: 1.35;
 }
 .sample-band p {
-  margin: 0 0 4px;
+  margin: 0;
 }
 .sample-badge {
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 .sample-note {
   color: var(--sub);
-  font-size: 0.9rem;
+}
+/* 「くわしく」は断りの行の右に置く（1 行目のバッジは横幅いっぱいに使う） */
+.sample-lead .band-fold > summary {
+  top: 8px;
+  padding-top: 16px;
+  line-height: 1.35;
+}
+.sample-lead .band-fold p {
+  margin: 0 0 4px;
 }
 .sample-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 4px;
+  gap: 8px;
+  margin: 0 0 8px;
 }
 .sample-nav a {
   display: inline-flex;
   align-items: center;
-  min-height: var(--tap);
+  min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);

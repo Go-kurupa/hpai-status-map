@@ -138,19 +138,39 @@ describe("/sample（入口）", () => {
     expect(screen.getByRole("link", { name: "鶏を飼っていない方へ" }).getAttribute("href")).toBe("/public");
   });
 
-  it("見本の見出しと保存されない断りは再現の帯より前。帯は 架空の文 → 時点 → nav の順。断りは畳まない", async () => {
+  it("見本の見出しと保存されない短い断りは再現の帯より前で、畳まない。再現の帯は題と時点だけ。その後に行き来の nav", async () => {
     mount("/sample/todo");
     await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
     const lead = document.querySelector(".sample-lead")!;
     expect(lead.children[0]!.className).toBe("sample-badge");
-    expect(lead.children[1]!.textContent).toBe(SAMPLE_TEXT.notSent);
+    expect(lead.children[0]!.textContent).toBe(SAMPLE_TEXT.badge);
+    expect(lead.children[1]!.textContent).toBe("入れた記録は保存されません");
     expect(lead.children[1]!.closest("details")).toBeNull();
     const replayBand = document.querySelector(".replay-band")!;
     expect(lead.compareDocumentPosition(replayBand) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const kids = [...document.querySelector(".sample-band:not(.sample-lead)")!.children];
-    expect(kids[0]!.textContent).toContain("架空の農場です");
-    expect(kids[1]!.textContent).toContain("見本の時点");
-    expect(kids[2]!.tagName).toBe("NAV");
+    expect([...replayBand.children].map((e) => e.className)).toEqual(["replay-title", "replay-time"]);
+    expect(replayBand.querySelector("details")).toBeNull();
+    const nav = screen.getByRole("navigation", { name: SAMPLE_TEXT.navLabel });
+    expect(replayBand.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(nav.closest("details")).toBeNull();
+  });
+
+  it("残りの説明は 1 つの『くわしく』に畳み、閉じていても DOM にある（保存されない全文、架空の文、時点、再現の帯の文と注記）", async () => {
+    mount("/sample/todo");
+    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
+    const folds = document.querySelectorAll(".sample-lead details");
+    expect(folds).toHaveLength(1);
+    const fold = folds[0] as HTMLDetailsElement;
+    expect(fold.open).toBe(false);
+    expect(fold.querySelector("summary")?.textContent).toBe("くわしく");
+    const inFold = fold.textContent ?? "";
+    expect(inFold).toContain(SAMPLE_TEXT.notSent);
+    expect(inFold).toContain(`${SAMPLE_TEXT.fictional}。${SAMPLE_TEXT.member}`);
+    expect(inFold).toContain(SAMPLE_TEXT.asOf("2025年12月30日"));
+    expect(inFold).toContain(FIXED_TEXT.replayBanner);
+    expect(inFold).toContain("仮の地点で見ています");
+    expect(inFold).toContain("特定の農場を指すものではありません");
+    expect(inFold).toContain("津山市の範囲から 5km 以内");
   });
 
   it("読み込めなければ、そう書く（空の画面を出さない）。やり直せる", async () => {
@@ -163,11 +183,11 @@ describe("/sample（入口）", () => {
 });
 
 describe("/sample/todo（帯）", () => {
-  it("再現の帯の箇条書き（.replay-notes）は畳まず、4 文が出る", async () => {
+  it("再現の帯の箇条書き（.replay-notes）は『くわしく』に畳み、4 文が DOM にある", async () => {
     mount("/sample/todo");
     await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
     const notes = document.querySelector(".replay-notes")!;
-    expect(notes.closest("details")).toBeNull();
+    expect(notes.closest("details")?.closest(".sample-lead")).toBeTruthy();
     expect(notes.querySelectorAll("li").length).toBe(4);
   });
 });

@@ -109,19 +109,22 @@ function ReplayReady({ scenario: casesScenario }: { scenario: ReplayScenario }) 
 
   return (
     <ReplayFrame scenario={scenario} dataSource={dataSource} spot={spot}>
-      <ReplayControls
-        scenario={scenario}
-        dataSource={dataSource}
-        view={view}
-        canOwn={deviceSpot !== null}
-        onView={setView}
-        spot={spot}
-        flow={flow}
-        flowStatus={national.status}
-        onFlow={chooseFlow}
-      />
-      {/* 流れを替えたら、地図の状態（選んだシーズン、見る場所、数え終えた件数）を持ち越さない */}
-      <MapPage key={flow} replayStats={flow === "national"} />
+      {/* 操作の後ろの部分は、replay.css が地図の下へ動かす（地図の画面を変えずに、地図を最初の画面に入れる） */}
+      <div className="replay-stage">
+        <ReplayControls
+          scenario={scenario}
+          dataSource={dataSource}
+          view={view}
+          canOwn={deviceSpot !== null}
+          onView={setView}
+          spot={spot}
+          flow={flow}
+          flowStatus={national.status}
+          onFlow={chooseFlow}
+        />
+        {/* 流れを替えたら、地図の状態（選んだシーズン、見る場所、数え終えた件数）を持ち越さない */}
+        <MapPage key={flow} replayStats={flow === "national"} />
+      </div>
     </ReplayFrame>
   );
 }
@@ -181,86 +184,91 @@ function ReplayControls({
   const bandKm = useBandDistance(current, spot, isNational);
 
   return (
-    <div className="replay-controls">
-      <h1 className="replay-heading">去年の再現（2025 年シーズンの発生状況）</h1>
-      <p className="replay-hint">
-        <Link to="/replay/backstage">舞台裏（AI が読んだ結果と、プログラムの検査）を見る</Link>
-        {" / "}
-        <Link to="/sample">見本の農場で試す</Link>
-      </p>
-      <div role="group" aria-label="再現の範囲" className="replay-switch">
-        <button type="button" className="btn" aria-pressed={flow === "cases"} onClick={() => onFlow("cases")}>
-          12 月の 4 事例
-        </button>
-        <button type="button" className="btn" aria-pressed={flow === "national"} onClick={() => onFlow("national")}>
-          全国の流れ
-        </button>
-      </div>
-      {flowStatus === "loading" ? <p role="status">全国の流れを読み込んでいます</p> : null}
-      {flowStatus === "failed" ? <p role="status">全国の流れを読めませんでした。もう一度押してください。</p> : null}
-      <div role="group" aria-label="見る場所" className="replay-switch">
-        <button type="button" className="btn" aria-pressed={view === "zone"} onClick={() => onView("zone")}>
-          {isNational ? "作者の村から見る" : "もし区域の近くの農場なら"}
-        </button>
-        <button type="button" className="btn" aria-pressed={view === "own"} disabled={!canOwn} onClick={() => onView("own")}>
-          自分の町で見る
-        </button>
-      </div>
-      {!canOwn ? <p className="replay-hint">自分の町で見るには、<Link to="/">地図</Link>で自分の場所を決めてください（この端末の中にだけ保存されます）。</p> : null}
-
-      <div className="replay-steps">
-        <button type="button" className="btn" disabled={order === 0} onClick={() => seek(order - 1)}>
-          前へ
-        </button>
-        <p className="replay-position">
-          {`${order} / ${total}`}
-        </p>
-        <button type="button" className="btn btn-primary" disabled={order === total} onClick={() => seek(order + 1)}>
-          次へ
-        </button>
-      </div>
-
-      <p className="replay-now" aria-live="polite">
-        {current ? eventLabel(current) : "はじまり（最初の発表の前）"}
-        {bandKm !== null ? `。${farmDistanceText(bandKm, isDefaultSpot(scenario, spot))}` : null}
-      </p>
-      {current ? (
-        <p className="replay-source">
-          {formatMonthDay(current.date)}の出来事の出典:{" "}
-          <a href={current.sourceUrl} target="_blank" rel="noopener noreferrer">
-            {new URL(current.sourceUrl).hostname}
-          </a>
-          {eventStage(current) === "suspected" ? "（県の対策本部会議の資料）" : ""}
-        </p>
-      ) : null}
-
-      {isNational ? <p className="replay-hint">全国の流れでは、メールの下書きは出しません。</p> : null}
-      {!isNational && view === "zone" && preview ? (
-        <section className="replay-mail" aria-label="このときメールが届く">
-          <h2>このときメールが届く</h2>
-          <p>{preview.text}</p>
-          <p className="replay-hint">再現では実際には送りません。</p>
-        </section>
-      ) : null}
-      {!isNational && view === "zone" && current && !preview ? <p className="replay-hint">この出来事では、この地点にメールは届きません。</p> : null}
-      {!isNational && view === "own" ? <p className="replay-hint">自分の町では、メールの下書きは出しません。</p> : null}
-
-      <Fold summary="日付の一覧から選ぶ">
-        <ol className="replay-list" aria-label="日付の一覧">
-          <li>
-            <button type="button" className="replay-item" aria-pressed={order === 0} onClick={() => seek(0)}>
-              はじまり（最初の発表の前）
+    <>
+      <div className="replay-top">
+        <h1 className="replay-heading">去年の再現（2025 年シーズンの発生状況）</h1>
+        <div className="replay-bar">
+          <div role="group" aria-label="再現の範囲" className="replay-switch">
+            <button type="button" className="btn" aria-pressed={flow === "cases"} onClick={() => onFlow("cases")}>
+              12 月の 4 事例
             </button>
-          </li>
-          {scenario.events.map((e) => (
-            <li key={e.order}>
-              <button type="button" className="replay-item" aria-pressed={order === e.order} onClick={() => seek(e.order)}>
-                {eventLabel(e)}
+            <button type="button" className="btn" aria-pressed={flow === "national"} onClick={() => onFlow("national")}>
+              全国の流れ
+            </button>
+          </div>
+          <div className="replay-steps">
+            <button type="button" className="btn" disabled={order === 0} onClick={() => seek(order - 1)}>
+              前へ
+            </button>
+            <button type="button" className="btn btn-primary" disabled={order === total} onClick={() => seek(order + 1)}>
+              次へ
+            </button>
+          </div>
+        </div>
+        {flowStatus === "loading" ? <p role="status">全国の流れを読み込んでいます</p> : null}
+        {flowStatus === "failed" ? <p role="status">全国の流れを読めませんでした。もう一度押してください。</p> : null}
+        <div className="replay-now-row">
+          <p className="replay-position">{`${order} / ${total}`}</p>
+          <p className="replay-now" aria-live="polite">
+            {current ? eventLabel(current) : "はじまり（最初の発表の前）"}
+            {bandKm !== null ? `。${farmDistanceText(bandKm, isDefaultSpot(scenario, spot))}` : null}
+          </p>
+        </div>
+      </div>
+
+      <div className="replay-below">
+        {isNational ? <p className="replay-hint">全国の流れでは、メールの下書きは出しません。</p> : null}
+        {!isNational && view === "zone" && preview ? (
+          <section className="replay-mail" aria-label="このときメールが届く">
+            <h2>このときメールが届く</h2>
+            <p>{preview.text}</p>
+            <p className="replay-hint">再現では実際には送りません。</p>
+          </section>
+        ) : null}
+        {!isNational && view === "zone" && current && !preview ? <p className="replay-hint">この出来事では、この地点にメールは届きません。</p> : null}
+        {!isNational && view === "own" ? <p className="replay-hint">自分の町では、メールの下書きは出しません。</p> : null}
+        {current ? (
+          <p className="replay-source">
+            {formatMonthDay(current.date)}の出来事の出典:{" "}
+            <a href={current.sourceUrl} target="_blank" rel="noopener noreferrer">
+              {new URL(current.sourceUrl).hostname}
+            </a>
+            {eventStage(current) === "suspected" ? "（県の対策本部会議の資料）" : ""}
+          </p>
+        ) : null}
+
+        <Fold summary="日付の一覧から選ぶ">
+          <ol className="replay-list" aria-label="日付の一覧">
+            <li>
+              <button type="button" className="replay-item" aria-pressed={order === 0} onClick={() => seek(0)}>
+                はじまり（最初の発表の前）
               </button>
             </li>
-          ))}
-        </ol>
-      </Fold>
-    </div>
+            {scenario.events.map((e) => (
+              <li key={e.order}>
+                <button type="button" className="replay-item" aria-pressed={order === e.order} onClick={() => seek(e.order)}>
+                  {eventLabel(e)}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </Fold>
+
+        <div role="group" aria-label="見る場所" className="replay-switch">
+          <button type="button" className="btn" aria-pressed={view === "zone"} onClick={() => onView("zone")}>
+            {isNational ? "作者の村から見る" : "もし区域の近くの農場なら"}
+          </button>
+          <button type="button" className="btn" aria-pressed={view === "own"} disabled={!canOwn} onClick={() => onView("own")}>
+            自分の町で見る
+          </button>
+        </div>
+        {!canOwn ? <p className="replay-hint">自分の町で見るには、<Link to="/">地図</Link>で自分の場所を決めてください（この端末の中にだけ保存されます）。</p> : null}
+        <p className="replay-hint">
+          <Link to="/replay/backstage">舞台裏（AI が読んだ結果と、プログラムの検査）を見る</Link>
+          {" / "}
+          <Link to="/sample">見本の農場で試す</Link>
+        </p>
+      </div>
+    </>
   );
 }

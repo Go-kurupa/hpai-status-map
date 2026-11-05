@@ -179,6 +179,98 @@ test.describe("地図（入口）", () => {
     expect(smallest).toBeGreaterThanOrEqual(14);
   });
 
+  test.describe("県ごとと週ごとの棒", () => {
+    const NOW = "2027-05-25T09:00:00+09:00";
+    // シーズンの終わり（週がいちばん多い）で、1 週に 12 件、名前の長い県、未確認の県がある状態
+    const at = (date: string, prefCode: string, id: string) => ({
+      id,
+      season: 2026,
+      nationalNo: null,
+      prefNo: null,
+      prefCode,
+      muniCode: null,
+      muniName: null,
+      birdUse: null,
+      housing: null,
+      headCount: 1000,
+      stages: { confirmed: { date, time: null } },
+      radiiKm: [],
+      prefEstimates: { shipment: null, movement: null, surveillance: null },
+      negation: "none",
+      negatedAt: null,
+      confirmState: "auto",
+      sourceUrls: [],
+      updatedAt: `${date}T12:00:00+09:00`,
+    });
+    const cases = [
+      ...Array.from({ length: 12 }, (_, i) => at("2027-01-06", "14", `k${i}`)),
+      ...Array.from({ length: 9 }, (_, i) => at("2027-01-13", "46", `s${i}`)),
+      ...Array.from({ length: 34 }, (_, i) => at(`2026-${10 + (i % 3)}-${String(1 + (i % 28)).padStart(2, "0")}`, "01", `h${i}`)),
+    ] as unknown as Parameters<typeof installFixture>[1]["cases"];
+    const watch = WATCH_OK.map((w) => {
+      const base = { ...w, checkedAt: "2027-05-25T08:30:00+09:00", lastOkAt: "2027-05-25T08:30:00+09:00" };
+      return w.prefCode === "23" ? { ...base, ok: false, failingSince: "2027-05-24T08:30:00+09:00" } : base;
+    });
+    const openCharts = async (page: Page, width: number) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.route("https://cyberjapandata.gsi.go.jp/**", (route) => route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG_1PX }));
+      await installFixture(page, { now: NOW, cases, wildBirds: [], watch });
+      await page.goto("/");
+      await expect(page.locator(".season-charts")).toBeVisible({ timeout: 20_000 });
+    };
+
+    test("幅 360px で 35 週と 2 桁の数字を描いても横にはみ出さず、数字は 14px を下回らない", async ({ page }) => {
+      await openCharts(page, 360);
+      const weeks = page.getByRole("list", { name: "週ごとの全国の発生の棒" });
+      await expect(weeks.locator("> li")).toHaveCount(35);
+      await expect(page.locator(".pref-bar-row").first()).toContainText("北海道");
+      await expect(page.locator(".pref-bar-row", { hasText: "神奈川県" })).toContainText("12 件");
+      await expect(page.locator(".season-charts")).toContainText("愛知県は確認できていません。");
+      await expect(page.locator(".season-charts")).toContainText("9 月 28 日の週");
+      await expect(page.locator(".season-charts")).toContainText("5 月 24 日の週");
+      const m = await page.evaluate(() => {
+        const counts = [...document.querySelectorAll<HTMLElement>(".week-count")];
+        const rects = counts.map((c) => c.getBoundingClientRect());
+        const overlap = rects.some((r, i) => rects.slice(0, i).some((q) => r.left < q.right && r.right > q.left && r.top < q.bottom && r.bottom > q.top));
+        // 数字は自分の棒の真上にある
+        const offCenter = counts.some((c) => {
+          const a = c.getBoundingClientRect();
+          const b = c.parentElement!.getBoundingClientRect();
+          return Math.abs(a.left + a.width / 2 - (b.left + b.width / 2)) > 1;
+        });
+        const texts = [...document.querySelectorAll<HTMLElement>(".season-charts p, .season-charts li, .week-count")];
+        return {
+          doc: document.documentElement.scrollWidth,
+          right: Math.max(...rects.map((r) => r.right)),
+          overlap,
+          offCenter,
+          smallest: Math.min(...texts.map((t) => parseFloat(getComputedStyle(t).fontSize))),
+        };
+      });
+      expect(m.doc).toBeLessThanOrEqual(360);
+      expect(m.right).toBeLessThanOrEqual(360);
+      expect(m.overlap).toBe(false);
+      expect(m.offCenter).toBe(false);
+      expect(m.smallest).toBeGreaterThanOrEqual(14);
+      expect(await page.locator(".season-charts").innerText()).not.toMatch(/区域の外です|安全|安心|問題ありません/);
+    });
+
+    test("幅 1280px で 2 つの棒が横に並ぶ", async ({ page }) => {
+      await openCharts(page, 1280);
+      const pref = (await page.locator(".pref-bars").boundingBox())!;
+      const week = (await page.locator(".week-bars").boundingBox())!;
+      expect(week.x).toBeGreaterThan(pref.x + pref.width - 1);
+      expect(Math.abs(week.y - pref.y)).toBeLessThan(2);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
+    });
+
+    test("今季 0 件で全県確認なら枠を出さない", async ({ page }) => {
+      await open(page, 360);
+      await expect(page.getByText(/どこでも感染のリスクがあります/)).toBeVisible();
+      await expect(page.locator(".season-charts")).toHaveCount(0);
+    });
+  });
+
   test.describe("距離の輪", () => {
     const RING_NOTE = "輪は距離の目安で、発表の区域ではありません。";
     // 津山市のあたりのマス目（試験の地点）

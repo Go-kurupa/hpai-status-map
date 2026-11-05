@@ -15,21 +15,74 @@
 .replay-spot {
   margin: 0 0 4px;
 }
+/* 再現と見本の枠の帯。短い行だけを出し、地図や中身を最初の画面に入れる（舞台裏の帯は上の形のまま） */
+.replay-band-short {
+  position: relative;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-size: 14.4px;
+  line-height: 1.35;
+}
+.replay-band-short :is(.replay-banner, .replay-title, .replay-time, .replay-spot) {
+  margin: 0;
+}
+/* 帯の残りの注記を畳む部品。見出しは帯の 1 行目の右に重ね、帯の高さを増やさない（押せる高さは保つ） */
+.band-fold > summary {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  min-height: 44px;
+  padding: 2px 8px;
+  color: var(--accent);
+  font-size: 14.4px;
+  line-height: 1.7;
+}
+.band-fold[open] {
+  margin-top: 6px;
+}
+.band-fold p {
+  margin: 0 0 4px;
+}
 .replay-notes {
   margin: 4px 0 0;
   padding-left: 1.2em;
   color: var(--sub);
-  font-size: 0.9rem;
 }
-.replay-controls {
-  margin: 0 0 12px;
+.replay-top {
+  margin: 0 0 4px;
+}
+/* 見出しは帯が見せているので、読み上げだけにする */
+.replay-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.replay-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px;
+  margin: 0 0 4px;
+}
+.replay-bar .btn {
+  min-height: 44px;
+  padding: 4px 8px;
+  font-size: 14.4px;
+  line-height: 1.35;
+  white-space: nowrap;
 }
 .replay-switch,
 .replay-steps {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
+}
+.replay-below > .replay-switch {
+  gap: 8px;
   margin: 0 0 8px;
 }
 .replay-switch .btn[aria-pressed="true"] {
@@ -37,14 +90,20 @@
   border-color: var(--accent);
   color: var(--on-accent);
 }
+.replay-now-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
 .replay-now {
   font-weight: 700;
-  margin: 0 0 8px;
+  margin: 0;
+  line-height: 1.35;
 }
 .replay-position {
   margin: 0;
-  min-width: 4em;
-  text-align: center;
+  font-size: 14.4px;
+  white-space: nowrap;
 }
 .replay-list {
   list-style: none;
@@ -88,6 +147,109 @@
   min-height: var(--tap);
   padding-block: 12px;
   box-sizing: border-box;
+}
+
+/* 操作の後ろの部分（.replay-below）と地図の画面の中身を、地図を先に見せる順に並べ直す。
+   地図の画面の側は変えず、.map-page の箱だけを外す（display: contents）。読み上げとキーボードの順は DOM の順のまま */
+.replay-stage > .map-page {
+  display: contents;
+}
+@media (max-width: 63.99rem) {
+  .replay-stage {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  /* 地図の前に残すのは 帯、操作の行、今の出来事（2 行まで）、段階の文（2 行まで）。一番長い形でも下のタブより上に入る高さにする */
+  .replay-stage > .map-page > .map-box {
+    --map-h: clamp(220px, min((100vw - 2 * var(--gutter)) * 0.95, 100vh - 465px), 480px);
+    order: 1;
+  }
+  @supports (height: 100svh) {
+    .replay-stage > .map-page > .map-box {
+      --map-h: clamp(220px, min((100vw - 2 * var(--gutter)) * 0.95, 100svh - 465px), 480px);
+    }
+  }
+  .replay-stage > .map-page > .map-box ~ * {
+    order: 7;
+  }
+  /* 地図の断りは地図のすぐ下（/ と同じ） */
+  .replay-stage > .map-page > :is(.map-disclaimer, .map-ring-note) {
+    order: 2;
+  }
+  /* 地図の切り替えは地図に重ねない（全国の流れの輪と陸を隠す）。次に、地図の時点（帯の『再現の時点』と同じ）、守る文と札を DOM の順で */
+  .replay-stage > .map-page > .map-scope {
+    order: 3;
+  }
+  .replay-stage > .map-page > :is(h1 + p, .map-risk, .stat-row) {
+    order: 4;
+  }
+  .replay-below {
+    order: 5;
+  }
+  .replay-stage > .map-page > .watch-line {
+    order: 6;
+  }
+}
+/* PC 幅: 地図の画面と同じ 2 列を、この箱で作る。操作は 1 行で全幅、右の列は 札 → 後ろの部分 → 地図の断り の順 */
+@media (min-width: 64rem) {
+  .replay-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    column-gap: 24px;
+    align-items: start;
+    max-width: 1200px;
+    margin-inline: auto;
+  }
+  .replay-top {
+    order: -2;
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 16px;
+    margin-bottom: 8px;
+  }
+  .replay-bar {
+    flex-wrap: nowrap;
+    gap: 16px;
+    margin: 0;
+  }
+  .replay-now-row {
+    flex: 1 1 16em;
+  }
+  .replay-below {
+    grid-column: 2;
+    order: 2;
+  }
+  /* 地図の画面の規則（:not(:has(...)) の分だけ強い）に勝つよう、祖先を足す */
+  .app-main .replay-scope .replay-stage > .map-page > .map-box {
+    order: -1;
+    --map-h: clamp(320px, 100vh - 340px, 640px);
+  }
+  @supports (height: 100svh) {
+    .app-main .replay-scope .replay-stage > .map-page > .map-box {
+      --map-h: clamp(320px, 100svh - 340px, 640px);
+    }
+  }
+  .app-main .replay-scope .replay-stage > .map-page > :is(.map-risk, .stat-row) {
+    order: 1;
+  }
+  /* 町の文のうち、今の段階の文は札の次に、過去の行などは後ろの部分より後に置く（段階の文とメールの枠を最初の画面に入れる） */
+  .replay-stage > .map-page > .town-banner {
+    display: contents;
+  }
+  .replay-stage > .map-page > .town-banner > * {
+    grid-column: 2;
+    order: 3;
+  }
+  .replay-stage > .map-page > .town-banner > :is(.town-name, .town-now, .state-unknown, .state-wait) {
+    order: 1;
+  }
+  .replay-stage > .map-page > :is(h1 + p, .map-scope) {
+    grid-column: 2;
+    order: 2;
+  }
 }
 
 /* 地図の見出しは『今季の発生状況』。再現では、再現の見出し（.replay-heading）を使う */

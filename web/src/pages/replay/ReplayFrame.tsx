@@ -8,6 +8,7 @@ import { DataSourceProvider, RecordStoreProvider } from "../../data/context";
 import { SpotProvider } from "../../data/spotContext";
 import type { RecordStore } from "../../data/types";
 import { AsOfPrecisionContext, type AsOfPrecision } from "../../ui/AsOf";
+import { Fold } from "../../ui/Fold";
 import { isDefaultSpot, pointInTime } from "./replayEngine";
 import type { ReplayDataSource } from "./ReplayDataSource";
 import "./replay.css";
@@ -44,14 +45,35 @@ export const NATIONAL_NOTES = {
   noTime: "過去の記録は日付だけなので『時刻の記載なし』とし、その日の終わりに置いています。",
 } as const;
 
+/** 帯に出す仮の地点の短い 1 行。くわしい説明は「くわしく」の中 */
+const SPOT_SHORT = {
+  cases: "仮の地点で見ています。特定の農場を指すものではありません。",
+  national: "作者の村の中心付近を仮の地点にしています。農場の場所を指すものではありません。",
+  device: "この端末にある地点で見ています（端末の外へは送りません）",
+} as const;
+
+const SPOT_DETAIL = {
+  cases: "仮の地点は、津山市の範囲から 5km 以内に説明のために置いた地点です。",
+  national: "仮の地点で見ています（作者の農場がある村の中心付近に置いた約 1km のマス目で、農場の場所を指すものではありません）",
+} as const;
+
+/** 帯の残りの注記を畳む部品の見出し */
+export const MORE_LABEL = "くわしく";
+
+/** 帯の題。括弧の中（4 事例の町の名）は「くわしく」の注記にあるので、帯では省く */
+const bandTitle = (scenario: ReplayScenario): string => scenario.title.replace(/（[^）]*）$/u, "");
+
 export interface ReplayFrameProps {
   scenario: ReplayScenario;
   dataSource: ReplayDataSource;
   /** 見る地点。null は仮の地点（defaultSpot）。どちらも読み取り専用で、端末には書かない */
   spot: FarmPoint | null;
   recordStore?: RecordStore;
-  /** 再現の帯より前に置くもの（見本の断りを最初の画面に入れる） */
-  lead?: ReactNode;
+  /**
+   * 見本の枠。これを渡すと、再現の帯は題と時点だけにする。
+   * 再現の帯の残りの注記（details）を受け取り、再現の帯より前に置くものを返す（見本の断りと 1 つの「くわしく」にまとめる）
+   */
+  lead?: (details: ReactNode) => ReactNode;
   children: ReactNode;
 }
 
@@ -62,41 +84,55 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, lead, chi
   const timeKnown = order > 0 && scenario.events[order - 1]!.time !== null;
   // 時刻の記載がない時点は、時刻の文字を描かない（日付だけ。はじまる前は何も描かない）。内部の 23:59:59 は画面に出さない
   const precision: AsOfPrecision = timeKnown ? "time" : order === 0 ? "none" : "date";
+  const national = scenario.id === NATIONAL_FLOW_ID;
+  const spotShort = tentative ? (national ? SPOT_SHORT.national : SPOT_SHORT.cases) : SPOT_SHORT.device;
+  const details = (
+    <>
+      {tentative ? <p>{national ? SPOT_DETAIL.national : SPOT_DETAIL.cases}</p> : null}
+      <ul className="replay-notes">
+        {national ? (
+          <>
+            <li>{NATIONAL_NOTES.flow(scenario.events.length)}</li>
+            <li>{NATIONAL_NOTES.noLift}</li>
+            <li>{REPLAY_NOTES.watchExample}</li>
+            <li>{NATIONAL_NOTES.noMail}</li>
+            <li>{NATIONAL_NOTES.noTime}</li>
+          </>
+        ) : (
+          <>
+            <li>{REPLAY_NOTES.fourCases}</li>
+            <li>{REPLAY_NOTES.watchExample}</li>
+            <li>{REPLAY_NOTES.noMail}</li>
+            <li>{REPLAY_NOTES.noTime}</li>
+          </>
+        )}
+      </ul>
+    </>
+  );
 
   return (
     <DataSourceProvider value={dataSource}>
       <RecordStoreProvider value={recordStore ?? EMPTY_RECORD_STORE}>
         <SpotProvider fixed={fixed}>
-          {lead}
-          <section className="replay-band" aria-label="去年の再現">
-            <p className="replay-banner">{FIXED_TEXT.replayBanner}</p>
-            <p className="replay-title">{scenario.title}</p>
+          {lead?.(
+            <>
+              <p>{FIXED_TEXT.replayBanner}</p>
+              <p>{spotShort}</p>
+              {details}
+            </>,
+          )}
+          <section className="replay-band replay-band-short" aria-label="去年の再現">
+            {lead ? null : <p className="replay-banner">{FIXED_TEXT.replayBanner}</p>}
+            <p className="replay-title">{bandTitle(scenario)}</p>
             <p className="replay-time">再現の時点: {pointInTime(scenario, order)}</p>
-            <p className="replay-spot">
-              {tentative
-                ? scenario.id === NATIONAL_FLOW_ID
-                  ? "仮の地点で見ています（作者の農場がある村の中心付近に置いた約 1km のマス目で、農場の場所を指すものではありません）"
-                  : "仮の地点で見ています（津山市の範囲から 5km 以内に説明のために置いた地点で、特定の農場を指すものではありません）"
-                : "この端末にある地点で見ています（端末の外へは送りません）"}
-            </p>
-            <ul className="replay-notes">
-              {scenario.id === NATIONAL_FLOW_ID ? (
-                <>
-                  <li>{NATIONAL_NOTES.flow(scenario.events.length)}</li>
-                  <li>{NATIONAL_NOTES.noLift}</li>
-                  <li>{REPLAY_NOTES.watchExample}</li>
-                  <li>{NATIONAL_NOTES.noMail}</li>
-                  <li>{NATIONAL_NOTES.noTime}</li>
-                </>
-              ) : (
-                <>
-                  <li>{REPLAY_NOTES.fourCases}</li>
-                  <li>{REPLAY_NOTES.watchExample}</li>
-                  <li>{REPLAY_NOTES.noMail}</li>
-                  <li>{REPLAY_NOTES.noTime}</li>
-                </>
-              )}
-            </ul>
+            {lead ? null : (
+              <>
+                <p className="replay-spot">{spotShort}</p>
+                <Fold summary={MORE_LABEL} className="band-fold">
+                  {details}
+                </Fold>
+              </>
+            )}
           </section>
           {/* 地図の h1 は『今季』と出るので隠し、再現の画面が『去年の再現』の見出しを出す（replay.css） */}
           <AsOfPrecisionContext.Provider value={precision}>

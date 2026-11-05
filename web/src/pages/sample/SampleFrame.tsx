@@ -7,7 +7,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useOutletContext } from "react-router";
 import { fetchHistory } from "../../data/history";
 import { ReplayDataSource } from "../replay/ReplayDataSource";
-import { ReplayFrame } from "../replay/ReplayFrame";
+import { Fold } from "../../ui/Fold";
+import { MORE_LABEL, ReplayFrame } from "../replay/ReplayFrame";
 import { SAMPLE_TEXT } from "./sampleTexts";
 import { SampleRecordStore } from "./SampleRecordStore";
 import "./sample.css";
@@ -50,31 +51,31 @@ function jaDayWithYear(d: string): string {
   return `${d.slice(0, 4)}年${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
 }
 
-/** 見本の見出しと「保存されない」の断り。再現の帯より前に置き、最初の画面に入れる */
-function SampleLead() {
+/** 見本の見出しと「保存されない」の短い断り。再現の帯より前に置き、残りの説明は「くわしく」に畳む（再現の帯の注記も一緒に） */
+function SampleLead({ data, details }: { data: SampleFarmData; details: ReactNode }) {
   return (
     <section className="sample-band sample-lead" aria-label={SAMPLE_TEXT.badge}>
       <p className="sample-badge">{SAMPLE_TEXT.badge}</p>
-      <p className="sample-note">{SAMPLE_TEXT.notSent}</p>
+      <p className="sample-note">{SAMPLE_TEXT.notSaved}</p>
+      <Fold summary={MORE_LABEL} className="band-fold">
+        <p>{SAMPLE_TEXT.notSent}</p>
+        <p>
+          {SAMPLE_TEXT.fictional}。{SAMPLE_TEXT.member}
+        </p>
+        <p>{SAMPLE_TEXT.asOf(jaDayWithYear(data.today))}</p>
+        {details}
+      </Fold>
     </section>
   );
 }
 
-function SampleBand({ data, nav }: { data: SampleFarmData; nav: boolean }) {
+function SampleNav() {
   return (
-    <section className="sample-band" aria-label={SAMPLE_TEXT.title}>
-      <p>
-        {SAMPLE_TEXT.fictional}。{SAMPLE_TEXT.member}
-      </p>
-      <p>{SAMPLE_TEXT.asOf(jaDayWithYear(data.today))}</p>
-      {nav ? (
-        <nav aria-label={SAMPLE_TEXT.navLabel} className="sample-nav">
-          <Link to="/sample">{SAMPLE_TEXT.navEntry}</Link>
-          <Link to="/sample/todo">{SAMPLE_TEXT.navTodo}</Link>
-          <Link to="/sample/record/deaths">{SAMPLE_TEXT.navRecord}</Link>
-        </nav>
-      ) : null}
-    </section>
+    <nav aria-label={SAMPLE_TEXT.navLabel} className="sample-nav">
+      <Link to="/sample">{SAMPLE_TEXT.navEntry}</Link>
+      <Link to="/sample/todo">{SAMPLE_TEXT.navTodo}</Link>
+      <Link to="/sample/record/deaths">{SAMPLE_TEXT.navRecord}</Link>
+    </nav>
   );
 }
 
@@ -112,8 +113,8 @@ function SampleReady({ scenario: loaded, data, nav, children }: Loaded & { nav: 
     };
   });
   return (
-    <ReplayFrame scenario={env.scenario} dataSource={env.dataSource} spot={env.spot} recordStore={env.recordStore} lead={<SampleLead />}>
-      <SampleBand data={data} nav={nav} />
+    <ReplayFrame scenario={env.scenario} dataSource={env.dataSource} spot={env.spot} recordStore={env.recordStore} lead={(details) => <SampleLead data={data} details={details} />}>
+      {nav ? <SampleNav /> : null}
       {children(data)}
     </ReplayFrame>
   );

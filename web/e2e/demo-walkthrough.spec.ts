@@ -63,7 +63,7 @@ test.describe("デモの筋", () => {
     await expect(past).toContainText("（記録）");
     await expect(past).toContainText("隣町で発生しました");
     expect(await past.evaluate((el) => el.closest("[data-tone]") === null && el.querySelector("[data-tone]") === null)).toBe(true);
-    await expect(page.locator(".town-now")).toHaveAttribute("data-tone", "lv2");
+    await expect(page.locator(".town-now[data-tone]")).toHaveAttribute("data-tone", "lv2");
 
     // 過去 6 シーズンの件数（古い順に 52、25、84、11、51、24。合わせて 247 事例）
     const counts = await page.locator(".season-bar-count").allTextContents();
@@ -99,7 +99,14 @@ test.describe("デモの筋", () => {
 
     // 帯と仮の地点（作者の村の中心のマス目で、農場の場所ではない）と、輪の断りが最初から出る
     await expect(page.getByText("去年の再現です").first()).toBeVisible();
-    await expect(page.getByText("作者の農場がある村の中心付近に置いた約 1km のマス目で、農場の場所を指すものではありません", { exact: false })).toBeVisible();
+    await expect(page.getByText("作者の村の中心付近を仮の地点にしています。農場の場所を指すものではありません。", { exact: true })).toBeVisible();
+    const bandFold = page.locator(".replay-band details");
+    const spotDetail = bandFold.getByText("作者の農場がある村の中心付近に置いた約 1km のマス目で、農場の場所を指すものではありません", { exact: false });
+    await expect(spotDetail).toBeAttached();
+    await expect(spotDetail).toBeHidden();
+    await bandFold.locator("summary", { hasText: "くわしく" }).click();
+    await expect(spotDetail).toBeVisible();
+    await bandFold.locator("summary").click();
     await expect(page.getByText("輪は距離の目安で、発表の区域ではありません。")).toBeVisible();
     await expect(page.locator(".ring-label").filter({ hasText: "60" })).toBeVisible();
 

@@ -115,7 +115,7 @@ describe("ReplayPage", () => {
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
   });
 
-  it("見出しは『去年の再現』。地図の『今季』の見出しは隠す（replay.css）。再現の見出しは隠さない", async () => {
+  it("見出しは『去年の再現』。地図の『今季』の見出しは隠す（replay.css）。再現の見出しは読み上げの木に残し、見た目の見出しの役は帯の『去年の再現です』が担う", async () => {
     await show();
     await mapReady();
     const h1s = [...document.querySelectorAll("h1")];
@@ -125,6 +125,11 @@ describe("ReplayPage", () => {
     const css = readFileSync(path.resolve(import.meta.dirname, "replay.css"), "utf8");
     expect(css).toMatch(/\.replay-scope \.map-page > h1\s*\{\s*display:\s*none/);
     expect(css).not.toMatch(/\.as-of/); // 時刻は隠さず、描かない
+    // 読み上げだけにする（display: none にすると読み上げの木から消える）
+    const heading = /\.replay-heading\s*\{([^}]*)\}/.exec(css)![1]!;
+    expect(heading).toMatch(/clip-path/);
+    expect(heading).not.toMatch(/display:\s*none|visibility:\s*hidden/);
+    expect(document.querySelector(".replay-band .replay-banner")?.textContent).toBe(FIXED_TEXT.replayBanner);
   });
 
   it("時刻の記載がない時点では、画面のどこにも時刻（23:59 など）の文字がない。日付だけ。はじまる前は何も描かない", async () => {
@@ -278,12 +283,44 @@ describe("ReplayPage", () => {
     expect(document.body.textContent).toContain("自分の町で見るには、地図で自分の場所を決めてください（この端末の中にだけ保存されます）。");
   });
 
-  it("再現の帯の箇条書き（replay-notes）は畳まない（details の中にない）", async () => {
+  it("帯に出すのは 去年の再現です、題、時点、仮の地点の短い 1 行だけ。残りの注記は『くわしく』に畳み、閉じていても DOM にある", async () => {
     await show();
     await mapReady();
-    const notes = document.querySelector(".replay-notes")!;
-    expect(notes).toBeTruthy();
-    expect(notes.closest("details")).toBeNull();
+    const bandEl = document.querySelector(".replay-band")!;
+    const fold = bandEl.querySelector("details")!;
+    expect(fold.open).toBe(false);
+    expect(fold.querySelector("summary")?.textContent).toBe("くわしく");
+    // 畳まない行
+    expect(bandEl.querySelector(".replay-banner")!.textContent).toBe(FIXED_TEXT.replayBanner);
+    expect(bandEl.querySelector(".replay-title")!.textContent).toBe("2025 年 12 月の 4 事例");
+    expect(bandEl.querySelector(".replay-time")!.textContent).toBe("再現の時点: はじまる前");
+    expect(bandEl.querySelector(".replay-spot")!.textContent).toBe("仮の地点で見ています。特定の農場を指すものではありません。");
+    for (const c of [".replay-banner", ".replay-title", ".replay-time", ".replay-spot"]) expect(bandEl.querySelector(c)!.closest("details")).toBeNull();
+    // 畳む行（全文の意味を変えない）
+    const notes = fold.querySelector(".replay-notes")!;
+    expect([...notes.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
+      "この再現が流すのは 4 事例だけです（米子市、姫路市、津山市、亀岡市）。ほかの発生は入っていません。",
+      "見回りの状況（地図の斜線）は説明のための例です。実際の見回りの結果ではありません。",
+      "メールは実際には送りません。『このときメールが届く』は、届くとしたらこうなる、という表示です。",
+      "時刻の記載がない発表は『時刻の記載なし』とし、その日の終わりに置いています。",
+    ]);
+    expect(fold.textContent).toContain("津山市の範囲から 5km 以内に説明のために置いた地点");
+  });
+
+  it("操作は 範囲の切り替え と 前へ・次へ と 今の出来事 を地図の前に置く。日付の一覧と見る場所は replay.css が地図の下へ送る", async () => {
+    await show();
+    await mapReady();
+    const top = document.querySelector(".replay-top")!;
+    expect(within(top as HTMLElement).getByRole("group", { name: "再現の範囲" })).toBeTruthy();
+    expect(within(top as HTMLElement).getByRole("button", { name: "次へ" })).toBeTruthy();
+    expect(top.querySelector(".replay-now")).toBeTruthy();
+    const below = document.querySelector(".replay-below") as HTMLElement;
+    expect(within(below).getByRole("group", { name: "見る場所" })).toBeTruthy();
+    expect(below.querySelector("details")!.open).toBe(false);
+    expect(below.querySelector("details summary")?.textContent).toBe("日付の一覧から選ぶ");
+    expect(screen.getByRole("list", { name: "日付の一覧", hidden: true }).closest(".replay-below")).toBe(below);
+    const css = readFileSync(path.resolve(import.meta.dirname, "replay.css"), "utf8");
+    expect(css).toMatch(/\.replay-below \{\s*order: 5/);
   });
 
   it("通信は 再現のデータと過去の記録 だけ。Firestore や Claude には出ない", async () => {
@@ -344,6 +381,13 @@ describe("ReplayPage: 全国の流れ", () => {
     expect(screen.queryByRole("button", { name: "もし区域の近くの農場なら" })).toBeNull();
     expect(band()).toContain("農場の場所を指すものではありません");
     expect(band()).toContain("再現の時点: はじまる前");
+    // 帯に出す短い 1 行。上の全文は『くわしく』の中
+    const spotLine = document.querySelector(".replay-band .replay-spot")!;
+    expect(spotLine.textContent).toBe("作者の村の中心付近を仮の地点にしています。農場の場所を指すものではありません。");
+    expect(spotLine.closest("details")).toBeNull();
+    expect(document.querySelector(".replay-band .replay-title")!.textContent).toBe(`2025 年シーズンの全国の発生 ${TOTAL} 件`);
+    expect(document.querySelector(".replay-band details")!.textContent).toContain("作者の農場がある村の中心付近に置いた約 1km のマス目");
+    expect(document.querySelector(".replay-band details .replay-notes")!.querySelectorAll("li")).toHaveLength(5);
     expect(band()).toMatch(/説明のための例/);
     expect(band()).toContain(`${TOTAL} 件`);
     expect(band()).toMatch(/関連農場/);

@@ -1207,14 +1207,17 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       expect(risk.nextElementSibling?.className).toBe("stat-row");
     });
 
-    it("札にも発生があるときは riskAnywhere を足さない", async () => {
+    it("札にも発生があるときは札の前に riskAnywhere を足さない（棒の断りとして 1 つだけ出す）", async () => {
       const r = rig();
       show(r);
       await screen.findByTestId("map");
       r.deliverCases([tsuyamaCase({ stages: onDate("2026-11-02") })]);
       r.deliverWatch(okWatch());
       expect(recentValue()).toBe("1 件");
-      expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+      expect(document.querySelector(".map-risk")).toBeNull();
+      const risk = screen.getAllByText(FIXED_TEXT.riskAnywhere);
+      expect(risk).toHaveLength(1);
+      expect(risk[0]!.closest(".season-charts")).not.toBeNull();
     });
   });
 
@@ -1656,5 +1659,144 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     r.deliverWatch(okWatch());
     await screen.findByText(TEXT.unknownTown);
     expect(before(screen.getByText(TEXT.unknownTown), document.querySelector(".map-box")!)).toBe(true);
+  });
+});
+
+describe("県ごとと週ごとの棒", () => {
+  const at = (date: string, prefCode: string, id: string) =>
+    tsuyamaCase({ id, prefCode, muniCode: null, muniName: null, stages: { confirmed: { date, time: null } } });
+  const cases = [at("2026-10-14", "01", "a"), at("2026-11-02", "01", "b"), at("2026-11-03", "33", "c")];
+  const rows = () => [...document.querySelectorAll(".pref-bar-row")].map((r) => r.textContent);
+
+  it("今季の県ごとの棒と週ごとの棒が、月の表の近くに、時点と出典の 1 行とともに出る", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases(cases);
+    r.deliverWatch(okWatch());
+    const charts = await waitFor(() => document.querySelector<HTMLElement>(".season-charts")!);
+    expect(rows()).toEqual(["北海道2 件", "岡山県1 件"]);
+    expect(within(charts).getByRole("list", { name: "週ごとの全国の発生の棒" }).children).toHaveLength(6);
+    expect(charts.nextElementSibling?.className).toContain("month-bars");
+    expect(within(charts).getByText(/8:30 時点。出典: 農林水産省と各県の発表/)).toBeTruthy();
+  });
+
+  it("件数があっても、守る文は画面に 1 つだけで、棒に添える", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases(cases);
+    r.deliverWatch(okWatch());
+    const risk = await screen.findAllByText(FIXED_TEXT.riskAnywhere);
+    expect(risk).toHaveLength(1);
+    expect(risk[0]!.closest(".season-charts")).not.toBeNull();
+  });
+
+  it("守る文が町の文か札の前にあるときは、棒に重ねて出さない", async () => {
+    localStorage.setItem(TOWN_KEY, "33202");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases(cases);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(document.querySelector(".season-charts")).not.toBeNull());
+    await waitFor(() => expect(screen.getAllByText(FIXED_TEXT.riskAnywhere).length).toBe(1));
+    expect(document.querySelector(".season-charts")!.textContent).not.toContain("どこでも感染のリスク");
+  });
+
+  it("確認中と否定は棒に入れない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([...cases, tsuyamaCase({ id: "d", prefCode: "46", confirmState: "reviewing" }), tsuyamaCase({ id: "e", prefCode: "46", negation: "negated" })]);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(rows()).toEqual(["北海道2 件", "岡山県1 件"]));
+  });
+
+  it("未確認の県は 0 の棒にせず『確認できていません』と書く", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases(cases);
+    r.deliverWatch(failed(["23"]));
+    const charts = await waitFor(() => document.querySelector<HTMLElement>(".season-charts")!);
+    await waitFor(() => expect(charts.textContent).toContain("確認できた範囲の件数です。愛知県は確認できていません。"));
+    expect(rows()).toEqual(["北海道2 件", "岡山県1 件"]);
+  });
+
+  it("今季 0 件で全県確認なら枠を出さない。守る文は札の前にある", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    await screen.findByText(FIXED_TEXT.riskAnywhere);
+    expect(document.querySelector(".season-charts")).toBeNull();
+  });
+
+  it("今季 0 件で一部が未確認なら、確認できていないことだけ書き、守る文を重ねない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed(["23"]));
+    const charts = await waitFor(() => document.querySelector<HTMLElement>(".season-charts")!);
+    expect(charts.textContent).toContain("愛知県は確認できていません。");
+    expect(charts.textContent).not.toMatch(/(^|[^0-9])0 件/);
+    expect(rows()).toEqual([]);
+    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+  });
+
+  it("読めていない間と、1 県も確認できていない間は枠を出さない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    expect(document.querySelector(".season-charts")).toBeNull();
+    r.deliverCases(cases);
+    expect(document.querySelector(".season-charts")).toBeNull();
+  });
+
+  it("過去のシーズンを押すと枠を出さない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases(cases);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(document.querySelector(".season-charts")).not.toBeNull());
+    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    expect(document.querySelector(".season-charts")).toBeNull();
+  });
+
+  const showReplay = (r: Rig, replayStats: boolean) =>
+    render(
+      <MemoryRouter>
+        <DataSourceProvider value={{ ...r.ds, mode: "replay" }}>
+          <SpotProvider>
+            <MapPage replayStats={replayStats} />
+          </SpotProvider>
+        </DataSourceProvider>
+      </MemoryRouter>,
+    );
+
+  it("再現の 4 事例の流れでは、札と同じく出さない", async () => {
+    const r = rig();
+    showReplay(r, false);
+    await screen.findByTestId("map");
+    r.deliverCases(cases);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(lastProps().view.total).toBe(3));
+    expect(document.querySelector(".season-charts")).toBeNull();
+  });
+
+  it("再現の全国の流れでは、再現の時点の週までを描き、出典は国の事例一覧にする", async () => {
+    const r = rig();
+    showReplay(r, true);
+    await screen.findByTestId("map");
+    r.deliverCases(cases);
+    r.deliverWatch(okWatch());
+    const charts = await waitFor(() => document.querySelector<HTMLElement>(".season-charts")!);
+    expect(charts.textContent).toContain("11 月 2 日の週"); // 再現の時計（NOW）は 11/4 の週
+    expect(charts.textContent).not.toContain("11 月 9 日の週");
+    expect(charts.textContent).toContain("出典: 国の事例一覧");
   });
 });

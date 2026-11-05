@@ -287,6 +287,108 @@
   margin-bottom: 2px;
 }
 
+/* 県ごとと週ごとの棒。0 の週は棒も数字も描かず、下の線だけにする */
+.season-charts {
+  margin: 0 0 12px;
+}
+.season-charts > section {
+  min-width: 0;
+  margin: 0 0 16px;
+}
+.pref-bar-list {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.pref-bar-row {
+  display: grid;
+  grid-template-columns: 5em minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+.pref-bar-row .month-bar-track {
+  margin-bottom: 0;
+}
+.pref-bar-count {
+  font-weight: 700;
+}
+.week-bars {
+  --week-bar-h: 72px;
+  container-type: inline-size;
+}
+.week-bar-list {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  height: calc(var(--week-bar-h) + 36px); /* 1 番高い棒の上に 2 桁の数字が入る高さ */
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+}
+.week-bar-list > li {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.week-bar-fill {
+  display: block;
+  width: 100%;
+  height: calc(var(--week-bar-h) * var(--r));
+  background: var(--accent);
+}
+/* 2 桁でも 1 字の幅に収め、細い列で隣と重ならないようにする */
+.week-count {
+  margin-bottom: 4px;
+  color: var(--navy);
+  font-size: 14.4px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  text-combine-upright: all;
+  writing-mode: vertical-rl;
+}
+/* 週が多く列が細いときは、隣の数字が「33」と続いて読めないよう、数字を棒の上の 2 段に交互に置く */
+@container (max-width: 30rem) {
+  .week-bar-list.is-dense .week-count {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
+  }
+  .week-bar-list.is-dense > li:nth-child(even) .week-count {
+    top: 16px;
+  }
+}
+.week-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.week-axis-max,
+.week-axis {
+  margin: 0;
+  color: var(--sub);
+  font-size: 14.4px;
+}
+.week-axis {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 8px;
+  margin-top: 2px;
+}
+
 /* 地図の下のリンク */
 .map-links {
   margin-top: 16px;
@@ -936,6 +1038,16 @@
   }
   .map-page:not(:has(> .spot-picker[data-active="true"])) > .stat-rest {
     order: 3;
+  }
+  /* 県ごとと週ごとの棒を横に並べる */
+  .season-charts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 32px;
+    align-items: start;
+  }
+  .season-charts > :not(section) {
+    grid-column: 1 / -1;
   }
   /* 町の文は地図を押し下げないよう、右の列の先頭に置く */
   .map-page > .town-banner {

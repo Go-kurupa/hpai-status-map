@@ -19,6 +19,7 @@ import { MonthBars } from "./MonthBars";
 import { countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
 import type { PickTarget } from "./pickSpot";
 import { countText, SeasonBar, type SeasonBarItem } from "./SeasonBar";
+import { SeasonCharts } from "./SeasonCharts";
 import { SeasonCompare } from "./SeasonCompare";
 import { SpotPicker } from "./SpotPicker";
 import { TEXT } from "./texts";
@@ -249,6 +250,20 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
   const riskAboveStats = view.isCurrent && view.loaded && (riskMovedUp || (zeroShown && !lineHasRisk));
   const bannerLine = riskMovedUp && townLine.line ? { ...townLine.line, details: townLine.line.details.filter((t) => t !== FIXED_TEXT.riskAnywhere) } : townLine.line;
 
+  // 守る文。スマホは出典を短いリンクにする（URL の全文は地図の下）
+  const riskText = (className: string) =>
+    narrow ? (
+      <p className={className}>
+        {RISK_SENTENCE}（
+        <a href={RISK_URL} target="_blank" rel="noopener noreferrer" aria-label={`${TEXT.listSource}: ${RISK_SOURCE}`}>
+          {TEXT.listSource}
+        </a>
+        ）
+      </p>
+    ) : (
+      <p className={className}>{FIXED_TEXT.riskAnywhere}</p>
+    );
+
   const picker = (
     <>
       <TownPicker
@@ -365,19 +380,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         </p>
       ) : null}
       {/* 札の「0 件」だけが先に読まれないよう、札のすぐ前に置く */}
-      {riskAboveStats ? (
-        narrow ? (
-          <p className="map-notice map-risk">
-            {RISK_SENTENCE}（
-            <a href={RISK_URL} target="_blank" rel="noopener noreferrer" aria-label={`${TEXT.listSource}: ${RISK_SOURCE}`}>
-              {TEXT.listSource}
-            </a>
-            ）
-          </p>
-        ) : (
-          <p className="map-notice map-risk">{FIXED_TEXT.riskAnywhere}</p>
-        )
-      ) : null}
+      {riskAboveStats ? riskText("map-notice map-risk") : null}
       {showStats ? (
         <div className="stat-row">
           <p className="stat-headline">{TEXT.statHeadline}</p>
@@ -566,6 +569,22 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           allUnchecked={noneConfirmed}
         />
       )}
+
+      {/* 札と同じ条件で出す（今季だけ。再現は全国の流れだけで、再現の時計までを描く） */}
+      {showStats ? (
+        <SeasonCharts
+          loaded={view.loaded}
+          allUnchecked={noneConfirmed}
+          countByPref={view.countByPref}
+          cases={view.cases}
+          season={view.season}
+          today={today}
+          failedPrefCodes={d.failedPrefCodes}
+          asOfText={d.asOf === null ? null : formatAsOf(d.asOf)}
+          source={ds.mode === "replay" ? TEXT.chartsSourceReplay : TEXT.chartsSourceLive}
+          note={riskAboveStats || lineHasRisk ? null : riskText("map-notice")}
+        />
+      ) : null}
 
       {!view.isCurrent && view.loaded ? <p className="map-notice">{FIXED_TEXT.pastDisclaimer}</p> : null}
       {view.undatedCases > 0 ? <p className="map-note">日付のない事例が {view.undatedCases} 件あり、月の棒には入っていません。</p> : null}

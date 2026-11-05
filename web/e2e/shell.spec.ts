@@ -105,10 +105,203 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
 
-  test("/sample/todo の『保存されない』の断りと仮の地点", async ({ page }) => {
+  test("/sample/todo の『保存されない』の断りと、畳んだ仮の地点。帯は画面の高さの半分より上で終わり、中身がすぐ見える", async ({ page }) => {
     await page.goto("/sample/todo");
-    await bottomAboveNav(page, page.locator(".sample-note").first());
-    await bottomAboveNav(page, page.getByText(/^仮の地点で見ています/).first());
+    await expect(page.locator(".sample-badge")).toHaveText("見本です（作り物のデータ）");
+    await bottomAboveNav(page, page.locator(".sample-badge"));
+    await expect(page.locator(".sample-note")).toHaveText("入れた記録は保存されません");
+    await bottomAboveNav(page, page.locator(".sample-note"));
+    // 再現の枠は題と時点だけ
+    await expect(page.locator(".replay-band > *")).toHaveCount(2);
+    await bottomAboveNav(page, page.locator(".replay-band .replay-title"));
+    await bottomAboveNav(page, page.locator(".replay-band .replay-time"));
+    // 帯（行き来の nav まで）は 370px より上で終わり、本文の見出しがその直後に見える
+    const nav = page.getByRole("navigation", { name: "見本の画面" });
+    const navBox = (await nav.boundingBox())!;
+    expect(navBox.y + navBox.height).toBeLessThan(370);
+    expect(navBox.height).toBeGreaterThanOrEqual(44);
+    const h1 = page.getByRole("heading", { level: 1, name: "やること" });
+    await bottomAboveNav(page, h1);
+    expect((await h1.boundingBox())!.y).toBeLessThan(370);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    // 仮の地点と注記は「くわしく」の中。閉じていても DOM にあり、開くと読める
+    const spot = page.getByText(/^仮の地点で見ています/);
+    await expect(spot).toBeAttached();
+    await expect(spot).toBeHidden();
+    await page.locator(".sample-lead summary", { hasText: "くわしく" }).click();
+    await expect(spot).toBeVisible();
+    await expect(page.locator(".sample-lead details")).toContainText("架空の農場です。数字は作り物です");
+    await expect(page.locator(".sample-lead details")).toContainText("サーバーにも、この端末の保存にも書かず");
+    await expect(page.locator(".sample-lead details")).toContainText("去年の再現です");
+    await expect(page.locator(".sample-lead .replay-notes li")).toHaveCount(4);
+  });
+});
+
+test.describe("再現の最初の画面に地図の全部が入る", () => {
+  const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  type MapHandle = { getLayer(id: string): unknown };
+
+  async function openReplay(page: Page, width: number, height: number) {
+    await page.setViewportSize({ width, height });
+    await page.route("https://cyberjapandata.gsi.go.jp/**", (route) => route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG_1PX }));
+    await page.goto("/replay");
+    await waitMap(page);
+  }
+  const waitMap = (page: Page) => page.waitForFunction(() => !!(window as unknown as { __hpaiMap?: MapHandle }).__hpaiMap?.getLayer("case-suspected"), undefined, { timeout: 20_000 });
+  const box = async (l: Locator) => (await l.boundingBox())!;
+  const tabs = (page: Page) => box(page.getByRole("navigation", { name: "メイン" }));
+  const canvasOf = (page: Page) => box(page.locator(".map-box .map-canvas"));
+
+  async function goNational(page: Page) {
+    await page.getByRole("button", { name: "全国の流れ" }).click();
+    await expect(page.getByText("0 / 24")).toBeVisible();
+    await waitMap(page);
+    await expect(page.locator(".stat-row")).toBeVisible();
+  }
+
+  /** 最初の表示で確かめること（360x740） */
+  async function firstView(page: Page, spotLine: string, ariaFolded: RegExp) {
+    const band = await box(page.locator(".replay-band"));
+    expect(band.height).toBeLessThanOrEqual(130);
+    await expect(page.locator(".replay-banner")).toHaveText("去年の再現です");
+    await expect(page.locator(".replay-spot")).toHaveText(spotLine);
+    await expect(page.locator(".replay-time")).toBeVisible();
+
+    const canvas = await canvasOf(page);
+    const nav = await tabs(page);
+    expect(nav.y).toBeGreaterThanOrEqual(690);
+    expect(canvas.y + canvas.height).toBeLessThanOrEqual(nav.y);
+    expect(canvas.height).toBeGreaterThanOrEqual(220);
+    expect(canvas.width).toBeGreaterThanOrEqual(360 - 2 * 16);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+
+    // 地図の断りと輪の注記は地図のすぐ下で、下のタブより上。地図の切り替えは地図に重ねず、その後ろ
+    const disclaimer = await box(page.locator(".map-disclaimer"));
+    const ringNote = await box(page.locator(".map-ring-note"));
+    expect(disclaimer.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
+    expect(disclaimer.y - (canvas.y + canvas.height)).toBeLessThanOrEqual(8);
+    expect(ringNote.y).toBeGreaterThanOrEqual(disclaimer.y + disclaimer.height);
+    expect(ringNote.y + ringNote.height).toBeLessThanOrEqual(nav.y);
+    const mapScope = await box(page.getByRole("group", { name: "地図の見る場所" }));
+    expect(mapScope.y).toBeGreaterThanOrEqual(ringNote.y + ringNote.height);
+
+    // 切り替えと前へ・次へは地図の前の 1 行で、どれも 44px 以上。文字は折れない
+    const buttons = [page.getByRole("button", { name: "12 月の 4 事例" }), page.getByRole("button", { name: "全国の流れ" }), page.getByRole("button", { name: "前へ" }), page.getByRole("button", { name: "次へ" })];
+    const first = await box(buttons[0]!);
+    for (const b of buttons) {
+      const r = await box(b);
+      expect(r.height).toBeGreaterThanOrEqual(44);
+      expect(r.height).toBeLessThanOrEqual(48);
+      expect(r.y).toBe(first.y);
+      expect(r.y + r.height).toBeLessThanOrEqual(canvas.y);
+    }
+
+    // 今の出来事の 1 行は、地図のすぐ前
+    const now = await box(page.locator(".replay-now"));
+    expect(now.y + now.height).toBeLessThanOrEqual(canvas.y);
+    expect(canvas.y - (now.y + now.height)).toBeLessThanOrEqual(12);
+
+    // 日付の一覧は閉じていて、地図の下
+    const listFold = page.locator("details.fold").filter({ has: page.locator('ol[aria-label="日付の一覧"]') });
+    expect(await listFold.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(false);
+    expect((await box(listFold)).y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
+    expect((await box(page.getByRole("group", { name: "見る場所", exact: true }))).y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
+
+    // 畳んだ注記は DOM にあり、「くわしく」で読める。押す場所は 44px 以上
+    const fold = page.locator(".replay-band details");
+    const folded = fold.getByText(ariaFolded);
+    await expect(folded).toBeAttached();
+    await expect(folded).toBeHidden();
+    const summary = fold.locator("summary", { hasText: "くわしく" });
+    expect((await box(summary)).height).toBeGreaterThanOrEqual(44);
+    await summary.click();
+    await expect(folded).toBeVisible();
+    await summary.click();
+    await expect(folded).toBeHidden();
+  }
+
+  test("360x740 の 4 事例: 帯は 130px まで、地図の全部、1 行の操作、地図の前の今の出来事", async ({ page }) => {
+    await openReplay(page, 360, 740);
+    await firstView(page, "仮の地点で見ています。特定の農場を指すものではありません。", /4 事例だけ/);
+  });
+
+  test("360x740 の全国の流れ: 帯は 130px まで、地図の全部、1 行の操作。守る文は札の直前で、地図の下", async ({ page }) => {
+    await openReplay(page, 360, 740);
+    await goNational(page);
+    await firstView(page, "作者の村の中心付近を仮の地点にしています。農場の場所を指すものではありません。", /関連農場は数えていません/);
+    const canvas = await canvasOf(page);
+    await expect(page.locator(".map-risk + .stat-row")).toHaveCount(1);
+    expect((await box(page.locator(".map-risk"))).y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
+    expect((await box(page.locator(".stat-row"))).y).toBeGreaterThan((await box(page.locator(".map-risk"))).y);
+  });
+
+  for (const [name, total] of [
+    ["4 事例", 14],
+    ["全国の流れ", 24],
+  ] as const) {
+    test(`360x740 の${name}: 次へで最後まで進めても、地図は下のタブより上にあり、次へが同じ場所にある`, async ({ page }) => {
+      await openReplay(page, 360, 740);
+      if (total === 24) await goNational(page);
+      const next = page.getByRole("button", { name: "次へ" });
+      const y = (await box(next)).y;
+      for (let i = 1; i <= total; i++) {
+        await next.click();
+        await expect(page.getByText(`${i} / ${total}`)).toBeVisible();
+        const canvas = await canvasOf(page);
+        const nav = await tabs(page);
+        expect(canvas.y + canvas.height, `${i} 番目の出来事`).toBeLessThanOrEqual(nav.y);
+        expect((await box(next)).y).toBe(y);
+      }
+    });
+  }
+
+  test("1280x860: 4 事例も全国の流れも、地図の全部が最初の画面に入り、操作は地図の前の 1 行", async ({ page }) => {
+    await openReplay(page, 1280, 860);
+    const check = async () => {
+      const canvas = await canvasOf(page);
+      const nav = await tabs(page);
+      expect(canvas.y + canvas.height).toBeLessThanOrEqual(nav.y);
+      expect(canvas.height).toBeGreaterThanOrEqual(360);
+      expect(canvas.width).toBeGreaterThan(600);
+      const next = await box(page.getByRole("button", { name: "次へ" }));
+      const switchOne = await box(page.getByRole("button", { name: "12 月の 4 事例" }));
+      expect(next.y).toBe(switchOne.y);
+      expect(next.y + next.height).toBeLessThanOrEqual(canvas.y);
+      expect((await box(page.locator(".replay-now"))).y + (await box(page.locator(".replay-now"))).height).toBeLessThanOrEqual(canvas.y);
+      expect((await box(page.locator(".replay-band"))).height).toBeLessThanOrEqual(130);
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
+      // 地図と同じ行の右の列に置く（日付の一覧は地図の下ではなく右）
+      const listFold = await box(page.locator("details.fold").filter({ has: page.locator('ol[aria-label="日付の一覧"]') }));
+      expect(listFold.x).toBeGreaterThanOrEqual(canvas.x + canvas.width);
+    };
+    await check();
+    await page.getByRole("button", { name: "次へ" }).click();
+    await expect(page.getByText("1 / 14")).toBeVisible();
+    await check();
+    await goNational(page);
+    await check();
+    // 札は右の列の先頭で、最初の画面の中
+    const stats = await box(page.locator(".map-risk, .stat-row").first());
+    const canvas = await canvasOf(page);
+    expect(stats.y).toBeLessThanOrEqual(canvas.y + 1);
+    expect(stats.x).toBeGreaterThanOrEqual(canvas.x + canvas.width);
+  });
+
+  test("1280x860: 区域の文とメールの枠が、地図の隣の最初の画面に入る", async ({ page }) => {
+    await openReplay(page, 1280, 860);
+    const listFold = page.locator("details.fold").filter({ has: page.locator('ol[aria-label="日付の一覧"]') });
+    await listFold.getByText("日付の一覧から選ぶ").click();
+    await page.getByRole("button", { name: /12 月 19 日.*津山市.*疑い/ }).click();
+    await listFold.getByText("日付の一覧から選ぶ").click();
+    await page.evaluate(() => window.scrollTo(0, 0)); // 押すために動いた分を戻す
+    const nav = await tabs(page);
+    for (const l of [page.locator(".town-now").first(), page.getByRole("region", { name: "このときメールが届く" })]) {
+      const r = await box(l);
+      expect(r.y + r.height).toBeLessThanOrEqual(nav.y);
+    }
   });
 });
 

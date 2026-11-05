@@ -9,6 +9,8 @@ const PNG_1PX = Buffer.from(
   "base64",
 );
 const ZONE = "区域に入っている可能性があります。県の連絡を確かめてください";
+// 全国の流れの最初の事例（2025-10-22、水曜）の週
+const FIRST_WEEK = "10 月 20 日の週";
 
 // map.spec.ts が Window.__hpaiMap を宣言しているので、ここでは型の別名で受ける（宣言を重ねない）
 type MapHandle = { getFilter(id: string): unknown; getLayer(id: string): unknown };
@@ -33,6 +35,17 @@ async function openList(page: Page) {
   const fold = page.locator("details.fold").filter({ has: page.locator('ol[aria-label="日付の一覧"]') });
   if (!(await fold.evaluate((el) => (el as HTMLDetailsElement).open))) await fold.getByText("日付の一覧から選ぶ").click();
 }
+/** 帯の「くわしく」を開く。畳んだ文は閉じている間も DOM にあり、見えないことを先に確かめる */
+async function openBandFold(page: Page, folded: string | RegExp) {
+  const fold = page.locator(".replay-band details");
+  const text = fold.getByText(folded);
+  await expect(text).toBeAttached();
+  await expect(text).toBeHidden();
+  await fold.locator("summary", { hasText: "くわしく" }).click();
+  await expect(text).toBeVisible();
+  await fold.locator("summary").click();
+  await expect(text).toBeHidden();
+}
 const item = async (page: Page, re: RegExp) => {
   await openList(page);
   return page.getByRole("list", { name: "日付の一覧" }).getByRole("button", { name: re });
@@ -51,12 +64,27 @@ test.describe("全国の流れ（/replay の切り替え）", () => {
     await page.waitForFunction(() => !!(window as unknown as W).__hpaiMap?.getLayer("case-suspected"), undefined, { timeout: 20_000 });
   }
 
+  test("週ごとの棒は再現の時点の週までを描き、進めると増える。4 事例の流れでは出さない", async ({ page }) => {
+    await open(page);
+    await expect(page.locator(".season-charts")).toHaveCount(0);
+    await page.getByRole("button", { name: "全国の流れ" }).click();
+    await expect(page.getByText("0 / 24")).toBeVisible();
+    await expect(page.getByRole("list", { name: "週ごとの全国の発生の棒" })).toHaveCount(0);
+    await page.getByRole("button", { name: "次へ" }).click();
+    await expect(page.getByText("1 / 24")).toBeVisible();
+    const weeks = page.getByRole("list", { name: "週ごとの全国の発生の棒" });
+    await expect(weeks.getByRole("listitem")).toHaveCount(1);
+    await expect(page.locator(".week-axis")).toContainText(FIRST_WEEK);
+    await expect(page.locator(".season-charts")).toContainText("出典: 国の事例一覧");
+  });
+
   test("進めると件数の札が増え、町が輪の中に入ると農場（仮の地点）からの距離が出る。帯、仮の地点、時点は残る", async ({ page }) => {
     const requests: Request[] = [];
     page.on("request", (r) => requests.push(r));
     await openNational(page);
     await expect(page.getByText("去年の再現です").first()).toBeVisible();
-    await expect(page.getByText("仮の地点で見ています", { exact: false })).toBeVisible();
+    await expect(page.getByText("作者の村の中心付近を仮の地点にしています。農場の場所を指すものではありません。", { exact: true })).toBeVisible();
+    await openBandFold(page, /^仮の地点で見ています（作者の農場がある村の中心付近に置いた約 1km のマス目で/);
     await expect(page.getByText(/4 事例だけ/)).toHaveCount(0);
     await expect(page.getByText("輪は距離の目安で、発表の区域ではありません。")).toBeVisible();
     // 輪が見える広さで始まる（全国の広さでは輪のラベルが出ない）
@@ -95,7 +123,7 @@ test.describe("全国の流れ（/replay の切り替え）", () => {
     await page.getByRole("button", { name: "12 月の 4 事例" }).click();
     await expect(page.getByText("0 / 14")).toBeVisible();
     await expect(page.locator(".stat-row")).toHaveCount(0);
-    await expect(page.getByText(/4 事例だけ/)).toBeVisible();
+    await openBandFold(page, /4 事例だけ/);
   });
 
   test("360px で横にはみ出さない。切り替えのボタンは 44px 以上", async ({ page }) => {
@@ -118,8 +146,8 @@ test.describe("去年の再現（/replay）", () => {
     // はじまり: 帯と説明。まだ何も出ていない
     await expect(page.getByText("去年の再現です").first()).toBeVisible();
     await expect(page.getByText("仮の地点で見ています", { exact: false })).toBeVisible();
-    await expect(page.getByText(/4 事例だけ/)).toBeVisible();
-    await expect(page.getByText(/説明のための例/)).toBeVisible();
+    await openBandFold(page, /4 事例だけ/);
+    await openBandFold(page, /説明のための例/);
     await expect(page.getByText(ZONE)).toHaveCount(0);
 
     // 12/19（津山市の疑い。時刻の記載がないのでその日の終わり = 夜）
@@ -135,7 +163,8 @@ test.describe("去年の再現（/replay）", () => {
     const mail = page.getByRole("region", { name: "このときメールが届く" });
     await expect(mail).toBeVisible();
     await expect(mail.getByText("津山市で疑いの発表がありました。県の連絡が正です")).toBeVisible();
-    await expect(page.getByText(/実際には送りません/).first()).toBeVisible();
+    await expect(mail.getByText(/実際には送りません/)).toBeVisible();
+    await openBandFold(page, /メールは実際には送りません/);
 
     // 12/20 確定、1/10 搬出制限の解除のあとも、移動制限が続く間は①のまま
     await (await item(page, /12 月 20 日.*津山市.*確定/)).click();
