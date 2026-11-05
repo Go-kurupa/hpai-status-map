@@ -3,12 +3,11 @@
   max-width: 44rem;
   margin-top: 32px;
   padding-top: 8px;
-  border-top: 2px solid var(--line);
+  border-top: 1px solid var(--hair);
 }
 .migration-notes {
   margin: 0 0 16px;
-  padding: 10px 12px 10px 28px;
-  border: 2px solid var(--fg);
+  padding: 0 0 0 1.2em;
 }
 .migration-notes li {
   margin: 0 0 4px;
@@ -24,7 +23,7 @@
 }
 .migration-site {
   padding: 8px 0;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: 1px solid var(--hair);
 }
 .migration-site h3 {
   margin: 0 0 4px;
@@ -38,13 +37,13 @@
   max-width: 44rem;
   margin-top: 32px;
   padding-top: 8px;
-  border-top: 2px solid var(--line);
+  border-top: 1px solid var(--hair);
   overflow-wrap: anywhere;
 }
 .migration-route {
   margin: 0 0 24px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: 1px solid var(--hair);
 }
 .migration-route img {
   display: block;

@@ -8,13 +8,13 @@
 }
 .backstage-section > h2 {
   font-size: 1.15rem;
-  border-bottom: 2px solid var(--line);
+  border-bottom: 1px solid var(--hair);
   padding-bottom: 4px;
   margin: 16px 0 8px;
 }
 .backstage-entry {
-  border: 1px solid var(--line);
-  padding: 8px var(--gutter);
+  border-top: 1px solid var(--hair);
+  padding: 8px 0;
   margin: 0 0 8px;
 }
 .backstage-entry h3 {
@@ -30,7 +30,7 @@
 }
 .backstage-entry th,
 .backstage-entry td {
-  border: 1px solid var(--divider);
+  border: 1px solid var(--hair);
   padding: 4px 8px;
   text-align: left;
   vertical-align: top;

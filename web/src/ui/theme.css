@@ -1,14 +1,23 @@
-/* 平面の単色だけで作る。陰影・ぼかし・色の移り変わりは使わない（現場で読み取れることを優先）。
+/* 単色の面と線で作る。影は地図のカードだけ。ぼかし・色の移り変わりは使わない（現場で読み取れることを優先）。
    本文は 18px 以上、押せるものは 48px 以上。 */
 :root {
   color-scheme: light;
   --fg: #1a1a1a;
-  --bg: #ffffff;
+  --bg: #f8f8fb;
   --surface: #ffffff;
   --line: #767676;
   --divider: #cccccc;
   --soft: #f2f2f2;
   --muted: #666666;
+  --sub: #626264;
+  --navy: #000060;
+  --ctl: #f1f1f4;
+  --hair: #e3e3e8;
+  --outer: #8c8c94;
+  --bar-past: #999999;
+  --shadow-card: 0 1px 2px rgba(0, 0, 60, .06), 0 6px 16px rgba(0, 0, 60, .05);
+  --radius-card: 12px;
+  --radius-control: 8px;
   --lv1: #b3261e;
   --lv2: #8a5a00;
   --lv3: #0017c1;
@@ -54,6 +63,7 @@ body {
 h1,
 h2,
 h3 {
+  color: var(--navy);
   line-height: 1.5;
   margin: 0 0 0.5em;
 }
@@ -91,7 +101,8 @@ button:focus-visible {
   justify-content: space-between;
   gap: 8px;
   padding: 4px var(--gutter);
-  border-bottom: 2px solid var(--fg);
+  border-bottom: 1px solid var(--hair);
+  background: var(--surface);
 }
 .app-title {
   margin: 0;
@@ -102,7 +113,7 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   min-height: var(--tap);
-  color: var(--fg);
+  color: var(--navy);
   text-decoration: none;
 }
 .app-header .settings-link {
@@ -110,7 +121,7 @@ button:focus-visible {
   align-items: center;
   min-height: var(--tap);
   padding: 0 4px;
-  color: var(--fg);
+  color: var(--accent);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -124,7 +135,7 @@ button:focus-visible {
 .app-operator-note {
   margin: 0;
   padding: 8px var(--gutter);
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.9rem;
 }
 
@@ -133,7 +144,7 @@ button:focus-visible {
   bottom: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border-top: 2px solid var(--fg);
+  border-top: 1px solid var(--outer);
   background: var(--surface);
 }
 .app-nav a {
@@ -142,7 +153,7 @@ button:focus-visible {
   justify-content: center;
   min-height: var(--tap);
   padding: 8px 0;
-  border-right: 1px solid var(--line);
+  border-right: 1px solid var(--hair);
   color: var(--fg);
   font-weight: 700;
   text-decoration: none;
@@ -162,8 +173,8 @@ button:focus-visible {
   justify-content: center;
   min-height: var(--tap);
   padding: 8px 20px;
-  border: 2px solid var(--fg);
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--fg);
   font: inherit;
@@ -178,7 +189,7 @@ button:focus-visible {
 .btn:disabled {
   background: var(--soft);
   border-color: var(--line);
-  color: var(--muted);
+  color: var(--sub);
   cursor: default;
 }
 
@@ -214,18 +225,18 @@ button:focus-visible {
 }
 .tag-neutral {
   background: var(--surface);
-  color: var(--muted);
+  color: var(--sub);
 }
 
 .as-of {
   margin: 0 0 0.8em;
-  color: var(--muted);
+  color: var(--sub);
   font-size: 1rem;
 }
 
 .source-line {
   margin: 0 0 0.5em;
-  color: var(--muted);
+  color: var(--sub);
   font-size: 1rem;
 }
 
@@ -294,11 +305,12 @@ button:focus-visible {
   font-weight: 700;
 }
 .data-table thead th {
-  border-bottom: 2px solid var(--fg);
+  border-bottom: 1px solid var(--divider);
+  color: var(--sub);
 }
 .data-table td,
 .data-table tbody th {
-  border-bottom: 1px solid var(--divider);
+  border-bottom: 1px solid var(--hair);
 }
 .data-table th[scope="row"] {
   min-width: 8em;
@@ -340,7 +352,7 @@ button:focus-visible {
   }
   .data-table-stack tr {
     padding: 6px 0;
-    border-bottom: 1px solid var(--divider);
+    border-bottom: 1px solid var(--hair);
   }
   .data-table-stack th,
   .data-table-stack td {
@@ -363,24 +375,23 @@ button:focus-visible {
 
 /* 札 */
 .stat {
-  border: 2px solid var(--fg);
-  border-radius: 4px;
-  padding: var(--s2);
-  background: var(--surface);
+  padding: 4px 0;
 }
 .stat-title {
   margin: 0;
+  color: var(--sub);
   font-size: 1rem;
 }
 .stat-value {
   margin: 0;
-  color: var(--fg);
+  color: var(--navy);
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.4;
 }
 .stat-note {
   margin: 0;
+  color: var(--sub);
   font-size: 1rem;
 }
 .stat-row,
@@ -399,6 +410,11 @@ button:focus-visible {
   /* 件数が文になる札は、大きな文字のまま 1 行分の幅を取る */
   .stat-wide {
     grid-column: 1 / -1;
+  }
+  /* 同じ行に並ぶ札の間だけ薄い縦線。時刻の札は次の行の左に落ちるので線を付けない */
+  .stat:not(.stat-wide) + .stat:not(.stat-wide, .stat-time) {
+    border-left: 1px solid var(--hair);
+    padding-left: var(--s2);
   }
 }
 
@@ -422,7 +438,7 @@ button:focus-visible {
   min-height: var(--tap);
   padding: 0 var(--gutter);
   background: var(--soft);
-  border-bottom: 2px solid var(--fg);
+  border-bottom: 1px solid var(--outer);
 }
 
 .placeholder {
@@ -435,5 +451,17 @@ button:focus-visible {
   .app-operator-note,
   .app-nav {
     display: none;
+  }
+}
+
+/* 紙に背景の色と影を出さない */
+@media print {
+  body {
+    background: #fff;
+  }
+  body .map-canvas,
+  body .svg-map,
+  body .picker-canvas {
+    box-shadow: none;
   }
 }

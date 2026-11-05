@@ -13,7 +13,7 @@
   max-width: 210mm;
   margin: 16px auto 0;
   padding: 12mm 10mm;
-  border: 2px solid #000;
+  border: 1px solid var(--outer);
   background: #fff;
   color: #000;
   font-family: var(--font-sans);
@@ -32,6 +32,14 @@
     --poster-body: max(4vw, 14.4px);
     padding: 16px;
   }
+}
+
+/* 画面の貼り紙も白地に黒。紙と同じ見え方にする */
+body:has(.poster-page) {
+  background: #fff;
+}
+.poster-sheet :is(h1, h2, h3) {
+  color: #000;
 }
 
 .poster-heading {

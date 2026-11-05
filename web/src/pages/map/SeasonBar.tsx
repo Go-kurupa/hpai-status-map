@@ -21,16 +21,19 @@ export function countText(b: Pick<SeasonBarItem, "count" | "unchecked" | "allUnc
 
 /**
  * シーズンの棒グラフ。棒が切り替えのボタンを兼ねる（今季、昨季、2 年前…）。
- * 1 系列なので色は 1 色。長さは件数に比例し、数字を棒の横に直に書く。
+ * 色は今季と過去の 2 つ。長さは件数に比例し、数字を棒の横に直に書く。
  */
 export function SeasonBar({
   bars,
   selected,
   onSelect,
+  current,
 }: {
   bars: readonly SeasonBarItem[];
   selected: Season;
   onSelect: (season: Season) => void;
+  /** 今季。これと違うシーズンの棒は灰色にする */
+  current?: Season;
 }) {
   const max = Math.max(1, ...bars.map((b) => b.count ?? 0));
   return (
@@ -52,7 +55,7 @@ export function SeasonBar({
                   <small>{b.season}〜{b.season + 1} 年</small>
                 </span>
                 <span className="season-bar-track" aria-hidden="true">
-                  <span className="season-bar-fill" style={{ width: `${b.count === null || b.allUnchecked ? 0 : (b.count / max) * 100}%` }} />
+                  <span className={`season-bar-fill${current !== undefined && b.season !== current ? " is-past" : ""}`} style={{ width: `${b.count === null || b.allUnchecked ? 0 : (b.count / max) * 100}%` }} />
                 </span>
                 <span className="season-bar-count">{countText(b)}</span>
               </button>

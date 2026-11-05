@@ -1,4 +1,4 @@
-/* 地図の画面。平面の単色だけ（陰影・ぼかしなし）。色は ui/theme.css の変数。 */
+/* 地図の画面。カードは地図だけで、影もそこだけ。ぼかしなし。色は ui/theme.css の変数。 */
 .map-page h1 {
   margin-bottom: 0.1em;
 }
@@ -40,7 +40,7 @@
     min-height: 44px;
     padding: 0 8px;
     border: 1px solid var(--accent);
-    border-radius: 4px;
+    border-radius: var(--radius-control);
     background: var(--surface);
     color: var(--accent);
     font: inherit;
@@ -58,8 +58,15 @@
 .map-canvas {
   width: 100%;
   height: var(--map-h);
-  border: 2px solid var(--fg);
   background: var(--soft);
+}
+/* 地図のカード。外周は背景に対して 3:1 以上で、影だけで境界を示さない。余白を足すと 360x740 に入らないので地図そのものをカードにする */
+.map-canvas,
+.svg-map {
+  border: 1px solid var(--outer);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 .map-error {
   margin: 8px 0 0;
@@ -71,7 +78,7 @@
 
 /* 出典は地図の外に全文を出す。1 件ずつ行を変える */
 .map-attribution {
-  color: var(--muted);
+  color: var(--sub);
   font-size: 1rem;
   margin: 0 0 8px;
 }
@@ -172,13 +179,12 @@
 
 .map-note {
   margin: 0 0 8px;
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.9rem;
 }
 .map-notice {
   margin: 0 0 12px;
-  padding: 8px 12px;
-  border: 2px solid var(--fg);
+  color: var(--sub);
 }
 
 /* シーズンの棒（切り替えのボタンを兼ねる） */
@@ -200,8 +206,8 @@
   min-height: var(--tap);
   margin: 0 0 4px;
   padding: 4px 8px;
-  border: 2px solid var(--muted);
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--fg);
   font: inherit;
@@ -209,8 +215,13 @@
   cursor: pointer;
 }
 .season-bar-btn.is-selected {
-  border-color: var(--fg);
-  background: var(--soft);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.season-bar-btn.is-selected .season-bar-label small,
+.season-bar-btn.is-selected .season-bar-count small {
+  color: var(--on-accent);
 }
 .season-bar-label {
   grid-area: label;
@@ -220,7 +231,7 @@
   line-height: 1.3;
 }
 .season-bar-label small {
-  color: var(--muted);
+  color: var(--sub);
   font-size: 1rem;
   font-weight: 400;
 }
@@ -236,12 +247,16 @@
   height: 100%;
   background: var(--accent);
 }
+.season-bar-fill.is-past,
+.month-bars.is-past .month-bar-fill {
+  background: var(--bar-past);
+}
 .season-bar-track {
   grid-area: track;
 }
 .season-bar-count small {
   display: block;
-  color: var(--muted);
+  color: var(--sub);
   font-size: 1rem;
   font-weight: 400;
 }
@@ -259,13 +274,13 @@
 .month-bars th,
 .month-bars td {
   padding: 4px 6px;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: 1px solid var(--hair);
   text-align: left;
   vertical-align: top;
 }
 .month-bars td small {
   display: block;
-  color: var(--muted);
+  color: var(--sub);
 }
 .month-bar-track {
   width: 100%;
@@ -280,7 +295,7 @@
   display: flex;
   align-items: center;
   min-height: var(--tap);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hair);
   font-weight: 700;
 }
 
@@ -292,7 +307,7 @@
   margin: 0 0 4px;
 }
 .town-label {
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.9rem;
 }
 .town-now {
@@ -332,7 +347,7 @@
   margin: 0 0 4px;
 }
 .town-note {
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.9rem;
 }
 .town-area-link {
@@ -365,8 +380,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 8px;
-  padding: 4px 8px;
-  border: 1px solid var(--line);
+  padding: 4px 0;
 }
 .town-prompt-text {
   flex: 1 1 0;
@@ -399,15 +413,19 @@
 .map-scope {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  margin: 0 0 6px;
-  border: 2px solid var(--accent);
-  border-radius: 4px;
+  gap: 2px;
+  margin: 0 0 4px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--ctl);
 }
 .map-scope button {
   min-height: 44px;
   border: 0;
-  background: var(--surface);
-  color: var(--accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -434,16 +452,16 @@
   width: 100%;
   min-height: var(--tap);
   padding: 0 8px;
-  border: 2px solid var(--fg);
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--fg);
   font: inherit;
 }
 .spot-picker {
   margin: 0 0 12px;
-  padding: 8px 12px;
-  border: 2px solid var(--line);
+  padding: 8px 0;
+  border-block: 1px solid var(--hair);
 }
 .spot-picker h2 {
   font-size: 1.05rem;
@@ -490,7 +508,8 @@
   width: 100%;
   min-height: var(--tap);
   padding: 8px 12px;
-  border: 2px solid var(--fg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--fg);
   font: inherit;
@@ -499,9 +518,8 @@
   cursor: pointer;
 }
 .case-list-body {
-  padding: 8px 12px;
-  border: 2px solid var(--fg);
-  border-top: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hair);
 }
 .case-list-sub {
   margin: 12px 0 4px;
@@ -515,7 +533,7 @@
 }
 .case-row {
   padding: 8px 0;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: 1px solid var(--hair);
   overflow-wrap: anywhere;
 }
 .case-source {
@@ -526,7 +544,7 @@
 }
 .case-notes {
   margin-top: 12px;
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.9rem;
 }
 .case-notes li {
@@ -542,7 +560,6 @@
   width: 100%;
   height: auto;
   max-height: var(--map-h, 640px);
-  border: 2px solid var(--fg);
   background: var(--soft);
   touch-action: manipulation;
 }
@@ -669,6 +686,9 @@
 .compare-fill {
   display: block;
   height: 100%;
+  background: var(--bar-past);
+}
+.compare-table tr.is-now .compare-fill {
   background: var(--accent);
 }
 .compare-months th {
@@ -858,12 +878,12 @@
   }
   .stat-rest {
     gap: 0;
-    border-top: 1px solid var(--fg);
+    border-top: 1px solid var(--hair);
   }
   .stat-rest .stat {
     padding: 8px 0;
     border: 0;
-    border-bottom: 1px solid var(--divider);
+    border-bottom: 1px solid var(--hair);
     border-radius: 0;
   }
 }

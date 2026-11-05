@@ -1,4 +1,4 @@
-/* 農場と知らせの設定。平面の単色だけ（陰影・ぼかしなし）。色は ui/theme.css の変数。 */
+/* 農場と知らせの設定。影は地図のカードだけ。色は ui/theme.css の変数。 */
 .settings-page {
   max-width: 40rem;
 }
@@ -17,8 +17,8 @@
 .settings-form input[type="date"] {
   min-height: var(--tap);
   padding: 8px 12px;
-  border: 2px solid var(--fg);
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--fg);
   font: inherit;
@@ -35,11 +35,11 @@
   height: 24px;
 }
 .settings-note {
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.9rem;
 }
 .settings-saved {
-  color: var(--muted);
+  color: var(--sub);
   margin: 4px 0 0;
 }
 .settings-error {
@@ -54,12 +54,15 @@
   height: 50vh;
   min-height: 300px;
   max-height: 480px;
-  border: 2px solid var(--fg);
+  border: 1px solid var(--outer);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
   background: var(--soft);
 }
 .picker-attribution {
   margin: 4px 0 0;
-  color: var(--muted);
+  color: var(--sub);
   font-size: 1rem;
 }
 .picker-attribution-item + .picker-attribution-item::before {
@@ -68,8 +71,8 @@
 .invite-url {
   min-height: var(--tap);
   padding: 8px 12px;
-  border: 2px solid var(--fg);
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   font: inherit;
   width: 100%;
 }
@@ -86,8 +89,8 @@
 }
 .settings-form textarea {
   padding: 8px 12px;
-  border: 2px solid var(--fg);
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--fg);
   font: inherit;
@@ -105,9 +108,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
-  padding: 8px 12px;
-  border: 2px solid var(--line);
-  background: var(--surface);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hair);
 }
 .settings-list li > :first-child {
   font-weight: 700;
@@ -121,6 +123,6 @@
   gap: 8px;
 }
 .house-form {
-  padding: 12px;
-  border: 2px solid var(--fg);
+  padding: 12px 0;
+  border-top: 1px solid var(--hair);
 }

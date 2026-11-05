@@ -18,7 +18,7 @@
 .replay-notes {
   margin: 4px 0 0;
   padding-left: 1.2em;
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.9rem;
 }
 .replay-controls {
@@ -62,7 +62,8 @@
   padding: 4px 12px;
   background: var(--surface);
   color: var(--fg);
-  border: 1px solid var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
 }
 .replay-item[aria-pressed="true"] {
   border: 2px solid var(--accent);
@@ -74,7 +75,7 @@
   margin: 0 0 8px;
 }
 .replay-hint {
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.9rem;
   margin: 0 0 8px;
 }

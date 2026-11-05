@@ -23,6 +23,13 @@ describe("MonthBars", () => {
     expect(rows[3]!.textContent).toContain("0 件");
   });
 
+  it("過去のシーズンの棒に印を付ける（今季には付けない）", () => {
+    const { container, rerender } = render(<MonthBars months={months} loaded past />);
+    expect(container.querySelector(".month-bars.is-past")).not.toBeNull();
+    rerender(<MonthBars months={months} loaded />);
+    expect(container.querySelector(".month-bars.is-past")).toBeNull();
+  });
+
   it("読めていないときは表でなく、読めていないと書く", () => {
     render(<MonthBars months={[]} loaded={false} />);
     expect(screen.queryByRole("table")).toBeNull();

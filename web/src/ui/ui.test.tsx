@@ -137,8 +137,8 @@ describe("Button", () => {
 });
 
 describe("theme.css", () => {
-  it("陰影・グラデーション・ぼかしを使わない", () => {
-    expect(css).not.toMatch(/box-shadow|text-shadow|drop-shadow|gradient|backdrop-filter/i);
+  it("土台の規則に、陰影・グラデーション・ぼかしを書かない（地図のカードの影は変数を地図の規則で使う）", () => {
+    expect(css).not.toMatch(/box-shadow:(?!\s*none)|text-shadow|drop-shadow|gradient|backdrop-filter/i);
   });
   it("本文は 18px 以上", () => {
     const m = css.match(/--font-base:\s*(\d+(?:\.\d+)?)px/);
@@ -189,12 +189,18 @@ function channel(v: number): number {
   const s = v / 255;
   return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 }
-function contrastWithWhite(hex: string): number {
+function luminance(hex: string): number {
   const r = parseInt(hex.slice(0, 2), 16);
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
-  const l = 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-  return 1.05 / (l + 0.05);
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+}
+function contrastWithWhite(hex: string): number {
+  return contrast(hex, "ffffff");
 }
 
 // ── 共通の部品と見た目の土台（設計書 4 章） ──
@@ -334,7 +340,7 @@ describe("theme.css の土台", () => {
   };
   it("色・文字・余白の値", () => {
     expect(css).toMatch(/--line:\s*#767676/i);
-    expect(css).toMatch(/\.data-table tbody th\s*{[^}]*1px solid var\(--divider\)/);
+    expect(css).toMatch(/\.data-table tbody th\s*{[^}]*1px solid var\(--hair\)/);
     expect(rule(".btn:disabled")).toMatch(/border-color:\s*var\(--line\)/);
     expect(css).toMatch(/color-scheme:\s*light/);
     expect(css).toMatch(/--s1:\s*8px[\s\S]*--s4:\s*48px/);
@@ -409,42 +415,178 @@ describe("機械の検査: css", () => {
     `${MAP} .swatch-hatch.is-past`,
   ]);
   const RADIUS_ALLOWED = new Set([`${MAP} .pref-badge`, `${MAP} .swatch-ring`]);
+  // 影は地図のカードだけ（設計書 2-2）。今の画面に地図のポップアップはない
+  const SHADOW_ALLOWED = new Set([`${MAP} .map-canvas, .svg-map`, "web/src/pages/settings/settings.css .picker-canvas"]);
+  // 角丸の上限を上げてよいものを名指しする。カードは 12px、押す部品と入力は 8px、ほかは 4px
+  const RADIUS_CARD = SHADOW_ALLOWED;
+  const RADIUS_CONTROL = new Set([
+    ".btn",
+    ".map-home-btn",
+    ".season-bar-btn",
+    ".map-scope",
+    ".map-scope button",
+    ".case-list-toggle",
+    ".record-tabs a",
+    ".sample-nav a",
+    ".replay-item",
+    ".invite-url",
+    ".explainer-text",
+  ]);
+  const isControl = (selector: string) =>
+    selector.split(", ").every((s) => RADIUS_CONTROL.has(s) || /(?:^| )(?:select|textarea|input(?:\[[^\]]*\])?)$/.test(s));
+  const px = (v: string): number | null => {
+    const named: Record<string, number> = { "var(--radius-card)": 12, "var(--radius-control)": 8 };
+    if (v in named) return named[v]!;
+    if (/^0$/.test(v)) return 0;
+    const m = /^(\d+(?:\.\d+)?)px$/.exec(v);
+    return m ? parseFloat(m[1]!) : null;
+  };
 
-  it("棒はどれも濃い青で塗る", () => {
-    const rules = cssRules().filter((r) => r.file === MAP && /(?:season-bar|month-bar|compare)-fill/.test(r.selector));
-    expect(rules.map((r) => r.selector).join(" ")).toMatch(/season-bar-fill[\s\S]*month-bar-fill[\s\S]*compare-fill/);
-    for (const r of rules) expect(r.body, r.selector).toMatch(/background:\s*var\(--accent\)/);
+  it("今季の棒は濃い青、過去の棒は灰色", () => {
+    const body = (selector: string) => cssRules().find((r) => r.file === MAP && r.selector === selector)?.body ?? "";
+    expect(body(".season-bar-fill, .month-bar-fill")).toMatch(/background:\s*var\(--accent\)/);
+    expect(body(".season-bar-fill.is-past, .month-bars.is-past .month-bar-fill")).toMatch(/background:\s*var\(--bar-past\)/);
+    expect(body(".compare-fill")).toMatch(/background:\s*var\(--bar-past\)/);
+    expect(body(".compare-table tr.is-now .compare-fill")).toMatch(/background:\s*var\(--accent\)/);
+    expect(css).toMatch(/--bar-past:\s*#999999\b/i);
   });
   it("前の配色の値が画面のコードに残っていない", () => {
     const files = listFiles(webSrc, /\.(?:css|tsx?)$/).filter((f) => !/\.test\./.test(path.basename(f)));
     const hits = files.filter((f) => /#(?:00639b|5c6168|1b1d21|f1f2f4|e6eef5)\b/i.test(fs.readFileSync(f, "utf8")));
     expect(hits.map((f) => path.relative(repoRoot, f))).toEqual([]);
   });
-  it("グラデーション・影・ぼかしは許可の 3 つ以外に無い", () => {
+  it("グラデーション・ぼかしは許可の 3 つ以外に無い", () => {
     const bad = cssRules().filter(
       (r) =>
-        /linear-gradient|radial-gradient|box-shadow|backdrop-filter|text-shadow/i.test(r.body) &&
+        /linear-gradient|radial-gradient|backdrop-filter|text-shadow/i.test(r.body) &&
         !DECOR_ALLOWED.has(`${r.file} ${r.selector}`),
     );
     expect(bad.map((r) => `${r.file} ${r.selector}`)).toEqual([]);
   });
   it("許可の 3 つは、凡例の斜線の見本としてだけ使われている", () => {
     const used = cssRules()
-      .filter((r) => /gradient|shadow|backdrop-filter/i.test(r.body))
+      .filter((r) => /gradient|text-shadow|backdrop-filter/i.test(r.body))
       .map((r) => `${r.file} ${r.selector}`)
       .sort();
     expect(used).toEqual([...DECOR_ALLOWED].sort());
   });
-  it("角丸は 4px 以下。例外は県のバッジと凡例の輪の 2 つ", () => {
+  it("影は名指しの地図のカードだけで、値は変数から取る", () => {
+    const used = cssRules().filter((r) => /box-shadow\s*:/i.test(r.body) && !/box-shadow:\s*none/i.test(r.body));
+    expect(used.map((r) => `${r.file} ${r.selector}`).sort()).toEqual([...SHADOW_ALLOWED].sort());
+    for (const r of used) expect(r.body, r.selector).toMatch(/box-shadow:\s*var\(--shadow-card\)/);
+  });
+  it("印刷には影を出さない", () => {
+    const printed = /@media print\s*\{[\s\S]*?\n\}/g;
+    const all = [...css.matchAll(printed)].map((m) => m[0]).join("\n");
+    expect(all).toMatch(/\.map-canvas[^{]*\{[^}]*box-shadow:\s*none/);
+  });
+  it("角丸はカード 12px、押す部品と入力 8px、ほかは 4px まで。例外は県のバッジと凡例の輪の 2 つ", () => {
+    expect(css).toMatch(/--radius-card:\s*12px/);
+    expect(css).toMatch(/--radius-control:\s*8px/);
     const bad: string[] = [];
     for (const r of cssRules()) {
+      const name = `${r.file} ${r.selector}`;
       for (const m of r.body.matchAll(/border-radius:\s*([^;]+)/g)) {
-        const vals = m[1]!.trim().split(/[\s/]+/);
-        const ok = vals.every((v) => /^0(px)?$/.test(v) || (/^(\d+(?:\.\d+)?)px$/.test(v) && parseFloat(v) <= 4));
-        if (!ok && !RADIUS_ALLOWED.has(`${r.file} ${r.selector}`)) bad.push(`${r.file} ${r.selector} ${m[1]}`);
+        const limit = RADIUS_CARD.has(name) ? 12 : isControl(r.selector) ? 8 : 4;
+        const ok = m[1]!.trim().split(/[\s/]+/).every((v) => {
+          const n = px(v);
+          return n !== null && n <= limit;
+        });
+        if (!ok && !RADIUS_ALLOWED.has(name)) bad.push(`${name} ${m[1]}`);
       }
     }
     expect(bad).toEqual([]);
+  });
+});
+
+describe("機械の検査: ソフトの質感（設計書 2-2）", () => {
+  const MAP = "web/src/pages/map/map.css";
+  const hex = (name: string) => {
+    const m = css.match(new RegExp(`--${name}:\\s*#([0-9a-fA-F]{6})`));
+    expect(m, name).not.toBeNull();
+    return m![1]!;
+  };
+  const body = (selector: string, file?: string) =>
+    cssRules()
+      .filter((r) => (!file || r.file === file) && r.selector.split(", ").includes(selector))
+      .map((r) => r.body)
+      .join("\n");
+
+  it("指定の値が入っている", () => {
+    for (const [name, value] of [
+      ["navy", "000060"],
+      ["bg", "F8F8FB"],
+      ["ctl", "F1F1F4"],
+      ["hair", "E3E3E8"],
+      ["outer", "8C8C94"],
+      ["sub", "626264"],
+      ["surface", "FFFFFF"],
+    ] as const) {
+      expect(hex(name).toUpperCase(), name).toBe(value);
+    }
+    expect(css).toMatch(/--shadow-card:\s*0 1px 2px rgba\(0, 0, 60, \.06\), 0 6px 16px rgba\(0, 0, 60, \.05\)/);
+  });
+  it("地図のカードの外周は背景に対して 3:1 以上で、影だけで境界を示さない", () => {
+    expect(contrast(hex("outer"), hex("bg"))).toBeGreaterThanOrEqual(3);
+    for (const [selector, file] of [
+      [".map-canvas", MAP],
+      [".svg-map", MAP],
+      [".picker-canvas", "web/src/pages/settings/settings.css"],
+    ] as const) {
+      expect(body(selector, file), selector).toMatch(/(?:^|[\s;])border:\s*1px solid var\(--outer\)/);
+      expect(body(selector, file), selector).toMatch(/border-radius:\s*var\(--radius-card\)/);
+    }
+  });
+  it("押す部品の枠は背景に対して 3:1 以上", () => {
+    expect(contrast(hex("line"), hex("bg"))).toBeGreaterThanOrEqual(3);
+    expect(body(".btn")).toMatch(/(?:^|[\s;])border:\s*1px solid var\(--line\)/);
+  });
+  it("文字の比は、背景と切り替えの地に対して 4.5 以上", () => {
+    for (const text of ["navy", "sub", "fg", "accent"]) {
+      for (const ground of ["bg", "ctl", "surface"]) {
+        expect(contrast(hex(text), hex(ground)), `${text} / ${ground}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    expect(contrast(hex("sub"), hex("soft"))).toBeGreaterThanOrEqual(4.5);
+  });
+  it("選択中の部品は濃い青に白い文字で、比は 4.5 以上", () => {
+    expect(contrast(hex("on-accent"), hex("accent"))).toBeGreaterThanOrEqual(4.5);
+    for (const selector of [".season-bar-btn.is-selected", '.record-tabs a[aria-current="page"]', '.map-scope button[aria-pressed="true"]']) {
+      expect(body(selector), selector).toMatch(/background:\s*var\(--accent\)/);
+      expect(body(selector), selector).toMatch(/(?:^|[\s;])color:\s*var\(--on-accent\)/);
+    }
+  });
+  it("選択中のシーズンの棒の中で、薄い文字が青に残らない", () => {
+    for (const selector of [".season-bar-btn.is-selected .season-bar-label small", ".season-bar-btn.is-selected .season-bar-count small"]) {
+      expect(body(selector, MAP), selector).toMatch(/(?:^|[\s;])color:\s*var\(--on-accent\)/);
+    }
+  });
+  it("題、見出し、数字は紺で、題の帯は白", () => {
+    for (const selector of ["h1", "h2", "h3"]) expect(body(selector), selector).toMatch(/(?:^|[\s;])color:\s*var\(--navy\)/);
+    expect(body(".app-title a")).toMatch(/(?:^|[\s;])color:\s*var\(--navy\)/);
+    expect(body(".stat-value")).toMatch(/(?:^|[\s;])color:\s*var\(--navy\)/);
+    expect(body(".app-header")).toMatch(/background:\s*var\(--surface\)/);
+  });
+  it("札と断りは枠も面も持たない", () => {
+    expect(body(".stat")).not.toMatch(/(?:^|[\s;])(?:border|background):\s*(?!0|none)/);
+    expect(body(".map-notice", MAP)).not.toMatch(/(?:^|[\s;])border:\s*(?!0)/);
+  });
+  it("黒い太い枠は、状態を示す名指しのものだけ", () => {
+    const allowed = new Set([".class-always", ".state-unknown", ".death-hit", ".delete-section", ".swatch-ring"]);
+    const bad = cssRules().filter(
+      (r) => /(?:^|[\s;])border(?:-\w+)?:\s*[2-9]px\s+\w+\s+(?:var\(--fg\)|#000\b)/.test(r.body) && !allowed.has(r.selector),
+    );
+    expect(bad.map((r) => `${r.file} ${r.selector}`)).toEqual([]);
+  });
+  it("フォーカスの示し方を変えない", () => {
+    expect(css).toMatch(/a:focus-visible,\s*button:focus-visible\s*\{\s*outline:\s*3px solid var\(--fg\);\s*outline-offset:\s*2px;/);
+  });
+  it("印刷は白い背景で、貼り紙は画面でも白に黒", () => {
+    expect(css).toMatch(/@media print\s*\{[^@]*?body\s*\{\s*background:\s*#fff/);
+    const poster = "web/src/pages/public/poster.css";
+    const screen = fs.readFileSync(path.join(repoRoot, poster), "utf8").split("@media print")[0]!;
+    expect(screen).toMatch(/body:has\(\.poster-page\)\s*\{\s*background:\s*#fff/);
+    expect(screen).toMatch(/\.poster-sheet :is\(h1, h2, h3\)\s*\{\s*color:\s*#000/);
   });
 });
 

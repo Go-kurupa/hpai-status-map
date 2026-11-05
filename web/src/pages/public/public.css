@@ -7,7 +7,7 @@
 .guidance-review {
   margin: 0 0 12px;
   padding: 10px 12px;
-  border: 2px solid var(--fg);
+  border: 1px solid var(--line);
   font-weight: 700;
 }
 
@@ -21,14 +21,14 @@
   align-items: center;
   min-height: var(--tap);
   padding: 4px 8px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hair);
   font-weight: 700;
 }
 
 .guidance {
   margin: 0 0 28px;
   padding-top: 8px;
-  border-top: 3px solid var(--fg);
+  border-top: 1px solid var(--hair);
   scroll-margin-top: 8px;
 }
 
@@ -104,7 +104,7 @@
   align-items: center;
   min-height: var(--tap);
   padding: 4px 8px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hair);
   font-weight: 700;
 }
 .area-sources {

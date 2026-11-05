@@ -4,8 +4,7 @@
 }
 .todo-reminder {
   margin: 0 0 16px;
-  padding: 12px var(--gutter) 12px calc(var(--gutter) + 1.2em);
-  border: 2px solid var(--fg);
+  padding: 0 0 0 1.2em;
 }
 .todo-reminder li + li {
   margin-top: 4px;
@@ -17,13 +16,13 @@
 }
 .todo-items > li {
   padding: 8px 0;
-  border-top: 1px solid var(--divider);
+  border-top: 1px solid var(--hair);
 }
 .todo-items > li:first-child {
   border-top: 0;
 }
 .todo-note {
-  color: var(--muted);
+  color: var(--sub);
   font-size: 1rem;
 }
 .lift-region {
@@ -34,7 +33,7 @@
 .lift-block + .lift-block {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--divider);
+  border-top: 1px solid var(--hair);
 }
 .lift-dates {
   margin: 0 0 0.8em;
@@ -50,8 +49,8 @@
 }
 .worker-message {
   margin: 0 0 16px;
-  padding: 12px var(--gutter);
-  border: 2px solid var(--fg);
+  padding: 12px 0;
+  border-top: 1px solid var(--hair);
 }
 .worker-message textarea {
   box-sizing: border-box;
@@ -59,14 +58,15 @@
   min-height: 8rem;
   margin: 4px 0 8px;
   padding: 8px;
-  border: 2px solid var(--fg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   font: inherit;
   line-height: 1.6;
 }
 .worker-message-source,
 .worker-message-basis {
   margin: 0 0 8px;
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.9rem;
 }
 .worker-message-warn {

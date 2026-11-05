@@ -551,7 +551,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         </div>
       ) : null}
 
-      <SeasonBar bars={bars} selected={d.selected} onSelect={selectSeason} />
+      <SeasonBar bars={bars} selected={d.selected} onSelect={selectSeason} current={d.current} />
 
       {/* 再現（去年の再現）は日付を過去に置いた画面なので、今日の比べは出さない */}
       {ds.mode === "replay" ? null : (
@@ -570,7 +570,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
       {!view.isCurrent && view.loaded ? <p className="map-notice">{FIXED_TEXT.pastDisclaimer}</p> : null}
       {view.undatedCases > 0 ? <p className="map-note">日付のない事例が {view.undatedCases} 件あり、月の棒には入っていません。</p> : null}
 
-      <MonthBars months={view.months} loaded={view.loaded} allUnchecked={view.isCurrent && noneConfirmed} />
+      <MonthBars months={view.months} loaded={view.loaded} allUnchecked={view.isCurrent && noneConfirmed} past={!view.isCurrent} />
       <MapLinks />
     </div>
   );

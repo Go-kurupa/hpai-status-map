@@ -4,7 +4,7 @@ import { TEXT } from "./texts";
 const nf = new Intl.NumberFormat("ja-JP");
 
 /** 月ごとの件数と羽数。表にして、棒の長さは件数に比例。羽数の分からない事例は数を書く */
-export function MonthBars({ months, loaded, allUnchecked }: { months: readonly MonthBar[]; loaded: boolean; allUnchecked?: boolean }) {
+export function MonthBars({ months, loaded, allUnchecked, past }: { months: readonly MonthBar[]; loaded: boolean; allUnchecked?: boolean; past?: boolean }) {
   if (!loaded) {
     return (
       <section className="month-bars">
@@ -23,7 +23,7 @@ export function MonthBars({ months, loaded, allUnchecked }: { months: readonly M
   }
   const max = Math.max(1, ...months.map((m) => m.count));
   return (
-    <section className="month-bars">
+    <section className={past ? "month-bars is-past" : "month-bars"}>
       <h2>月ごとの件数と羽数</h2>
       <table>
         <thead>
