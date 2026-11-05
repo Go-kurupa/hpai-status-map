@@ -47,6 +47,7 @@ describe("渡りの経路図", () => {
       expect(caption.textContent).toContain("過去の追跡をまとめた図で、今飛んでいる位置ではありません。");
       const source = within(caption as HTMLElement).getByRole("link", { name: "環境省「渡り鳥の飛来経路について」" });
       expect(source.getAttribute("href")).toBe(SOURCE_URL);
+      expect(source.classList.contains("tap-link")).toBe(true); // 押せる高さ（44px 以上）
     }
   });
 

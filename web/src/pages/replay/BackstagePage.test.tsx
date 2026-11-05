@@ -202,6 +202,7 @@ describe("舞台裏の画面（測った後）", () => {
   it("測った項目に、出来事の名前と原文へのリンク（本文は出さない）", async () => {
     await show({ backstage: MEASURED, usage: MEASURED_USAGE });
     const link = within(section("二つの読み手")).getAllByRole("link", { name: /原文/ })[0]!;
+    expect(link.classList.contains("tap-link")).toBe(true); // 押せる高さ（44px 以上）
     expect(link.getAttribute("href")).toBe("https://example.test/confirmed");
     expect(link.getAttribute("rel")).toContain("noopener");
   });

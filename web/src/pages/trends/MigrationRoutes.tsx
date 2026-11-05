@@ -48,7 +48,7 @@ function Figure({ f }: { f: RouteFigure }) {
         <p>{NOT_CURRENT}</p>
         <p>
           出典:{" "}
-          <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">
+          <a className="tap-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">
             {SOURCE_TITLE}
           </a>
         </p>

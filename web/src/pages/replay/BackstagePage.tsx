@@ -293,7 +293,7 @@ function ReadersTable({ entry, label }: { entry: BackstageEntry; label: string }
     <div className="backstage-entry">
       <h3>{label}</h3>
       <p>
-        <a href={entry.documentUrl} target="_blank" rel="noopener noreferrer">
+        <a className="tap-link" href={entry.documentUrl} target="_blank" rel="noopener noreferrer">
           原文を開く（{new URL(entry.documentUrl).hostname}）
         </a>
       </p>
