@@ -200,7 +200,7 @@ function ReplayControls({
       {flowStatus === "failed" ? <p role="status">全国の流れを読めませんでした。もう一度押してください。</p> : null}
       <div role="group" aria-label="見る場所" className="replay-switch">
         <button type="button" className="btn" aria-pressed={view === "zone"} onClick={() => onView("zone")}>
-          もし区域の近くの農場なら
+          {isNational ? "作者の村から見る" : "もし区域の近くの農場なら"}
         </button>
         <button type="button" className="btn" aria-pressed={view === "own"} disabled={!canOwn} onClick={() => onView("own")}>
           自分の町で見る

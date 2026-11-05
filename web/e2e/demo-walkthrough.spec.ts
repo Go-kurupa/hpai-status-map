@@ -1,5 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { NATIONAL_FLOW_SPOT } from "@hpai/shared/replay";
+import { FIXED_TEXT } from "@hpai/shared/wording";
 import { expect, test, type Page, type Request } from "@playwright/test";
 import { chooseTown, expectNoForbiddenText, prepare, TSUYAMA_CASE, waitForWord } from "./wording.helper";
 
@@ -49,7 +51,7 @@ const replayItem = async (page: Page, re: RegExp) => {
 };
 
 test.describe("デモの筋", () => {
-  test("場面 2: 過去の 1 文が段階の色なしで出て、6 シーズンの件数が合い、12/19 の夜に津山に疑いが出る", async ({ page }) => {
+  test("場面 2: 過去の 1 文が段階の色なしで出て、6 シーズンの件数が合い、作者の村の約 60km 以内の表と 3,000 羽未満の件数が出る", async ({ page }) => {
     await prepare(page, { cases: [TSUYAMA_CASE] });
     await page.goto("/");
     await waitForWord(page, "時点");
@@ -70,20 +72,82 @@ test.describe("デモの筋", () => {
     expect(pastSix).toEqual([52, 25, 84, 11, 51, 24]);
     expect(pastSix.reduce((a, b) => a + b, 0)).toBe(247);
 
-    // 再現を 12/19 の夜に進めると、津山の疑いが地図に出る
-    await openReplay(page);
-    await (await replayItem(page, /12 月 19 日.*津山市.*疑い/)).click();
-    await expect(page.getByText(ZONE)).toBeVisible();
-    await filterHas(page, "case-suspected", "33203");
+    // 作者の村の /area。約 60km 以内の町の過去の表（距離は町の中心どうし）と、全国の 3,000 羽未満の件数
+    await page.goto(`/area/${NATIONAL_FLOW_SPOT.muniCode}`);
+    const table = page.getByRole("table", { name: "周辺の町の過去の発生" });
+    await expect(table).toBeVisible();
+    await expect(page.getByText("6 シーズンのうち 4 シーズンで、合わせて 8 件（記録）")).toBeVisible();
+    await expect(table.getByRole("row", { name: /津山市/ })).toContainText("約 32 km");
+    await expect(table.getByRole("row", { name: /姫路市/ })).toContainText("約 44 km");
+    await expect(page.getByText("距離は、町の中心どうしの距離の目安です。")).toBeVisible();
+    await expect(page.getByText("過去の件数に関連農場は入れていません。")).toBeVisible();
+    await expect(page.getByText(/全国の過去 6 シーズンに、3,000 羽未満の農場で 15 件の発生がありました/u)).toBeVisible();
+    await expect(page.getByText(FIXED_TEXT.pastDisclaimer)).toBeVisible();
     await expectNoForbiddenText(page);
   });
 
-  test("場面 3: 『もし区域の近くの農場なら』で ① になり、3 つの分類が分かれて見える", async ({ page }) => {
+  test("場面 3: 全国の流れで件数が増え、姫路市（約 28 km）と津山市（約 16 km）が輪に入り、輪は発表の区域ではないと出る", async ({ page }) => {
+    const requests: Request[] = [];
+    page.on("request", (r) => requests.push(r));
+    const statText = (title: string) => page.locator(".stat").filter({ has: page.locator(".stat-title", { hasText: title }) });
+
     await openReplay(page);
+    await page.getByRole("button", { name: "全国の流れ" }).click();
+    await expect(page.getByText("0 / 24")).toBeVisible();
+    await expect(page.getByRole("button", { name: "全国の流れ" })).toHaveAttribute("aria-pressed", "true");
+    await page.waitForFunction(() => !!(window as unknown as W).__hpaiMap?.getLayer("case-suspected"), undefined, { timeout: 20_000 });
+
+    // 帯と仮の地点（作者の村の中心のマス目で、農場の場所ではない）と、輪の断りが最初から出る
+    await expect(page.getByText("去年の再現です").first()).toBeVisible();
+    await expect(page.getByText("作者の農場がある村の中心付近に置いた約 1km のマス目で、農場の場所を指すものではありません", { exact: false })).toBeVisible();
+    await expect(page.getByText("輪は距離の目安で、発表の区域ではありません。")).toBeVisible();
+    await expect(page.locator(".ring-label").filter({ hasText: "60" })).toBeVisible();
+
+    // まだ輪の外の発生。全国の件数だけが増える
+    await (await replayItem(page, /12 月 2 日.*米子市/)).click();
+    await expect(statText("発生した件数")).toContainText("6 件");
+    await expect(statText("約 60 km 以内")).toContainText("今季 確認できた範囲では 0 件");
+    await expect(page.locator(".replay-now")).toHaveText("12 月 2 日 米子市 確定");
+    await filterHas(page, "case-confirmed", "31202");
+
+    // 姫路市が輪に入る
+    await (await replayItem(page, /12 月 16 日.*姫路市/)).click();
+    await expect(statText("発生した件数")).toContainText("7 件");
+    await expect(statText("約 60 km 以内")).toContainText("今季 確認できた範囲では 1 件");
+    await expect(page.locator(".replay-now")).toHaveText("12 月 16 日 姫路市 確定。農場（仮の地点）から約 28 km");
+    await expect(page.getByText("約 28 km 先で発生しました", { exact: true })).toBeVisible();
+    await filterHas(page, "case-confirmed", "28201");
+
+    // 津山市が輪に入る。輪の中でも段階 ① にはしない
+    await (await replayItem(page, /12 月 20 日.*津山市/)).click();
+    await expect(statText("発生した件数")).toContainText("8 件");
+    await expect(statText("約 60 km 以内")).toContainText("今季 確認できた範囲では 2 件");
+    await expect(page.locator(".replay-now")).toContainText("農場（仮の地点）から約 16 km");
+    await expect(page.getByText("約 16 km 先で発生しました", { exact: true })).toBeVisible();
+    await expect(page.getByText(ZONE)).toHaveCount(0);
+    await filterHas(page, "case-confirmed", "33203");
+    await expect(page.getByText("輪は距離の目安で、発表の区域ではありません。")).toBeVisible();
+    await expectNoForbiddenText(page);
+
+    // 再現では Firestore にも Claude にも出ない
+    const urls = requests.map((r) => r.url());
+    expect(urls.filter((u) => u.includes("firestore") || u.includes("api.anthropic.com"))).toEqual([]);
+  });
+
+  test("場面 4: 12 月の 4 事例と見本の農場で、① のやること、声かけ文のコピー、解除の見込みが見える", async ({ page }) => {
+    test.setTimeout(90_000);
+    // 12 月の 4 事例（既定）。もし区域の近くの農場なら、という仮の地点で ① になる
+    await openReplay(page);
+    await expect(page.getByRole("button", { name: "12 月の 4 事例" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "もし区域の近くの農場なら" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("仮の地点で見ています", { exact: false })).toBeVisible();
+    await (await replayItem(page, /12 月 19 日.*津山市.*疑い/)).click();
+    await expect(page.getByText(ZONE)).toBeVisible();
+    await filterHas(page, "case-suspected", "33203");
+    await expect(page.getByRole("region", { name: "このときメールが届く" })).toBeVisible();
     await (await replayItem(page, /12 月 20 日.*津山市.*確定/)).click();
     await expect(page.getByText(ZONE)).toBeVisible();
+    await expectNoForbiddenText(page);
 
     // 見本の農場のやること（再現の仮の地点と同じ地点）。① なので求められることが最初から開く
     await page.goto("/sample/todo");
@@ -94,13 +158,6 @@ test.describe("デモの筋", () => {
     await expect(page.getByRole("heading", { name: /^確かめておくとよいこと/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: /^確かめておくとよいこと/ })).toContainText("義務ではありません");
     await expect(page.getByText("区域に入っているかは県の連絡が正です")).toBeVisible();
-    await expectNoForbiddenText(page);
-  });
-
-  test("場面 4: 声かけ文をコピーでき、防疫措置の完了で解除の見込みが出る", async ({ page }) => {
-    await prepare(page);
-    await page.goto("/sample/todo");
-    await waitForWord(page, "声かけ文");
 
     // 解除の見込み: 防疫措置が完了している（12/30）ので、『未定』ではなく日付が出る
     const lift = page.getByRole("region", { name: "解除の見込み" });
@@ -200,7 +257,7 @@ test.describe("デモの筋", () => {
       if (host.includes("identitytoolkit") || host.includes("securetoken")) auth.push(req.url());
     });
     await prepare(page, { cases: [TSUYAMA_CASE] });
-    for (const path of ["/", "/area/33214", "/replay", "/sample/todo", "/sample/record/deaths", "/public", "/poster", "/replay/backstage", "/results"]) {
+    for (const path of ["/", "/area/33214", `/area/${NATIONAL_FLOW_SPOT.muniCode}`, "/replay", "/sample/todo", "/sample/record/deaths", "/public", "/poster", "/replay/backstage", "/results"]) {
       await page.goto(path);
       await page.waitForFunction(() => document.body.innerText.trim().length > 20);
       const url = new URL(page.url());

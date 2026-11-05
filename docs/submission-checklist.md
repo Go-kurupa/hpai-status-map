@@ -77,7 +77,8 @@ claude mcp add --transport http hpai https://<本番の URL>/mcp
 [docs/demo-script.md](demo-script.md) のとおりに撮ります。
 
 - [ ] `cd web && browser-guard run -- npx playwright test demo-walkthrough` を通し、**場面 7 が skip でない**
-- [ ] 台本を 1 回通す。メールは送信先を作者に限る
+- [ ] 台本を 1 回通す。メールは送信先を作者に限る。場面 2 の語りの件数は `/area` の表と照らす
+- [ ] 場面 7 の毎朝の全国まとめは、変化があった朝に届いたメールがあれば本文だけを映す。なければ語りだけにする
 - [ ] MCP の場面は本番の接続で撮る
 - [ ] 見返して、映さないものが映っていない。「去年の再現です」の帯と「仮の地点」がある。数字が実測か未実測かが明示されている
 - [ ] 本物の発生が今週あれば、再現で撮り、本物の動きは別に見せる

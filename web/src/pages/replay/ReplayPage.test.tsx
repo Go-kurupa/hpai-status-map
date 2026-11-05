@@ -340,6 +340,8 @@ describe("ReplayPage: 全国の流れ", () => {
     expect(band()).toContain(FIXED_TEXT.replayBanner);
     expect(band()).toContain("仮の地点で見ています");
     expect(band()).toContain("作者の農場がある村の中心付近");
+    expect(screen.getByRole("button", { name: "作者の村から見る" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByRole("button", { name: "もし区域の近くの農場なら" })).toBeNull();
     expect(band()).toContain("農場の場所を指すものではありません");
     expect(band()).toContain("再現の時点: はじまる前");
     expect(band()).toMatch(/説明のための例/);

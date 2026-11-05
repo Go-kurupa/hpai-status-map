@@ -40,6 +40,9 @@ describe("README: 最初の節（審査員が登録なしで触れる入口）",
   it("登録なしで触れる 5 つの画面がある", () => {
     for (const p of ["/replay", "/replay/backstage", "/sample", "/results", "/public"]) expect(first, p).toContain(p);
   });
+  it("順路に全国の流れ、周辺の過去の表、毎朝の札、経路図がある。メールは登録した方だけと分ける", () => {
+    for (const w of ["全国の流れ", "/area/", "/trends", "経路図", "直近 14 日", "発表の区域ではありません", "メールは登録した方だけ"]) expect(first, w).toContain(w);
+  });
   it("登録がいらないこと、本番の URL を利用者が入れる印がある", () => {
     expect(first).toMatch(/登録(は)?(いりません|不要|なし)/u);
     expect(readme).toContain("<!-- 本番の URL は利用者が入れる -->");
@@ -66,6 +69,13 @@ describe("README: 運営者と地域（利用者が入れる）", () => {
   });
   it("囲みの外に、農場名と地域の名前を書かない（題材の説明にも）。囲みの中は利用者が決める", () => {
     expect(outsideOperator).not.toMatch(/西粟倉|津山|岡山|美作|真庭/u);
+  });
+});
+
+describe("README: 何のための道具か", () => {
+  const sec = section("何のための道具か");
+  it("家保の速報を全国の俯瞰と過去で補う。切り替えの基準は農場が決める", () => {
+    for (const w of ["家保の速報を全国の俯瞰と過去で補い", "他人事", "全国の俯瞰", "基準は作品が決めず、農場が決めます"]) expect(sec, w).toContain(w);
   });
 });
 
@@ -122,6 +132,11 @@ describe("README: Claude の使い方", () => {
 });
 
 describe("README: 判定と AI の分担", () => {
+  it("段階 ③ に約 60 km の帯があり、区域の判定に使わないと書く", () => {
+    const sec = section("分担");
+    expect(sec).toContain("③ 約 60 km 以内か、よく行き来する町で発生");
+    expect(sec).toContain("区域の判定には使いません");
+  });
   it("決まりはコード、確定は人、と書く", () => {
     const sec = section("分担");
     expect(sec).toMatch(/コード/u);
