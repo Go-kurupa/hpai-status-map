@@ -383,14 +383,17 @@ button:focus-visible {
   margin: 0;
   font-size: 1rem;
 }
-.stat-row {
+.stat-row,
+.stat-rest {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--s2);
   margin: 0 0 var(--s2);
 }
-@media (min-width: 40rem) {
-  .stat-row {
+/* スマホの組み方は pages/map/map.css。64rem 以上だけ札を並べる */
+@media (min-width: 64rem) {
+  .stat-row,
+  .stat-rest {
     grid-template-columns: 1fr 1fr;
   }
   /* 件数が文になる札は、大きな文字のまま 1 行分の幅を取る */

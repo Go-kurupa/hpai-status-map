@@ -36,8 +36,26 @@ const MapView = lazy(() => import("./MapView"));
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 const names = (codes: readonly string[]) => codes.map((c) => PREF_NAME.get(c) ?? c).join("、");
 
+/** 札の値。「N 件」の数字だけを太く大きくできる形にする。文（未確認、読めないなど）は文の大きさのまま */
+function StatCount({ text, lead }: { text: string; lead?: string }) {
+  const count = /^(\d+) 件$/.exec(text);
+  return (
+    <p className={count ? "stat-value" : "stat-value is-sentence"}>
+      {lead ? <span className="stat-long">{lead} </span> : null}
+      {count ? (
+        <>
+          <b>{count[1]}</b> 件
+        </>
+      ) : (
+        text
+      )}
+    </p>
+  );
+}
+
 /**
- * 入口の画面。上から 地図、シーズンの棒、月別、固定のリンク。塗りがないことを「何もない」と読ませない。
+ * 入口の画面。DOM の順はスマホで見る順で、上から 確認の行、守る文、数字の札、切り替え、地図、断り、一覧、残りの札、棒。
+ * 塗りがないことを「何もない」と読ませない。64rem 以上の 2 列は map.css の order で組む。
  * replayStats は再現の全国の流れだけが渡す。件数の札を再現の時計で出す（野鳥の札は、再現が野鳥を持たないので出さない）。
  */
 export default function MapPage({ replayStats = false }: { replayStats?: boolean }) {
@@ -131,10 +149,16 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
     setPicking(open);
     if (open) setAiming(false);
   }, []);
-  // 全国の流れは輪が見える広さで始める。全国の広さでは輪も町の塗りも見えず、発生が輪に入る様子が分からない
+  // 地点があれば距離の輪の全体、町だけならその町が「自分の近く」
+  const nearKind = farmMeshCode !== null ? "rings" : "muni";
+  const showNear = useCallback(() => {
+    if (town !== null) moveTo(nearKind, [town]);
+  }, [town, nearKind, moveTo]);
+  // 町があれば近くで始める。全国の広さでは輪も町の塗りも見えない。再現の 4 事例だけは全国の広さで見せる
+  const startNear = ds.mode !== "replay" || replayStats;
   useEffect(() => {
-    if (replayStats && farmMeshCode !== null && town !== null) moveTo("rings", [town]);
-  }, [replayStats, farmMeshCode, town, moveTo]);
+    if (startNear) showNear();
+  }, [startNear, showNear]);
   // 十字を合わせ始めたら、地図の上端を画面の先頭に寄せる（地図の上に町の欄があり、地図が下に隠れやすい）
   useEffect(() => {
     if (aiming) boxRef.current?.scrollIntoView?.({ block: "start" });
@@ -195,6 +219,15 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
       : countText({ count: birdCounts.total });
   // 発生が 0 件のときと同じく、札に 0 件が出るときは札のすぐ前に置く（0 件だけが先に読まれないように）
   const zeroStat = showStats && (recentCount === 0 || (farmMeshCode !== null && band.now === 0) || (hasFrequent && geo !== null && (frequentCounts?.some((c) => c.count === 0) ?? false)));
+  // 町の文のうち、普段の段階 ③④ と読み込み中は地図の下に置いて地図を上げる。重要な文と読めない断りは地図の前に置く
+  const lineFailed = townLine.failed || (town !== null && geoFailed);
+  const bannerBelowMap = town !== null && !lineFailed && (d.currentCases === null || townLine.line === null || townLine.line.tone === "lv3" || townLine.line.tone === "lv4");
+  // 守る文を含む町の文は札より後ろにある。0 件の札を出すときと、町の文が地図の下に動くときは、守る文を札のすぐ前に移す
+  const zeroShown = view.total === 0 || zeroStat;
+  const lineHasRisk = townLine.line?.details.includes(FIXED_TEXT.riskAnywhere) ?? false;
+  const riskMovedUp = showStats && view.loaded && lineHasRisk && (bannerBelowMap || zeroShown);
+  const riskAboveStats = view.isCurrent && view.loaded && (riskMovedUp || (zeroShown && !lineHasRisk));
+  const bannerLine = riskMovedUp && townLine.line ? { ...townLine.line, details: townLine.line.details.filter((t) => t !== FIXED_TEXT.riskAnywhere) } : townLine.line;
 
   const picker = (
     <>
@@ -207,12 +240,29 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         picking={picking}
         onPickingChange={setPickingOpen}
         onChoose={choose}
-        onShowJapan={() => moveTo("japan", [])}
-        onShowTown={() => town && moveTo(replayStats ? "rings" : "muni", [town])}
       />
       {notice ? <p role="status">{notice}</p> : null}
     </>
   );
+
+  const banner = (
+    <TownBanner
+      muniCode={town}
+      muniName={townName}
+      loaded={d.currentCases !== null}
+      line={bannerLine}
+      lineFailed={lineFailed}
+      past={past}
+      nearby={nearby}
+      slow={d.casesSlow}
+      showPastDisclaimer={view.isCurrent || !view.loaded}
+      riskShownAbove={riskMovedUp}
+    >
+      {town === null ? picker : null}
+    </TownBanner>
+  );
+  // 最初は全国の広さ（focus なし）。動かした先で押された状態を決める
+  const showingNear = focus !== null && focus.kind !== "japan";
 
   return (
     <div className="map-page">
@@ -228,19 +278,108 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         </>
       )}
 
-      <TownBanner
-        muniCode={town}
-        muniName={townName}
-        loaded={d.currentCases !== null}
-        line={townLine.line}
-        lineFailed={townLine.failed || (town !== null && geoFailed)}
-        past={past}
-        nearby={nearby}
-        slow={d.casesSlow}
-        showPastDisclaimer={view.isCurrent || !view.loaded}
-      >
-        {town === null ? picker : null}
-      </TownBanner>
+      {view.isCurrent && !view.loaded ? (
+        <p className="state-unknown" role="status">
+          今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。
+          {d.casesSlow ? <> {TEXT.slowLoad}</> : null}
+        </p>
+      ) : null}
+      {!view.isCurrent && !view.loaded ? (
+        <p className={d.historyFailed ? "state-unknown" : "state-wait"} role="status">
+          過去の記録をまだ読めていません。
+          {d.historyFailed ? (
+            <>
+              {" "}
+              <button type="button" className="btn" onClick={d.retryHistory}>
+                もう一度読む
+              </button>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+      {view.isCurrent ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
+      {view.reviewingPrefCodes.length > 0 ? (
+        <p className="state-wait">
+          確認中の発表がある県: {names(view.reviewingPrefCodes)}
+          。件数にはまだ入れていません。
+        </p>
+      ) : null}
+      {/* 札の「0 件」だけが先に読まれないよう、札のすぐ前に置く */}
+      {riskAboveStats ? <p className="map-notice map-risk">{FIXED_TEXT.riskAnywhere}</p> : null}
+      {showStats ? (
+        <div className="stat-row">
+          <p className="stat-headline">{TEXT.statHeadline}</p>
+          {farmMeshCode !== null ? (
+            <div className="stat stat-wide stat-band">
+              <div className="stat-band-main">
+                <p className="stat-title">
+                  {TEXT.statBand(DISTANCE_BAND_KM).slice(0, -TEXT.statBandTail.length)}
+                  <span className="stat-long">{TEXT.statBandTail}</span>
+                </p>
+                <StatCount text={bandNowText(band.now)} lead={TEXT.statBandNow} />
+              </div>
+              <div className="stat-band-more">
+                <p className="stat-value">
+                  {TEXT.statBandPast(pastSeasons)} {bandPastText(band.past)}
+                </p>
+                <p className="stat-note">{TEXT.statBandRelated}</p>
+                {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
+                {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
+              </div>
+            </div>
+          ) : null}
+          {hasFrequent ? (
+            <div className="stat stat-wide stat-frequent">
+              <p className="stat-title">{TEXT.statFrequent}</p>
+              {geoFailed ? (
+                <p className="stat-value">{TEXT.statFailed}</p>
+              ) : geo === null || frequentCounts === null ? (
+                <p className="stat-value">{countText({ count: null })}</p>
+              ) : (
+                frequentCounts.map((c) => (
+                  <p className="stat-value" key={c.muniCode}>
+                    {geo.index[c.muniCode]?.name ?? c.muniCode}{" "}
+                    {countText({
+                      count: c.count,
+                      unchecked: d.failedPrefCodes.includes(geo.index[c.muniCode]?.prefCode ?? c.muniCode.slice(0, 2)) ? 1 : 0,
+                      allUnchecked: noneConfirmed,
+                    })}
+                  </p>
+                ))
+              )}
+            </div>
+          ) : null}
+          <div className={currentBar.unchecked && !currentBar.allUnchecked ? "stat stat-wide stat-national" : "stat stat-national"}>
+            <p className="stat-title">発生した件数</p>
+            <StatCount text={countText(currentBar)} />
+          </div>
+          <div className={needsWide ? "stat stat-wide stat-recent" : "stat stat-recent"}>
+            <p className="stat-title">
+              {TEXT.statRecent.slice(0, -TEXT.statRecentTail.length)}
+              <span className="stat-long">{TEXT.statRecentTail}</span>
+            </p>
+            <StatCount text={countText({ count: recentCount, ...watchFlags })} />
+          </div>
+          {hideAsOfStat ? null : (
+            <div className="stat stat-time">
+              <p className="stat-title">時刻</p>
+              <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
+            </div>
+          )}
+        </div>
+      ) : null}
+      {bannerBelowMap ? null : banner}
+
+      {town !== null ? (
+        <div className="map-scope" role="group" aria-label={TEXT.mapScopeAria}>
+          <button type="button" aria-pressed={showingNear} onClick={showNear}>
+            {TEXT.mapNear}
+          </button>
+          <button type="button" aria-pressed={!showingNear} onClick={() => moveTo("japan", [])}>
+            {TEXT.japan}
+          </button>
+        </div>
+      ) : null}
 
       <div className="map-box" ref={boxRef}>
         <MapChunkBoundary>
@@ -270,111 +409,10 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
 
       <p className="map-disclaimer">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
       {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : null}
+      {bannerBelowMap ? banner : null}
       {town !== null ? picker : null}
       <Legend isCurrent={view.isCurrent} />
 
-      {view.isCurrent && !view.loaded ? (
-        <p className="state-unknown" role="status">
-          今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。
-          {d.casesSlow ? <> {TEXT.slowLoad}</> : null}
-        </p>
-      ) : null}
-      {!view.isCurrent && !view.loaded ? (
-        <p className={d.historyFailed ? "state-unknown" : "state-wait"} role="status">
-          過去の記録をまだ読めていません。
-          {d.historyFailed ? (
-            <>
-              {" "}
-              <button type="button" className="btn" onClick={d.retryHistory}>
-                もう一度読む
-              </button>
-            </>
-          ) : null}
-        </p>
-      ) : null}
-      {view.isCurrent ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
-      {view.reviewingPrefCodes.length > 0 ? (
-        <p className="state-wait">
-          確認中の発表がある県: {names(view.reviewingPrefCodes)}
-          。件数にはまだ入れていません。
-        </p>
-      ) : null}
-      {/* 札の「0 件」だけが先に読まれないよう、札のすぐ前に置く */}
-      {view.isCurrent && view.loaded && (view.total === 0 || zeroStat) && !townLine.line?.details.includes(FIXED_TEXT.riskAnywhere) ? (
-        <p className="map-notice">{FIXED_TEXT.riskAnywhere}</p>
-      ) : null}
-      {showStats ? (
-        <div className="stat-row">
-          <div className={currentBar.unchecked && !currentBar.allUnchecked ? "stat stat-wide" : "stat"}>
-            <p className="stat-title">発生した件数</p>
-            <p className="stat-value">{countText(currentBar)}</p>
-          </div>
-          <div className={needsWide ? "stat stat-wide" : "stat"}>
-            <p className="stat-title">{TEXT.statRecent}</p>
-            <p className="stat-value">{countText({ count: recentCount, ...watchFlags })}</p>
-          </div>
-          {d.history !== null && pastRange === null ? null : (
-            <div className="stat">
-              <p className="stat-title">{TEXT.statPastToDate(pastSeasons, monthDay(today))}</p>
-              <p className="stat-value">{pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null })}</p>
-            </div>
-          )}
-          {hideAsOfStat ? null : (
-            <div className="stat">
-              <p className="stat-title">時刻</p>
-              <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
-            </div>
-          )}
-          {farmMeshCode !== null ? (
-            <div className="stat stat-wide">
-              <p className="stat-title">{TEXT.statBand(DISTANCE_BAND_KM)}</p>
-              <p className="stat-value">
-                {TEXT.statBandNow} {bandNowText(band.now)}
-              </p>
-              <p className="stat-value">
-                {TEXT.statBandPast(pastSeasons)} {bandPastText(band.past)}
-              </p>
-              <p className="stat-note">{TEXT.statBandRelated}</p>
-              {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
-              {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
-            </div>
-          ) : null}
-          {hasFrequent ? (
-            <div className="stat stat-wide">
-              <p className="stat-title">{TEXT.statFrequent}</p>
-              {geoFailed ? (
-                <p className="stat-value">{TEXT.statFailed}</p>
-              ) : geo === null || frequentCounts === null ? (
-                <p className="stat-value">{countText({ count: null })}</p>
-              ) : (
-                frequentCounts.map((c) => (
-                  <p className="stat-value" key={c.muniCode}>
-                    {geo.index[c.muniCode]?.name ?? c.muniCode}{" "}
-                    {countText({
-                      count: c.count,
-                      unchecked: d.failedPrefCodes.includes(geo.index[c.muniCode]?.prefCode ?? c.muniCode.slice(0, 2)) ? 1 : 0,
-                      allUnchecked: noneConfirmed,
-                    })}
-                  </p>
-                ))
-              )}
-            </div>
-          ) : null}
-          {ds.mode === "replay" ? null : (
-            <div className="stat stat-wide">
-              <p className="stat-title">{TEXT.statBirds}</p>
-              <p className="stat-value">{birdText}</p>
-              {d.wildBirdsLoaded && birdCounts.total > 0 ? <p className="stat-note">{TEXT.statBirdsBreakdown(birdCounts.confirmed, birdCounts.screening)}</p> : null}
-              <p className="stat-note">{TEXT.statBirdsNote}</p>
-              <p className="stat-note">
-                <Link to="/trends" className="tap-link">
-                  {TEXT.statBirdsLink}
-                </Link>
-              </p>
-            </div>
-          )}
-        </div>
-      ) : null}
       {mapless ? null : (
         <p className="map-attribution">
           {MAP_ATTRIBUTION.map((html, i) => (
@@ -407,6 +445,30 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         loaded={d.listCases !== null}
         unwatchedCount={view.isCurrent ? d.failedPrefCodes.length : 0}
       />
+
+      {showStats ? (
+        <div className="stat-rest">
+          {d.history !== null && pastRange === null ? null : (
+            <div className="stat">
+              <p className="stat-title">{TEXT.statPastToDate(pastSeasons, monthDay(today))}</p>
+              <p className="stat-value">{pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null })}</p>
+            </div>
+          )}
+          {ds.mode === "replay" ? null : (
+            <div className="stat stat-wide">
+              <p className="stat-title">{TEXT.statBirds}</p>
+              <p className="stat-value">{birdText}</p>
+              {d.wildBirdsLoaded && birdCounts.total > 0 ? <p className="stat-note">{TEXT.statBirdsBreakdown(birdCounts.confirmed, birdCounts.screening)}</p> : null}
+              <p className="stat-note">{TEXT.statBirdsNote}</p>
+              <p className="stat-note">
+                <Link to="/trends" className="tap-link">
+                  {TEXT.statBirdsLink}
+                </Link>
+              </p>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <SeasonBar bars={bars} selected={d.selected} onSelect={selectSeason} />
 

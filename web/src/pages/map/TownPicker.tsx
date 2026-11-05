@@ -19,8 +19,6 @@ export interface TownPickerProps {
   picking: boolean;
   onPickingChange(open: boolean): void;
   onChoose(code: MuniCode): void;
-  onShowJapan(): void;
-  onShowTown(): void;
 }
 
 /** 県 → 市町村の順に選ぶ。知らない人でも迷わないよう、ふつうの選択欄（select）と大きなボタンだけを使う */
@@ -88,15 +86,11 @@ function Chooser({ geo, town, onChoose, onClose }: { geo: Pick<GeoStore, "index"
   );
 }
 
-/** 地図の見る場所（全国／自分の町）と、自分の町の選び方 */
+/** 自分の町の選び方。地図の見る場所の切り替えは、地図のすぐ上にある */
 export function TownPicker(p: TownPickerProps) {
   if (p.readOnly) {
     return (
       <div className="town-picker">
-        <div className="town-actions">
-          <Button onClick={p.onShowJapan}>{TEXT.japan}</Button>
-          <Button onClick={p.onShowTown}>{TEXT.myTown}</Button>
-        </div>
         <p>{p.readOnlyNote ?? TEXT.spotFromFarm}</p>
         {p.readOnlyNote ? null : (
           <Link to="/settings/farm" className="tap-link">
@@ -110,19 +104,12 @@ export function TownPicker(p: TownPickerProps) {
     <div className="town-picker">
       <div className="town-actions">
         {p.town ? (
-          <>
-            <Button onClick={p.onShowJapan}>{TEXT.japan}</Button>
-            <Button onClick={p.onShowTown}>{TEXT.myTown}</Button>
-          </>
+          p.picking ? null : <Button onClick={() => p.onPickingChange(true)}>{TEXT.changeTown}</Button>
         ) : (
-          <>
-            <Button variant="primary" onClick={() => p.onPickingChange(true)}>
-              {TEXT.pickTown}
-            </Button>
-            <Button onClick={p.onShowJapan}>{TEXT.japan}</Button>
-          </>
+          <Button variant="primary" className="town-pick-btn" onClick={() => p.onPickingChange(true)}>
+            {TEXT.pickTown}
+          </Button>
         )}
-        {p.town && !p.picking ? <Button onClick={() => p.onPickingChange(true)}>{TEXT.changeTown}</Button> : null}
       </div>
       {p.picking ? (
         p.geo ? (

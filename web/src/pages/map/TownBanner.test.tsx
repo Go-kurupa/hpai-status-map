@@ -120,9 +120,9 @@ describe("TownBanner", () => {
     expect(screen.getByRole("link", { name: /この町のくわしい状況/ }).getAttribute("href")).toBe("/area/33214");
   });
 
-  it("町を選んでいなければ『町を選んでください』。area へのリンクは出さない", () => {
+  it("町を選んでいなければ町を選ぶ案内を出す。area へのリンクは出さない", () => {
     show(props({ muniCode: null, muniName: null, line: { tone: "none", main: "町を選んでください", details: [] }, past: { status: "idle" } }));
-    expect(screen.getByText("町を選んでください")).toBeTruthy();
+    expect(screen.getByText(TEXT.pickPrompt)).toBeTruthy();
     expect(screen.queryByRole("link", { name: /この町のくわしい状況/ })).toBeNull();
   });
 

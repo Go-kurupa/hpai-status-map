@@ -103,7 +103,7 @@ const LEVELS: readonly Level[] = [
   },
   {
     name: "町を選んでいない",
-    sentence: "町を選んでください",
+    sentence: "町を選ぶと、近くの発生が見られます。",
     setup: async () => {},
   },
 ];

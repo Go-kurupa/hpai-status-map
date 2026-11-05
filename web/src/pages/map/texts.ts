@@ -16,6 +16,8 @@ export const TEXT = {
   areaSame: "この町で発生しました。県の連絡を確かめてください",
   shipmentLifted: "搬出制限は解除されました",
   noTown: "町を選んでください",
+  // 町を選んでいない人の、地図の上の案内
+  pickPrompt: "町を選ぶと、近くの発生が見られます。",
   unknownTown: "この町の情報を読めませんでした。町を選び直してください",
   // 読み込み中と失敗（「何もない」に見せない。§2）
   loading: "読み込んでいます。読めるまで、発生がないとは言えません",
@@ -29,6 +31,9 @@ export const TEXT = {
   changeTown: "町を変える",
   japan: "全国",
   myTown: "自分の町",
+  // 地図の見る場所の切り替え
+  mapNear: "自分の近く",
+  mapScopeAria: "地図の見る場所",
   prefLabel: "都道府県",
   muniLabel: "市町村",
   prefPlaceholder: "県を選んでください",
@@ -59,9 +64,14 @@ export const TEXT = {
   // 距離の輪（発表の区域と別物であることを、地図の下に常に出す）
   ringNote: "輪は距離の目安で、発表の区域ではありません。",
   // 毎朝の札。多い少ないを書かない。題に「時点」を入れない（E2E が時刻の表示を「時点」で確かめている）
+  // スマホの見出しの題。札の題（発生した件数）は PC の札に残す
+  statHeadline: "今季の発生（全国）",
   statRecent: "直近 14 日の件数",
+  // 札の題のうち、スマホの 1 行で隠す語尾
+  statRecentTail: "の件数",
   statPastToDate: (seasons: number, monthDay: string): string => `過去 ${seasons} シーズンの ${monthDay}まで`,
   statBand: (km: number): string => `農場から約 ${km} km 以内`,
+  statBandTail: " 以内",
   statBandNow: "今季",
   statBandPast: (seasons: number): string => `過去 ${seasons} シーズン`,
   statFailed: "読めませんでした",

@@ -29,11 +29,13 @@ export interface TownBannerProps {
   slow?: boolean;
   /** 過去のシーズンを見ているとき、ページが pastDisclaimer を出しているので重ねない */
   showPastDisclaimer: boolean;
+  /** 同じ画面の札の前に riskAnywhere を出している。重ねて書かない */
+  riskShownAbove?: boolean;
   /** 町の選び方、場所の決め方 */
   children?: ReactNode;
 }
 
-function PastRow({ past, nearby, town, line, showDisclaimer }: { past: PastState; nearby?: NearbyPastState; town: MuniCode | null; line: TownLine | null; showDisclaimer: boolean }) {
+function PastRow({ past, nearby, town, line, showDisclaimer, riskShownAbove }: { past: PastState; nearby?: NearbyPastState; town: MuniCode | null; line: TownLine | null; showDisclaimer: boolean; riskShownAbove: boolean }) {
   if (past.status === "idle") return null;
   let body: ReactNode;
   if (past.status === "loading") body = <p>{TEXT.pastLoading}</p>;
@@ -41,7 +43,7 @@ function PastRow({ past, nearby, town, line, showDisclaimer }: { past: PastState
   else {
     const { summary } = past;
     const hits: readonly PastHit[] = summary.hits;
-    const riskMissing = !line?.details.includes(FIXED_TEXT.riskAnywhere);
+    const riskMissing = !riskShownAbove && !line?.details.includes(FIXED_TEXT.riskAnywhere);
     body = (
       <>
         <p>
@@ -58,17 +60,24 @@ function PastRow({ past, nearby, town, line, showDisclaimer }: { past: PastState
   return <div className="town-past">{body}</div>;
 }
 
-/** 地図の上の「自分の町の 1 文」。色は今季の段階だけ。過去の発生は別の行で、色を使わない（設計書 §15） */
+/** 「自分の町の 1 文」。色は今季の段階だけ。過去の発生は別の行で、色を使わない（設計書 §15） */
 export function TownBanner(p: TownBannerProps) {
   const noTown = p.muniCode === null;
   let now: ReactNode;
   if (noTown) {
-    now = (
-      <div className="town-now" data-tone="none" role="status">
-        <p className="town-main">{TEXT.noTown}</p>
-      </div>
+    // 案内の文と町を選ぶボタンを 1 行に並べる。選ぶ画面を開くと、その下に折り返す
+    return (
+      <section className="town-banner" aria-label={TEXT.myTown}>
+        <div className="town-prompt">
+          <p className="town-prompt-text" role="status">
+            {TEXT.pickPrompt}
+          </p>
+          {p.children}
+        </div>
+      </section>
     );
-  } else if (p.lineFailed) {
+  }
+  if (p.lineFailed) {
     now = (
       <p className="state-unknown" role="alert">
         {TEXT.loadFailed}
@@ -104,12 +113,10 @@ export function TownBanner(p: TownBannerProps) {
         </p>
       ) : null}
       {now}
-      {noTown ? null : <PastRow past={p.past} nearby={p.nearby} town={p.muniCode} line={p.line} showDisclaimer={p.showPastDisclaimer} />}
-      {noTown ? null : (
-        <p className="town-area-link">
-          <Link to={`/area/${p.muniCode}`} className="tap-link">{TEXT.areaLink}</Link>
-        </p>
-      )}
+      <PastRow past={p.past} nearby={p.nearby} town={p.muniCode} line={p.line} showDisclaimer={p.showPastDisclaimer} riskShownAbove={p.riskShownAbove ?? false} />
+      <p className="town-area-link">
+        <Link to={`/area/${p.muniCode}`} className="tap-link">{TEXT.areaLink}</Link>
+      </p>
       {p.children}
     </section>
   );

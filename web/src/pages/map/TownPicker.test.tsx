@@ -26,8 +26,6 @@ function setup(o: Partial<TownPickerProps> = {}) {
     picking: false,
     onPickingChange: vi.fn(),
     onChoose: vi.fn(),
-    onShowJapan: vi.fn(),
-    onShowTown: vi.fn(),
     ...o,
   };
   render(
@@ -41,22 +39,23 @@ function setup(o: Partial<TownPickerProps> = {}) {
 afterEach(cleanup);
 
 describe("TownPicker", () => {
-  it("ボタンは『全国』と『自分の町』。全国は地図を日本全体にする", () => {
-    const p = setup();
-    fireEvent.click(screen.getByRole("button", { name: "全国" }));
-    expect(p.onShowJapan).toHaveBeenCalled();
+  it("地図の見る場所のボタンは持たない（切り替えは地図のすぐ上にある）", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: "全国" })).toBeNull();
+    cleanup();
+    setup({ town: "33214" });
+    expect(screen.queryByRole("button", { name: "全国" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "自分の町" })).toBeNull();
+    cleanup();
+    setup({ readOnly: true, town: "33214" });
+    expect(screen.queryByRole("button", { name: "全国" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "自分の町" })).toBeNull();
   });
 
-  it("町が未選択なら『町を選ぶ』で選ぶ画面を開く。選んだ後は自分の町へ動かす", () => {
+  it("町が未選択なら『町を選ぶ』で選ぶ画面を開く", () => {
     const a = setup();
     fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     expect(a.onPickingChange).toHaveBeenCalledWith(true);
-    expect(a.onShowTown).not.toHaveBeenCalled();
-    cleanup();
-    const b = setup({ town: "33214" });
-    fireEvent.click(screen.getByRole("button", { name: "自分の町" }));
-    expect(b.onShowTown).toHaveBeenCalled();
-    expect(b.onPickingChange).not.toHaveBeenCalled();
   });
 
   it("県を選ぶと市町村が出る。選ぶまで『この町にする』は押せない", () => {
@@ -124,13 +123,9 @@ describe("TownPicker", () => {
     expect(screen.getByRole("alert").textContent).toContain("読めませんでした");
   });
 
-  it("未選択では『町を選ぶ』が btn-primary で、全国より前にある", () => {
+  it("未選択では『町を選ぶ』が btn-primary", () => {
     setup();
-    const pick = screen.getByRole("button", { name: TEXT.pickTown });
-    const japan = screen.getByRole("button", { name: "全国" });
-    expect(pick.className).toContain("btn-primary");
-    expect(pick.compareDocumentPosition(japan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "自分の町" })).toBeNull();
+    expect(screen.getByRole("button", { name: TEXT.pickTown }).className).toContain("btn-primary");
   });
 
   it("市町村を選ぶまで『県と市町村を選ぶと押せます』が出て、ボタンを結ぶ。選ぶと消える", () => {
