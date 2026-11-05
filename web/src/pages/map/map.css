@@ -1039,6 +1039,24 @@
   .map-page:not(:has(> .spot-picker[data-active="true"])) > .stat-rest {
     order: 3;
   }
+  /* 札の数字。大きいのは数字だけで、「件」と断りは文の大きさ。断りは隠さない */
+  .stat-row .stat-value {
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .stat-value :is(b, .stat-num) {
+    font-size: 2rem;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-value .stat-qual {
+    color: var(--sub);
+    font-size: 1rem;
+    font-weight: 400;
+  }
+  .stat-value .stat-qual:last-child {
+    display: block;
+  }
   /* 県ごとと週ごとの棒を横に並べる */
   .season-charts {
     display: grid;

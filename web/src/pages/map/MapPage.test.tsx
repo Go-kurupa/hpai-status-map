@@ -999,6 +999,20 @@ describe("MapPage: 平面の札（T12）", () => {
     expect(stats()[0]!.classList.contains("stat-wide")).toBe(true);
   });
 
+  it("PC でも一部未確認の数字を分ける。大きいのは数字だけで、断りは文の並びのまま隠さない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([tsuyamaCase({ stages: { confirmed: { date: "2026-11-02", time: null } } })]);
+    r.deliverWatch(failed(["33"]));
+    const value = stats()[0]!.querySelector(".stat-value")!;
+    expect(value.textContent).toBe("確認できた範囲では 1 件（1 県は確認できていません）");
+    expect(value.querySelector(".stat-num")!.textContent).toBe("1");
+    expect([...value.querySelectorAll(".stat-qual")].map((e) => e.textContent)).toEqual(["確認できた範囲では ", "（1 県は確認できていません）"]);
+    // 断りは数字より前と後ろに残る（件数だけが読まれない）
+    expect(follows(value.querySelector(".stat-qual")!, value.querySelector(".stat-num")!)).toBe(true);
+  });
+
   it("全県確認の札は横に並び、stat-wide を付けない", async () => {
     const r = rig();
     show(r);

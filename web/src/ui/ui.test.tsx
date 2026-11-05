@@ -567,6 +567,14 @@ describe("機械の検査: ソフトの質感（設計書 2-2）", () => {
     expect(body(".stat-value")).toMatch(/(?:^|[\s;])color:\s*var\(--navy\)/);
     expect(body(".app-header")).toMatch(/background:\s*var\(--surface\)/);
   });
+  it("札の一部未確認の断りは、PC で小さい文字にし、隠さない。数字は大きいまま", () => {
+    const pc = fs.readFileSync(path.join(repoRoot, MAP), "utf8").split("@media (min-width: 64rem)")[1]!;
+    const qual = /\.stat-value \.stat-qual\s*\{([^}]*)\}/.exec(pc)?.[1] ?? "";
+    expect(qual).toMatch(/font-size:\s*1rem/);
+    expect(qual).toMatch(/color:\s*var\(--sub\)/);
+    expect(qual).not.toMatch(/display:\s*none/);
+    expect(pc).toMatch(/\.stat-value :is\(b, \.stat-num\)\s*\{[^}]*font-size:\s*2rem/);
+  });
   it("札と断りは枠も面も持たない", () => {
     expect(body(".stat")).not.toMatch(/(?:^|[\s;])(?:border|background):\s*(?!0|none)/);
     expect(body(".map-notice", MAP)).not.toMatch(/(?:^|[\s;])border:\s*(?!0)/);

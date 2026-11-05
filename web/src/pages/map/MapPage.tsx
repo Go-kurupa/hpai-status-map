@@ -40,11 +40,12 @@ const names = (codes: readonly string[]) => codes.map((c) => PREF_NAME.get(c) ??
 
 /**
  * 札の値。「N 件」の数字だけを太く大きくできる形にする。文（未確認、読めないなど）は文の大きさのまま。
+ * 一部未確認は「8 件」と断りに分ける。PC は断りを小さい字で数字の前後に残す（map.css の .stat-qual）。
  * スマホは未確認の断りを各数字に繰り返さず、数字の前の 1 文（stat-unchecked）にまとめる。隠す語は .stat-long（スマホで非表示）
  */
-function StatCount({ text, lead, narrow }: { text: string; lead?: string; narrow?: boolean }) {
+function StatCount({ text, lead }: { text: string; lead?: string }) {
   const count = /^(\d+) 件$/.exec(text);
-  const partial = narrow ? /^(確認できた範囲では )(\d+ 件)(（.+）)$/.exec(text) : null;
+  const partial = /^(確認できた範囲では )(\d+)( 件)(（.+）)$/.exec(text);
   return (
     <p className={count ? "stat-value" : "stat-value is-sentence"}>
       {lead ? <span className="stat-long">{lead} </span> : null}
@@ -54,9 +55,10 @@ function StatCount({ text, lead, narrow }: { text: string; lead?: string; narrow
         </>
       ) : partial ? (
         <>
-          <span className="stat-long">{partial[1]}</span>
-          {partial[2]}
-          <span className="stat-long">{partial[3]}</span>
+          <span className="stat-long stat-qual">{partial[1]}</span>
+          <span className="stat-num">{partial[2]}</span>
+          {partial[3]}
+          <span className="stat-long stat-qual">{partial[4]}</span>
         </>
       ) : (
         text
@@ -398,7 +400,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
                   {TEXT.statBand(DISTANCE_BAND_KM).slice(0, -TEXT.statBandTail.length)}
                   <span className="stat-long">{TEXT.statBandTail}</span>
                 </p>
-                <StatCount text={bandNow} lead={TEXT.statBandNow} narrow={narrow} />
+                <StatCount text={bandNow} lead={TEXT.statBandNow} />
               </div>
               {narrow ? null : <div className="stat-band-more">{bandMore}</div>}
             </div>
@@ -406,7 +408,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           {narrow ? null : frequentStat}
           <div className={currentBar.unchecked && !currentBar.allUnchecked ? "stat stat-wide stat-national" : "stat stat-national"}>
             <p className="stat-title">発生した件数</p>
-            <StatCount text={countText(currentBar)} narrow={narrow} />
+            <StatCount text={countText(currentBar)} />
           </div>
           {repeatsHead(recentText) ? null : (
             <div className={needsWide ? "stat stat-wide stat-recent" : "stat stat-recent"}>
@@ -414,7 +416,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
                 {TEXT.statRecent.slice(0, -TEXT.statRecentTail.length)}
                 <span className="stat-long">{TEXT.statRecentTail}</span>
               </p>
-              <StatCount text={recentText} narrow={narrow} />
+              <StatCount text={recentText} />
             </div>
           )}
           {hideAsOfStat ? null : (
