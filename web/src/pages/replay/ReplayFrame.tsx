@@ -1,7 +1,7 @@
 // 再現の帯と Provider。地図などの画面（MapPage、見本の農場の画面）を、再現の時計と事例で動かす。
 // 端末内の地点は読むだけ・書かない: SpotProvider の fixed を必ず渡す（fixed が null だと、地点や町を端末に書いてしまう）。
 import { FIXED_TEXT } from "@hpai/shared/wording";
-import type { ReplayScenario } from "@hpai/shared/replay";
+import { NATIONAL_FLOW_ID, type ReplayScenario } from "@hpai/shared/replay";
 import type { FarmPoint } from "@hpai/shared/types";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { DataSourceProvider, RecordStoreProvider } from "../../data/context";
@@ -34,6 +34,14 @@ export const REPLAY_NOTES = {
   watchExample: "見回りの状況（地図の斜線）は説明のための例です。実際の見回りの結果ではありません。",
   noMail: "メールは実際には送りません。『このときメールが届く』は、届くとしたらこうなる、という表示です。",
   noTime: "時刻の記載がない発表は『時刻の記載なし』とし、その日の終わりに置いています。",
+} as const;
+
+/** 全国の流れの注記。4 事例の文のうち、合わない文（4 事例だけ、メールの枠、時刻の記載のない発表）を替える */
+export const NATIONAL_NOTES = {
+  flow: (count: number): string => `この流れは、過去の記録にある 2025 年シーズンの発生 ${count} 件を、確定の日の順に並べたものです。関連農場は数えていません。`,
+  noLift: "移動制限の解除の日は入っていません。一度出た段階の文は、解除の後も最後まで残ります。解除までの動きは『12 月の 4 事例』で見られます。",
+  noMail: "メールは実際には送りません。この流れでは、メールの下書きも出しません。",
+  noTime: "過去の記録は日付だけなので『時刻の記載なし』とし、その日の終わりに置いています。",
 } as const;
 
 export interface ReplayFrameProps {
@@ -70,10 +78,22 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, lead, chi
                 : "この端末にある地点で見ています（端末の外へは送りません）"}
             </p>
             <ul className="replay-notes">
-              <li>{REPLAY_NOTES.fourCases}</li>
-              <li>{REPLAY_NOTES.watchExample}</li>
-              <li>{REPLAY_NOTES.noMail}</li>
-              <li>{REPLAY_NOTES.noTime}</li>
+              {scenario.id === NATIONAL_FLOW_ID ? (
+                <>
+                  <li>{NATIONAL_NOTES.flow(scenario.events.length)}</li>
+                  <li>{NATIONAL_NOTES.noLift}</li>
+                  <li>{REPLAY_NOTES.watchExample}</li>
+                  <li>{NATIONAL_NOTES.noMail}</li>
+                  <li>{NATIONAL_NOTES.noTime}</li>
+                </>
+              ) : (
+                <>
+                  <li>{REPLAY_NOTES.fourCases}</li>
+                  <li>{REPLAY_NOTES.watchExample}</li>
+                  <li>{REPLAY_NOTES.noMail}</li>
+                  <li>{REPLAY_NOTES.noTime}</li>
+                </>
+              )}
             </ul>
           </section>
           {/* 地図の h1 は『今季』と出るので隠し、再現の画面が『去年の再現』の見出しを出す（replay.css） */}

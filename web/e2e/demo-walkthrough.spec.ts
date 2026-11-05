@@ -184,6 +184,8 @@ test.describe("デモの筋", () => {
 
     await page.goto("/results");
     await waitForWord(page, "試験の結果");
+    // 「試験の結果を読み込んでいます」にも同じ語があるので、読み終わるまで待ってから本文を読む
+    await expect(page.getByText("試験の結果を読み込んでいます")).toHaveCount(0);
     const body = await page.evaluate(() => document.body.innerText);
     // 測った数字が出る（未実測だけの画面は、数字を見せられていない）
     expect(body).not.toMatch(/試験はまだ実行していません/u);

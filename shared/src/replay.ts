@@ -2,13 +2,14 @@
 // データは data/replay/scenario.json の事実（日時、県、市町村、段階、羽数、半径、出典の URL）だけで、県や国の文章を写さない。
 // 時計は引数で受ける。ここでは今の時刻を読まない。
 import { addDays, toJstIso } from "./dates";
+import { historyToCase } from "./history";
 import { muniCoreName } from "./read/names";
 import { PREF_FILLED_FROM_SOURCE, PREF_FROM_SOURCE } from "./read/notes";
 import { radiusInQuote } from "./read/quote";
 import type { CompareReport, DocumentKind, ReadDate, ReadResult, SecondReadResult, VerifyCheck, VerifyReport } from "./read/types";
 import { normalizeForMatch } from "./text";
 import { FIXED_TEXT } from "./wording";
-import type { Case, CaseStage, CheckRecord, DeathRecord, Farm, FarmPoint, House, IsoDate, IsoDateTime, Level, WatchStatus, WildBird } from "./types";
+import type { Case, CaseStage, CheckRecord, DeathRecord, Farm, FarmPoint, HistoryCase, House, IsoDate, IsoDateTime, Level, WatchStatus, WildBird } from "./types";
 
 export interface ReplayEvent {
   /** 1 からの連番。日付の昇順（同じ日は時刻の順） */
@@ -26,7 +27,7 @@ export interface ReplayEvent {
 }
 
 export interface ReplayScenario {
-  id: "2025-12";
+  id: "2025-12" | typeof NATIONAL_FLOW_ID;
   title: string;
   /** 津山市の範囲から 5km 以内の仮の地点。説明のために置いた地点で、特定の農場を指すものではない */
   defaultSpot: FarmPoint;
@@ -38,6 +39,8 @@ export interface ReplayScenario {
 
 /** 再現の舞台のシーズン（2025 = 2025-06-01〜2026-05-31） */
 export const REPLAY_SEASON = 2025;
+/** 全国の流れのシナリオの id */
+export const NATIONAL_FLOW_ID = "2025-national";
 export const NO_TIME_LABEL = "時刻の記載なし";
 
 /** 出典が時刻を書いていない出来事は、その日の終わりに置く（時刻を作らない） */
@@ -83,6 +86,32 @@ function assertOrder(s: ReplayScenario, order: number): void {
   if (!Number.isInteger(order) || order < 0 || order > s.events.length) {
     throw new RangeError(`order は 0〜${s.events.length} の整数にしてください: ${order}`);
   }
+}
+
+/**
+ * 過去の記録の 2025 シーズンから、全国の流れのシナリオを作る。関連農場は除き、確定の日の順に 1 事例を 1 出来事にする。
+ * 記録にない時刻と段階（疑い、解除）は作らない。下書きも作らない。地点と見回りの例は元のシナリオのものを使い、野鳥は持たない。
+ * 2025 シーズンの行がなければ投げる（出来事のない再現は時計を持てない）。
+ */
+export function nationalFlowScenario(history: readonly HistoryCase[], base: Pick<ReplayScenario, "defaultSpot" | "watchStatus">): ReplayScenario {
+  const rows = history.filter((h) => h.season === REPLAY_SEASON && !h.related).sort((a, b) => a.date.localeCompare(b.date) || a.no - b.no);
+  if (rows.length === 0) throw new RangeError(`過去の記録に ${REPLAY_SEASON} シーズンの事例がありません`);
+  return {
+    id: NATIONAL_FLOW_ID,
+    title: `${REPLAY_SEASON} 年シーズンの全国の発生 ${rows.length} 件`,
+    defaultSpot: base.defaultSpot,
+    events: rows.map((h, i) => ({
+      order: i + 1,
+      date: h.date,
+      time: null,
+      caseAfter: { ...historyToCase(h), confirmState: "replay" },
+      noticePreview: null,
+      sourceUrl: h.sourceUrl,
+      backstageId: null,
+    })),
+    wildBirds: [],
+    watchStatus: base.watchStatus,
+  };
 }
 
 /** order までの事例（事例ごとの最新の caseAfter）。order 0 は 0 件 */

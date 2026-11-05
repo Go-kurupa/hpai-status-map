@@ -40,6 +40,74 @@ const item = async (page: Page, re: RegExp) => {
 const filterHas = (page: Page, layer: string, code: string) =>
   page.waitForFunction(([l, c]) => JSON.stringify((window as unknown as W).__hpaiMap!.getFilter(l!)).includes(c!), [layer, code], { timeout: 10_000 });
 
+test.describe("全国の流れ（/replay の切り替え）", () => {
+  const statText = (page: Page, title: string) => page.locator(".stat").filter({ has: page.locator(".stat-title", { hasText: title }) });
+
+  async function openNational(page: Page) {
+    await open(page);
+    await page.getByRole("button", { name: "全国の流れ" }).click();
+    await expect(page.getByText("0 / 24")).toBeVisible();
+    await expect(page.getByRole("button", { name: "全国の流れ" })).toHaveAttribute("aria-pressed", "true");
+    await page.waitForFunction(() => !!(window as unknown as W).__hpaiMap?.getLayer("case-suspected"), undefined, { timeout: 20_000 });
+  }
+
+  test("進めると件数の札が増え、町が輪の中に入ると農場（仮の地点）からの距離が出る。帯、仮の地点、時点は残る", async ({ page }) => {
+    const requests: Request[] = [];
+    page.on("request", (r) => requests.push(r));
+    await openNational(page);
+    await expect(page.getByText("去年の再現です").first()).toBeVisible();
+    await expect(page.getByText("仮の地点で見ています", { exact: false })).toBeVisible();
+    await expect(page.getByText(/4 事例だけ/)).toHaveCount(0);
+    await expect(page.getByText("輪は距離の目安で、発表の区域ではありません。")).toBeVisible();
+    // 輪が見える広さで始まる（全国の広さでは輪のラベルが出ない）
+    await expect(page.locator(".ring-label").filter({ hasText: "60" })).toBeVisible();
+
+    await (await item(page, /12 月 2 日.*米子市/)).click();
+    await expect(statText(page, "発生した件数")).toContainText("6 件");
+    await expect(statText(page, "約 60 km 以内")).toContainText("今季 確認できた範囲では 0 件");
+    await expect(page.locator(".replay-now")).toHaveText("12 月 2 日 米子市 確定");
+    await expect(page.locator(".stat .as-of")).toHaveText("12 月 2 日 時点");
+    await filterHas(page, "case-confirmed", "31202");
+
+    await (await item(page, /12 月 16 日.*姫路市/)).click();
+    await expect(statText(page, "発生した件数")).toContainText("7 件");
+    await expect(statText(page, "約 60 km 以内")).toContainText("今季 確認できた範囲では 1 件");
+    await expect(page.locator(".replay-now")).toHaveText("12 月 16 日 姫路市 確定。農場（仮の地点）から約 40 km");
+    await expect(page.getByText("約 40 km 先で発生しました", { exact: true })).toBeVisible();
+    await expect(page.getByText("再現の時点: 12 月 16 日（時刻の記載なし）")).toBeVisible();
+    await expect(page.locator(".stat .as-of")).toHaveText("12 月 16 日 時点");
+    await filterHas(page, "case-confirmed", "28201");
+
+    // 半径が空でも、基準の 10km で段階 ① になる
+    await (await item(page, /12 月 20 日.*津山市/)).click();
+    await expect(page.getByText(ZONE)).toBeVisible();
+    await expect(statText(page, "約 60 km 以内")).toContainText("今季 確認できた範囲では 2 件");
+
+    // 再現では Firestore にも Claude にも出ない
+    const urls = requests.map((r) => r.url());
+    expect(urls.filter((u) => u.includes("firestore") || u.includes("api.anthropic.com"))).toEqual([]);
+  });
+
+  test("4 事例に戻すと、札が消えて 4 事例の注記が戻る", async ({ page }) => {
+    await openNational(page);
+    await expect(page.locator(".stat-row")).toBeVisible();
+    await page.getByRole("button", { name: "12 月の 4 事例" }).click();
+    await expect(page.getByText("0 / 14")).toBeVisible();
+    await expect(page.locator(".stat-row")).toHaveCount(0);
+    await expect(page.getByText(/4 事例だけ/)).toBeVisible();
+  });
+
+  test("360px で横にはみ出さない。切り替えのボタンは 44px 以上", async ({ page }) => {
+    await openNational(page);
+    await page.setViewportSize({ width: 360, height: 800 });
+    await (await item(page, /12 月 16 日.*姫路市/)).click();
+    await expect(page.locator(".replay-now")).toContainText("約 40 km");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    const box = await page.getByRole("button", { name: "全国の流れ" }).boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  });
+});
+
 test.describe("去年の再現（/replay）", () => {
   test("12/19 の夜に『区域に入っている可能性があります』が出て、1/21 で消える。メールは『このとき届く』と出すだけで送らない", async ({ page }) => {
     const requests: Request[] = [];

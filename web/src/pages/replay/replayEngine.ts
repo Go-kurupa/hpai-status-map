@@ -25,6 +25,11 @@ export function pointInTime(s: ReplayScenario, order: number): string {
   return e.time === null ? `${formatMonthDay(e.date)}（${timeLabel(e)}）` : `${formatMonthDay(e.date)} ${e.time}`;
 }
 
+/** 今の出来事の 1 行に足す距離。km は TEXT.distanceBand と同じく四捨五入で出す */
+export function farmDistanceText(km: number, tentative: boolean): string {
+  return `${tentative ? "農場（仮の地点）" : "この端末の地点"}から${km < 1 ? "約 1 km 未満" : `約 ${Math.round(km)} km`}`;
+}
+
 export function isDefaultSpot(s: ReplayScenario, spot: FarmPoint | null): boolean {
   return spot === null || (spot.meshCode === s.defaultSpot.meshCode && spot.muniCode === s.defaultSpot.muniCode);
 }

@@ -158,4 +158,26 @@ test.describe("再現: 全ての出来事の状態", () => {
     }
     expect(steps).toBeGreaterThanOrEqual(14);
   });
+
+  test("全国の流れも、はじまりから最後まで 1 つずつ進めて、禁句がなく、時点が出る", async ({ page }) => {
+    await prepare(page);
+    await page.goto("/replay");
+    await waitForWord(page, "時点");
+    await page.getByRole("button", { name: "全国の流れ" }).click();
+    await expect(page.getByText("0 / 24")).toBeVisible();
+    await expect(page.locator(".stat-row")).toBeVisible();
+    await expectNoForbiddenText(page);
+    const next = page.getByRole("button", { name: "次へ" });
+    let steps = 0;
+    while (await next.isEnabled()) {
+      await next.click();
+      steps += 1;
+      await expect(page.getByText(`${steps} / 24`)).toBeVisible();
+      // 帯の『再現の時点』はいつも出ているので、札の時点（再現の時計）が出るまで待つ
+      await expect(page.locator(".stat .as-of")).toHaveText(/\d+ 月 \d+ 日 時点/);
+      await expectNoForbiddenText(page);
+      if (steps > 24) throw new Error("全国の流れが終わりません");
+    }
+    expect(steps).toBe(24);
+  });
 });

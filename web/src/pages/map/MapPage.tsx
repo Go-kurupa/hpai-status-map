@@ -7,6 +7,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Link } from "react-router";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { useDataSource } from "../../data/context";
+import { useFormatAsOf } from "../../ui/AsOf";
 import { useSpotState } from "../../data/spotContext";
 import type { MapViewProps } from "./MapView";
 import { CaseListSheet } from "./CaseListSheet";
@@ -35,8 +36,11 @@ const MapView = lazy(() => import("./MapView"));
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 const names = (codes: readonly string[]) => codes.map((c) => PREF_NAME.get(c) ?? c).join("、");
 
-/** 入口の画面。上から 地図、シーズンの棒、月別、固定のリンク。塗りがないことを「何もない」と読ませない */
-export default function MapPage() {
+/**
+ * 入口の画面。上から 地図、シーズンの棒、月別、固定のリンク。塗りがないことを「何もない」と読ませない。
+ * replayStats は再現の全国の流れだけが渡す。件数の札を再現の時計で出す（野鳥の札は、再現が野鳥を持たないので出さない）。
+ */
+export default function MapPage({ replayStats = false }: { replayStats?: boolean }) {
   const d = useSeasonData();
   const { view } = d;
   const ds = useDataSource();
@@ -100,7 +104,7 @@ export default function MapPage() {
   const nonce = useRef(0);
   // 会員の農場が後から届いたら、端末内の町や場所を変える画面は閉じる（変えても見える形が変わらない）
   const canEdit = !spotState.readOnly;
-  const moveTo = useCallback((kind: "japan" | "muni", codes: MuniCode[]) => {
+  const moveTo = useCallback((kind: "japan" | "muni" | "rings", codes: MuniCode[]) => {
     nonce.current += 1;
     setFocus({ kind, codes, nonce: nonce.current });
   }, []);
@@ -127,6 +131,10 @@ export default function MapPage() {
     setPicking(open);
     if (open) setAiming(false);
   }, []);
+  // 全国の流れは輪が見える広さで始める。全国の広さでは輪も町の塗りも見えず、発生が輪に入る様子が分からない
+  useEffect(() => {
+    if (replayStats && farmMeshCode !== null && town !== null) moveTo("rings", [town]);
+  }, [replayStats, farmMeshCode, town, moveTo]);
   // 十字を合わせ始めたら、地図の上端を画面の先頭に寄せる（地図の上に町の欄があり、地図が下に隠れやすい）
   useEffect(() => {
     if (aiming) boxRef.current?.scrollIntoView?.({ block: "start" });
@@ -155,7 +163,10 @@ export default function MapPage() {
   const currentBar: SeasonBarItem | null = bars.find((b) => b.season === d.current) ?? null;
 
   // 毎朝の札。未確認の断りは今季の件数と同じ形にする（0 件を素の「0 件」と読ませない）
-  const showStats = view.isCurrent && ds.mode !== "replay" && currentBar !== null;
+  const showStats = view.isCurrent && (ds.mode !== "replay" || replayStats) && currentBar !== null;
+  const formatAsOf = useFormatAsOf();
+  // 再現のはじまる前は時点を描かない（空の札を出さない）
+  const hideAsOfStat = d.asOf !== null && formatAsOf(d.asOf) === null;
   const today = jstDateOf(now);
   const watchFlags = { unchecked: d.failedPrefCodes.length, allUnchecked: noneConfirmed };
   const needsWide = watchFlags.unchecked > 0 && !noneConfirmed;
@@ -197,7 +208,7 @@ export default function MapPage() {
         onPickingChange={setPickingOpen}
         onChoose={choose}
         onShowJapan={() => moveTo("japan", [])}
-        onShowTown={() => town && moveTo("muni", [town])}
+        onShowTown={() => town && moveTo(replayStats ? "rings" : "muni", [town])}
       />
       {notice ? <p role="status">{notice}</p> : null}
     </>
@@ -308,10 +319,12 @@ export default function MapPage() {
               <p className="stat-value">{pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null })}</p>
             </div>
           )}
-          <div className="stat">
-            <p className="stat-title">時刻</p>
-            <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
-          </div>
+          {hideAsOfStat ? null : (
+            <div className="stat">
+              <p className="stat-title">時刻</p>
+              <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
+            </div>
+          )}
           {farmMeshCode !== null ? (
             <div className="stat stat-wide">
               <p className="stat-title">{TEXT.statBand(DISTANCE_BAND_KM)}</p>
@@ -347,17 +360,19 @@ export default function MapPage() {
               )}
             </div>
           ) : null}
-          <div className="stat stat-wide">
-            <p className="stat-title">{TEXT.statBirds}</p>
-            <p className="stat-value">{birdText}</p>
-            {d.wildBirdsLoaded && birdCounts.total > 0 ? <p className="stat-note">{TEXT.statBirdsBreakdown(birdCounts.confirmed, birdCounts.screening)}</p> : null}
-            <p className="stat-note">{TEXT.statBirdsNote}</p>
-            <p className="stat-note">
-              <Link to="/trends" className="tap-link">
-                {TEXT.statBirdsLink}
-              </Link>
-            </p>
-          </div>
+          {ds.mode === "replay" ? null : (
+            <div className="stat stat-wide">
+              <p className="stat-title">{TEXT.statBirds}</p>
+              <p className="stat-value">{birdText}</p>
+              {d.wildBirdsLoaded && birdCounts.total > 0 ? <p className="stat-note">{TEXT.statBirdsBreakdown(birdCounts.confirmed, birdCounts.screening)}</p> : null}
+              <p className="stat-note">{TEXT.statBirdsNote}</p>
+              <p className="stat-note">
+                <Link to="/trends" className="tap-link">
+                  {TEXT.statBirdsLink}
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
       ) : null}
       {mapless ? null : (

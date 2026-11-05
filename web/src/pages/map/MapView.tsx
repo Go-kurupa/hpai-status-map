@@ -20,7 +20,8 @@ export interface MapViewProps {
   nearMuniCodes: readonly MuniCode[];
   /** 距離の輪の中心にする地点のマス目。緯度経度はこの部品の中で作り、外へ渡さない */
   farmMeshCode?: MeshCode | null;
-  focus: { kind: "japan" | "muni"; codes: MuniCode[]; nonce: number } | null;
+  /** rings は距離の輪の全体が入る広さ（輪がなければ codes の町）。代わりの地図は codes の町の県を出す */
+  focus: { kind: "japan" | "muni" | "rings"; codes: MuniCode[]; nonce: number } | null;
   pickMode?: boolean;
   onSelectMuni?: (code: MuniCode) => void;
   onMapReady?: (map: MlMap) => void;
@@ -241,6 +242,19 @@ export default function MapView(props: MapViewProps) {
     if (!ready || !map || !geo || !f) return;
     if (f.kind === "japan") {
       map.fitBounds(JAPAN_BOUNDS, FIT);
+      return;
+    }
+    const outer = f.kind === "rings" ? rings?.features.at(-1)?.geometry.coordinates[0] : undefined;
+    if (outer) {
+      const lngs = outer.map((c) => c[0]);
+      const lats = outer.map((c) => c[1]);
+      map.fitBounds(
+        [
+          [Math.min(...lngs), Math.min(...lats)],
+          [Math.max(...lngs), Math.max(...lats)],
+        ],
+        { padding: 20 },
+      );
       return;
     }
     const boxes = f.codes.map((c) => geo.store.index[c]?.bbox).filter((b): b is Bounds => !!b);
