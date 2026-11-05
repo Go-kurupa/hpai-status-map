@@ -34,6 +34,13 @@ export const TEXT = {
   // 地図の見る場所の切り替え
   mapNear: "自分の近く",
   mapScopeAria: "地図の見る場所",
+  // スマホの「自分の近く」で、地図に印の出ない発表（確認中の県、町の分からない発表）を地図の下の端に 1 行で出す（2026-11-06 作者の決定）。
+  // 町の分からない発表は範囲の中かもしれないので「範囲の外」とは書かない
+  nearUnmarkedLead: "地図に印のない発表: ",
+  nearUnmarkedReviewing: "確認中",
+  nearUnmarkedUnplaced: (n: number): string => `${n} 件（町名なし）`,
+  nearUnmarkedMore: (n: number): string => `、ほか ${n} 県`,
+  nearUnmarkedJapan: "全国で見る",
   prefLabel: "都道府県",
   muniLabel: "市町村",
   prefPlaceholder: "県を選んでください",

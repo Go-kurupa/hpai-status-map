@@ -366,6 +366,17 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
   const recentText = countText({ count: recentCount, ...watchFlags });
   // 最初は全国の広さ（focus なし）。動かした先で押された状態を決める
   const showingNear = focus !== null && focus.kind !== "japan";
+  // 「自分の近く」の広さでは県のバッジも町の塗りも出ない発表（確認中の県、町の分からない発表）。
+  // スマホは地図の下の端に 1 行で出す（2026-11-06 作者の決定。PC は対象外）
+  const unplacedByPref = new Map<string, number>();
+  for (const c of view.cases) if (c.muniCode === null) unplacedByPref.set(c.prefCode, (unplacedByPref.get(c.prefCode) ?? 0) + 1);
+  const reviewingSet = new Set(view.reviewingPrefCodes);
+  const unmarked = PREFS.filter((p) => reviewingSet.has(p.code) || unplacedByPref.has(p.code)).map((p) => {
+    const n = unplacedByPref.get(p.code);
+    const parts = [reviewingSet.has(p.code) ? TEXT.nearUnmarkedReviewing : null, n ? TEXT.nearUnmarkedUnplaced(n) : null];
+    return `${p.name} ${parts.filter((s) => s !== null).join("・")}`;
+  });
+  const showUnmarked = narrow && town !== null && showingNear && !mapless && view.loaded && unmarked.length > 0;
 
   return (
     <div className="map-page">
@@ -508,6 +519,18 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           <button type="button" className="map-home-btn" onClick={() => moveTo("japan", [])}>
             {TEXT.japan}
           </button>
+        ) : null}
+        {showUnmarked ? (
+          <div className="near-unmarked">
+            <p>
+              {TEXT.nearUnmarkedLead}
+              {unmarked.slice(0, 3).join("、")}
+              {unmarked.length > 3 ? TEXT.nearUnmarkedMore(unmarked.length - 3) : null}
+            </p>
+            <button type="button" onClick={() => moveTo("japan", [])}>
+              {TEXT.nearUnmarkedJapan}
+            </button>
+          </div>
         ) : null}
       </div>
 

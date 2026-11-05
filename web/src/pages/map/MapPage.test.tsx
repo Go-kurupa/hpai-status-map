@@ -1585,6 +1585,11 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       TEXT.statBandRelated,
       TEXT.statBandUnplaced(1),
       TEXT.statBandWhen,
+      TEXT.nearUnmarkedLead,
+      TEXT.nearUnmarkedReviewing,
+      TEXT.nearUnmarkedUnplaced(1),
+      TEXT.nearUnmarkedMore(2),
+      TEXT.nearUnmarkedJapan,
     ].join("");
     expect(findForbiddenPhrases(words)).toEqual([]);
     expect(words).not.toMatch(/問題ありません|多い|少ない/);
@@ -1659,6 +1664,38 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(source.textContent).toContain(url);
     expect(screen.getAllByTestId("watch-line")).toHaveLength(1);
     expect(before(document.querySelector(".map-box")!, screen.getByTestId("watch-line"))).toBe(true);
+  });
+
+  it("自分の近く: 確認中の県と町の分からない発表を、地図の下の端の 1 行に出す。『全国で見る』で全国へ。全国の広さでは出さない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([
+      tsuyamaCase({ id: "rev-1", prefCode: "28", muniCode: null, muniName: null, headCount: null, stages: {}, confirmState: "reviewing", sourceUrls: ["https://example.invalid/r"] }),
+      tsuyamaCase({ id: "u-1", prefCode: "31", muniCode: null, muniName: null }),
+      tsuyamaCase({ id: "c-1" }),
+    ]);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("muni"));
+    const line = await waitFor(() => document.querySelector(".map-box .near-unmarked")!);
+    // 県の並びは都道府県の順。町の分かる発表（津山市）は地図に塗られるので出さない
+    expect(line.querySelector("p")!.textContent).toBe("地図に印のない発表: 兵庫県 確認中、鳥取県 1 件（町名なし）");
+    expect(line.textContent).not.toContain("範囲の外");
+    fireEvent.click(within(line as HTMLElement).getByRole("button", { name: "全国で見る" }));
+    expect(lastProps().focus?.kind).toBe("japan");
+    expect(document.querySelector(".near-unmarked")).toBeNull();
+  });
+
+  it("自分の近く: 印のない発表がなければ、1 行を出さない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([tsuyamaCase({ id: "c-1" })]);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("muni"));
+    expect(document.querySelector(".near-unmarked")).toBeNull();
   });
 
   it("町を選ぶ前は、地図の隅のボタンで全国へ戻れる。切り替えは出さない", async () => {

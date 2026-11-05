@@ -613,6 +613,41 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     await expect(page.locator(".map-box").getByRole("button", { name: "全国" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "全国" })).toHaveCount(1);
   });
+  test("登録あり: 地図に印のない発表（確認中の県、町の分からない発表）は、地図の下の端の 1 行に出し、地図の中に収める", async ({ page }) => {
+    const unknownTown = (id: string, prefCode: string, reviewing: boolean): Case => ({
+      id,
+      season: 2026,
+      nationalNo: null,
+      prefNo: null,
+      prefCode,
+      muniCode: null,
+      muniName: null,
+      birdUse: null,
+      housing: null,
+      headCount: null,
+      stages: reviewing ? {} : { confirmed: { date: "2026-11-03", time: null } },
+      radiiKm: [],
+      prefEstimates: { shipment: null, movement: null, surveillance: null },
+      negation: "none",
+      negatedAt: null,
+      confirmState: reviewing ? "reviewing" : "auto",
+      sourceUrls: ["https://example.invalid/x"],
+      updatedAt: NOW,
+    });
+    await openState(page, { name: "印のない発表", spot: true, cases: [unknownTown("rev-28", "28", true), unknownTown("u-31", "31", false)] });
+    const line = page.locator(".map-box .near-unmarked");
+    await expect(line).toHaveText(/地図に印のない発表: 兵庫県 確認中、鳥取県 1 件（町名なし）/);
+    const canvas = (await page.locator(".map-box .map-canvas").boundingBox())!;
+    const l = (await line.boundingBox())!;
+    expect(l.y).toBeGreaterThanOrEqual(canvas.y);
+    expect(l.y + l.height).toBeLessThanOrEqual(canvas.y + canvas.height + 1);
+    expect(l.y + l.height).toBeLessThanOrEqual((await page.getByRole("navigation", { name: "メイン" }).boundingBox())!.y);
+    const japan = line.getByRole("button", { name: "全国で見る" });
+    expect((await japan.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await japan.click();
+    await expect(line).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "全国", exact: true })).toHaveAttribute("aria-pressed", "true");
+  });
 });
 
 test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () => {
