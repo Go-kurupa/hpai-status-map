@@ -19,7 +19,7 @@ export interface OfficialGuidance {
 }
 
 /** 作者と共同経営者が文面を確認した日。null の間は画面に「文面は確認中です」と出す（Step 6 で人が入れる） */
-export const OFFICIAL_GUIDANCE_REVIEWED_ON: IsoDate | null = null;
+export const OFFICIAL_GUIDANCE_REVIEWED_ON: IsoDate | null = "2026-11-04";
 
 /** 原本を取得して文を照合した日（日本時間）。docs/official-text-review.md に照合の記録がある */
 export const CHECKED_ON: IsoDate = "2026-11-04";

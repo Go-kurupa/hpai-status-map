@@ -881,6 +881,17 @@ describe("MapPage: 平面の札（T12）", () => {
     r.deliverCases([]);
     r.deliverWatch(failed(["33"]));
     expect(stats()[0]!.querySelector(".stat-value")!.textContent).toBe("確認できた範囲では 0 件（1 県は確認できていません）");
+    expect(stats()[0]!.classList.contains("stat-wide")).toBe(true);
+  });
+
+  it("全県確認の札は横に並び、stat-wide を付けない", async () => {
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(failed([]));
+    expect(stats()[0]!.querySelector(".stat-value")!.textContent).toBe("0 件");
+    expect(stats()[0]!.classList.contains("stat-wide")).toBe(false);
   });
 
   it("全県確認で 0 件でも、件数のあるときと .stat-value の class は同じ", async () => {

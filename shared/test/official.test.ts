@@ -136,7 +136,7 @@ describe("OFFICIAL_GUIDANCE", () => {
 });
 
 describe("OFFICIAL_GUIDANCE_REVIEWED_ON", () => {
-  it("作者と共同経営者の確認の前は null（人の確認の後に入れる）", () => {
-    expect(OFFICIAL_GUIDANCE_REVIEWED_ON).toBeNull();
+  it("作者と共同経営者が確認した日が入っている", () => {
+    expect(OFFICIAL_GUIDANCE_REVIEWED_ON).toBe("2026-11-04");
   });
 });

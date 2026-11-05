@@ -118,11 +118,17 @@ describe("/sample（入口）", () => {
     expect(text()).toContain("5000");
   });
 
-  it("/sample/todo と /sample/record へのリンクがある", async () => {
+  it("/sample/todo と /sample/record/deaths へのリンクがある", async () => {
     mount("/sample");
     await screen.findByRole("heading", { level: 1, name: "見本の農場" });
     expect(screen.getByRole("link", { name: /^やること$/ }).getAttribute("href")).toBe("/sample/todo");
-    expect(screen.getByRole("link", { name: /記録/ }).getAttribute("href")).toBe("/sample/record");
+    expect(screen.getByRole("link", { name: /記録/ }).getAttribute("href")).toBe("/sample/record/deaths");
+  });
+
+  it("見本の帯の『記録』は下のタブと同じ死亡数へ着く", async () => {
+    mount("/sample/todo");
+    const nav = await screen.findByRole("navigation", { name: SAMPLE_TEXT.navLabel });
+    expect(within(nav).getByRole("link", { name: SAMPLE_TEXT.navRecord }).getAttribute("href")).toBe("/sample/record/deaths");
   });
 
   it("入口の末尾に『去年の再現へ』（/replay）と『鶏を飼っていない方へ』（/public）のリンクがある", async () => {
@@ -342,7 +348,7 @@ describe("/sample/record", () => {
     await screen.findByRole("heading", { level: 1, name: SAMPLE_TEXT.title });
     expect(screen.queryByRole("navigation", { name: SAMPLE_TEXT.navLabel })).toBeNull(); // 入口では行き来の帯を出さない
     fireEvent.click(screen.getByRole("link", { name: /^記録/ }));
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.exportTitle });
+    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.deathsTitle });
     fireEvent.click(within(screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel })).getByRole("link", { name: RECORD_TEXT.tabDisinfection }));
     await screen.findByRole("heading", { level: 1, name: TODO_TEXT.panelTitle });
     const recent = await screen.findByRole("region", { name: TODO_TEXT.panelRecent });

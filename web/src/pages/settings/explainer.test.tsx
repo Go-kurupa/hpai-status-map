@@ -1,6 +1,6 @@
 // M-19: 近隣への説明文の画面。Claude の呼び出しは偽物（実際には呼ばない）。
 import { neighborOfficialPart, neighborTemplate, ownOutbreakNoticeTemplate, type NeighborDraftResult } from "@hpai/shared/drafts";
-import { OFFICIAL_GUIDANCE } from "@hpai/shared/guidance/official";
+import { OFFICIAL_GUIDANCE, OFFICIAL_GUIDANCE_REVIEWED_ON } from "@hpai/shared/guidance/official";
 import { findForbiddenPhrases } from "@hpai/shared/wording";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider, useLocation, type RouteObject } from "react-router";
@@ -217,10 +217,11 @@ describe("国の文と出典の確認", () => {
     for (const a of links) expect(a.getAttribute("rel")).toContain("noopener");
   });
 
-  it("国の文の確認前は、『確認前』と出る（OFFICIAL_GUIDANCE_REVIEWED_ON が null の間）", async () => {
+  it("国の文を確認した日を出し、『確認前』とは出さない", async () => {
     mount();
     await makeDraft();
-    expect(screen.getByText(/作者と共同経営者の確認前/)).toBeTruthy();
+    expect(document.body.textContent).toContain(`文面を確認した日: ${OFFICIAL_GUIDANCE_REVIEWED_ON}`);
+    expect(screen.queryByText(/作者と共同経営者の確認前/)).toBeNull();
   });
 });
 

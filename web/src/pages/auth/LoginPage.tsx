@@ -8,10 +8,10 @@ import { useAuthUser } from "./useAuthUser";
 import "./auth.css";
 
 /**
- * この画面の説明を確かめた日。null は確認前（11/7 の文面の確認で入れる）。
+ * この画面の説明を確かめた日。null は確認前。
  * Google の「アプリ内ブラウザでは使えない」の扱いは、確認のときに最新の説明と突き合わせる。
  */
-export const LOGIN_TEXT_CHECKED_ON: IsoDate | null = null;
+export const LOGIN_TEXT_CHECKED_ON: IsoDate | null = "2026-11-05";
 
 /** 説明の文。確認日は試験で値を差し替えるために引数にしている */
 export function LoginText({ checkedOn }: { checkedOn: IsoDate | null }) {

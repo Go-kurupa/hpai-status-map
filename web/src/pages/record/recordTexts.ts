@@ -83,6 +83,7 @@ export const RECORD_TEXT = {
   selfDue: (date: string) => `期限: ${date}`,
   selfDueMissing: "期限を設定してください",
   selfDueLink: "知らせの設定を開く",
+  selfMeaning: "○ できている　× できていない",
   selfOk: "○",
   selfNg: "×",
   selfBlank: "未記入",

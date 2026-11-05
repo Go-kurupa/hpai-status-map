@@ -55,5 +55,5 @@ export const PRIVACY_NOTICE: ReadonlyArray<{ heading: string; paragraphs: string
   },
 ];
 
-/** 利用者と共同経営者が文面を確かめた日。null は確認前（11/7 15:00 の確認で入れる） */
-export const PRIVACY_REVIEWED_ON: IsoDate | null = null;
+/** 利用者と共同経営者が文面を確かめた日。null は確認前 */
+export const PRIVACY_REVIEWED_ON: IsoDate | null = "2026-11-04";

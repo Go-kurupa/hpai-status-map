@@ -29,7 +29,7 @@ Firestore の読み取りは、ふだんは 60 秒間同じ結果を使い回し
 不正な入力は 400、知らない市町村コードは 404、GET 以外は 405、制限を超えたら 429 です。成功の応答の `Cache-Control` は `public, max-age=N` で、N は記録を読んだ時刻からの残りの新しさです（最大 60 秒）。記録が 60 秒以上古い答え（全体の上限のときにキャッシュから返したもの）は `no-cache` で、共有の置き場に残しません。失敗は `no-store` です。
 
 ```
-curl 'https://<サイトの URL>/api/v1/cases?season=2025&pref=33'
+curl 'https://hpai-status-map.web.app/api/v1/cases?season=2025&pref=33'
 ```
 
 ## 公開 MCP（`/mcp`）
@@ -48,7 +48,7 @@ Streamable HTTP の MCP です（POST だけ。GET と DELETE は 405）。道�
 ### Claude Code から使う
 
 ```
-claude mcp add --transport http hpai https://<サイトの URL>/mcp
+claude mcp add --transport http hpai https://hpai-status-map.web.app/mcp
 ```
 
 登録したら、Claude Code で「今週の岡山の状況は」と聞くと、`list_cases` が呼ばれます。
@@ -87,9 +87,9 @@ claude mcp add --transport http hpai https://<サイトの URL>/mcp
 
 本番に出したあと、本番の MCP を Claude Code から呼んで、結果をここに足します。**まだ実施していないので、結果の行はありません。** 実施するまでは、本番で呼べたとは言いません。
 
-1. 登録します。`<本番の URL>` は本番の Hosting の URL です。
+1. 登録します。
    ```
-   claude mcp add --transport http hpai https://<本番の URL>/mcp
+   claude mcp add --transport http hpai https://hpai-status-map.web.app/mcp
    ```
 2. Claude Code で「今週の<県名>の状況は」（県名は利用者が決めます）と聞きます。`list_cases` が呼ばれ、答えに「県の連絡が正です」と見回りの確認状況が入っていれば成功です。
 3. 次の表に 1 行足します。聞いた文、呼ばれた道具、答えの `notices` と確認状況が入っていたか、だけを書きます（答えの本文は写しません）。

@@ -14,7 +14,7 @@
 | 本番の URL | `README.md` の `<!-- 本番の URL は利用者が入れる -->` の近く。`README.md` と `docs/mcp-usage.md` に残っている `<本番の URL>` と `<サイトの URL>` のすべて | 本番の URL（`--pre-publish` が、残っていれば止める） |
 | 動画の URL | `README.md`（動画の掲載の後） | 動画の URL |
 | 運営者名 | `web/.env.production` の `VITE_OPERATOR_NAME` | 運営者の名前（build に入るので、deploy の前に入れる） |
-| 確認日 | `shared/src/guidance/official.ts` の `OFFICIAL_GUIDANCE_REVIEWED_ON`、`web/src/pages/privacy/privacyNotice.ts` の `PRIVACY_REVIEWED_ON`、`docs/official-text-review.md` | 作者と共同経営者が文面を確認した日（Claude は代わりに入れない） |
+| 確認日 | `shared/src/guidance/official.ts` の `OFFICIAL_GUIDANCE_REVIEWED_ON`、`web/src/pages/privacy/privacyNotice.ts` の `PRIVACY_REVIEWED_ON`、`docs/official-text-review.md`、`web/src/pages/auth/LoginPage.tsx` の `LOGIN_TEXT_CHECKED_ON` | 作者と共同経営者が文面を確認した日（Claude は代わりに決めない。`LOGIN_TEXT_CHECKED_ON` は下の公開前の確認の対象外で、空のままだとログイン画面に「文面は確認中です」と出る） |
 | 本番の設定 | `functions/.env.<プロジェクト>` の `AGENT_EVAL_HIDE_PREFS` | 値を消す（入口を直すエージェントの受け入れ試験のあと） |
 
 ## 1. 公開前の確認（deploy の前）

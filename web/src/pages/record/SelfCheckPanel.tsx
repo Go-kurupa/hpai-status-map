@@ -84,6 +84,7 @@ function SelfCheckBody({ farm }: { farm: Farm & { id: string } }) {
       )}
       <p className="record-note">{SELF_CHECK_SOURCE_NOTE}</p>
       {readFailed ? <p role="alert">{RECORD_TEXT.readFailed}</p> : null}
+      <p>{RECORD_TEXT.selfMeaning}</p>
       {SELF_CHECK_ITEMS.map((it) => (
         <fieldset key={it.no} className="self-item">
           <legend>

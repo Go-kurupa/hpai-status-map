@@ -514,6 +514,13 @@ describe("SelfCheckPanel", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: vi.fn(async () => {}) }, configurable: true });
   });
 
+  it("○ と × の意味を、項目より先に出す", async () => {
+    mount(<SelfCheckPanel />);
+    const legend = await screen.findByText(/^○ できている\s+× できていない$/);
+    const firstItem = (await screen.findAllByRole("group"))[0]!;
+    expect(legend.compareDocumentPosition(firstItem) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("読み込み中はラジオも保存も disabled で、読み終えると押せる", async () => {
     let release: (v: Array<CheckRecord & { id: string }>) => void = () => {};
     store = { ...store, listChecks: vi.fn(() => new Promise((r) => { release = r as typeof release; })) } as unknown as RecordStore;

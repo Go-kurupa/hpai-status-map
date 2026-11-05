@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 
+export const OPERATOR_NOTE = "民間の運営です。国や県の公式のサイトではありません。";
+
 export type ShellMode = "replay" | "sample" | null;
 export type ShellTab = { to: string; label: string; current: boolean };
 
@@ -25,7 +27,7 @@ export function shellContextOf(pathname: string): { mode: ShellMode; tabs: Shell
   };
 }
 
-/** 画面の骨格: 上に題と「設定」、再現・見本の中だけ今の画面の帯、下にタブ 3 つ（地図、やること、記録） */
+/** 画面の骨格: 上に題と「設定」、再現・見本の中だけ今の画面の帯、本文の下に民間の運営の 1 行、下にタブ 3 つ（地図、やること、記録） */
 export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { mode, tabs } = shellContextOf(pathname);
@@ -50,6 +52,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       ) : null}
       <main className="app-main">{children}</main>
+      <p className="app-operator-note">{OPERATOR_NOTE}</p>
       <nav className="app-nav" aria-label="メイン">
         {tabs.map((t) => (
           <Link key={t.label} to={t.to} aria-current={t.current ? "page" : undefined}>

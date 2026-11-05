@@ -14,7 +14,7 @@ import { MapChunkBoundary } from "./MapChunkBoundary";
 import { MapLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import type { PickTarget } from "./pickSpot";
-import { countText, SeasonBar } from "./SeasonBar";
+import { countText, SeasonBar, type SeasonBarItem } from "./SeasonBar";
 import { SeasonCompare } from "./SeasonCompare";
 import { SpotPicker } from "./SpotPicker";
 import { TEXT } from "./texts";
@@ -129,7 +129,7 @@ export default function MapPage() {
       : b,
   );
 
-  const currentBar = bars.find((b) => b.season === d.current) ?? null;
+  const currentBar: SeasonBarItem | null = bars.find((b) => b.season === d.current) ?? null;
 
   const picker = (
     <>
@@ -237,7 +237,7 @@ export default function MapPage() {
       ) : null}
       {view.isCurrent && ds.mode !== "replay" && currentBar ? (
         <div className="stat-row">
-          <div className="stat">
+          <div className={currentBar.unchecked && !currentBar.allUnchecked ? "stat stat-wide" : "stat"}>
             <p className="stat-title">発生した件数</p>
             <p className="stat-value">{countText(currentBar)}</p>
           </div>

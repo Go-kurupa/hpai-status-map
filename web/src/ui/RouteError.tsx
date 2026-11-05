@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { OPERATOR_NOTE } from "./AppShell";
 
 /** 予期しない例外の画面。開発用の英語の画面は出さず、開き直しとトップへの道だけを示す */
 export function RouteError() {
@@ -11,6 +12,7 @@ export function RouteError() {
           <Link to="/">トップにもどる</Link>
         </p>
       </main>
+      <p className="app-operator-note">{OPERATOR_NOTE}</p>
     </div>
   );
 }

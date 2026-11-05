@@ -71,7 +71,7 @@ function SampleBand({ data, nav }: { data: SampleFarmData; nav: boolean }) {
         <nav aria-label={SAMPLE_TEXT.navLabel} className="sample-nav">
           <Link to="/sample">{SAMPLE_TEXT.navEntry}</Link>
           <Link to="/sample/todo">{SAMPLE_TEXT.navTodo}</Link>
-          <Link to="/sample/record">{SAMPLE_TEXT.navRecord}</Link>
+          <Link to="/sample/record/deaths">{SAMPLE_TEXT.navRecord}</Link>
         </nav>
       ) : null}
     </section>

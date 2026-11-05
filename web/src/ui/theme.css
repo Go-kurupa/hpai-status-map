@@ -120,6 +120,13 @@ button:focus-visible {
   padding: var(--gutter);
 }
 
+.app-operator-note {
+  margin: 0;
+  padding: 8px var(--gutter);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .app-nav {
   position: sticky;
   bottom: 0;
@@ -381,6 +388,10 @@ button:focus-visible {
   .stat-row {
     grid-template-columns: 1fr 1fr;
   }
+  /* 件数が文になる札は、大きな文字のまま 1 行分の幅を取る */
+  .stat-wide {
+    grid-column: 1 / -1;
+  }
 }
 
 /* 畳む部品 */
@@ -413,6 +424,7 @@ button:focus-visible {
 @media print {
   .app-header,
   .app-context,
+  .app-operator-note,
   .app-nav {
     display: none;
   }

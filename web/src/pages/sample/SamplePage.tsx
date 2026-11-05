@@ -24,7 +24,7 @@ export default function SamplePage() {
           <Link to="/sample/todo">{SAMPLE_TEXT.entryTodo}</Link>: {SAMPLE_TEXT.entryTodoNote}
         </li>
         <li>
-          <Link to="/sample/record">{SAMPLE_TEXT.entryRecord}</Link>: {SAMPLE_TEXT.entryRecordNote}
+          <Link to="/sample/record/deaths">{SAMPLE_TEXT.entryRecord}</Link>: {SAMPLE_TEXT.entryRecordNote}
         </li>
       </ul>
       <p>{SAMPLE_TEXT.entryExamples}</p>

@@ -6,7 +6,8 @@ import type { ChecklistClass } from "@hpai/shared/types";
 import { afterEach, describe, expect, it } from "vitest";
 import { AsOf, AsOfPrecisionContext, formatAsOf } from "./AsOf";
 import { Button } from "./Button";
-import { AppShell, shellContextOf } from "./AppShell";
+import { AppShell, OPERATOR_NOTE, shellContextOf } from "./AppShell";
+import { RouteError } from "./RouteError";
 import { ClassBlock } from "./ClassBlock";
 import { Fold } from "./Fold";
 import { SourceLine } from "./SourceLine";
@@ -233,6 +234,20 @@ describe("AppShell の帯とタブ", () => {
   it("/todo でやることが選択中", () => {
     renderShell("/todo");
     expect(currentLabels()).toEqual(["やること"]);
+  });
+  it("どの画面にも民間の運営の 1 行が出て、印刷には出ない", () => {
+    for (const path of ["/", "/replay", "/sample/todo", "/poster"]) {
+      renderShell(path);
+      expect(screen.getByText("民間の運営です。国や県の公式のサイトではありません。")).toBeTruthy();
+      cleanup();
+    }
+    const css = fs.readFileSync(path.join(import.meta.dirname, "theme.css"), "utf8");
+    expect(css).toMatch(/@media print\s*\{[^}]*\.app-operator-note[^}]*display:\s*none/);
+  });
+  it("予期しない例外の画面にも民間の運営の 1 行が出る", () => {
+    const router = createMemoryRouter([{ path: "*", element: <RouteError /> }]);
+    render(<RouterProvider router={router} />);
+    expect(screen.getByText(OPERATOR_NOTE)).toBeTruthy();
   });
   it("/sample/todo は見本の行き先、帯に見本を終わる、設定なし", () => {
     const { container } = renderShell("/sample/todo");

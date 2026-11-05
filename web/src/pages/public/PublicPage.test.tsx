@@ -92,8 +92,8 @@ describe("PublicPage", () => {
     }
   });
 
-  it("文面の確認の前は『文面は確認中です』（OFFICIAL_GUIDANCE_REVIEWED_ON が null の間）", () => {
-    show();
+  it("文面の確認の前は『文面は確認中です』（確認日が null の間）", () => {
+    show(<PublicView reviewedOn={null} />);
     expect(screen.getByText(/文面は確認中です/)).toBeTruthy();
   });
 

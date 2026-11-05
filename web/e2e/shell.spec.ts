@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { installFixture } from "./fixtures";
 
 test.describe("骨格", () => {
@@ -22,6 +22,41 @@ test.describe("骨格", () => {
     await nav.getByRole("link", { name: "やること" }).click();
     await expect(page).toHaveURL(/\/todo$/);
     await expect(page.getByRole("heading", { name: "やること" })).toBeVisible();
+  });
+});
+
+test.describe("幅 360px の最初の画面（360x740）に守る文が入る", () => {
+  const AT = "2026-11-04T08:30:00+09:00";
+  const watch = Array.from({ length: 47 }, (_, i) => ({
+    prefCode: String(i + 1).padStart(2, "0"),
+    checkedAt: AT,
+    ok: true,
+    lastOkAt: AT,
+    failingSince: null,
+  }));
+
+  async function bottomAboveNav(page: Page, locator: Locator) {
+    await expect(locator).toBeVisible();
+    const box = (await locator.boundingBox())!;
+    const nav = (await page.getByRole("navigation", { name: "メイン" }).boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(nav.y);
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await installFixture(page, { now: "2026-11-04T09:00:00+09:00", cases: [], wildBirds: [], watch });
+  });
+
+  test("/ の地図の断り", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator(".stat-row")).toBeVisible();
+    await bottomAboveNav(page, page.locator(".map-disclaimer"));
+  });
+
+  test("/sample/todo の『保存されない』の断りと仮の地点", async ({ page }) => {
+    await page.goto("/sample/todo");
+    await bottomAboveNav(page, page.locator(".sample-note").first());
+    await bottomAboveNav(page, page.getByText(/^仮の地点で見ています/).first());
   });
 });
 
