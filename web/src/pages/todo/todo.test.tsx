@@ -248,6 +248,34 @@ describe("段階 2 と 3", () => {
   });
 });
 
+describe("距離の帯の農場（確認リストと声かけは ④ と同じ）", () => {
+  const kurashiki = () => mkCase({ id: "kr", muniCode: "33202", muniName: "倉敷市", prefCode: "33" });
+
+  it("帯だけなら resolveTodo は ④ で、声かけの元の事例がない。確認リストも ④ と同じ", async () => {
+    const r = await resolveTodo({ spot: SPOT, cases: [kurashiki()], season: 2025, geo: freshGeo() });
+    expect(r.level).toEqual({ level: 4, reasons: [], shipmentLifted: false, inSurveillanceNote: false });
+    expect(r.workerCase).toBeNull();
+    expect(r.lifts).toEqual([]);
+    const opt = { production: null, housing: null };
+    expect(buildChecklist({ level: r.level.level, ...opt })).toEqual(buildChecklist({ level: 4, ...opt }));
+  });
+
+  it("帯の中の登録した町は、今までどおり段階 3 で、声かけの元になる", async () => {
+    const r = await resolveTodo({ spot: { ...SPOT, frequentMuniCodes: ["33202"] }, cases: [kurashiki()], season: 2025, geo: freshGeo() });
+    expect(r.level.level).toBe(3);
+    expect(r.level.reasons.map((x) => x.kind)).toEqual(["frequent"]);
+    expect(r.workerCase?.caseId).toBe("kr");
+  });
+
+  it("画面は ④ と同じ短い確認で、確かめておくとよいことを足さない", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [kurashiki()] }) });
+    await screen.findByText("今月の自己点検を確かめましょう");
+    expect(screen.queryByText("近くの町で発表がありました。県の発表を確かめましょう")).toBeNull();
+    openMore();
+    expect(hasHeading(/確かめておくとよいこと/)).toBe(false);
+  });
+});
+
 describe("段階 1 の解除の見込み", () => {
   it("防疫措置の完了前は『未定』。搬出の文と『県の連絡が正です』。3 分類が最初から開いている", async () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });

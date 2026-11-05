@@ -5,7 +5,8 @@ import { latLngToMesh3 } from "@hpai/shared/mesh";
 import type { Case, HistoryCase } from "@hpai/shared/types";
 import { FIXED_TEXT, findForbiddenPhrases } from "@hpai/shared/wording";
 import { historyToCase } from "@hpai/shared/history";
-import { calibrate, calibrateHistory, centerPoints, median, nearestRankPercentile, renderCalibrationDoc } from "../lib/calibrate";
+import { DISTANCE_BAND_KM, MESH_MARGIN_KM } from "@hpai/shared/level";
+import { BBOX_SKIP_LAT_DEG, BBOX_SKIP_LNG_DEG, calibrate, calibrateHistory, centerPoints, median, nearestRankPercentile, renderCalibrationDoc } from "../lib/calibrate";
 
 interface Rect {
   code: string;
@@ -197,13 +198,30 @@ describe("calibrate（手計算）", () => {
 
   it("遠くても隣り合う市町村は②にする（bbox で省いても隣は見る）", async () => {
     // 乙が甲の隣と宣言されている。乙の center から甲まで約 13.5km（>10.85）で、bbox の枠（経度 0.4 度）の内側。
-    // 枠の外の隣を作る: 経度の幅が 1.0 度の丙（center は甲から 0.5 度離れる）。
-    const wide: Rect = { code: "11003", name: "丙市", box: [139.1, 36.0, 140.1, 36.1] };
+    // 枠の外の隣を作る: 経度の幅が 2.0 度の丙（center は甲から 1.0 度離れる）。
+    const wide: Rect = { code: "11003", name: "丙市", box: [139.1, 36.0, 141.1, 36.1] };
     const { geo } = fakeGeo([A, wide], { "11001": ["11003"], "11003": ["11001"] });
     await geo.ensurePrefs(["11"]);
     const result = calibrate([mkCase("h2020-1", 2020, "11001")], centerPoints(geo), geo);
-    // 丙の center（139.6）は甲の東端 139.1 から 0.5 度 > 0.4 度。枠の外だが隣なので②。
+    // 丙の center（140.1）は甲の東端 139.1 から 1.0 度 > 0.8 度。枠の外だが隣なので②。
     expect(result.totals).toEqual({ level1: 1, level2: 1, level3: 0, level4: 0 });
+  });
+
+  it("省く枠は距離の帯（60km と地点のずれ）を、日本の最も北の緯度でも覆う", () => {
+    const kmPerDeg = (6371.0088 * Math.PI) / 180;
+    const need = DISTANCE_BAND_KM + MESH_MARGIN_KM;
+    expect(BBOX_SKIP_LAT_DEG * kmPerDeg).toBeGreaterThanOrEqual(need);
+    expect(BBOX_SKIP_LNG_DEG * kmPerDeg * Math.cos((45.6 * Math.PI) / 180)).toBeGreaterThanOrEqual(need);
+  });
+
+  it("隣でなく約 40km 先の地点は、枠で省かず距離の帯の③。約 75km 先は④", async () => {
+    // 甲の東端 139.1。丁の center は 139.55（約 40km）、戊の center は 139.95（約 75km）。前の枠（経度 0.4 度）では丁も省かれて④だった。
+    const near: Rect = { code: "11004", name: "丁町", box: [139.5, 36.0, 139.6, 36.1] };
+    const far: Rect = { code: "11005", name: "戊町", box: [139.9, 36.0, 140.0, 36.1] };
+    const { geo } = fakeGeo([A, near, far]);
+    await geo.ensurePrefs(["11"]);
+    const result = calibrate([mkCase("h2020-1", 2020, "11001")], centerPoints(geo), geo);
+    expect(result.totals).toEqual({ level1: 1, level2: 0, level3: 1, level4: 1 });
   });
 
   it("否定された事例と確認中の事例は数えない（relationToCase と同じ isCountable）", async () => {
@@ -265,6 +283,8 @@ describe("renderCalibrationDoc（docs/level-calibration.md）", () => {
     const text = await doc();
     expect(text).toContain("10km");
     expect(text).toContain("0.85km");
+    expect(text).toContain("60km 以内");
+    expect(text).not.toContain("地点を置いていないので 0");
     expect(text).toContain("最近順位法");
   });
 

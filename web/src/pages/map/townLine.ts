@@ -19,7 +19,7 @@ import { PREFS } from "@hpai/shared/pref";
 import { SURVEILLANCE_NOTE, TEXT } from "./texts";
 
 export interface TownLine {
-  /** 今季の段階の色。lv3 は「登録した町」、none は町が未選択か読めなかったとき、または町の県が見回りで確認できていない④（withWatchState） */
+  /** 今季の段階の色。lv3 は「距離の帯」と「登録した町」、none は町が未選択か読めなかったとき、または町の県が見回りで確認できていない④（withWatchState） */
   tone: "lv1" | "lv2" | "lv3" | "lv4" | "none";
   main: string;
   details: string[];
@@ -67,7 +67,7 @@ function birdLines(birds: readonly WildBird[]): string[] {
 }
 
 /** 地点を決めた人の 1 文。reasons のうち、文の元になった段階の事例を行にする */
-export function levelLine(result: LevelResult, cases: readonly Case[]): TownLine {
+export function levelLine(result: LevelResult, cases: readonly Case[], frequentMuniCodes: readonly MuniCode[] = []): TownLine {
   const byId = new Map(cases.map((c) => [c.id, c]));
   const reasons = result.reasons.filter((r) => r.level === result.level);
   const hit = reasons.map((r) => byId.get(r.caseId)).filter((c): c is Case => c !== undefined);
@@ -84,8 +84,18 @@ export function levelLine(result: LevelResult, cases: readonly Case[]): TownLine
       const sameTown = reasons.some((r) => r.kind === "same_muni");
       return { tone: "lv2", main: sameTown ? FIXED_TEXT.sameMuniLifted : TEXT.adjacent, details: caseLines(hit) };
     }
-    case 3:
-      return { tone: "lv3", main: TEXT.frequent, details: caseLines(hit) };
+    case 3: {
+      const distances = reasons.flatMap((r) => (r.kind === "distance_band" && r.distanceKm !== null ? [r.distanceKm] : []));
+      if (distances.length === 0) return { tone: "lv3", main: TEXT.frequent, details: caseLines(hit) };
+      // 最も近い発生の距離。主文を帯にしても、登録した町で発生したことは消さない
+      const registered =
+        reasons.some((r) => r.kind === "frequent") || hit.some((c) => c.muniCode !== null && frequentMuniCodes.includes(c.muniCode));
+      return {
+        tone: "lv3",
+        main: TEXT.distanceBand(Math.max(1, Math.round(Math.min(...distances)))),
+        details: [...(registered ? [TEXT.frequent] : []), ...caseLines(hit)],
+      };
+    }
     case 4:
       return { tone: "lv4", main: TEXT.national, details: [FIXED_TEXT.riskAnywhere] };
   }
@@ -185,12 +195,15 @@ export async function resolveTown(i: ResolveInput): Promise<ResolvedTown> {
     if (!i.geo.index[spot.muniCode]) return { line: { tone: "none", main: TEXT.unknownTown, details: [] }, nearMuniCodes: [] };
     await i.geo.ensurePrefs(prefsToLoad(cases, birds)); // 距離の前に必ず（契約 3.2）
     const result = computeLevel(spot, cases, i.season, i.geo);
-    const line = levelLine(result, cases);
+    const line = levelLine(result, cases, spot.frequentMuniCodes);
     const notifiable = wildBirdsNotifiable(spot, birds, i.geo);
     line.details.push(...birdLines(notifiable));
     const byId = new Map(cases.map((c) => [c.id, c]));
+    // 距離の帯の町には縁を付けない（町の輪郭の縁は隣と登録の印）。帯の中でも登録した町には付ける
     const near = result.reasons
-      .map((r) => byId.get(r.caseId)?.muniCode)
+      .map((r) => ({ kind: r.kind, muni: byId.get(r.caseId)?.muniCode }))
+      .filter((h) => h.kind !== "distance_band" || (typeof h.muni === "string" && spot.frequentMuniCodes.includes(h.muni)))
+      .map((h) => h.muni)
       .filter((m): m is MuniCode => typeof m === "string" && m !== spot.muniCode);
     return { line, nearMuniCodes: unique(near) };
   }

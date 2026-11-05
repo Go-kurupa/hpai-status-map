@@ -2,7 +2,7 @@
 // 県の形の読み込みに失敗したときは投げる（呼び出し側が「読めませんでした」を出す。④にしない）。
 import { draftFactsOf, type DraftFacts } from "@hpai/shared/drafts";
 import type { GeoStore } from "@hpai/shared/geo";
-import { computeLevel, prefsToLoad } from "@hpai/shared/level";
+import { computeLevelWithoutBand, prefsToLoad } from "@hpai/shared/level";
 import { computeLiftEstimate, type LiftEstimate } from "@hpai/shared/lift";
 import type { Case, FarmPoint, LevelResult, Season } from "@hpai/shared/types";
 
@@ -23,7 +23,8 @@ export interface TodoResult {
 export async function resolveTodo(i: { spot: FarmPoint; cases: readonly Case[]; season: Season; geo: GeoStore }): Promise<TodoResult> {
   const cases = i.cases.filter((c) => c.season === i.season);
   await i.geo.ensurePrefs(prefsToLoad(cases));
-  const level = computeLevel(i.spot, cases, i.season, i.geo);
+  // 距離の帯は確認リストと声かけを増やさない（帯だけの農場は今までの④と同じ）
+  const level = computeLevelWithoutBand(i.spot, cases, i.season, i.geo);
   const byId = new Map(cases.map((c) => [c.id, c]));
   const lifts: CaseLift[] = [];
   for (const r of level.reasons) {

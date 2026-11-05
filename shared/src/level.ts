@@ -1,7 +1,7 @@
 // 警告の段階（契約 3.2、設計書 §5）。純粋な計算だけ。文は持たない（文は W、宛先は M が使う）。
 // 農場の警告の段階を決める。①を見逃す方向の誤りが最も重いので、迷う入力は数える側（①に近い側）に倒す。
 //
-// 距離を使う関数（computeLevel、relationToCase、wildBirdsNotifiable）を呼ぶ前に、
+// 距離を使う関数（computeLevel、computeLevelWithoutBand、relationToCase、relationWithoutBand、wildBirdsNotifiable）を呼ぶ前に、
 // 呼び出し側が await geo.ensurePrefs(prefsToLoad(cases, birds)) を済ませること。
 // 未読み込みの県は GeoNotLoadedError になる（黙って④にしない）。
 import { distanceToMuniKm, isAdjacent, type GeoStore } from "./geo";
@@ -27,6 +27,8 @@ import type {
 export const ZONE_BASE_KM = 10;
 /** メッシュの中心から角まで最大約 0.786km と、形の簡略化の最大約 41m（幅 100m 以上の面。scripts/test/build-geo.test.ts が build-info.json の実測で確かめる）を覆う誤差（km）。 */
 export const MESH_MARGIN_KM = 0.85;
+/** 距離の帯の半径（km）。区域の判定ではなく、近づく様子を示す目安なので誤差を足さない。農場ごとに変えない。 */
+export const DISTANCE_BAND_KM = 60;
 /** 確認済みと数える、直近の確認（ok かつ checkedAt）からの時間（§9.7）。未来の時刻は数えない。 */
 const WATCH_FRESH_MS = 6 * 60 * 60 * 1000;
 
@@ -57,11 +59,14 @@ export function prefsToLoad(cases: readonly Case[], birds: readonly WildBird[] =
   return [...out].sort();
 }
 
-/**
- * 農場と 1 つの事例の関係。時期（シーズン）も否定も見ない（呼び出し側が選ぶ）。
- * 同じ市町村では距離を計算しない。移動制限の解除の後は距離を見ない（同じ町は②、隣は②、登録は③、他は④）。
- */
-export function relationToCase(p: FarmPoint, c: Case, geo: GeoStore): { level: Level; reason: LevelReason | null } {
+/** 距離の帯に入る距離か。60km ちょうどは入る。 */
+export function isWithinDistanceBand(distanceKm: number): boolean {
+  return distanceKm <= DISTANCE_BAND_KM;
+}
+
+type Relation = { level: Level; reason: LevelReason | null };
+
+function relationOf(p: FarmPoint, c: Case, geo: GeoStore, useBand: boolean): Relation {
   const muni = c.muniCode;
   if (muni === null) return { level: 4, reason: null };
 
@@ -76,25 +81,47 @@ export function relationToCase(p: FarmPoint, c: Case, geo: GeoStore): { level: L
     return zoneActive ? reasonOf(1, "same_muni", null, null) : reasonOf(2, "same_muni", null, null);
   }
 
+  let distanceKm: number | null = null;
   if (zoneActive) {
     const radiusKm = zoneRadiusKm(c);
-    const distanceKm = distanceToMuniKm(p.meshCode, muni, geo);
+    distanceKm = distanceToMuniKm(p.meshCode, muni, geo);
     if (distanceKm <= radiusKm + MESH_MARGIN_KM) return reasonOf(1, "within_radius", distanceKm, radiusKm);
   }
   if (isAdjacent(p.muniCode, muni, geo)) return reasonOf(2, "adjacent", null, null);
+  if (useBand) {
+    distanceKm ??= distanceToMuniKm(p.meshCode, muni, geo);
+    if (isWithinDistanceBand(distanceKm)) return reasonOf(3, "distance_band", distanceKm, null);
+  }
   if (p.frequentMuniCodes.includes(muni)) return reasonOf(3, "frequent", null, null);
   return { level: 4, reason: null };
 }
 
-/** 農場の段階。今季の数える事例だけを見て、最も高い段階を返す。reasons は当たった事例すべて（高い順）。 */
-export function computeLevel(p: FarmPoint, cases: readonly Case[], season: Season, geo: GeoStore): LevelResult {
+/**
+ * 農場と 1 つの事例の関係。時期（シーズン）も否定も見ない（呼び出し側が選ぶ）。
+ * 同じ市町村では距離を計算しない。移動制限の解除の後は半径を見ない（同じ町は②、隣は②）。
+ * ①②でなければ距離の帯（解除の後も入る）、登録は③、他は④。帯の中の登録した町は distance_band になる。
+ */
+export function relationToCase(p: FarmPoint, c: Case, geo: GeoStore): Relation {
+  return relationOf(p, c, geo, true);
+}
+
+/**
+ * 距離の帯を見ない関係。事例ごとのメールと確認リストが使う（帯は画面と毎朝のまとめに任せる）。
+ * 帯だけの事例は④、帯の中の登録した町は登録の③になる。
+ */
+export function relationWithoutBand(p: FarmPoint, c: Case, geo: GeoStore): Relation {
+  return relationOf(p, c, geo, false);
+}
+
+function levelFrom(relationFor: (c: Case) => Relation, cases: readonly Case[], season: Season): LevelResult {
   const hits: Array<{ reason: LevelReason; c: Case }> = [];
   for (const c of cases) {
     if (c.season !== season || !isCountable(c)) continue;
-    const { reason } = relationToCase(p, c, geo);
+    const { reason } = relationFor(c);
     if (reason) hits.push({ reason, c });
   }
-  hits.sort((a, b) => a.reason.level - b.reason.level); // 安定ソート: 同じ段階は入力の順
+  const bandFirst = (r: LevelReason): number => (r.kind === "distance_band" ? 0 : 1);
+  hits.sort((a, b) => a.reason.level - b.reason.level || bandFirst(a.reason) - bandFirst(b.reason)); // 安定ソート: 同じ段階は帯を先に、同じ種類は入力の順
 
   const level: Level = hits.length > 0 ? hits[0]!.reason.level : 4;
   const first = hits.filter((h) => h.reason.level === 1);
@@ -106,6 +133,16 @@ export function computeLevel(p: FarmPoint, cases: readonly Case[], season: Seaso
     // 監視強化の説明は①のときだけ。
     inSurveillanceNote: first.some((h) => h.c.stages.surveillance_lifted === undefined),
   };
+}
+
+/** 農場の段階。今季の数える事例だけを見て、最も高い段階を返す。reasons は当たった事例すべて（高い順）。 */
+export function computeLevel(p: FarmPoint, cases: readonly Case[], season: Season, geo: GeoStore): LevelResult {
+  return levelFrom((c) => relationToCase(p, c, geo), cases, season);
+}
+
+/** 距離の帯を見ない段階（relationWithoutBand）。やること画面の確認リストと声かけが使う。 */
+export function computeLevelWithoutBand(p: FarmPoint, cases: readonly Case[], season: Season, geo: GeoStore): LevelResult {
+  return levelFrom((c) => relationWithoutBand(p, c, geo), cases, season);
 }
 
 /** /area/{code} と API の状態。地点がないので距離を見ない（同じ町、隣の町、他）。 */

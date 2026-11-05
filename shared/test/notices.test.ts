@@ -1,9 +1,9 @@
 // M-02: 誰にいつ知らせるかを決める純粋な部分。メールは送らない。
 import { describe, expect, it } from "vitest";
 import { distanceToMuniKm, GeoNotLoadedError } from "../src/geo";
-import { diffCaseEvents, eventDateOf, farmPoint, memberKeyOf, noticeDocId, planCaseNotices, reviewingCoveredMembers, REVIEWING_QUEUED_GRACE_MINUTES, REVIEWING_QUIET_DAYS, timingFor, type Notice, type NoticeEvent, type SentNotice } from "../src/notices";
+import { diffCaseEvents, eventDateOf, farmPoint, memberKeyOf, noticeDocId, planCaseNotices, renderNotice, reviewingCoveredMembers, REVIEWING_QUEUED_GRACE_MINUTES, REVIEWING_QUIET_DAYS, timingFor, type Notice, type NoticeEvent, type SentNotice } from "../src/notices";
 import type { Case, Farm } from "../src/types";
-import { makeGeo } from "./fixtures/geo";
+import { boxAround, boxNorthOf, makeGeo } from "./fixtures/geo";
 import { boxEastOfMesh, caseFixture, FAR_B, farmWithId, fakeGeo, GEO_A, GEO_B, GEO_C, GEO_D, IN_A, IN_D } from "./helpers/mFixtures";
 
 type F = Farm & { id: string };
@@ -186,6 +186,57 @@ describe("planCaseNotices: 境目の距離（市町村 C の農場、メッシ�
     expect(table(plan(10.4))).toEqual({ fr: "immediate/1" });
     expect(plan(10.4)[0]!.relationKind).toBe("within_radius");
     expect(plan(11.1)).toEqual([]);
+  });
+});
+
+describe("planCaseNotices: 距離の帯（事例ごとのメールに入れない）", () => {
+  const MESH = "53394611";
+  const FARM_TOWN = "13101";
+  const BAND_TOWN = "13102"; // 農場から 30km。隣でない
+  const bandGeo = () =>
+    makeGeo(
+      [
+        { code: FARM_TOWN, name: "農場町", geometry: boxAround(MESH) },
+        { code: BAND_TOWN, name: "帯町", geometry: boxNorthOf(MESH, 30) },
+      ],
+      { preload: true },
+    );
+  const bandCase = (o: Partial<Case> = {}) => caseFixture({ muniCode: BAND_TOWN, muniName: "帯町", prefCode: "13", ...o });
+  const bandFarm = (o: Partial<F> = {}): F => farmWithId("f", "u", { meshCode: MESH, muniCode: FARM_TOWN, prefCode: "13", ...o });
+  const lift = { confirmed: stage("2026-11-04"), shipment_lifted: stage("2026-12-01"), movement_lifted: stage("2026-12-20") };
+
+  it("帯だけの農場には、疑い、確定、否定、解除のどれも送らない", () => {
+    const cases: Array<[NoticeEvent, Case]> = [
+      ["suspected", bandCase({ stages: { suspected: stage("2026-11-04") } })],
+      ["confirmed", bandCase()],
+      ["negated", bandCase({ negation: "negated", negatedAt: "2026-11-05T10:00:00+09:00" })],
+      ["shipment_lifted", bandCase({ stages: { confirmed: stage("2026-11-04"), shipment_lifted: stage("2026-12-01") } })],
+      ["movement_lifted", bandCase({ stages: lift })],
+    ];
+    for (const [event, caseDoc] of cases) {
+      expect(planCaseNotices({ event, caseDoc, farms: [bandFarm()], geo: bandGeo(), alreadySent: [] }), event).toEqual([]);
+    }
+  });
+
+  it("疑いや確定を受け取っていた会員への否定の訂正は、帯でも ④ と同じく朝に届く", () => {
+    const caseDoc = bandCase({ negation: "negated", negatedAt: "2026-11-05T10:00:00+09:00" });
+    const out = planCaseNotices({ event: "negated", caseDoc, farms: [bandFarm()], geo: bandGeo(), alreadySent: [sent("f", "u", caseDoc.id, "suspected")] });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ isCorrection: true, timing: "morning", level: 4, relationKind: null });
+  });
+
+  it("帯の中の登録した町は、今までどおり登録した町として朝に届く", () => {
+    const f = bandFarm({ frequentMuniCodes: [BAND_TOWN] });
+    const out = planCaseNotices({ event: "confirmed", caseDoc: bandCase(), farms: [f], geo: bandGeo(), alreadySent: [] });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ timing: "morning", level: 3, relationKind: "frequent" });
+    const { text } = renderNotice(out[0]!, { unsubscribeUrl: "https://example.invalid/u", appUrl: "https://example.invalid" });
+    expect(text).toContain("登録した町で発生しました。");
+  });
+
+  it("帯の中の登録した町でも、③の知らせを切った農場には届かない", () => {
+    const f = bandFarm({ frequentMuniCodes: [BAND_TOWN], notify: { level1: true, level2: true, level3: false, morningDigest: true, selfCheckRemindDays: null } });
+    expect(planCaseNotices({ event: "confirmed", caseDoc: bandCase(), farms: [f], geo: bandGeo(), alreadySent: [] })).toEqual([]);
   });
 });
 

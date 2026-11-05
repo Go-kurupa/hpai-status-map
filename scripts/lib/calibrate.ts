@@ -2,15 +2,15 @@
 // 地点は農場の位置ではなく、各市町村の center を含むメッシュを仮の地点にする（1 市町村 1 地点）。
 import { distanceToMuniKm, isAdjacent, type GeoStore } from "@hpai/shared/geo";
 import { pastCasesOf } from "@hpai/shared/history";
-import { MESH_MARGIN_KM, ZONE_BASE_KM, isCountable, prefsToLoad, relationToCase, zoneRadiusKm } from "@hpai/shared/level";
+import { DISTANCE_BAND_KM, MESH_MARGIN_KM, ZONE_BASE_KM, isCountable, prefsToLoad, relationToCase, zoneRadiusKm } from "@hpai/shared/level";
 import { latLngToMesh3 } from "@hpai/shared/mesh";
 import { PREFS } from "@hpai/shared/pref";
 import type { Case, FarmPoint, HistoryCase, Level, MuniCode, Season } from "@hpai/shared/types";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 
-/** bbox から離れすぎた地点は距離を計算しない枠（度）。0.3 度は約 33km、0.4 度は約 31km 以上で、10.85km より十分に広い。 */
-export const BBOX_SKIP_LAT_DEG = 0.3;
-export const BBOX_SKIP_LNG_DEG = 0.4;
+/** bbox から離れすぎた地点は距離を計算しない枠（度）。緯度 0.6 度は約 66km、経度 0.8 度は北緯 45.6 度でも約 62km で、距離の帯（60km）より広い。 */
+export const BBOX_SKIP_LAT_DEG = 0.6;
+export const BBOX_SKIP_LNG_DEG = 0.8;
 /** 面積の広い発生市町村を並べる件数。 */
 export const LARGEST_COUNT = 10;
 
@@ -108,8 +108,8 @@ interface Group {
  * 速さの工夫は 2 つ（結果は変えない）:
  * 1. 同じ市町村で、半径と移動制限の解除の有無が同じ事例は relationToCase の結果が同じなので、
  *    （地点、市町村）の組ごとに 1 回だけ計算し、同じ組の事例すべてに当てる。
- * 2. 地点が市町村の bbox から 緯度 0.3 度、経度 0.4 度より離れていれば、距離を計算しない。
- *    ①にならないので、②（隣）か③か④だけを見る。隣り合う市町村は bbox の外でもあるので、隣の判定は省かない。
+ * 2. 地点が市町村の bbox から 緯度 0.6 度、経度 0.8 度より離れていれば、距離を計算しない。
+ *    ①にも距離の帯にもならないので、②（隣）か③（登録）か④だけを見る。隣り合う市町村は bbox の外でもあるので、隣の判定は省かない。
  */
 export function calibrate(cases: readonly Case[], points: readonly FarmPoint[], geo: GeoStore): CalibrationResult {
   const counted = cases.filter(isCountable);
@@ -135,7 +135,7 @@ export function calibrate(cases: readonly Case[], points: readonly FarmPoint[], 
         const [w, s, e, n] = entry.bbox;
         const far = lat < s - BBOX_SKIP_LAT_DEG || lat > n + BBOX_SKIP_LAT_DEG || lng < w - BBOX_SKIP_LNG_DEG || lng > e + BBOX_SKIP_LNG_DEG;
         if (far) {
-          // 距離は計算しない（①にならない）。relationToCase の②③④の順と同じ。
+          // 距離は計算しない（①にも帯にもならない）。relationToCase の②③④の順と同じ。
           if (isAdjacent(p.muniCode, g.muniCode!, geo)) return 2;
           if (p.frequentMuniCodes.includes(g.muniCode!)) return 3;
           return 4;
@@ -234,7 +234,7 @@ export function renderCalibrationDoc(r: CalibrationResult): string {
     `- 事例は国の資料の ${r.caseCount} 件（関連農場は数えない）。`,
     `- 地点は農場の位置ではなく市町村の中心を含むメッシュで、全国 ${r.pointCount} 市町村に 1 つずつ置いた。実際の農場は市町村の中のどこにでもあるので、これは目安である。`,
     `- ①は、同じ市町村、または市町村の形までの距離が ${zone} 以内。過去の事例は県の発表の半径と移動制限の解除の記録を持たないので、すべて区域が続く扱いで、半径は ${ZONE_BASE_KM}km。`,
-    "- ②は隣り合う市町村。④はどれにも当たらない。③（よく行く市町村）は地点を置いていないので 0。",
+    `- ②は隣り合う市町村。③は市町村の形までの距離が ${DISTANCE_BAND_KM}km 以内（誤差を足さない）。よく行く市町村は地点に登録していない。④はどれにも当たらない。`,
     "- 地点あたりの回数は、1 つの地点で、そのシーズンの事例のうち①（②）に当たった件数。",
     "- 中央値は真ん中の値（偶数個は 2 つの平均）。90% は最近順位法（小さい順に並べた n 個の `sorted[ceil(0.9n)-1]`）。最大はその最大値。",
     `- ${ZONE_BASE_KM}km と ${MESH_MARGIN_KM}km は設計書 §5 の決まりで、この結果では変えない。`,

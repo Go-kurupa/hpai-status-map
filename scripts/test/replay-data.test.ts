@@ -5,7 +5,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { GeoStore } from "@hpai/shared/geo";
 import { toJstIso } from "@hpai/shared/dates";
-import { computeLevel, relationToCase, summarizeWatch } from "@hpai/shared/level";
+import { computeLevel, relationWithoutBand, summarizeWatch } from "@hpai/shared/level";
 import { latLngToMesh3 } from "@hpai/shared/mesh";
 import { PREFS } from "@hpai/shared/pref";
 import { currentSeason } from "@hpai/shared/season";
@@ -203,13 +203,17 @@ describe("既定の地点（仮の地点）", () => {
     expect(distanceToMuniKm(scenario.defaultSpot.meshCode, "33203", geo)).toBeLessThanOrEqual(5);
   });
 
-  it("12/19 から 1/20 までは level 1（within_radius）。1/21 以降は level 1 でない（隣町の 2）。それより前は 4", () => {
+  it("12/19 から 1/20 までは level 1（within_radius）。1/21 以降は level 1 でない（隣町の 2）。12/16 の姫路市（約 40km 先）から 12/18 までは距離の帯の 3。それより前は 4", () => {
     const first = orderOn("2025-12-19");
+    const band = events.find((e) => e.caseAfter.muniCode === "28201")!.order;
     const lift = events.find((e) => e.caseAfter.muniCode === "33203" && eventStage(e) === "movement_lifted")!.order;
     for (let o = 0; o <= events.length; o++) {
       const r = computeLevel(scenario.defaultSpot, casesAt(scenario, o), 2025, geo);
-      if (o < first) {
+      if (o < band) {
         expect(r.level, `order ${o}`).toBe(4);
+      } else if (o < first) {
+        expect(r.level, `order ${o}`).toBe(3);
+        expect(r.reasons[0]!.kind, `order ${o}`).toBe("distance_band");
       } else if (o < lift) {
         expect(r.level, `order ${o}`).toBe(1);
         expect(r.reasons[0]!.kind, `order ${o}`).toBe("within_radius");
@@ -275,7 +279,7 @@ describe("出典と文章", () => {
 describe("メールの下書き（noticePreview）", () => {
   it("段階 ④（この地点に関係ない事例）と、メールに語のない出来事（防疫措置の完了）は null。他は prefContactIsAuthority を含む", () => {
     for (const e of events) {
-      const rel = relationToCase(scenario.defaultSpot, e.caseAfter, geo);
+      const rel = relationWithoutBand(scenario.defaultSpot, e.caseAfter, geo); // 帯はメールに入れない
       const stage = eventStage(e)!;
       const text = noticeTextFor(e.caseAfter.muniName!, stage);
       if (rel.level === 4 || text === null) {

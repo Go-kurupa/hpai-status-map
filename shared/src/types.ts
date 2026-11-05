@@ -214,7 +214,7 @@ export interface CaseDraft {
 
 // ── 2.4 段階 ──
 export type Level = 1 | 2 | 3 | 4;
-export type LevelReasonKind = "within_radius" | "same_muni" | "adjacent" | "frequent";
+export type LevelReasonKind = "within_radius" | "same_muni" | "adjacent" | "distance_band" | "frequent";
 export interface LevelReason {
   caseId: string;
   level: Level;

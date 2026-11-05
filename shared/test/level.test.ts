@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { GeoNotLoadedError } from "../src/geo";
 import {
+  DISTANCE_BAND_KM,
   MESH_MARGIN_KM,
   ZONE_BASE_KM,
   computeAreaStatus,
   computeLevel,
+  computeLevelWithoutBand,
   isCountable,
+  isWithinDistanceBand,
   isZoneActive,
   prefsToLoad,
   relationToCase,
+  relationWithoutBand,
   summarizeWatch,
   wildBirdsNotifiable,
   zoneRadiusKm,
@@ -143,8 +147,11 @@ describe("computeLevel: ① 区域に入っている可能性", () => {
     expect(computeLevel(farm(), [mkCase({ id: "m", muniCode: "13103" })], SEASON, geo).level).toBe(1);
 
     const far = computeLevel(farm(), [mkCase({ id: "f", muniCode: "13104" })], SEASON, geo);
-    expect(far.level).toBe(4);
-    expect(far.reasons).toEqual([]);
+    // ①でなく、距離の帯の③（半径の理由を持たない）
+    expect(far.level).toBe(3);
+    expect(far.reasons).toHaveLength(1);
+    expect(far.reasons[0]).toMatchObject({ caseId: "f", level: 3, kind: "distance_band", radiusKm: null });
+    expect(far.reasons[0]!.distanceKm).toBeCloseTo(10.95, 1);
   });
 
   it("半径は最も外側。[3] と [3,10] は 10、[20] は 20（20.80km は①、20.95km は①でない）", () => {
@@ -154,13 +161,17 @@ describe("computeLevel: ① 区域に入っている可能性", () => {
       expect(r.level, JSON.stringify(radiiKm)).toBe(1);
       expect(r.reasons[0]!.radiusKm).toBe(10);
       // 3km の発表でも 10km より狭くしない: 10.80km でも①のまま、20.8km は①でない
-      expect(computeLevel(farm(), [mkCase({ id: "b", muniCode: "13103", radiiKm })], SEASON, geo).level).toBe(4);
+      const beyond = computeLevel(farm(), [mkCase({ id: "b", muniCode: "13103", radiiKm })], SEASON, geo);
+      expect(beyond.level).toBe(3);
+      expect(beyond.reasons[0]!.kind).toBe("distance_band");
     }
     const wide = computeLevel(farm(), [mkCase({ id: "c", muniCode: "13103", radiiKm: [20] })], SEASON, geo);
     expect(wide.level).toBe(1);
     expect(wide.reasons[0]).toMatchObject({ kind: "within_radius", radiusKm: 20 });
     expect(wide.reasons[0]!.distanceKm).toBeCloseTo(20.8, 1);
-    expect(computeLevel(farm(), [mkCase({ id: "d", muniCode: "13104", radiiKm: [20] })], SEASON, geo).level).toBe(4);
+    const beyondWide = computeLevel(farm(), [mkCase({ id: "d", muniCode: "13104", radiiKm: [20] })], SEASON, geo);
+    expect(beyondWide.level).toBe(3);
+    expect(beyondWide.reasons[0]!.kind).toBe("distance_band");
   });
 
   it("20.70km は radiiKm [20] で①", () => {
@@ -237,7 +248,7 @@ describe("computeLevel: ① 区域に入っている可能性", () => {
     const r = computeLevel(farm(), [mkCase({ id: "a", muniCode: "13421" })], SEASON, geo);
     expect(r.level).toBe(1);
     expect(r.reasons[0]!.kind).toBe("within_radius");
-    const far = geoWith([northCity("13421", 60)], { preload: true });
+    const far = geoWith([northCity("13421", 70)], { preload: true }); // 距離の帯（60km）の外
     expect(computeLevel(farm(), [mkCase({ id: "a", muniCode: "13421" })], SEASON, far).level).toBe(4);
   });
 });
@@ -251,7 +262,8 @@ describe("computeLevel: ② ③ ④", () => {
   });
 
   it("登録した町は③、他は④で reasons が空", () => {
-    const geo = geoWith([northCity("13102", 30), northCity("13103", 40)], { preload: true });
+    // どちらも距離の帯（60km）の外
+    const geo = geoWith([northCity("13102", 70), northCity("13103", 80)], { preload: true });
     const f = farm({ frequentMuniCodes: ["13102"] });
     const r3 = computeLevel(f, [mkCase({ id: "a", muniCode: "13102" })], SEASON, geo);
     expect(r3.level).toBe(3);
@@ -354,12 +366,24 @@ describe("computeLevel: 移動制限の解除の後（契約 2.4、索引 Q5 既
     expect(rFreq.level).toBe(3);
   });
 
-  it("10km 以内でも隣でなければ④（解除の後は距離を見ない）", () => {
-    // 距離を見ないので、県が未読み込みでも throw しない
-    const geo = geoWith([northCity("13102", 5)], { preload: false });
+  it("10km 以内でも①に戻らず、隣でなければ距離の帯の③", () => {
+    const geo = geoWith([northCity("13102", 5)], { preload: true });
     const r = computeLevel(farm(), [mkCase({ id: "a", muniCode: "13102", stages: { ...lifted } })], SEASON, geo);
-    expect(r.level).toBe(4);
-    expect(r.reasons).toEqual([]);
+    expect(r.level).toBe(3);
+    expect(r.reasons).toHaveLength(1);
+    expect(r.reasons[0]).toMatchObject({ caseId: "a", level: 3, kind: "distance_band", radiusKm: null });
+    expect(r.reasons[0]!.distanceKm).toBeCloseTo(5, 1);
+  });
+
+  it("県を読む前は GeoNotLoadedError（解除の後も、黙って④にしない）", () => {
+    const geo = geoWith([northCity("13102", 5)], { preload: false });
+    expect(() => computeLevel(farm(), [mkCase({ id: "a", muniCode: "13102", stages: { ...lifted } })], SEASON, geo)).toThrow(GeoNotLoadedError);
+  });
+
+  it("60km より遠く、隣でも登録でもなければ④", () => {
+    const geo = geoWith([northCity("13102", 70)], { preload: true });
+    const r = computeLevel(farm(), [mkCase({ id: "a", muniCode: "13102", stages: { ...lifted } })], SEASON, geo);
+    expect(r).toEqual({ level: 4, reasons: [], shipmentLifted: false, inSurveillanceNote: false });
   });
 
   it("否定とシーズン違いは数えない", () => {
@@ -396,8 +420,155 @@ describe("relationToCase", () => {
   });
 
   it("関係がなければ level 4 で reason は null", () => {
-    const geo = geoWith([northCity("13102", 50)], { preload: true });
+    const geo = geoWith([northCity("13102", 70)], { preload: true });
     expect(relationToCase(farm(), mkCase({ id: "a", muniCode: "13102" }), geo)).toEqual({ level: 4, reason: null });
+  });
+});
+
+describe("距離の帯（約 60km 以内。段階は③のまま）", () => {
+  const mk = (id: string, muniCode: string, o: Partial<Case> = {}) => mkCase({ id, muniCode, ...o });
+
+  it("定数は 60km で、誤差を足さない", () => {
+    expect(DISTANCE_BAND_KM).toBe(60);
+    expect(isWithinDistanceBand(60)).toBe(true);
+    expect(isWithinDistanceBand(60 + MESH_MARGIN_KM)).toBe(false);
+    expect(isWithinDistanceBand(60.0001)).toBe(false);
+    expect(isWithinDistanceBand(0)).toBe(true);
+  });
+
+  it("行政上の隣でなく、境界まで 10km を超え 60km 以内の発生は④にならず、距離を理由に持つ", () => {
+    for (const km of [11, 25, 50, 59.9]) {
+      const geo = geoWith([northCity("13102", km)], { preload: true });
+      const r = computeLevel(farm(), [mk("a", "13102")], SEASON, geo);
+      expect(r.level, String(km)).toBe(3);
+      expect(r.reasons).toHaveLength(1);
+      expect(r.reasons[0]).toMatchObject({ caseId: "a", level: 3, kind: "distance_band", radiusKm: null });
+      expect(r.reasons[0]!.distanceKm).toBeCloseTo(km, 1);
+      expect(r.inSurveillanceNote).toBe(false);
+      expect(r.shipmentLifted).toBe(false);
+    }
+  });
+
+  it("境目: 59.9km は帯、60.1km は④（誤差を足さないので 60.1km は入らない）", () => {
+    const geo = geoWith([northCity("13102", 59.9), northCity("13103", 60.1)], { preload: true });
+    expect(relationToCase(farm(), mk("in", "13102"), geo).reason?.kind).toBe("distance_band");
+    expect(relationToCase(farm(), mk("out", "13103"), geo)).toEqual({ level: 4, reason: null });
+  });
+
+  it("①②の条件は変えない: 半径の内は①、隣は 60km 以内でも②", () => {
+    const geo = geoWith([northCity("13102", 15), northCity("13103", 30, { neighbors: [FARM_MUNI] })], { preload: true });
+    expect(relationToCase(farm(), mk("wide", "13102", { radiiKm: [20] }), geo).reason?.kind).toBe("within_radius");
+    expect(relationToCase(farm(), mk("adj", "13103"), geo)).toEqual({
+      level: 2,
+      reason: { caseId: "adj", level: 2, kind: "adjacent", distanceKm: null, radiusKm: null },
+    });
+  });
+
+  it("移動制限の解除の後も帯に入る。60.1km は入らない", () => {
+    const geo = geoWith([northCity("13102", 30), northCity("13103", 60.1)], { preload: true });
+    const stages = { confirmed: { date: "2026-12-20", time: null }, ...lifted };
+    const r = relationToCase(farm(), mk("a", "13102", { stages }), geo);
+    expect(r.level).toBe(3);
+    expect(r.reason).toMatchObject({ kind: "distance_band", radiusKm: null });
+    expect(r.reason!.distanceKm).toBeCloseTo(30, 1);
+    expect(relationToCase(farm(), mk("b", "13103", { stages }), geo)).toEqual({ level: 4, reason: null });
+  });
+
+  it("登録した町が帯の中なら帯が先（距離を理由に持つ）。帯の外なら登録のまま", () => {
+    const geo = geoWith([northCity("13102", 30), northCity("13103", 70)], { preload: true });
+    const f = farm({ frequentMuniCodes: ["13102", "13103"] });
+    const both = relationToCase(f, mk("a", "13102"), geo);
+    expect(both.level).toBe(3);
+    expect(both.reason?.kind).toBe("distance_band");
+    expect(both.reason!.distanceKm).toBeCloseTo(30, 1);
+    expect(relationToCase(f, mk("b", "13103"), geo)).toEqual({
+      level: 3,
+      reason: { caseId: "b", level: 3, kind: "frequent", distanceKm: null, radiusKm: null },
+    });
+  });
+
+  it("並び: ①②の次に帯、その次に登録。同じ種類は入力の順", () => {
+    const geo = geoWith(
+      [
+        northCity("13102", 70),
+        northCity("13103", 40),
+        northCity("13104", 20),
+        northCity("13105", 30, { neighbors: [FARM_MUNI] }),
+        northCity("13106", 5),
+      ],
+      { preload: true },
+    );
+    const r = computeLevel(
+      farm({ frequentMuniCodes: ["13102"] }),
+      [mk("freq", "13102"), mk("band-far", "13103"), mk("band-near", "13104"), mk("adj", "13105"), mk("zone", "13106")],
+      SEASON,
+      geo,
+    );
+    expect(r.level).toBe(1);
+    expect(r.reasons.map((x) => [x.caseId, x.kind])).toEqual([
+      ["zone", "within_radius"],
+      ["adj", "adjacent"],
+      ["band-far", "distance_band"],
+      ["band-near", "distance_band"],
+      ["freq", "frequent"],
+    ]);
+  });
+
+  it("発生が南から近づく並び: 帯の外は④、帯に入って③、隣で②、半径で①", () => {
+    const geo = geoWith(
+      [northCity("13102", 120), northCity("13103", 45), northCity("13104", 25, { neighbors: [FARM_MUNI] }), northCity("13105", 8)],
+      { preload: true },
+    );
+    const seq = [mk("a", "13102"), mk("b", "13103"), mk("c", "13104"), mk("d", "13105")];
+    expect([1, 2, 3, 4].map((n) => computeLevel(farm(), seq.slice(0, n), SEASON, geo).level)).toEqual([4, 3, 2, 1]);
+  });
+
+  it("否定とシーズン違いは帯にも入らない。muniCode のない事例は距離を見ない", () => {
+    const geo = geoWith([northCity("13102", 30)], { preload: true });
+    expect(computeLevel(farm(), [mk("a", "13102", { negation: "negated" })], SEASON, geo).level).toBe(4);
+    expect(computeLevel(farm(), [mk("a", "13102", { season: SEASON - 1 })], SEASON, geo).level).toBe(4);
+    expect(relationToCase(farm(), mkCase({ id: "n", muniCode: null, muniName: null }), geo)).toEqual({ level: 4, reason: null });
+  });
+});
+
+describe("帯を除いた関係（事例ごとのメール、確認リスト）", () => {
+  const near = () => geoWith([northCity("13102", 30), northCity("13103", 70), northCity("13104", 40, { neighbors: [FARM_MUNI] })], { preload: true });
+
+  it("帯だけの事例は④", () => {
+    const c = mkCase({ id: "a", muniCode: "13102" });
+    expect(relationWithoutBand(farm(), c, near())).toEqual({ level: 4, reason: null });
+    expect(computeLevelWithoutBand(farm(), [c], SEASON, near())).toEqual({ level: 4, reasons: [], shipmentLifted: false, inSurveillanceNote: false });
+  });
+
+  it("帯の中の登録した町は登録の③（距離を持たない）", () => {
+    const c = mkCase({ id: "a", muniCode: "13102" });
+    expect(relationWithoutBand(farm({ frequentMuniCodes: ["13102"] }), c, near())).toEqual({
+      level: 3,
+      reason: { caseId: "a", level: 3, kind: "frequent", distanceKm: null, radiusKm: null },
+    });
+  });
+
+  it("①②は relationToCase と同じ。登録の並びは入力の順", () => {
+    const geo = near();
+    const adj = mkCase({ id: "adj", muniCode: "13104" });
+    expect(relationWithoutBand(farm(), adj, geo)).toEqual(relationToCase(farm(), adj, geo));
+    const same = mkCase({ id: "same", muniCode: FARM_MUNI });
+    expect(relationWithoutBand(farm(), same, geo)).toEqual(relationToCase(farm(), same, geo));
+    const r = computeLevelWithoutBand(
+      farm({ frequentMuniCodes: ["13102", "13103"] }),
+      [mkCase({ id: "pure", muniCode: "13103" }), mkCase({ id: "both", muniCode: "13102" }), mkCase({ id: "band", muniCode: "13102", season: SEASON - 1 })],
+      SEASON,
+      geo,
+    );
+    expect(r.reasons.map((x) => [x.caseId, x.kind])).toEqual([
+      ["pure", "frequent"],
+      ["both", "frequent"],
+    ]);
+  });
+
+  it("解除の後の帯の距離を測らない（県が未読み込みでも throw しない）", () => {
+    const geo = geoWith([northCity("13102", 30)], { preload: false });
+    expect(relationWithoutBand(farm(), mkCase({ id: "a", muniCode: "13102", stages: { ...lifted } }), geo)).toEqual({ level: 4, reason: null });
   });
 });
 

@@ -1,11 +1,11 @@
 // メールの知らせ（契約 3.2、2.3、設計書 §6）。誰にいつ知らせるかを決め、文面を作る。純粋な計算だけ（送信は functions/src/notify/）。
 //
-// 段階は relationToCase だけで得る（判定を複製しない）。距離を使うので、呼ぶ前に
+// 段階は relationWithoutBand だけで得る（判定を複製しない。距離の帯は事例ごとに送らない）。距離を使うので、呼ぶ前に
 // await geo.ensurePrefs(...) を済ませること（未読み込みの県は GeoNotLoadedError。黙って④にしない）。
 // 確認中（reviewing）は距離を見ない。
 import { diffDays } from "./dates";
 import { formatJaDate } from "./jaDate";
-import { relationToCase, wildBirdsNotifiable } from "./level";
+import { relationWithoutBand, wildBirdsNotifiable } from "./level";
 import { MORTALITY_TEXT } from "./mortality";
 import { PREFS } from "./pref";
 import { seasonOf } from "./season";
@@ -189,7 +189,7 @@ function relationBasis(event: CaseEvent, c: Case): Case {
 
 /**
  * 事例の出来事ごとの宛先。配信停止の会員は全出来事で除く。記録（alreadySent）のある知らせは出さない。
- * - 疑い、確定、否定、解除: 段階（relationToCase）と農場の設定で決める。morning は morningDigest でも切る。
+ * - 疑い、確定、否定、解除: 段階（relationWithoutBand）と農場の設定で決める。距離の帯だけの農場は④と同じで送らない。morning は morningDigest でも切る。
  * - 否定で、同じ事例の疑いか確定の送れた（sent）記録のある会員は、isCorrection:true。
  *   今は ④ でも、設定を切っていても届く（朝）。受け取っていない会員は isCorrection:false で、設定に従う。
  * - 確認中: 同じ県の農場へすぐ。設定で止めず、段階を持たない。reviewingCovered に入った会員（同じ県の確認中が開いている間に、
@@ -236,9 +236,9 @@ export function planCaseNotices(i: {
       continue;
     }
 
-    let relation: ReturnType<typeof relationToCase>;
+    let relation: ReturnType<typeof relationWithoutBand>;
     try {
-      relation = relationToCase(farmPoint(farm), basis, geo);
+      relation = relationWithoutBand(farmPoint(farm), basis, geo);
     } catch (e) {
       if (e instanceof GeoNotLoadedError) throw e; // 県を読む前は④にせず、呼び出し側に知らせる
       console.error("[notify] 農場の位置が読めないので、この農場だけ飛ばしました", { farmId: farm.id });

@@ -52,6 +52,7 @@ const reason = (caseId: string, level: 1 | 2 | 3, kind: "within_radius" | "same_
   distanceKm: null,
   radiusKm: null,
 });
+const band = (caseId: string, distanceKm: number) => ({ caseId, level: 3 as const, kind: "distance_band" as const, distanceKm, radiusKm: null });
 
 describe("levelLine（§5 の文）", () => {
   const c1 = mkCase({ id: "c1" });
@@ -87,6 +88,32 @@ describe("levelLine（§5 の文）", () => {
   it("③ 登録した町で発生しました（lv3）", () => {
     const l = levelLine(result({ level: 3, reasons: [reason("c1", 3, "frequent")] }), [c1]);
     expect(l).toMatchObject({ tone: "lv3", main: "登録した町で発生しました" });
+  });
+
+  it("③ 距離の帯は『約 N km 先で発生しました』（N は最も近い発生の四捨五入。lv3）。『区域』『登録』の語を使わない", () => {
+    const c2 = mkCase({ id: "c2", muniCode: "33214", muniName: "真庭市" });
+    const l = levelLine(result({ level: 3, reasons: [band("c1", 42.6), band("c2", 30.5)] }), [c1, c2]);
+    expect(l).toMatchObject({ tone: "lv3", main: "約 31 km 先で発生しました" });
+    expect(l.details).toEqual(["津山市で確定（12 月 20 日）", "真庭市で確定（12 月 20 日）"]);
+    expect(textOf(l)).not.toMatch(/区域|登録/);
+    expect(levelLine(result({ level: 3, reasons: [band("c1", 30.4)] }), [c1]).main).toBe("約 30 km 先で発生しました");
+  });
+
+  it("帯の距離が 1km 未満でも『約 0 km』と書かない", () => {
+    expect(levelLine(result({ level: 3, reasons: [band("c1", 0.2)] }), [c1]).main).toBe("約 1 km 先で発生しました");
+  });
+
+  it("帯と登録した町の両方に当たると、主文は帯で、登録した町で発生したことも詳細に残す", () => {
+    const c2 = mkCase({ id: "c2", muniCode: "01100", muniName: "札幌市", prefCode: "01" });
+    const l = levelLine(result({ level: 3, reasons: [band("c1", 30), reason("c2", 3, "frequent")] }), [c1, c2]);
+    expect(l.main).toBe("約 30 km 先で発生しました");
+    expect(l.details).toEqual([TEXT.frequent, "津山市で確定（12 月 20 日）", "札幌市で確定（12 月 20 日）"]);
+  });
+
+  it("1 つの事例が帯の中の登録した町でも、詳細に登録した町の文を残す", () => {
+    const l = levelLine(result({ level: 3, reasons: [band("c1", 30)] }), [c1], ["33203"]);
+    expect(l.main).toBe("約 30 km 先で発生しました");
+    expect(l.details[0]).toBe(TEXT.frequent);
   });
 
   it("④ 全国の動きをお知らせしています。riskAnywhere を添える（『何もない』と読ませない）", () => {
@@ -130,6 +157,7 @@ describe("levelLine（§5 の文）", () => {
       result({ level: 2, reasons: [reason("c1", 2, "adjacent")] }),
       result({ level: 2, reasons: [reason("c1", 2, "same_muni")] }),
       result({ level: 3, reasons: [reason("c1", 3, "frequent")] }),
+      result({ level: 3, reasons: [band("c1", 45)] }),
       result({ level: 4, reasons: [] }),
     ]) {
       expect(findForbiddenPhrases(textOf(levelLine(r, [c1])))).toEqual([]);
@@ -308,6 +336,19 @@ describe("resolveTownLine", () => {
     expect(r.nearMuniCodes).toEqual(["33203"]);
     const s = await resolveTown({ ...base, spot, town: null, cases: [mkCase({ id: "c1" }), mkCase({ id: "c2", muniCode: "33214", muniName: "真庭市" })], geo });
     expect(s.nearMuniCodes).toEqual(["33214"]); // 自分の町（33203）の縁は my-town で描くので入れない
+  });
+
+  it("resolveTown: 距離の帯の町には縁を付けない。帯の中でも登録した町には付ける", async () => {
+    const { geo } = realGeo();
+    const kurashiki = mkCase({ id: "k", muniCode: "33202", muniName: "倉敷市" });
+    const s = await resolveTown({ ...base, spot, town: null, cases: [kurashiki], geo });
+    expect(s.line.tone).toBe("lv3");
+    expect(s.line.main).toMatch(/^約 \d+ km 先で発生しました$/);
+    expect(s.nearMuniCodes).toEqual([]);
+    const registered = await resolveTown({ ...base, spot: { ...spot, frequentMuniCodes: ["33202"] }, town: null, cases: [kurashiki], geo });
+    expect(registered.line.main).toMatch(/^約 \d+ km 先で発生しました$/);
+    expect(registered.line.details[0]).toBe(TEXT.frequent);
+    expect(registered.nearMuniCodes).toEqual(["33202"]);
   });
 
   it("野鳥の高病原性の確定が 10km 以内なら行に出る（段階は変えない）", async () => {
