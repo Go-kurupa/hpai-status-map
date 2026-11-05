@@ -10,8 +10,8 @@
 
 | 箇所 | 場所 | 入れるもの |
 |---|---|---|
-| 運営者と地域 | `README.md` の `<!-- 運営者と地域: ここから -->` と `<!-- 運営者と地域: ここまで -->` の間 | 農場名と地域の 1 行（共同経営者は了承済み）。囲みの外には地名を書かない試験があり、囲みの中は検査の対象外 |
-| 本番の URL | `README.md` の `<!-- 本番の URL は利用者が入れる -->` の近く。`README.md` と `docs/mcp-usage.md` に残っている `<本番の URL>` と `<サイトの URL>` のすべて | 本番の URL（`--pre-publish` が、残っていれば止める） |
+| 運営者と地域 | `README.md` の `<!-- 運営者と地域: ここから -->` と `<!-- 運営者と地域: ここまで -->` の間 | 入れ済みの 1 行を確かめる（共同経営者は了承済み）。囲みの外には地名を書かない試験があり、囲みの中は検査の対象外 |
+| 本番の URL | `README.md` と `docs/mcp-usage.md` | 入れ済み（`https://hpai-status-map.web.app`）。`--pre-publish` が、`<本番の URL>` と `<サイトの URL>` が残っていれば止める |
 | 動画の URL | `README.md`（動画の掲載の後） | 動画の URL |
 | 運営者名 | `web/.env.production` の `VITE_OPERATOR_NAME` | 運営者の名前（build に入るので、deploy の前に入れる） |
 | 確認日 | `shared/src/guidance/official.ts` の `OFFICIAL_GUIDANCE_REVIEWED_ON`、`web/src/pages/privacy/privacyNotice.ts` の `PRIVACY_REVIEWED_ON`、`docs/official-text-review.md`、`web/src/pages/auth/LoginPage.tsx` の `LOGIN_TEXT_CHECKED_ON` | 作者と共同経営者が文面を確認した日（Claude は代わりに決めない。`LOGIN_TEXT_CHECKED_ON` は下の公開前の確認の対象外で、空のままだとログイン画面に「文面は確認中です」と出る） |
@@ -43,8 +43,10 @@ npx tsx scripts/smoke-prod.ts --pre-publish
 2. 次を、利用者の確認のあとに実行します。アカウントとプロジェクトは明示します。
 
    ```
-   npx firebase deploy --only firestore,storage,functions,hosting --account "$FIREBASE_ACCOUNT" --project "$FIREBASE_PROJECT"
+   FUNCTIONS_DISCOVERY_TIMEOUT=120 npx firebase deploy --only firestore,storage,functions,hosting --account "$FIREBASE_ACCOUNT" --project "$FIREBASE_PROJECT"
    ```
+
+   この deploy には `FUNCTIONS_DISCOVERY_TIMEOUT=120` が要ります（関数の読み込みの待ち時間を延ばす設定）。
 
 3. `autoPublishEnabled` を true にするのは、読み取りの試験に合格し（[docs/read-eval-log.md](read-eval-log.md)）、利用者が確認したあとだけです。それまでは全件が確認中のままです。
 
@@ -59,7 +61,7 @@ npx tsx scripts/smoke-prod.ts
 次は人が確かめます。
 
 - [ ] 本番で Google ログインが通る
-- [ ] `/` の応答に `X-Frame-Options` と `X-Content-Type-Options` が付き、`/__/auth/iframe` には付かない（`curl -sI https://<本番の URL>/` と `curl -sI https://<本番の URL>/__/auth/iframe`）
+- [ ] `/` の応答に `X-Frame-Options` と `X-Content-Type-Options` が付き、`/__/auth/iframe` には付かない（`curl -sI https://hpai-status-map.web.app/` と `curl -sI https://hpai-status-map.web.app/__/auth/iframe`）
 - [ ] 配信停止の POST が、Hosting の rewrite を通って関数に届く
 - [ ] 本番で規則が読み込まれ、よく行き来する町 20 件と期限 16 件を持つ農場の保存が通る（規則は模擬環境でしか確かめていない）
 - [ ] 回数の制限が数える IP の位置（[docs/mcp-usage.md](mcp-usage.md) の「デプロイの後に確かめること」）
@@ -67,7 +69,7 @@ npx tsx scripts/smoke-prod.ts
 ## 4. 本番の MCP
 
 ```
-claude mcp add --transport http hpai https://<本番の URL>/mcp
+claude mcp add --transport http hpai https://hpai-status-map.web.app/mcp
 ```
 
 登録したら、Claude Code で「今週の<県名>の状況は」と聞きます（県名は利用者が決めます）。結果は [docs/mcp-usage.md](mcp-usage.md) の「本番での確認」に書きます（日付、聞いた文、呼ばれた道具、答えに `notices` と確認状況が入っていたか）。
@@ -87,7 +89,7 @@ claude mcp add --transport http hpai https://<本番の URL>/mcp
 
 ## 6. README を仕上げる
 
-- [ ] 本番の URL、動画の URL、運営者と地域を入れる
+- [ ] 動画の URL を入れる（本番の URL と、運営者と地域の 1 行は入れ済み。実物を確かめる）
 - [ ] 提出物の一覧、動画の長さ、提出先を、参加者ガイドで確かめて照らす（公式ページから読めていない項目）
 - [ ] `npx vitest run --project scripts --passWithNoTests=false readme demo-script`
 
