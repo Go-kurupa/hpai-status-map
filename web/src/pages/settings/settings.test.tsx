@@ -204,7 +204,8 @@ describe("/settings/farm", () => {
     expect(within(page).getByText(/地理院タイル/)).toBeTruthy();
     expect(within(page).getByText(/Vector Map Level 0/)).toBeTruthy();
     expect(within(page).getByText(/国土数値情報/)).toBeTruthy();
-    expect(maps[0]!.options["dragRotate"]).toBe(false);
+    // 地図は effect で作る。欄の DOM が出た時点では、まだ作られていないことがある
+    await waitFor(() => expect(maps[0]?.options["dragRotate"]).toBe(false));
   });
 
   it("住所の欄がなく、『約 1km のマス目で保存します』と出す。点は描かない", async () => {

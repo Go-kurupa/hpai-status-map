@@ -530,6 +530,9 @@ describe("SelfCheckPanel", () => {
     const radios = screen.getAllByRole("radio") as HTMLInputElement[];
     expect(radios.length).toBe(21);
     expect(radios.every((r) => r.disabled)).toBe(true);
+    // 読み込みは effect で始まる。ボタンは最初の描画で出るので、始まるのを待ってから読み終えさせる（早いと release がまだ空の関数）
+    await waitFor(() => expect(store.listChecks).toHaveBeenCalled());
+    expect(btn.disabled).toBe(true);
     release([]);
     await waitFor(() => expect(btn.disabled).toBe(false));
     expect(radios.every((r) => !r.disabled)).toBe(true);

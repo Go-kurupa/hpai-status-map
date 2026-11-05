@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { MemoryRouter } from "react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DataSourceProvider } from "../../data/context";
 import { SpotProvider } from "../../data/spotContext";
 import type { DataSource } from "../../data/types";
@@ -57,6 +57,12 @@ const ds: DataSource = {
   },
   loadHistory: () => Promise.resolve([] as HistoryCase[]),
 };
+
+// 地図と代わりの地図は別の chunk（lazy）。読み込みの速さではなく描画の結果を確かめるので、先に読んでおく。
+// 読まずに始めると、負荷の高いときに最初の試験だけ、読み込みの間に findBy の待ちが切れる
+beforeAll(async () => {
+  await Promise.all([import("./MapView"), import("./SvgMap")]);
+});
 
 afterEach(() => {
   cleanup();
