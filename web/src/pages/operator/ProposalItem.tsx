@@ -16,7 +16,7 @@ function UrlLine({ label, url }: { label: string; url: string | null }) {
       {href !== null && (
         <>
           {" "}
-          <a href={href} target="_blank" rel="noopener noreferrer">開く</a>
+          <a className="tap-link" href={href} target="_blank" rel="noopener noreferrer">開く</a>
         </>
       )}
     </p>

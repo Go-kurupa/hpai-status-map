@@ -575,6 +575,19 @@ describe("機械の検査: ソフトの質感（設計書 2-2）", () => {
     expect(qual).not.toMatch(/display:\s*none/);
     expect(pc).toMatch(/\.stat-value :is\(b, \.stat-num\)\s*\{[^}]*font-size:\s*2rem/);
   });
+  it("設定の部品を使う画面は、直接開いても設定の CSS を読む", () => {
+    const explainer = fs.readFileSync(path.join(repoRoot, "web/src/pages/settings/ExplainerPage.tsx"), "utf8");
+    expect(explainer).toMatch(/settings-check/);
+    expect(explainer).toMatch(/import "\.\/settings\.css";/);
+  });
+  it("設定の印は、2 行の文の横でもつぶれない", () => {
+    const settings = fs.readFileSync(path.join(repoRoot, "web/src/pages/settings/settings.css"), "utf8");
+    expect(/\.settings-check input\s*\{([^}]*)\}/.exec(settings)?.[1]).toMatch(/flex:\s*none/);
+  });
+  it("運営者の欄の選択肢は、長い選択肢でも幅を超えない", () => {
+    const op = fs.readFileSync(path.join(repoRoot, "web/src/pages/operator/operator.css"), "utf8");
+    expect(/\.op-field select,\s*\.op-field input\s*\{([^}]*)\}/.exec(op)?.[1]).toMatch(/width:\s*100%/);
+  });
   it("札と断りは枠も面も持たない", () => {
     expect(body(".stat")).not.toMatch(/(?:^|[\s;])(?:border|background):\s*(?!0|none)/);
     expect(body(".map-notice", MAP)).not.toMatch(/(?:^|[\s;])border:\s*(?!0)/);

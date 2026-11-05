@@ -31,6 +31,7 @@
   font-weight: 400;
 }
 .settings-check input {
+  flex: none; /* 2 行の文の横でつぶさない */
   width: 24px;
   height: 24px;
 }
@@ -51,6 +52,7 @@
 }
 .picker-canvas {
   width: 100%;
+  margin-top: 8px;
   height: 50vh;
   min-height: 300px;
   max-height: 480px;

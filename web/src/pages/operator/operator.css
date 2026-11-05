@@ -44,6 +44,7 @@
 }
 .op-field select,
 .op-field input {
+  width: 100%;
   min-height: var(--tap);
   padding: 8px 12px;
   border: 1px solid var(--line);

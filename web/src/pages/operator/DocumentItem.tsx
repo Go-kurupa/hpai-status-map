@@ -244,7 +244,7 @@ export function DocumentItem({ item, resolve, getDetail, loadMunis, now }: Props
       <p className="op-kind">文書の確認</p>
       <h2>{item.title}</h2>
       <p>県: {prefName ?? "県が分かりません"}</p>
-      <p>{href !== null ? <a href={href} target="_blank" rel="noopener noreferrer">原文を開く</a> : <>原文のアドレス: {item.url}</>}</p>
+      <p>{href !== null ? <a className="tap-link" href={href} target="_blank" rel="noopener noreferrer">原文を開く</a> : <>原文のアドレス: {item.url}</>}</p>
       <p>
         {item.hasOutbreakWords
           ? "公開しています（県名と「確認中」と原文のリンクだけ。同じ県の会員にすぐ知らせています）"

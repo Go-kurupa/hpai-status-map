@@ -17,6 +17,7 @@ import { useRecordStore } from "../../data/context";
 import { Button } from "../../ui/Button";
 import { SourceLine } from "../../ui/SourceLine";
 import { RequireMember } from "../auth/RequireMember";
+import "./settings.css"; // 説明文の画面も設定の部品を使う。直接開くと、ほかの画面の CSS は読まれていない
 import "./explainer.css";
 
 /** 入力の文の長さの上限。サーバーも同じ数で止める */

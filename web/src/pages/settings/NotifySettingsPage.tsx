@@ -209,7 +209,7 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
 
       {saved ? <p className="settings-saved">{saved}</p> : null}
       <p>
-        <Link to="/privacy">プライバシーの説明</Link>
+        <Link to="/privacy" className="tap-link">プライバシーの説明</Link>
       </p>
       <p>
         <Link to="/settings/farm" className="tap-link">
@@ -257,10 +257,10 @@ function NotifySettingsLoader() {
         <h1>知らせの設定</h1>
         <p>先に、農場の設定で地点を選んでください。地点を登録すると、知らせの設定ができます。</p>
         <p>
-          <Link to="/settings/farm">農場の設定へ</Link>
+          <Link to="/settings/farm" className="tap-link">農場の設定へ</Link>
         </p>
         <p>
-          <Link to="/privacy">プライバシーの説明</Link>
+          <Link to="/privacy" className="tap-link">プライバシーの説明</Link>
         </p>
       </section>
     );
