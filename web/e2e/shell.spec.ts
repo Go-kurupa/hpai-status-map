@@ -641,7 +641,7 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
     ["登録なし", null],
     ["登録あり", { meshCode: "53390000", muniCode: "13101", frequentMuniCodes: [] }],
   ] as const) {
-    test(`${name}: 札は地図の上に 1 列で並び、切り替えは中身の幅。札の順は設計書のとおり`, async ({ page }) => {
+    test(`${name}: 札は地図の上に 1 列で並び、切り替えは地図の真上に横いっぱい。札の順は設計書のとおり`, async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 860 });
       await installFixture(page, { now: "2026-11-04T09:00:00+09:00", cases: [], wildBirds: [], watch });
       if (spot) await page.addInitScript((s) => localStorage.setItem("hpai.spot.v1", s), JSON.stringify(spot));
@@ -664,8 +664,13 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       const disclaimer = (await page.locator(".map-disclaimer").boundingBox())!;
       expect(ok.y).toBeGreaterThan(disclaimer.y);
       if (spot) {
+        // 切り替えは札の下、地図の真上に、2 列にまたがって置く（2026-11-06 作者の決定）
         const scope = (await page.locator(".map-scope").boundingBox())!;
-        expect(scope.width).toBeLessThanOrEqual(320);
+        const map = (await canvas.boundingBox())!;
+        expect(scope.y).toBeGreaterThanOrEqual(boxes[0]!.y + boxes[0]!.height);
+        expect(scope.y + scope.height).toBeLessThanOrEqual(map.y);
+        expect(scope.x).toBeLessThanOrEqual(map.x + 1);
+        expect(scope.width).toBeGreaterThan(map.width);
         const near = (await page.getByRole("button", { name: "自分の近く" }).boundingBox())!;
         expect(near.height).toBeGreaterThanOrEqual(44);
       }
@@ -688,11 +693,13 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       // 札の 0 件だけが読まれないよう、札のすぐ下（見回りの行の次）で、下のタブより上に入れる
       const nav = (await page.getByRole("navigation", { name: "メイン" }).boundingBox())!;
       expect(w.y).toBeGreaterThanOrEqual(row.y + row.height);
-      expect(w.y).toBeLessThan(row.y + row.height + 140);
+      // 切り替えのある登録ありは、切り替えの高さ（約 56px）だけ下がる（2026-11-06 作者の決定）
+      expect(w.y).toBeLessThan(row.y + row.height + (spot ? 200 : 140));
       expect(w.y + w.height).toBeLessThanOrEqual(nav.y);
-      // 札が伸びる分だけ、地図はふだんの 320px より少し下がる（実測 333px）
+      // 札が伸びる分だけ、地図はふだんの 320px より少し下がる（実測 333px）。
+      // 登録ありは切り替えを地図の真上に置くので、さらに約 56px 下がる（2026-11-06 作者の決定）
       const box = (await canvas.boundingBox())!;
-      expect(box.y).toBeLessThan(350);
+      expect(box.y).toBeLessThan(spot ? 410 : 350);
       expect(box.y + box.height).toBeLessThanOrEqual(nav.y + 180);
     });
 
@@ -706,7 +713,8 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       await expect(page.locator(".stat-row")).toBeVisible();
       const box = (await canvas.boundingBox())!;
       const nav = (await page.getByRole("navigation", { name: "メイン" }).boundingBox())!;
-      expect(box.y).toBeLessThan(320);
+      // 登録ありは切り替えを地図の真上に置くので、約 56px 下がる（実測 369.75px。2026-11-06 作者の決定）
+      expect(box.y).toBeLessThan(spot ? 380 : 320);
       expect(box.height).toBeLessThanOrEqual(640);
       expect(box.y + box.height).toBeLessThanOrEqual(nav.y + 180);
     });

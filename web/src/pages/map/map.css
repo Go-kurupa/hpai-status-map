@@ -1048,15 +1048,14 @@
   .map-page > .stat-row {
     margin-bottom: 8px;
   }
-  /* 切り替えは中身の幅で、右の列の先頭に置く（地図を押し下げない。再現と同じ置き方） */
+  /* 切り替えは地図の真上に横いっぱいで置く（札は地図の上の 1 列のまま。2026-11-06 作者の決定。
+     地図は約 60px 下がる）。再現は右の列で中身の幅のまま（replay.css） */
   .map-page > .map-scope {
-    grid-column: 2;
-    justify-self: start;
-    grid-template-columns: auto auto;
+    grid-column: 1 / -1;
     margin-bottom: 8px;
   }
   .map-page:not(:has(> .spot-picker[data-active="true"])) > .map-scope {
-    order: 2;
+    order: 1;
   }
   .map-scope button {
     padding-inline: 20px;

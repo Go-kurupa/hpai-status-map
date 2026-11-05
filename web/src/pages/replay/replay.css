@@ -266,6 +266,11 @@
     grid-column: 2;
     order: 2;
   }
+  /* 再現の切り替えは右の列で中身の幅（地図の画面は地図の真上に横いっぱい。map.css） */
+  .replay-stage > .map-page > .map-scope {
+    justify-self: start;
+    grid-template-columns: auto auto;
+  }
 }
 
 /* 地図の見出しは『今季の発生状況』。再現では、再現の見出し（.replay-heading）を使う */
