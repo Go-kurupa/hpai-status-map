@@ -78,6 +78,8 @@ export const TEXT = {
   statFailedNote: "ページを読み込み直してください。読めるまで、発生がないとは言えません。",
   statBandRelated: "過去の件数に関連農場は入れていません。",
   statBandUnplaced: (n: number): string => `町が分からない発表が ${n} 件あり、距離に入れていません。`,
+  // PC の札に添える 1 行。距離を区域と読ませない
+  statBandWhen: "距離は目安です",
   statFrequent: "登録した町の今季",
   // 野鳥の札。検査中は一覧と同じ語。0 件を「いない」と読ませない断りを常に出す
   statBirds: "野鳥の陽性（今季）",

@@ -44,7 +44,7 @@ const names = (codes: readonly string[]) => codes.map((c) => PREF_NAME.get(c) ??
  * スマホは未確認の断りを各数字に繰り返さず、数字の前の 1 文（stat-unchecked）にまとめる。隠す語は .stat-long（スマホで非表示）
  */
 function StatCount({ text, lead }: { text: string; lead?: string }) {
-  const count = /^(\d+) 件$/.exec(text);
+  const count = /^(\d+(?:〜\d+)?) 件$/.exec(text);
   const partial = /^(確認できた範囲では )(\d+)( 件)(（.+）)$/.exec(text);
   return (
     <p className={count ? "stat-value" : "stat-value is-sentence"}>
@@ -303,16 +303,34 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
   const watchAfterMap = narrow && showStats && d.watchLoaded;
   const failedCount = d.failedPrefCodes.length;
   const failedWho = failedCount <= 2 ? names(d.failedPrefCodes) : TEXT.watchShortCount(failedCount);
+  // 約 60km の件数を 0 と読ませない断り。PC は札の数字のすぐ下に置き、スマホは地図の下の残りに置く
+  const bandCaveats = (
+    <>
+      {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
+      {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
+    </>
+  );
   const bandMore = (
     <>
       <p className="stat-value">
         {TEXT.statBandPast(pastSeasons)} {bandPastText(band.past)}
       </p>
       <p className="stat-note">{TEXT.statBandRelated}</p>
-      {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
-      {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
+      {narrow ? bandCaveats : null}
     </>
   );
+  // PC の札に添える出典や断り。スマホの数字の 1 行には出さない
+  const whenLine = (text: string) => (narrow ? null : <p className="stat-when">{text}</p>);
+  const casesSource = ds.mode === "replay" ? TEXT.chartsSourceReplay : TEXT.chartsSourceLive;
+  // 過去の同じ日までの札。スマホは一覧より後の残りの札で、PC は数字の列の最後。過去は国の事例一覧から数える
+  const pastStat =
+    d.history !== null && pastRange === null ? null : (
+      <div className="stat stat-past">
+        <p className="stat-title">{TEXT.statPastToDate(pastSeasons, monthDay(today))}</p>
+        <StatCount text={pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null })} />
+        {whenLine(TEXT.chartsSourceReplay)}
+      </div>
+    );
   const frequentStat = hasFrequent ? (
     <div className="stat stat-wide stat-frequent">
       <p className="stat-title">{TEXT.statFrequent}</p>
@@ -402,13 +420,14 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
                 </p>
                 <StatCount text={bandNow} lead={TEXT.statBandNow} />
               </div>
-              {narrow ? null : <div className="stat-band-more">{bandMore}</div>}
+              {whenLine(TEXT.statBandWhen)}
+              {narrow ? null : bandCaveats}
             </div>
           ) : null}
-          {narrow ? null : frequentStat}
           <div className={currentBar.unchecked && !currentBar.allUnchecked ? "stat stat-wide stat-national" : "stat stat-national"}>
             <p className="stat-title">発生した件数</p>
             <StatCount text={countText(currentBar)} />
+            {whenLine(casesSource)}
           </div>
           {repeatsHead(recentText) ? null : (
             <div className={needsWide ? "stat stat-wide stat-recent" : "stat stat-recent"}>
@@ -417,6 +436,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
                 <span className="stat-long">{TEXT.statRecentTail}</span>
               </p>
               <StatCount text={recentText} />
+              {whenLine(casesSource)}
             </div>
           )}
           {hideAsOfStat ? null : (
@@ -425,6 +445,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
               <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
             </div>
           )}
+          {narrow ? null : pastStat}
         </div>
       ) : null}
       {townLead ? <TownBanner {...bannerProps} part="lead" /> : null}
@@ -484,7 +505,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         </p>
       ) : null}
       {watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
-      {narrow && showStats && (farmMeshCode !== null || hasFrequent) ? (
+      {showStats && (farmMeshCode !== null || hasFrequent) ? (
         <div className="stat-below">
           {farmMeshCode !== null ? (
             <div className="stat-band-more">
@@ -532,14 +553,9 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         unwatchedCount={view.isCurrent ? d.failedPrefCodes.length : 0}
       />
 
-      {showStats ? (
+      {showStats && ((narrow && pastStat !== null) || ds.mode !== "replay") ? (
         <div className="stat-rest">
-          {d.history !== null && pastRange === null ? null : (
-            <div className="stat">
-              <p className="stat-title">{TEXT.statPastToDate(pastSeasons, monthDay(today))}</p>
-              <p className="stat-value">{pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null })}</p>
-            </div>
-          )}
+          {narrow ? pastStat : null}
           {ds.mode === "replay" ? null : (
             <div className="stat stat-wide">
               <p className="stat-title">{TEXT.statBirds}</p>

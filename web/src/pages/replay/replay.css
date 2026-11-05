@@ -233,7 +233,23 @@
     }
   }
   .app-main .replay-scope .replay-stage > .map-page > :is(.map-risk, .stat-row) {
+    grid-column: 2;
     order: 1;
+  }
+  /* 右の列は狭いので、札を 2 列に並べる。左の列の札には縦線を付けない */
+  .replay-stage > .map-page > .stat-row {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: var(--s1);
+  }
+  .replay-stage > .map-page > .stat-row > .stat-recent {
+    border-left: 0;
+    padding-left: 0;
+  }
+  /* 狭い札では、数字と「件」を断りと同じ行に押し込まない */
+  .replay-stage > .map-page > .stat-row .stat-qual {
+    display: block;
+    text-wrap: balance;
   }
   /* 町の文のうち、今の段階の文は札の次に、過去の行などは後ろの部分より後に置く（段階の文とメールの枠を最初の画面に入れる） */
   .replay-stage > .map-page > .town-banner {

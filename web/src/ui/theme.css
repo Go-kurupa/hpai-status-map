@@ -403,19 +403,41 @@ button:focus-visible {
 }
 /* スマホの組み方は pages/map/map.css。64rem 以上だけ札を並べる */
 @media (min-width: 64rem) {
-  .stat-row,
+  /* 数字の札は枚数によらず同じ幅で 1 列に並べる（登録なしは 3 枚）。数字と断りを分けたので広い札は要らない */
+  .stat-row {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .stat-row .stat-wide {
+    grid-column: auto;
+  }
+  /* 時点は題のすぐ下にあるので、札にしない */
+  .stat-row .stat-time {
+    display: none;
+  }
+  /* 札の間だけ薄い縦線 */
+  .stat-row .stat + .stat {
+    border-left: 1px solid var(--hair);
+    padding-left: var(--s2);
+  }
+  .stat-row .stat {
+    padding-right: var(--s2);
+  }
   .stat-rest {
     grid-template-columns: 1fr 1fr;
   }
   /* 件数が文になる札は、大きな文字のまま 1 行分の幅を取る */
-  .stat-wide {
+  .stat-rest .stat-wide {
     grid-column: 1 / -1;
   }
-  /* 同じ行に並ぶ札の間だけ薄い縦線。時刻の札は次の行の左に落ちるので線を付けない */
-  .stat:not(.stat-wide) + .stat:not(.stat-wide, .stat-time) {
-    border-left: 1px solid var(--hair);
-    padding-left: var(--s2);
-  }
+}
+/* PC の札に添える出典や断り */
+.stat-when {
+  margin: 0;
+  color: var(--sub);
+  font-size: 1rem;
+  line-height: 1.35;
 }
 
 /* 畳む部品 */

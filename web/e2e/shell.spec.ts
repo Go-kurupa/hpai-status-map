@@ -577,6 +577,32 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
     ["登録なし", null],
     ["登録あり", { meshCode: "53390000", muniCode: "13101", frequentMuniCodes: [] }],
   ] as const) {
+    test(`${name}: 札は地図の上に 1 列で並び、切り替えは中身の幅。札の順は設計書のとおり`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 860 });
+      await installFixture(page, { now: "2026-11-04T09:00:00+09:00", cases: [], wildBirds: [], watch });
+      if (spot) await page.addInitScript((s) => localStorage.setItem("hpai.spot.v1", s), JSON.stringify(spot));
+      await page.goto("/");
+      const canvas = page.locator(".map-box .map-canvas");
+      await expect(canvas).toBeVisible();
+      await expect(page.locator(".stat-row")).toBeVisible();
+      const cards = page.locator(".stat-row > .stat:visible");
+      await expect(cards).toHaveCount(spot ? 4 : 3);
+      await expect(cards.first().locator(".stat-title")).toContainText(spot ? "約 60 km 以内" : "発生した件数");
+      const boxes = await Promise.all((await cards.all()).map(async (c) => (await c.boundingBox())!));
+      const top = (await canvas.boundingBox())!.y;
+      for (const b of boxes) {
+        expect(b.y).toBe(boxes[0]!.y);
+        expect(b.y + b.height).toBeLessThanOrEqual(top);
+      }
+      for (const card of await cards.all()) await expect(card.locator(".stat-when")).toBeVisible();
+      if (spot) {
+        const scope = (await page.locator(".map-scope").boundingBox())!;
+        expect(scope.width).toBeLessThanOrEqual(320);
+        const near = (await page.getByRole("button", { name: "自分の近く" }).boundingBox())!;
+        expect(near.height).toBeGreaterThanOrEqual(44);
+      }
+    });
+
     test(`${name}: 地図は右の列に伸ばされず、上端と高さが画面に収まる`, async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 860 });
       await installFixture(page, { now: "2026-11-04T09:00:00+09:00", cases: [], wildBirds: [], watch });

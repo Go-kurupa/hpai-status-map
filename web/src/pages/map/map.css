@@ -1027,11 +1027,49 @@
   .map-page:not(:has(> .spot-picker[data-active="true"])) > .map-box ~ * {
     order: 2;
   }
-  .map-page > :is(.state-unknown, .state-wait, .watch-line, .map-risk, .stat-row, .stat-rest) {
+  .map-page > :is(.state-unknown, .state-wait, .watch-line, .stat-rest) {
     grid-column: 2;
   }
-  .map-page:not(:has(> .spot-picker[data-active="true"])) > :is(.state-unknown, .state-wait, .watch-line, .map-risk, .stat-row, .stat-rest) {
+  .map-page:not(:has(> .spot-picker[data-active="true"])) > :is(.state-unknown, .state-wait, .watch-line, .stat-rest) {
     order: 3;
+  }
+  /* 札を地図の上に置く分、地図より上の余白を詰めて、地図を最初の画面に保つ */
+  .map-page > .as-of {
+    margin-bottom: 8px;
+  }
+  .map-page > .map-risk {
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  .map-page > .stat-row {
+    margin-bottom: 8px;
+  }
+  /* 切り替えは中身の幅で、右の列の先頭に置く（地図を押し下げない。再現と同じ置き方） */
+  .map-page > .map-scope {
+    grid-column: 2;
+    justify-self: start;
+    grid-template-columns: auto auto;
+    margin-bottom: 8px;
+  }
+  .map-page:not(:has(> .spot-picker[data-active="true"])) > .map-scope {
+    order: 2;
+  }
+  .map-scope button {
+    padding-inline: 20px;
+  }
+  /* 札の残り（過去の件数と断り、登録した町）は右の列に、文の大きさで置く */
+  .stat-below {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 0 8px;
+  }
+  .stat-below .stat {
+    padding: 0;
+  }
+  .stat-below .stat-value {
+    font-size: 1rem;
+    line-height: 1.5;
   }
   .map-page:not(:has(> .spot-picker[data-active="true"])) > :is(.map-attribution, .map-attribution ~ *) {
     order: 4;
