@@ -2,14 +2,14 @@ import { createGeoStore, distanceToMuniKm, type GeoStore } from "@hpai/shared/ge
 import { pastCasesOf } from "@hpai/shared/history";
 import { isWithinDistanceBand } from "@hpai/shared/level";
 import { latLngToMesh3 } from "@hpai/shared/mesh";
-import type { Case, HistoryCase } from "@hpai/shared/types";
+import type { Case, HistoryCase, WildBird } from "@hpai/shared/types";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import adjacencyJson from "../../../../data/geo/adjacency.json";
 import indexJson from "../../../../data/geo/muni-index.json";
 import historyJson from "../../../../data/history/cases.json";
-import { casesWithinBand, countRecentDays, pastRangeToDate, pastSeasonsOf, rangeText, RECENT_DAYS } from "./overviewCounts";
+import { casesWithinBand, countRecentDays, frequentTownCounts, nearbyPastByCenter, nearbyPastFromMesh, pastRangeToDate, pastSeasonsOf, rangeText, RECENT_DAYS, wildBirdCounts } from "./overviewCounts";
 
 const history = historyJson as HistoryCase[];
 
@@ -196,5 +196,93 @@ describe("約 60km 以内の件数", () => {
     await expect(casesWithinBand(MESH, [mkCase()], geo)).rejects.toThrow();
     const { geo: real } = store();
     await expect(casesWithinBand(MESH, [mkCase({ muniCode: "33999" })], real)).rejects.toThrow();
+  });
+});
+
+describe("周辺の過去の表の 2 つの距離", () => {
+  const realGeo = (): GeoStore =>
+    createGeoStore({
+      index: indexJson as unknown as GeoStore["index"],
+      adjacency: adjacencyJson as GeoStore["adjacency"],
+      loadPrefTopo: async (p) => JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../../../../data/geo/pref", `${p}.topo.json`), "utf8")) as unknown,
+    });
+
+  it("町の中心どうし: 県の形を読まない。自分の町は 0。近い順で 60km 以内だけ", () => {
+    const geo = realGeo();
+    const spy = vi.spyOn(geo, "ensurePrefs");
+    const r = nearbyPastByCenter("33214", history, geo, 2026);
+    expect(spy).not.toHaveBeenCalled();
+    expect(r.windowSeasons).toBe(6);
+    expect(r.towns.length).toBeGreaterThan(0);
+    const kms = r.towns.map((t) => t.distanceKm);
+    expect(kms).toEqual([...kms].sort((a, b) => a - b));
+    for (const k of kms) expect(k).toBeLessThanOrEqual(60);
+    expect(r.total).toBe(r.towns.reduce((n, t) => n + t.count, 0));
+  });
+
+  it("知らない町の中心どうしは投げる（0 件にしない）", () => {
+    expect(() => nearbyPastByCenter("99999", history, realGeo(), 2026)).toThrow();
+  });
+
+  it("マス目から面まで: 全体の件数が約 60km の札の過去の件数と同じ", async () => {
+    const mesh = latLngToMesh3(35.07, 134.0); // 津山市のあたり（試験の地点）
+    const geo = realGeo();
+    const r = await nearbyPastFromMesh(mesh, history, geo, 2026);
+    const seasons = new Set(pastSeasonsOf(history, 2026));
+    const card = await casesWithinBand(mesh, pastCasesOf(history).filter((c) => seasons.has(c.season)), geo);
+    expect(r.total).toBe(card);
+    expect(r.total).toBeGreaterThan(0);
+    for (const t of r.towns) expect(t.distanceKm).toBeCloseTo(distanceToMuniKm(mesh, t.muniCode, geo), 6);
+  });
+
+  it("マス目から面まで: 形を読めなければ投げる（0 件にしない）", async () => {
+    const geo = createGeoStore({
+      index: indexJson as unknown as GeoStore["index"],
+      adjacency: adjacencyJson as GeoStore["adjacency"],
+      loadPrefTopo: () => Promise.reject(new Error("offline")),
+    });
+    await expect(nearbyPastFromMesh(latLngToMesh3(35.07, 134.0), history, geo, 2026)).rejects.toThrow();
+  });
+});
+
+describe("frequentTownCounts（登録した町の今季）", () => {
+  it("今季の数える事例だけを、登録の順に町ごとに数える。発生のない町は 0", () => {
+    const cases = [
+      mkCase({ id: "a", muniCode: "33203" }),
+      mkCase({ id: "b", muniCode: "33203" }),
+      mkCase({ id: "c", muniCode: "33214" }),
+      mkCase({ id: "old", muniCode: "33203", season: 2025 }),
+      mkCase({ id: "rev", muniCode: "33203", confirmState: "reviewing" }),
+      mkCase({ id: "neg", muniCode: "33203", negation: "negated" }),
+    ];
+    expect(frequentTownCounts(cases, ["33214", "33203", "33202"], 2026)).toEqual([
+      { muniCode: "33214", count: 1 },
+      { muniCode: "33203", count: 2 },
+      { muniCode: "33202", count: 0 },
+    ]);
+  });
+  it("登録がなければ空", () => {
+    expect(frequentTownCounts([mkCase()], [], 2026)).toEqual([]);
+  });
+});
+
+describe("wildBirdCounts（野鳥の陽性）", () => {
+  const bird = (o: Partial<WildBird> & { id: string }): WildBird => ({
+    season: 2026,
+    date: "2026-11-01",
+    prefCode: "33",
+    muniCode: null,
+    muniName: null,
+    species: null,
+    test: "screening_positive",
+    focusZone: { from: null, to: null },
+    sourceUrl: "https://example.invalid/b",
+    ...o,
+  });
+  it("否定は除く。検査中と高病原性の確定を分ける（一覧の表示と同じ）", () => {
+    expect(wildBirdCounts([bird({ id: "a" }), bird({ id: "b", test: "hpai_confirmed" }), bird({ id: "c", test: "hpai_confirmed" }), bird({ id: "d", test: "negative" })])).toEqual({ total: 3, confirmed: 2, screening: 1 });
+  });
+  it("空は 0（読めているかどうかは呼び出し側が分ける）", () => {
+    expect(wildBirdCounts([])).toEqual({ total: 0, confirmed: 0, screening: 0 });
   });
 });

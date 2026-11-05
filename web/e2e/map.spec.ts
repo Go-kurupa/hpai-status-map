@@ -155,6 +155,30 @@ test.describe("地図（入口）", () => {
     }
   });
 
+  test("登録した町の札、野鳥の札、町の枠の周辺の表が 360px で横にはみ出さない", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.addInitScript(
+      (s) => window.localStorage.setItem("hpai.spot.v1", JSON.stringify(s)),
+      { meshCode: "52344080", muniCode: "33203", frequentMuniCodes: ["33202"] }, // 津山市のあたり（試験の地点）
+    );
+    await open(page);
+    await expect(page.getByText("登録した町の今季")).toBeVisible();
+    await expect(page.locator(".stat", { hasText: "登録した町の今季" })).toContainText("倉敷市");
+    await expect(page.getByText("野鳥の陽性（今季）")).toBeVisible();
+    const link = page.getByRole("link", { name: "定点の水鳥の数を見る" });
+    await expect(link).toHaveAttribute("href", "/trends");
+    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await page.locator(".nearby-past summary").click();
+    const table = page.getByRole("table", { name: "周辺の町の過去の発生" });
+    await expect(table).toBeVisible();
+    await expect(table.locator('td[data-label="距離"]').first()).toContainText("この町");
+    await expect(page.getByText("農場のマス目から町の境までの距離")).toBeVisible();
+    const widths = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, win: window.innerWidth }));
+    expect(widths.doc).toBeLessThanOrEqual(widths.win);
+    const smallest = await page.locator(".nearby-past").evaluate((b) => Math.min(...[...b.querySelectorAll("p,th,td,summary")].map((c) => parseFloat(getComputedStyle(c).fontSize))));
+    expect(smallest).toBeGreaterThanOrEqual(14);
+  });
+
   test.describe("距離の輪", () => {
     const RING_NOTE = "輪は距離の目安で、発表の区域ではありません。";
     // 津山市のあたりのマス目（試験の地点）

@@ -6,10 +6,11 @@ import { FIXED_TEXT } from "@hpai/shared/wording";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { useDataSource } from "../../data/context";
+import { NearbyPast } from "../map/NearbyPast";
 import { PastList } from "../map/PastList";
 import { TEXT } from "../map/texts";
 import { areaLine, neighborPrefsOf, withWatchState, type TownLine } from "../map/townLine";
-import { useGeoStore, usePast } from "../map/useTownView";
+import { useGeoStore, useNearbyPast, usePast } from "../map/useTownView";
 import { useSeasonData } from "../map/useSeasonData";
 import { WatchAsOf, WatchLine } from "../map/WatchLine";
 import "../map/map.css";
@@ -27,7 +28,8 @@ const isWebUrl = (url: string) => /^https?:\/\//u.test(url);
 
 /**
  * 市町村の案内 /area/{市町村コード}（§11）。その市町村と隣の市町村の状況と、要点へのリンク。登録なしで読める。
- * 地点がないので距離は見ない（computeAreaStatus だけを使い、全段階で areaNoDistance と riskAnywhere を出す）。
+ * 地点がないので段階は距離を見ない（computeAreaStatus だけを使い、全段階で areaNoDistance と riskAnywhere を出す）。
+ * 周辺の町の過去の表の距離は、町の中心どうしで求める（地点を使わない。段階には使わない）。
  * 農場の記録の口（RecordStore）も端末内の地点も使わない。Firebase を読まない。農場の情報は載せない。
  */
 export default function AreaPage() {
@@ -69,6 +71,16 @@ export default function AreaPage() {
     historyFailed: d.historyFailed,
     geo,
     geoFailed: false, // 市町村の形が読めないときは、過去の行を出さずに 1 つの失敗の文だけにする
+    current: d.current,
+  });
+
+  const nearby = useNearbyPast({
+    town: known ? muniCode : null,
+    meshCode: null,
+    history: d.history,
+    historyFailed: d.historyFailed,
+    geo,
+    geoFailed: false,
     current: d.current,
   });
 
@@ -140,6 +152,8 @@ export default function AreaPage() {
                 <span className="town-label">{TEXT.pastLabel}</span> {past.summary.sentence}
               </p>
               <PastList hits={past.summary.hits} />
+              {/* riskAnywhere は段階の文が必ず持つ（読み込み中に出さない決まりもそちらに従う） */}
+              <NearbyPast state={nearby} town={muniCode} riskShown />
               <p className="town-note">{FIXED_TEXT.pastDisclaimer}</p>
             </>
           ) : null}

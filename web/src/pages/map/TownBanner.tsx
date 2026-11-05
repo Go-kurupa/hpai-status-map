@@ -3,6 +3,7 @@ import type { MuniCode } from "@hpai/shared/types";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { NearbyPast, type NearbyPastState } from "./NearbyPast";
 import { PastList } from "./PastList";
 import { TEXT } from "./texts";
 import type { TownLine } from "./townLine";
@@ -22,6 +23,8 @@ export interface TownBannerProps {
   line: TownLine | null;
   lineFailed: boolean;
   past: PastState;
+  /** 周辺の町の過去の発生。渡さなければ出さない */
+  nearby?: NearbyPastState;
   /** 事例が 15 秒たっても読めていない。読み込み中の文の後ろに読み込み直しの案内を足す */
   slow?: boolean;
   /** 過去のシーズンを見ているとき、ページが pastDisclaimer を出しているので重ねない */
@@ -30,7 +33,7 @@ export interface TownBannerProps {
   children?: ReactNode;
 }
 
-function PastRow({ past, line, showDisclaimer }: { past: PastState; line: TownLine | null; showDisclaimer: boolean }) {
+function PastRow({ past, nearby, town, line, showDisclaimer }: { past: PastState; nearby?: NearbyPastState; town: MuniCode | null; line: TownLine | null; showDisclaimer: boolean }) {
   if (past.status === "idle") return null;
   let body: ReactNode;
   if (past.status === "loading") body = <p>{TEXT.pastLoading}</p>;
@@ -38,13 +41,15 @@ function PastRow({ past, line, showDisclaimer }: { past: PastState; line: TownLi
   else {
     const { summary } = past;
     const hits: readonly PastHit[] = summary.hits;
+    const riskMissing = !line?.details.includes(FIXED_TEXT.riskAnywhere);
     body = (
       <>
         <p>
           <span className="town-label">{TEXT.pastLabel}</span> {summary.sentence}
         </p>
-        {hits.length === 0 && !line?.details.includes(FIXED_TEXT.riskAnywhere) ? <p className="town-note">{FIXED_TEXT.riskAnywhere}</p> : null}
+        {riskMissing && hits.length === 0 ? <p className="town-note">{FIXED_TEXT.riskAnywhere}</p> : null}
         <PastList hits={hits} />
+        {nearby ? <NearbyPast state={nearby} town={town} collapsed riskShown={!riskMissing || hits.length === 0} /> : null}
         {showDisclaimer ? <p className="town-note">{FIXED_TEXT.pastDisclaimer}</p> : null}
       </>
     );
@@ -99,7 +104,7 @@ export function TownBanner(p: TownBannerProps) {
         </p>
       ) : null}
       {now}
-      {noTown ? null : <PastRow past={p.past} line={p.line} showDisclaimer={p.showPastDisclaimer} />}
+      {noTown ? null : <PastRow past={p.past} nearby={p.nearby} town={p.muniCode} line={p.line} showDisclaimer={p.showPastDisclaimer} />}
       {noTown ? null : (
         <p className="town-area-link">
           <Link to={`/area/${p.muniCode}`} className="tap-link">{TEXT.areaLink}</Link>

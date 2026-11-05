@@ -111,6 +111,25 @@ export function distanceToMuniKm(mesh: MeshCode, muni: MuniCode, geo: GeoStore):
   return d <= 0 ? 0 : d;
 }
 
+const EARTH_RADIUS_KM = 6371.0088;
+const toRad = (deg: number) => (deg * Math.PI) / 180;
+
+/** 2 点の大円距離（km）。点は MuniEntry.center と同じ [経度, 緯度] の順。 */
+export function haversineKm(a: readonly [number, number], b: readonly [number, number]): number {
+  const dLat = toRad(b[1] - a[1]);
+  const dLng = toRad(b[0] - a[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** 町の中心どうしの距離（km）。県の形を読まない。索引にない町は投げる（距離を作らない）。 */
+export function centerDistanceKm(a: MuniCode, b: MuniCode, geo: Pick<GeoStore, "index">): number {
+  const ea = Object.hasOwn(geo.index, a) ? geo.index[a] : undefined;
+  const eb = Object.hasOwn(geo.index, b) ? geo.index[b] : undefined;
+  if (!ea || !eb) throw new Error(`市町村の索引にありません: ${!ea ? a : b}`);
+  return haversineKm(ea.center, eb.center);
+}
+
 const nameIndexCache = new WeakMap<object, Map<string, MuniCode[]>>();
 
 function nameIndexOf(geo: GeoStore): Map<string, MuniCode[]> {

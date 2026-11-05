@@ -23,6 +23,8 @@ export interface SeasonData {
   history: HistoryCase[] | null;
   /** 今季の野鳥。過去のシーズンを選んでも同じ配列を返す（層の filter で隠す。source を替えない） */
   wildBirds: WildBird[];
+  /** 今季の野鳥を受け取れている。読めていない間の空の配列を 0 件にしない */
+  wildBirdsLoaded: boolean;
   /** 一覧の元になる事例。今季は届いたもの全部（確認中と否定の直後も一覧には出す）、過去は数えた事例。読めていなければ null */
   listCases: Case[] | null;
   /** 確認状況の 1 行（結果が届く前は 47 県すべて確認できていない扱い） */
@@ -48,6 +50,7 @@ export function useSeasonData(): SeasonData {
   const [cases, setCases] = useState<Case[] | null>(null);
   const [casesSlow, setCasesSlow] = useState(false);
   const [birds, setBirds] = useState<WildBird[]>([]);
+  const [birdsLoaded, setBirdsLoaded] = useState(false);
   const [watch, setWatch] = useState<WatchStatus[] | null>(null);
   const [history, setHistory] = useState<HistoryCase[] | null>(null);
   const [historyFailed, setHistoryFailed] = useState(false);
@@ -73,7 +76,11 @@ export function useSeasonData(): SeasonData {
 
   useEffect(() => {
     setBirds([]);
-    return ds.subscribeWildBirds(current, setBirds);
+    setBirdsLoaded(false);
+    return ds.subscribeWildBirds(current, (rows) => {
+      setBirds(rows);
+      setBirdsLoaded(true);
+    });
   }, [ds, current]);
 
   useEffect(() => ds.subscribeWatchStatus(setWatch), [ds]);
@@ -119,6 +126,7 @@ export function useSeasonData(): SeasonData {
     currentCases: cases,
     history,
     wildBirds: birds,
+    wildBirdsLoaded: birdsLoaded,
     listCases,
     watch: line,
     failedPrefCodes: line.failedPrefCodes,

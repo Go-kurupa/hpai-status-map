@@ -5,10 +5,11 @@ import type { GeoStore } from "@hpai/shared/geo";
 import { toJstIso } from "@hpai/shared/dates";
 import { pastCasesOf } from "@hpai/shared/history";
 import { isCountable } from "@hpai/shared/level";
-import { describePast } from "@hpai/shared/past";
+import { countSmallFlocks, describePast, type NearbyPastSummary } from "@hpai/shared/past";
 import type { Case, FarmPoint, HistoryCase, MeshCode, MuniCode, PrefCode, Season, WildBird } from "@hpai/shared/types";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { casesWithinBand, pastSeasonsOf } from "./overviewCounts";
+import type { NearbyPastState } from "./NearbyPast";
+import { casesWithinBand, nearbyPastByCenter, nearbyPastFromMesh, pastSeasonsOf } from "./overviewCounts";
 import type { PastState } from "./TownBanner";
 import { neighborPrefsOf, resolveTown, withWatchState, type TownLine } from "./townLine";
 
@@ -156,4 +157,60 @@ export function useBandCounts(i: {
   const now = useBandCount(i.meshCode, nowCases, i.geo);
   const past = useBandCount(i.meshCode, pastCases, i.geo);
   return { now: i.geoFailed ? "failed" : now, past: i.geoFailed || (history === null && i.historyFailed) ? "failed" : past };
+}
+
+/**
+ * 周辺の町の過去の発生。地点があればマス目から町の面まで（約 60km の札と同じ）、町だけなら町の中心どうし。
+ * 読めていない間は読み込み中、読めなかったら失敗（0 件にしない）。町だけのときは県の形を読まない。
+ */
+export function useNearbyPast(i: {
+  town: MuniCode | null;
+  meshCode: MeshCode | null;
+  history: readonly HistoryCase[] | null;
+  historyFailed: boolean;
+  geo: GeoStore | null;
+  geoFailed: boolean;
+  current: Season;
+}): NearbyPastState {
+  const { town, meshCode, history, historyFailed, geo, geoFailed, current } = i;
+  const [fromMesh, setFromMesh] = useState<{ meshCode: MeshCode; summary: NearbyPastSummary | null } | null>(null);
+  useEffect(() => {
+    if (town === null || meshCode === null || history === null || !geo) return;
+    let off = false;
+    nearbyPastFromMesh(meshCode, history, geo, current).then(
+      (summary) => {
+        if (!off) setFromMesh({ meshCode, summary });
+      },
+      () => {
+        if (!off) setFromMesh({ meshCode, summary: null });
+      },
+    );
+    return () => {
+      off = true;
+    };
+  }, [town, meshCode, history, geo, current]);
+  return useMemo<NearbyPastState>(() => {
+    if (town === null) return { status: "idle" };
+    if (historyFailed || geoFailed) return { status: "failed" };
+    if (history === null || geo === null) return { status: "loading" };
+    let summary: NearbyPastSummary | null;
+    if (meshCode !== null) {
+      if (fromMesh === null || fromMesh.meshCode !== meshCode) return { status: "loading" }; // 地点が変わった直後は古い結果を出さない
+      summary = fromMesh.summary;
+    } else {
+      try {
+        summary = nearbyPastByCenter(town, history, geo, current);
+      } catch {
+        summary = null;
+      }
+    }
+    if (summary === null) return { status: "failed" };
+    return {
+      status: "ready",
+      basis: meshCode !== null ? "mesh" : "center",
+      summary,
+      smallFlocks: countSmallFlocks(history, pastSeasonsOf(history, current)),
+      current,
+    };
+  }, [town, meshCode, history, historyFailed, geo, geoFailed, current, fromMesh]);
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import adjacencyJson from "../../data/geo/adjacency.json";
 import historyJson from "../../data/history/cases.json";
-import { describePast } from "../src/past";
+import { countSmallFlocks, describePast, nearbyPast, SMALL_FLOCK_HEADS } from "../src/past";
 import type { HistoryCase } from "../src/types";
 
 const adjacency = adjacencyJson as Record<string, string[]>;
@@ -149,5 +149,115 @@ describe("describePast", () => {
     const copy = rows.map((r) => ({ ...r }));
     describePast(TOWN, rows, geo, 2026);
     expect(rows).toEqual(copy);
+  });
+});
+
+describe("nearbyPast（周辺の過去の集計）", () => {
+  const names: Record<string, string> = { "90001": "架空町", "90002": "架空村", "90003": "架空市" };
+  const nameOf = (m: string) => names[m]!;
+  const km: Record<string, number> = { "90001": 0, "90002": 30, "90003": 60 };
+  const dist = (m: string) => km[m]!;
+  const SEASONS = [2025, 2024, 2023];
+
+  it("近い順に、町ごとの距離、件数、シーズン（新しい順）を返す。全体の件数とシーズン数も返す", () => {
+    const rows = [
+      row({ season: 2023, no: 1, muniCode: "90003" }),
+      row({ season: 2023, no: 2, muniCode: "90002" }),
+      row({ season: 2025, no: 3, muniCode: "90002" }),
+      row({ season: 2025, no: 4, muniCode: "90002" }),
+      row({ season: 2024, no: 5, muniCode: "90001" }),
+    ];
+    const r = nearbyPast(rows, SEASONS, nameOf, dist);
+    expect(r.towns).toEqual([
+      { muniCode: "90001", name: "架空町", distanceKm: 0, count: 1, seasons: [2024] },
+      { muniCode: "90002", name: "架空村", distanceKm: 30, count: 3, seasons: [2025, 2023] },
+      { muniCode: "90003", name: "架空市", distanceKm: 60, count: 1, seasons: [2023] },
+    ]);
+    expect(r.total).toBe(5);
+    expect(r.seasonsWithCases).toBe(3);
+    expect(r.windowSeasons).toBe(3);
+  });
+
+  it("関連農場は件数にもシーズンにも入れない", () => {
+    const r = nearbyPast(
+      [row({ season: 2025, no: 1, muniCode: "90002" }), row({ season: 2024, no: 1, muniCode: "90002", related: true })],
+      SEASONS,
+      nameOf,
+      dist,
+    );
+    expect(r.total).toBe(1);
+    expect(r.towns[0]!.seasons).toEqual([2025]);
+    expect(r.seasonsWithCases).toBe(1);
+  });
+
+  it("関連農場だけの町は行にならない", () => {
+    const r = nearbyPast([row({ season: 2025, muniCode: "90002", related: true })], SEASONS, nameOf, dist);
+    expect(r.towns).toEqual([]);
+    expect(r.total).toBe(0);
+  });
+
+  it("60km ちょうどは入る。60.4km は表で約 60 km に丸まっても入れない（判定は丸めない）", () => {
+    const rows = [row({ season: 2025, no: 1, muniCode: "90003" })];
+    expect(nearbyPast(rows, SEASONS, nameOf, () => 60).total).toBe(1);
+    expect(nearbyPast(rows, SEASONS, nameOf, () => 60.4).total).toBe(0);
+  });
+
+  it("渡したシーズンの外は数えない", () => {
+    const r = nearbyPast([row({ season: 2019, muniCode: "90002" }), row({ season: 2026, muniCode: "90002" })], SEASONS, nameOf, dist);
+    expect(r.total).toBe(0);
+    expect(r.windowSeasons).toBe(3);
+  });
+
+  it("距離が同じなら町のコードの順。距離は町ごとに 1 度だけ計算する", () => {
+    const calls: string[] = [];
+    const r = nearbyPast(
+      [row({ season: 2025, no: 1, muniCode: "90003" }), row({ season: 2025, no: 2, muniCode: "90002" }), row({ season: 2024, no: 3, muniCode: "90003" })],
+      SEASONS,
+      nameOf,
+      (m) => {
+        calls.push(m);
+        return 10;
+      },
+    );
+    expect(r.towns.map((t) => t.muniCode)).toEqual(["90002", "90003"]);
+    expect(calls.sort()).toEqual(["90002", "90003"]);
+  });
+
+  it("距離を計算できない町があれば投げる（0 件にしない）", () => {
+    expect(() =>
+      nearbyPast([row({ season: 2025, muniCode: "90009" })], SEASONS, nameOf, () => {
+        throw new Error("unknown");
+      }),
+    ).toThrow();
+  });
+});
+
+describe("countSmallFlocks（全国の 3,000 羽未満）", () => {
+  it("2,999 羽は入り、3,000 羽は入らない。null の行は数えず、羽数が分かる件数を分ける", () => {
+    const rows = [
+      row({ season: 2025, no: 1, muniCode: "90001", headCount: 2999 }),
+      row({ season: 2025, no: 2, muniCode: "90001", headCount: 3000 }),
+      row({ season: 2024, no: 3, muniCode: "90001", headCount: null }),
+    ];
+    expect(countSmallFlocks(rows, [2025, 2024])).toEqual({ total: 3, known: 2, small: 1 });
+    expect(SMALL_FLOCK_HEADS).toBe(3000);
+  });
+
+  it("関連農場と、渡したシーズンの外は数えない", () => {
+    const rows = [
+      row({ season: 2025, no: 1, muniCode: "90001", headCount: 100, related: true }),
+      row({ season: 2019, no: 2, muniCode: "90001", headCount: 100 }),
+    ];
+    expect(countSmallFlocks(rows, [2025])).toEqual({ total: 0, known: 0, small: 0 });
+  });
+
+  it("実データで、関連農場を除いた件数と羽数の分かる件数を数えられる", () => {
+    const seasons = [2025, 2024, 2023, 2022, 2021, 2020];
+    const main = real.filter((h) => !h.related && seasons.includes(h.season));
+    const r = countSmallFlocks(real, seasons);
+    expect(r.total).toBe(main.length);
+    expect(r.known).toBe(main.filter((h) => h.headCount !== null).length);
+    expect(r.small).toBe(main.filter((h) => h.headCount !== null && h.headCount < 3000).length);
+    expect(r.small).toBeGreaterThan(0);
   });
 });

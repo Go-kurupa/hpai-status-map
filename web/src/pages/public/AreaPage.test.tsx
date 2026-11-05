@@ -232,6 +232,70 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     expect(bodyText()).toContain(FIXED_TEXT.pastDisclaimer);
   });
 
+  it("周辺の町の過去の発生: 近い順の表で、中心どうしの距離と分かる。関連農場を除く。畳まない。段階の色の外", async () => {
+    const r = rig();
+    show(r, "33214");
+    r.deliverCases([]);
+    const table = await screen.findByRole("table", { name: TEXT.nearbyAria });
+    const rows = [...table.querySelectorAll("tbody tr")];
+    expect(rows.length).toBeGreaterThan(0);
+    const box = table.closest(".nearby-past")!;
+    expect(box.closest("details")).toBeNull();
+    expect(box.closest("[data-tone]")).toBeNull();
+    expect(box.textContent).toContain(TEXT.nearbyBasisCenter);
+    expect(box.textContent).toContain(TEXT.statBandRelated);
+    for (const tr of rows) expect(tr.querySelector('td[data-label="距離"]')!.textContent).toMatch(/^(この町|約 \d+ km|約 1 km 未満)$/u);
+    const kms = rows.flatMap((tr) => tr.querySelector('td[data-label="距離"]')!.textContent!.match(/約 (\d+) km$/u)?.[1] ?? []).map(Number);
+    expect(kms).toEqual([...kms].sort((a, b) => a - b));
+    const seasons = [2025, 2024, 2023, 2022, 2021, 2020];
+    const main = history.filter((h) => !h.related && seasons.includes(h.season));
+    const small = main.filter((h) => h.headCount !== null && h.headCount < 3000).length;
+    expect(bodyText()).toContain(TEXT.smallFlocks(6, main.length, main.filter((h) => h.headCount !== null).length, small));
+    expect(findForbiddenPhrases(bodyText())).toEqual([]);
+    // 既存の『この町』『隣町』の 1 文と一覧は残る
+    expect(document.querySelector(".past-details")).toBeTruthy();
+    expect(bodyText()).toContain(FIXED_TEXT.pastDisclaimer);
+  });
+
+  it("周辺に記録がない町: 表を出さず、記録にないと書く。事例が届くまで riskAnywhere を出さず、届いたら 1 つだけ", async () => {
+    const r = rig();
+    show(r, "13421"); // 小笠原村（約 60km 以内に過去の発生の記録がない町）
+    await screen.findByText(new RegExp(TEXT.nearbyNone(60, 6).replace(/[()（）]/gu, "\\$&")));
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(bodyText()).not.toContain(FIXED_TEXT.riskAnywhere);
+    expect(bodyText()).not.toMatch(/[^0-9]0 件/u); // 既存の過去の 1 文（PAST_NONE）は「記録」と書いた文として残る
+    r.deliverWatch(okWatch());
+    r.deliverCases([]);
+    await screen.findByText(TEXT.national);
+    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(findForbiddenPhrases(bodyText())).toEqual([]);
+  });
+
+  it("過去の記録が読めない間は 0 件の表を出さない。読めなければ失敗の文だけ", async () => {
+    const r = rig();
+    let reject = (_: Error) => {};
+    r.ds.loadHistory = () => new Promise((_res, rej) => (reject = rej));
+    show(r, "33214");
+    r.deliverCases([]);
+    await screen.findByText(TEXT.pastLoading);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(bodyText()).not.toMatch(ZERO_CLAIM);
+    act(() => reject(new Error("offline")));
+    await screen.findByText(TEXT.pastFailed);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(bodyText()).not.toContain(TEXT.nearbyFailed);
+    expect(bodyText()).not.toMatch(ZERO_CLAIM);
+  });
+
+  it("全県が未確認でも、過去の表は記録として出る（今季の未確認の文と両方）", async () => {
+    const r = rig();
+    show(r, "33214");
+    r.deliverCases([]);
+    await screen.findByText(TEXT.prefUnwatched);
+    await screen.findByRole("table", { name: TEXT.nearbyAria });
+    expect(bodyText()).toContain(FIXED_TEXT.riskAnywhere);
+  });
+
   it("本文に、7 つの要点への /public#topic のリンクがある（§11）", async () => {
     const r = rig();
     show(r, "33214");

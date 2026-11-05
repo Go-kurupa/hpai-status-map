@@ -250,7 +250,7 @@ const FIXED_TEXT: {
   riskAnywhere: string;           // 国の報告書の言葉（出典つき）
   pastDisclaimer: string;         // 「過去の記録です。これからの発生を予測するものではありません」
   replayBanner: string;           // 「去年の再現です」
-  areaNoDistance: string;         // 「距離は見ていません。地点を登録すると区域の可能性が分かります」。/area、API、MCP の全段階
+  areaNoDistance: string;         // 「この町の知らせの段階は、農場からの距離を見ていません。地点を登録すると区域の可能性が分かります」。/area、API、MCP の全段階
   sameMuniLifted: string;         // 「この町で発生しました（移動制限は解除されました）」
 };
 // shared/src/history.ts（F-08）。related:false だけを受ける。id `h${season}-${no}`、confirmState "national"。埋め方は F-08

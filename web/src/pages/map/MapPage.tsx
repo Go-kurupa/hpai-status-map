@@ -4,6 +4,7 @@ import { DISTANCE_BAND_KM, isCountable } from "@hpai/shared/level";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import type { MuniCode } from "@hpai/shared/types";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { useDataSource } from "../../data/context";
 import { useSpotState } from "../../data/spotContext";
@@ -14,7 +15,7 @@ import { listRows, wildBirdRows } from "./listRows";
 import { MapChunkBoundary } from "./MapChunkBoundary";
 import { MapLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
-import { countRecentDays, PAST_SEASONS, pastRangeToDate, rangeText } from "./overviewCounts";
+import { countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
 import type { PickTarget } from "./pickSpot";
 import { countText, SeasonBar, type SeasonBarItem } from "./SeasonBar";
 import { SeasonCompare } from "./SeasonCompare";
@@ -23,7 +24,7 @@ import { TEXT } from "./texts";
 import { TownBanner } from "./TownBanner";
 import { TownPicker } from "./TownPicker";
 import { monthDay } from "./townLine";
-import { useBandCounts, useGeoStore, usePast, useTownLine, type BandCount } from "./useTownView";
+import { useBandCounts, useGeoStore, useNearbyPast, usePast, useTownLine, type BandCount } from "./useTownView";
 import { WatchAsOf, WatchLine } from "./WatchLine";
 import { useSeasonData } from "./useSeasonData";
 import "./map.css";
@@ -63,6 +64,15 @@ export default function MapPage() {
     current: d.current,
   });
   const farmMeshCode = spotState.spot?.meshCode ?? null;
+  const nearby = useNearbyPast({
+    town,
+    meshCode: farmMeshCode,
+    history: d.history,
+    historyFailed: d.historyFailed,
+    geo,
+    geoFailed,
+    current: d.current,
+  });
   const band = useBandCounts({
     meshCode: farmMeshCode,
     cases: d.currentCases,
@@ -159,8 +169,21 @@ export default function MapPage() {
   const bandPastText = (c: BandCount) => (c === "failed" ? TEXT.statFailed : countText({ count: c }));
   // 町が分からない発表は距離を計算できない。約 60km 以内の件数に入らないことを札に書く
   const unplaced = (d.currentCases ?? []).filter((c) => c.season === d.current && isCountable(c) && c.muniCode === null).length;
+  const frequent = spotState.spot?.frequentMuniCodes;
+  const frequentCounts = useMemo(
+    () => (d.currentCases === null || !frequent ? null : frequentTownCounts(d.currentCases, frequent, d.current)),
+    [d.currentCases, frequent, d.current],
+  );
+  const hasFrequent = farmMeshCode !== null && (frequent?.length ?? 0) > 0;
+  const birdCounts = useMemo(() => wildBirdCounts(d.wildBirds), [d.wildBirds]);
+  // 野鳥は環境省の発表で、県の見回りとは別。47 県とも未確認のときだけ、0 件を見出しにしない
+  const birdText = !d.wildBirdsLoaded
+    ? countText({ count: null })
+    : birdCounts.total === 0
+      ? countText({ count: 0, allUnchecked: noneConfirmed })
+      : countText({ count: birdCounts.total });
   // 発生が 0 件のときと同じく、札に 0 件が出るときは札のすぐ前に置く（0 件だけが先に読まれないように）
-  const zeroStat = showStats && (recentCount === 0 || (farmMeshCode !== null && band.now === 0));
+  const zeroStat = showStats && (recentCount === 0 || (farmMeshCode !== null && band.now === 0) || (hasFrequent && geo !== null && (frequentCounts?.some((c) => c.count === 0) ?? false)));
 
   const picker = (
     <>
@@ -201,6 +224,7 @@ export default function MapPage() {
         line={townLine.line}
         lineFailed={townLine.failed || (town !== null && geoFailed)}
         past={past}
+        nearby={nearby}
         slow={d.casesSlow}
         showPastDisclaimer={view.isCurrent || !view.loaded}
       >
@@ -302,6 +326,38 @@ export default function MapPage() {
               {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
             </div>
           ) : null}
+          {hasFrequent ? (
+            <div className="stat stat-wide">
+              <p className="stat-title">{TEXT.statFrequent}</p>
+              {geoFailed ? (
+                <p className="stat-value">{TEXT.statFailed}</p>
+              ) : geo === null || frequentCounts === null ? (
+                <p className="stat-value">{countText({ count: null })}</p>
+              ) : (
+                frequentCounts.map((c) => (
+                  <p className="stat-value" key={c.muniCode}>
+                    {geo.index[c.muniCode]?.name ?? c.muniCode}{" "}
+                    {countText({
+                      count: c.count,
+                      unchecked: d.failedPrefCodes.includes(geo.index[c.muniCode]?.prefCode ?? c.muniCode.slice(0, 2)) ? 1 : 0,
+                      allUnchecked: noneConfirmed,
+                    })}
+                  </p>
+                ))
+              )}
+            </div>
+          ) : null}
+          <div className="stat stat-wide">
+            <p className="stat-title">{TEXT.statBirds}</p>
+            <p className="stat-value">{birdText}</p>
+            {d.wildBirdsLoaded && birdCounts.total > 0 ? <p className="stat-note">{TEXT.statBirdsBreakdown(birdCounts.confirmed, birdCounts.screening)}</p> : null}
+            <p className="stat-note">{TEXT.statBirdsNote}</p>
+            <p className="stat-note">
+              <Link to="/trends" className="tap-link">
+                {TEXT.statBirdsLink}
+              </Link>
+            </p>
+          </div>
         </div>
       ) : null}
       {mapless ? null : (

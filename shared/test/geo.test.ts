@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   GeoNotLoadedError,
+  centerDistanceKm,
   createGeoStore,
   distanceToMuniKm,
   findMuniByName,
+  haversineKm,
   isAdjacent,
 } from "../src/geo";
 import { boxAround, boxNorthOf, makeGeo, makeTopo } from "./fixtures/geo";
@@ -140,5 +142,26 @@ describe("findMuniByName", () => {
   });
   it("空白や全角の違いは正規化して比べる", () => {
     expect(findMuniByName("33", " 津山　市 ", geo)).toBe("33203");
+  });
+});
+
+describe("haversineKm と centerDistanceKm（架空の地点）", () => {
+  it("[経度, 緯度] の順で受ける。緯度 1 度は約 111.2km、北緯 60 度の経度 1 度は約 55.6km", () => {
+    expect(haversineKm([135, 35], [135, 36])).toBeCloseTo(111.19, 1);
+    expect(haversineKm([135, 60], [136, 60])).toBeCloseTo(55.6, 0);
+  });
+  it("同じ地点は 0。向きを変えても同じ", () => {
+    expect(haversineKm([135, 35], [135, 35])).toBe(0);
+    expect(haversineKm([135, 35], [136, 36])).toBeCloseTo(haversineKm([136, 36], [135, 35]), 9);
+  });
+  const entry = (code: string, center: [number, number]) => ({ code, name: code, prefCode: "90", center, bbox: [0, 0, 0, 0] as [number, number, number, number] });
+  const geo = { index: { "90001": entry("90001", [135, 35]), "90002": entry("90002", [135, 36]) } };
+  it("町の中心どうしの距離。同じ町は 0", () => {
+    expect(centerDistanceKm("90001", "90002", geo)).toBeCloseTo(111.19, 1);
+    expect(centerDistanceKm("90001", "90001", geo)).toBe(0);
+  });
+  it("知らない町は投げる（距離を作らない）", () => {
+    expect(() => centerDistanceKm("90001", "99999", geo)).toThrow();
+    expect(() => centerDistanceKm("99999", "90001", geo)).toThrow();
   });
 });

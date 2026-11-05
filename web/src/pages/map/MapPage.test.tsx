@@ -1,4 +1,4 @@
-import type { Case, HistoryCase, Season, WatchStatus } from "@hpai/shared/types";
+import type { Case, HistoryCase, Season, WatchStatus, WildBird } from "@hpai/shared/types";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -822,7 +822,7 @@ describe("MapPage: 平面の札（T12）", () => {
   const stats = () => [...document.querySelectorAll(".stat")];
   const titles = () => stats().map((e) => e.querySelector(".stat-title")?.textContent);
 
-  it("今季を見ているとき 4 枚（地点がなければ約 60km の札はない）。確認中の県より後で出典より前、守る文と見回りの行より後。watch-line は 1 つ", async () => {
+  it("今季を見ているとき 5 枚（地点がなければ約 60km の札と登録した町の札はない）。確認中の県より後で出典より前、守る文と見回りの行より後。watch-line は 1 つ", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
@@ -830,10 +830,10 @@ describe("MapPage: 平面の札（T12）", () => {
       tsuyamaCase({ id: "rev-1", prefCode: "31", muniCode: null, muniName: null, headCount: null, stages: {}, confirmState: "reviewing", sourceUrls: ["https://example.invalid/r"] }),
     ]);
     r.deliverWatch(okWatch());
-    expect(stats()).toHaveLength(4);
-    expect(titles()).toEqual(["発生した件数", "直近 14 日の件数", "過去 6 シーズンの 11 月 4 日まで", "時刻"]);
+    expect(stats()).toHaveLength(5);
+    expect(titles()).toEqual(["発生した件数", "直近 14 日の件数", "過去 6 シーズンの 11 月 4 日まで", "時刻", "野鳥の陽性（今季）"]);
     const row = document.querySelector(".stat-row")!;
-    expect(row.querySelectorAll(".stat")).toHaveLength(4);
+    expect(row.querySelectorAll(".stat")).toHaveLength(5);
     expect(follows(document.querySelector(".map-disclaimer")!, row)).toBe(true);
     expect(follows(screen.getByTestId("watch-line"), row)).toBe(true);
     expect(follows(screen.getByText(/確認中の発表がある県/), row)).toBe(true);
@@ -849,7 +849,7 @@ describe("MapPage: 平面の札（T12）", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    expect(stats()).toHaveLength(4);
+    expect(stats()).toHaveLength(5);
     fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
     expect(stats()).toHaveLength(0);
   });
@@ -1192,8 +1192,175 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
     });
   });
 
+  describe("登録した町の今季", () => {
+    const frequentCard = () => card(TEXT.statFrequent);
+    const withFrequent = (codes: string[]) => localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: FARM_MESH, muniCode: "33203", frequentMuniCodes: codes }));
+
+    it("登録がなければ札を出さない。地点がなければ出さない", async () => {
+      setSpot();
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      expect(frequentCard()).toBeUndefined();
+    });
+
+    it("約 60km の札のすぐ後に、町ごとの今季の件数を出す。数えない事例は入れない", async () => {
+      withFrequent(["33214", "33202"]);
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverWatch(okWatch());
+      r.deliverCases([
+        tsuyamaCase({ id: "m1", muniCode: "33214", muniName: "真庭市", stages: onDate("2026-11-02") }),
+        tsuyamaCase({ id: "m2", muniCode: "33214", muniName: "真庭市", stages: onDate("2026-11-03") }),
+        tsuyamaCase({ id: "rev", muniCode: "33202", confirmState: "reviewing" }),
+      ]);
+      await waitFor(() => expect(frequentCard()!.textContent).toContain("真庭市 2 件"));
+      expect(frequentCard()!.textContent).toContain("倉敷市 0 件");
+      expect(bandCard()!.nextElementSibling).toBe(frequentCard());
+    });
+
+    it("登録した町に 0 件があれば、riskAnywhere を札のすぐ前に出す", async () => {
+      withFrequent(["33202"]);
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverWatch(okWatch());
+      r.deliverCases([tsuyamaCase({ id: "near", stages: onDate("2026-11-02") })]);
+      await waitFor(() => expect(frequentCard()!.textContent).toContain("倉敷市 0 件"));
+      expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(FIXED_TEXT.riskAnywhere);
+    });
+
+    it("読み込み中は 0 件にしない。その町の県が未確認なら断りを付け、47 県とも未確認なら件数を見出しにしない", async () => {
+      withFrequent(["33202", "01100"]);
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      await waitFor(() => expect(frequentCard()!.textContent).toContain("まだ読めていません"));
+      expect(frequentCard()!.textContent).not.toMatch(/ 0 件/u);
+      r.deliverCases([]);
+      await waitFor(() => expect(frequentCard()!.textContent).toContain("倉敷市 まだ確認できていません"));
+      expect(frequentCard()!.textContent).not.toMatch(/ 0 件/u);
+      r.deliverWatch(failedWatch(["33"]));
+      await waitFor(() => expect(frequentCard()!.textContent).toContain("倉敷市 確認できた範囲では 0 件（1 県は確認できていません）"));
+      expect(frequentCard()!.textContent).toContain("札幌市 0 件");
+    });
+  });
+
+  describe("野鳥の陽性", () => {
+    const birdCard = () => card(TEXT.statBirds);
+    const bird = (o: Partial<WildBird> & { id: string }): WildBird => ({
+      season: 2026,
+      date: "2026-11-01",
+      prefCode: "33",
+      muniCode: null,
+      muniName: null,
+      species: null,
+      test: "screening_positive",
+      focusZone: { from: null, to: null },
+      sourceUrl: "https://example.invalid/b",
+      ...o,
+    });
+
+    it("届くまでは 0 件にしない。読めなければ読めないまま", async () => {
+      const r = rig();
+      let cb: ((b: WildBird[]) => void) | null = null;
+      r.ds.subscribeWildBirds = (_s, c) => {
+        cb = c;
+        return () => {};
+      };
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("まだ読めていません");
+      expect(birdCard()!.textContent).not.toMatch(/\d 件/u);
+      act(() => cb!([]));
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("0 件");
+    });
+
+    it("0 件は『いない』と読ませない断りを常に添える。定点の数へのリンクがある", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      expect(birdCard()!.textContent).toContain(TEXT.statBirdsNote);
+      expect(within(birdCard() as HTMLElement).getByRole("link", { name: TEXT.statBirdsLink }).getAttribute("href")).toBe("/trends");
+    });
+
+    it("否定を除き、検査中と確定を分けて出す", async () => {
+      const r = rig();
+      r.ds.subscribeWildBirds = (_s, c) => {
+        c([bird({ id: "a" }), bird({ id: "b", test: "hpai_confirmed" }), bird({ id: "c", test: "negative" })]);
+        return () => {};
+      };
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("2 件");
+      expect(birdCard()!.textContent).toContain(TEXT.statBirdsBreakdown(1, 1));
+    });
+
+    it("47 県とも未確認で 0 件なら件数を見出しにしない。陽性の発表があれば件数を隠さない。一部の県の未確認は断らない（環境省の発表で、県の見回りと別）", async () => {
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("まだ確認できていません");
+      r.deliverWatch(failedWatch(["33"]));
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("0 件");
+      cleanup();
+
+      const r2 = rig();
+      r2.ds.subscribeWildBirds = (_s, c) => {
+        c([bird({ id: "a" })]);
+        return () => {};
+      };
+      show(r2);
+      await screen.findByTestId("map");
+      r2.deliverCases([]);
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("1 件");
+    });
+  });
+
+  describe("町の枠の周辺の表", () => {
+    it("地点がなければ中心どうし、地点があれば面まで。地点のときの全体の件数は約 60km の札と同じ", async () => {
+      localStorage.setItem(TOWN_KEY, "33214");
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      await waitFor(() => expect(document.querySelector(".nearby-past")?.textContent).toContain(TEXT.nearbyBasisCenter));
+      cleanup();
+      localStorage.clear();
+
+      setSpot();
+      const r2 = rig();
+      show(r2);
+      await screen.findByTestId("map");
+      r2.deliverWatch(okWatch());
+      r2.deliverCases([]);
+      await waitFor(() => expect(document.querySelector(".nearby-past")?.textContent).toContain(TEXT.nearbyBasisMesh));
+      await waitFor(() => expect(bandCard()!.textContent).toMatch(/過去 6 シーズン \d+ 件/));
+      const n = Number(bandCard()!.textContent!.match(/過去 6 シーズン (\d+) 件/)![1]);
+      const rows = [...document.querySelectorAll(".nearby-past tbody tr")];
+      const sum = rows.reduce((s, tr) => s + Number(tr.querySelector('td[data-label="件数"]')!.textContent!.match(/\d+/)![0]), 0);
+      expect(sum).toBe(n);
+      expect(rows[0]!.querySelector('td[data-label="距離"]')!.textContent).toBe("この町");
+    });
+  });
+
   it("新しい文に書かない語がない。距離に「約」が付く", () => {
     const words = [
+      TEXT.statFrequent,
+      TEXT.statBirds,
+      TEXT.statBirdsNote,
+      TEXT.statBirdsLink,
+      TEXT.statBirdsBreakdown(1, 2),
       TEXT.ringNote,
       TEXT.statRecent,
       TEXT.statPastToDate(6, "11 月 4 日"),

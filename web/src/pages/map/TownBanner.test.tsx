@@ -1,8 +1,9 @@
 import type { PastSummary } from "@hpai/shared/past";
-import { findForbiddenPhrases, FIXED_TEXT } from "@hpai/shared/wording";
+import { findForbiddenPhrases, findWordingViolations, FIXED_TEXT } from "@hpai/shared/wording";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
+import type { NearbyPastState } from "./NearbyPast";
 import { TownBanner, type TownBannerProps } from "./TownBanner";
 import { TEXT } from "./texts";
 import type { TownLine } from "./townLine";
@@ -161,6 +162,103 @@ describe("TownBanner", () => {
   it("画面の文に禁じた語がない", () => {
     show(props());
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
+  });
+});
+
+describe("TownBanner: 周辺の町の過去の発生", () => {
+  const NEARBY: NearbyPastState = {
+    status: "ready",
+    basis: "mesh",
+    summary: {
+      towns: [
+        { muniCode: "33214", name: "真庭市", distanceKm: 0, count: 1, seasons: [2025] },
+        { muniCode: "33203", name: "津山市", distanceKm: 12.4, count: 2, seasons: [2024, 2022] },
+      ],
+      total: 3,
+      seasonsWithCases: 3,
+      windowSeasons: 6,
+    },
+    smallFlocks: { total: 247, known: 247, small: 15 },
+    current: 2026,
+  };
+
+  it("畳んだ外に合計を出し、開くと近い順の表と距離の説明がある。既存の『この町』『隣町』の文は残る", () => {
+    show(props({ nearby: NEARBY }));
+    expect(screen.getByText(/昨季に隣町で発生しました（記録）/)).toBeTruthy();
+    expect(within(screen.getByRole("list", { name: "過去の発生" })).getAllByRole("listitem")[0]!.textContent).toContain("隣町");
+    const box = document.querySelector(".nearby-past")!;
+    expect(box.closest("[data-tone]")).toBeNull();
+    expect(box.querySelector("details:not([open])")).toBeTruthy();
+    expect(box.textContent).toContain(TEXT.nearbyTotal(3, 3, 6));
+    const table = within(box as HTMLElement).getByRole("table", { name: TEXT.nearbyAria, hidden: true });
+    const rows = within(table).getAllByRole("row", { hidden: true }).slice(1);
+    expect(rows.map((r) => r.querySelector("th")!.textContent)).toEqual(["真庭市", "津山市"]);
+    expect(rows[0]!.textContent).toContain("この町");
+    expect(rows[1]!.textContent).toContain("約 12 km");
+    expect(rows[1]!.textContent).toContain("2 件");
+    expect(rows[1]!.textContent).toContain("2 年前、4 年前");
+    expect(box.textContent).toContain(TEXT.nearbyBasisMesh);
+    expect(box.textContent).toContain(TEXT.statBandRelated);
+    expect(box.textContent).toContain(TEXT.smallFlocks(6, 247, 247, 15));
+    expect(document.querySelector(".town-past > p")!.textContent).toMatch(/^過去の記録 .+（記録）$/u);
+  });
+
+  it("町だけのときは中心どうしの説明。距離が 1km 未満の別の町は『約 1 km 未満』", () => {
+    const summary = { ...NEARBY.summary, towns: [{ muniCode: "33203", name: "津山市", distanceKm: 0.4, count: 1, seasons: [2025] }] };
+    show(props({ nearby: { ...NEARBY, basis: "center", summary } }));
+    const box = document.querySelector(".nearby-past")!;
+    expect(box.textContent).toContain(TEXT.nearbyBasisCenter);
+    expect(box.textContent).not.toContain(TEXT.nearbyBasisMesh);
+    expect(box.textContent).toContain("約 1 km 未満");
+  });
+
+  it("周辺に記録がなくても『何もない』で終わらせない。表を出さず、riskAnywhere を 1 つだけ添える", () => {
+    const summary = { towns: [], total: 0, seasonsWithCases: 0, windowSeasons: 6 };
+    const none: PastSummary = { sentence: "過去の記録に、この町と隣町の発生はありません（記録）", latest: null, hits: [] };
+    show(props({ nearby: { ...NEARBY, summary }, past: { status: "ready", summary: none } }));
+    expect(document.querySelector(".nearby-past table")).toBeNull();
+    expect(document.querySelector(".nearby-past")!.textContent).toContain(TEXT.nearbyNone(60, 6));
+    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    cleanup();
+    show(props({ nearby: { ...NEARBY, summary } })); // 町と隣町に記録があり、今季の行に riskAnywhere がない
+    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+  });
+
+  it("読み込み中と失敗を分ける。0 件と書かない。過去の行が読めていない間は重ねて出さない", () => {
+    show(props({ nearby: { status: "loading" } }));
+    expect(screen.getByText(TEXT.nearbyLoading)).toBeTruthy();
+    cleanup();
+    show(props({ nearby: { status: "failed" } }));
+    expect(screen.getByRole("alert").textContent).toBe(TEXT.nearbyFailed);
+    cleanup();
+    show(props({ nearby: { status: "failed" }, past: { status: "failed" } }));
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(document.body.textContent).not.toMatch(/ 0 件/u);
+  });
+
+  it("比べるシーズンがなければ出さない", () => {
+    show(props({ nearby: { ...NEARBY, summary: { towns: [], total: 0, seasonsWithCases: 0, windowSeasons: 0 } } }));
+    expect(document.querySelector(".nearby-past")).toBeNull();
+  });
+
+  it("新しい文に書かない語がない。距離に『約』が付く", () => {
+    const words = [
+      TEXT.nearbyTitle(60, 6),
+      TEXT.nearbyTotal(3, 3, 6),
+      TEXT.nearbyNone(60, 6),
+      TEXT.nearbyDetails,
+      TEXT.nearbyAria,
+      TEXT.nearbyBasisCenter,
+      TEXT.nearbyBasisMesh,
+      TEXT.nearbyLoading,
+      TEXT.nearbyFailed,
+      TEXT.smallFlocks(6, 247, 247, 15),
+    ].join("");
+    expect(findWordingViolations(words)).toEqual([]);
+    expect(words).not.toMatch(/問題ありません|区域|多い|少ない/);
+    expect(TEXT.nearbyTitle(60, 6)).toContain("約 60 km");
+    expect(TEXT.nearbyDistance(12.4)).toBe("約 12 km");
+    expect(TEXT.nearbyDistance(0.4)).toBe("約 1 km 未満");
   });
 });
 

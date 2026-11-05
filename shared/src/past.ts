@@ -2,6 +2,8 @@
 // 過去の記録は事実の報告で、これからを予測しない。関連農場は件数に入れず、ここで「関連農場」と明示する。
 // 関連農場の日付は、本体の日付を借りている行がある（F-08）。日付は表に出さない（出すときは本体の日付として出す）。
 import type { GeoStore } from "./geo";
+import { pastCasesOf } from "./history";
+import { isWithinDistanceBand } from "./level";
 import { seasonAgoLabel } from "./season";
 import type { HistoryCase, IsoDate, MuniCode, Season } from "./types";
 
@@ -63,4 +65,91 @@ export function describePast(
   const where = latest.relation === "same" ? "この町" : "隣町";
   const what = latest.related ? "関連農場がありました" : "発生しました";
   return { sentence: `${latest.ago}に${where}で${what}（記録）`, latest, hits };
+}
+
+/** 周辺の 1 町。distanceKm は丸めない（表示で「約」を付けて丸める）。seasons は新しい順 */
+export interface NearbyTown {
+  muniCode: MuniCode;
+  name: string;
+  distanceKm: number;
+  count: number;
+  seasons: Season[];
+}
+
+export interface NearbyPastSummary {
+  /** 近い順。距離が同じなら町のコードの順 */
+  towns: NearbyTown[];
+  total: number;
+  /** 発生の記録があるシーズンの数 */
+  seasonsWithCases: number;
+  /** 見たシーズンの数 */
+  windowSeasons: number;
+}
+
+/**
+ * 距離の帯（約 60km）以内の町の過去の発生を、町ごとに集計する。関連農場は除く（pastCasesOf）。多い少ないを判断しない。
+ * 距離の測り方は呼び出し側が決める。判定は丸めない距離で行う。距離を計算できない町は distanceKmOf が投げる（0 件にしない）。
+ */
+export function nearbyPast(
+  history: readonly HistoryCase[],
+  seasons: readonly Season[],
+  nameOf: (muni: MuniCode) => string,
+  distanceKmOf: (muni: MuniCode) => number,
+): NearbyPastSummary {
+  const window = new Set(seasons);
+  const distance = new Map<MuniCode, number>();
+  const towns = new Map<MuniCode, NearbyTown>();
+  const seen = new Set<Season>();
+  let total = 0;
+  for (const c of pastCasesOf(history)) {
+    if (c.muniCode === null || !window.has(c.season)) continue;
+    let km = distance.get(c.muniCode);
+    if (km === undefined) {
+      km = distanceKmOf(c.muniCode);
+      distance.set(c.muniCode, km);
+    }
+    if (!isWithinDistanceBand(km)) continue;
+    let town = towns.get(c.muniCode);
+    if (!town) {
+      town = { muniCode: c.muniCode, name: nameOf(c.muniCode), distanceKm: km, count: 0, seasons: [] };
+      towns.set(c.muniCode, town);
+    }
+    town.count++;
+    if (!town.seasons.includes(c.season)) town.seasons.push(c.season);
+    seen.add(c.season);
+    total++;
+  }
+  for (const t of towns.values()) t.seasons.sort((a, b) => b - a);
+  return {
+    towns: [...towns.values()].sort((a, b) => a.distanceKm - b.distanceKm || (a.muniCode < b.muniCode ? -1 : a.muniCode > b.muniCode ? 1 : 0)),
+    total,
+    seasonsWithCases: seen.size,
+    windowSeasons: seasons.length,
+  };
+}
+
+/** 小さな規模の発生の境（羽数がこれ未満） */
+export const SMALL_FLOCK_HEADS = 3000;
+
+export interface SmallFlockCount {
+  /** 関連農場を除く全国の発生の件数 */
+  total: number;
+  /** そのうち羽数が分かる件数 */
+  known: number;
+  /** 羽数が分かるうち、3,000 羽未満の件数。羽数が分からない行は数えない */
+  small: number;
+}
+
+/** 全国の、関連農場を除く発生のうち、3,000 羽未満の件数。 */
+export function countSmallFlocks(history: readonly HistoryCase[], seasons: readonly Season[]): SmallFlockCount {
+  const window = new Set(seasons);
+  const out: SmallFlockCount = { total: 0, known: 0, small: 0 };
+  for (const c of pastCasesOf(history)) {
+    if (!window.has(c.season)) continue;
+    out.total++;
+    if (c.headCount === null) continue;
+    out.known++;
+    if (c.headCount < SMALL_FLOCK_HEADS) out.small++;
+  }
+  return out;
 }
