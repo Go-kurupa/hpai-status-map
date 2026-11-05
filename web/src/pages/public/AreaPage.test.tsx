@@ -354,7 +354,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     r.deliverWatch(okWatch());
     await screen.findByText(TEXT.national);
     await waitFor(() => expect(bodyText()).toContain("11 月 4 日 8:30 時点"));
-    expect(screen.getByTestId("watch-line").textContent).toContain("47 都道府県のうち 47 件を確認");
+    expect(screen.getByTestId("watch-line").textContent).toContain("47 都道府県すべてを確認しました");
   });
 
   it("この町の県が見回りで確認できていないときは、それを 1 文に足す（④だけで済ませない）", async () => {

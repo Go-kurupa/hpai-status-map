@@ -104,8 +104,13 @@ export function wildBirdCounts(birds: readonly WildBird[]): WildBirdCount {
   return { total: rows.length, confirmed, screening: rows.length - confirmed };
 }
 
-/** 確認状況の文。47 県すべてのときは県名を並べない（どの県も確認できていない、と読める）。 */
+/**
+ * 確認状況の文。47 県すべてのときは県名を並べない（どの県も確認できていない、と読める）。
+ * 全県を確認できたときだけ「すべてを確認しました」にする（「0 件は確認できていません」と出さない。11/6 作者の決定）。
+ * 1 県以上が確認できないときは件数の形のまま。
+ */
 export function watchCoverageText(okCount: number, failedPrefCodes: readonly PrefCode[]): string {
+  if (failedPrefCodes.length === 0 && okCount === PREFS.length) return `${PREFS.length} 都道府県すべてを確認しました`;
   const names = failedPrefCodes.map(prefNameOf);
   const tail = names.length > 0 && names.length < PREFS.length ? `（${names.join("、")}）` : "";
   return `${PREFS.length} 都道府県のうち ${okCount} 件を確認、${failedPrefCodes.length} 件は確認できていません${tail}`;

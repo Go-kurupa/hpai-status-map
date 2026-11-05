@@ -163,7 +163,7 @@ describe("WatchLine", () => {
   });
 
   it("全県確認なら添えない", () => {
-    render(<WatchLine loaded={true} line={{ text: "47 都道府県のうち 47 件を確認、0 件は確認できていません", asOf: null, failedPrefCodes: [], okCount: 47 }} />);
+    render(<WatchLine loaded={true} line={{ text: "47 都道府県すべてを確認しました", asOf: null, failedPrefCodes: [], okCount: 47 }} />);
     expect(screen.getByTestId("watch-line").textContent).not.toContain("言えません");
   });
 

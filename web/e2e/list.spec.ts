@@ -115,7 +115,7 @@ test.describe("確認状況", () => {
 
   test("全県が確認できていれば、文に括弧がない", async ({ page }) => {
     await open(page, { watch: watchOk() });
-    await expect(page.getByTestId("watch-line")).toContainText("47 都道府県のうち 47 件を確認");
+    await expect(page.getByTestId("watch-line")).toContainText("47 都道府県すべてを確認しました。");
     await expect(page.getByTestId("watch-line")).not.toContainText("（");
   });
 

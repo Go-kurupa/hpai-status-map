@@ -580,7 +580,8 @@ describe("MapPage: 確認状況", () => {
     expect(screen.getByTestId("watch-line").textContent).toContain("まだ読めていません");
     expect(screen.getByTestId("watch-line").textContent).not.toMatch(/件を確認/);
     r.deliverWatch(okWatch());
-    expect(screen.getByTestId("watch-line").textContent).toContain("47 都道府県のうち 47 件を確認、0 件は確認できていません");
+    expect(screen.getByTestId("watch-line").textContent).toContain("47 都道府県すべてを確認しました。");
+    expect(screen.getByTestId("watch-line").textContent).not.toContain("確認できていません");
   });
 
   it("上の時刻は checkedAt の最大（8:30）で、now（9:00）ではない", async () => {

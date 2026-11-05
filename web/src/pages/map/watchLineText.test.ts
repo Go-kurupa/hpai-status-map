@@ -61,7 +61,7 @@ describe("watchLine（§9.7、§2）", () => {
 
   it("全県確認なら括弧がない", () => {
     const w = watchLine(allOk(), NOW);
-    expect(w.text).toBe("47 都道府県のうち 47 件を確認、0 件は確認できていません");
+    expect(w.text).toBe("47 都道府県すべてを確認しました");
     expect(w.text).not.toContain("（");
     expect(w.failedPrefCodes).toEqual([]);
   });
