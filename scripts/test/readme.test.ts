@@ -268,10 +268,23 @@ describe("README: 外部のデータと素材", () => {
     expect(row("evals/fabricated/")!.join(" ")).toContain("作り物");
     expect(row("backstage.json")!.join(" ")).toMatch(/作り物|未計測|未実測/u);
   });
-  it("同梱の画像やフォントはない、端末の字体だけを使う", () => {
+  it("同梱の画像は環境省の経路図だけで、フォントはない。端末の字体だけを使う", () => {
     const r = row("画像")!;
+    expect(r.join(" ")).toContain("環境省の経路図");
     expect(r.join(" ")).toMatch(/ありません/u);
     expect(r.join(" ")).toContain("端末の字体");
+  });
+  it("環境省の経路図: 出典の URL、改変なし、置き場所。個別の追跡の図は載せない", () => {
+    const r = row("渡り鳥の飛来経路について")!;
+    expect(r[1]).toContain("wataridori_hiraikeiro.html");
+    expect(r[2]).toContain("PDL1.0");
+    expect(r[2]).toContain("未確認");
+    expect(r[3]).toMatch(/改変していません/u);
+    expect(r[3]).toContain("無断転用不可");
+    expect(r[4]).toContain("`data/migration/routes/`");
+  });
+  it("元データを入れないという文に、経路図の例外がある", () => {
+    expect(sec).toMatch(/元データは公開リポジトリに入れません。例外は環境省の経路図 5 枚/u);
   });
   it("置き場所に書いたパスが実在する", () => {
     for (const r of body) {

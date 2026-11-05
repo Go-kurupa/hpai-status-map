@@ -88,6 +88,33 @@ describe("docs/data-sources.md の国と県の公開文書の利用条件", () =
   });
 });
 
+describe("docs/data-sources.md の渡りの経路図の節", () => {
+  const sec = section("渡りの経路図（data/migration/routes/）", "過去の事例");
+  it("出典の URL、規約の URL、確かめた日がある", () => {
+    for (const s of ["環境省「渡り鳥の飛来経路について」", "wataridori_hiraikeiro.html", "https://www.env.go.jp/mail.html", "PDL1.0", "確かめた日 2026-11-05"]) {
+      expect(sec, s).toContain(s);
+    }
+  });
+  it("改変しないこと。個別の追跡の図は載せず、リンクで案内すること", () => {
+    for (const s of ["改変", "無断転用不可", "migration_route.html", "リンク"]) expect(sec, s).toContain(s);
+  });
+  it("解けていない点を未確認と書く（国土地理院の地図、追跡の受託、All Rights Reserved）", () => {
+    expect(sec).toMatch(/国土地理院[^\n]*\*\*未確認\*\*/u);
+    expect(sec).toMatch(/東京大学[^\n]*\*\*未確認\*\*/u);
+    expect(sec).toMatch(/All Rights Reserved[^\n]*\*\*未確認\*\*/u);
+  });
+});
+
+describe("docs/data-sources.md の前書きと、画像の扱い", () => {
+  it("元データを入れないという文に、経路図の例外がある", () => {
+    expect(doc).toMatch(/元データは公開リポジトリに入れない[^\n]*例外は環境省の経路図 5 枚/u);
+  });
+  it("「本作品は画像を使わない」とだけ書かない。農林水産省の画像に限る", () => {
+    expect(doc).not.toContain("本作品は画像を使わない");
+    expect(doc).toContain("本作品は農林水産省の画像を使わない");
+  });
+});
+
 describe("docs/data-sources.md と docs/mcp-usage.md に内部の言葉がない", () => {
   const mcp = fs.readFileSync(path.resolve(import.meta.dirname, "..", "..", "docs", "mcp-usage.md"), "utf8");
   it.each([

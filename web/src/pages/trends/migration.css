@@ -33,3 +33,27 @@
 .migration-site p {
   margin: 0 0 4px;
 }
+/* 渡りの経路（環境省の図）。1 列に並べ、図は枠の幅まで縮めて表示するだけで、中身は変えない */
+.migration-routes {
+  max-width: 44rem;
+  margin-top: 32px;
+  padding-top: 8px;
+  border-top: 2px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.migration-route {
+  margin: 0 0 24px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.migration-route img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.migration-route figcaption {
+  margin-top: 8px;
+}
+.migration-route figcaption p {
+  margin: 0 0 4px;
+}

@@ -90,6 +90,24 @@ describe("戻る道と表の見た目", () => {
   });
 });
 
+describe("渡りの経路図の枠", () => {
+  it.each(["missing", "error", "ready"] as const)("%s の分岐に、渡り鳥の飛来の枠と並べて出す", async (r) => {
+    stub(r === "ready" ? SUMMARY : r);
+    show();
+    const title = await screen.findByRole("heading", { name: "渡りの経路（環境省の図）" });
+    const section = title.closest("section")!;
+    expect(within(section).getAllByRole("img")).toHaveLength(5);
+    await screen.findByRole("heading", { name: "渡り鳥の飛来（季節の参考）" });
+    expect(section.closest("section.migration")).toBeNull();
+  });
+
+  it("読み込み中には出さない", () => {
+    stub(SUMMARY);
+    show();
+    expect(screen.queryByRole("heading", { name: "渡りの経路（環境省の図）" })).toBeNull();
+  });
+});
+
 describe("全国の傾向（/trends）", () => {
   it("集計があれば、全国の傾向であること、人が全件を確かめていないこと、時点を出す", async () => {
     stub(SUMMARY);

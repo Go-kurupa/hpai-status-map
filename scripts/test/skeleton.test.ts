@@ -339,6 +339,16 @@ describe("copyWebData", () => {
     expect(fs.existsSync(path.join(tmp, "web/public/migration/other.json"))).toBe(false);
   });
 
+  it("渡りの経路図（data/migration/routes/）を web/public/migration/routes/ へ、中身を変えずにコピーする", () => {
+    const bytes = Buffer.from([0xff, 0xd8, 0x00, 0x0a, 0xff, 0xd9]);
+    fs.mkdirSync(path.join(tmp, "data/migration/routes"), { recursive: true });
+    fs.writeFileSync(path.join(tmp, "data/migration/routes/zu1.jpg"), bytes);
+    write("data/migration/summary.json", "8");
+    copyWebData(tmp);
+    expect(fs.readFileSync(path.join(tmp, "web/public/migration/routes/zu1.jpg")).equals(bytes)).toBe(true);
+    expect(fs.readFileSync(path.join(tmp, "web/public/migration/summary.json"), "utf8")).toBe("8");
+  });
+
   it("古いコピー先を残さず置き換える", () => {
     write("web/public/geo/stale.json", "old");
     write("data/geo/new.json", "new");

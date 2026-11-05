@@ -12,6 +12,7 @@ const COPIES: ReadonlyArray<readonly [string, string]> = [
   ["evals/results/summary.json", "web/public/evals/summary.json"],
   ["data/trends/summary.json", "web/public/trends/summary.json"],
   ["data/migration/summary.json", "web/public/migration/summary.json"],
+  ["data/migration/routes", "web/public/migration/routes"],
 ];
 
 export function copyWebData(root: string): void {

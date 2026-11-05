@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Placeholder } from "../../ui/Placeholder";
+import MigrationRoutes from "./MigrationRoutes";
 import MigrationSection from "./MigrationSection";
 import { parseTrendSummary, type TrendSummary } from "./types";
 
@@ -66,6 +67,7 @@ export default function TrendsPage() {
       <div>
         <Placeholder title="全国の傾向" />
         <MigrationSection />
+        <MigrationRoutes />
         <BackLinks />
       </div>
     );
@@ -75,6 +77,7 @@ export default function TrendsPage() {
         <h1>全国の傾向</h1>
         <p role="alert">集計を読み込めませんでした。時間をおいて開き直してください。</p>
         <MigrationSection />
+        <MigrationRoutes />
         <BackLinks />
       </div>
     );
@@ -128,6 +131,7 @@ export default function TrendsPage() {
       </ul>
 
       <MigrationSection />
+      <MigrationRoutes />
       <BackLinks />
     </div>
   );
