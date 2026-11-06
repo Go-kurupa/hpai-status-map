@@ -22,6 +22,13 @@ export const PAINT = {
   hatchCurrent: "hatch-lv1",
   hatchPast: "hatch-past",
   hatchMuted: "hatch-muted",
+  /** 過去シーズンとの重ね合わせ（設計書 2026-11-06-data-explore E9）。比べる 1 は橙の「／」、比べる 2 は青緑の「＼」、両方は藍の網目。--cmp-* */
+  cmpOne: "#d97a00",
+  cmpTwo: "#00857a",
+  cmpBoth: "#3b3b8f",
+  hatchCmpOne: "hatch-cmp-one",
+  hatchCmpTwo: "hatch-cmp-two",
+  hatchCmpBoth: "hatch-cmp-both",
 } as const;
 
 /** 斜線の画像の id と、その線の色。MapView が画像を登録し、代わりの地図（SvgMap）が同じ色の模様を作る */
@@ -41,6 +48,10 @@ export const LAYER_IDS = [
   "pref-unwatched",
   "case-suspected",
   "case-confirmed",
+  "pref-unwatched-flat",
+  "cmp-one",
+  "cmp-two",
+  "cmp-both",
   "muni-line",
   "near-line",
   "pref-line",
@@ -111,6 +122,18 @@ export function overlayLayers(): LayerSpecification[] {
       filter: codeFilter("c", []),
       paint: { "fill-color": PAINT.current, "fill-opacity": 0.8 },
     },
+    {
+      // 重ね合わせの間の、確認できていない県。斜線が「比べる 1」と同じ向きになるので、薄い灰色の塗りにする（E14）
+      id: "pref-unwatched-flat",
+      type: "fill",
+      source: "muni",
+      filter: codeFilter("p", []),
+      paint: { "fill-color": PAINT.muted, "fill-opacity": 0.25 },
+    },
+    // 重ね合わせの 3 層。全国の広さから町を塗る（E13。minzoom なし）
+    { id: "cmp-one", type: "fill", source: "muni", filter: codeFilter("c", []), paint: { "fill-pattern": PAINT.hatchCmpOne } },
+    { id: "cmp-two", type: "fill", source: "muni", filter: codeFilter("c", []), paint: { "fill-pattern": PAINT.hatchCmpTwo } },
+    { id: "cmp-both", type: "fill", source: "muni", filter: codeFilter("c", []), paint: { "fill-pattern": PAINT.hatchCmpBoth } },
     {
       id: "muni-line",
       type: "line",

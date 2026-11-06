@@ -6,9 +6,9 @@ import type { GeometryCollection, Topology } from "topojson-specification";
 import { distanceRingsAt, distanceRingsOf, pxPerKmAtZoom, ringLabel, ringTop, visibleRingKms } from "../../geo/distanceRings";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { Marker, MlMap } from "../../geo/maplibre";
-import { applyDistanceRings, applyView, applyWildBirds, type ViewTarget } from "./applyView";
-import { HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
-import { baseStyle, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
+import { applyDistanceRings, applyOverlay, applyView, applyWildBirds, type OverlayState, type ViewTarget } from "./applyView";
+import { crossHatchImage, HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
+import { baseStyle, codeFilter, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
 import { TEXT } from "./texts";
 import { BADGE_ZOOM, badgeStates, JAPAN_BOUNDS, type SeasonView } from "./seasonView";
 
@@ -36,6 +36,8 @@ export interface MapViewProps {
   mapIndex?: 0 | 1;
   /** 地図の領域の名前。比べの 2 枚は、比べる 1／2 とシーズンを入れて読み上げで区別する */
   ariaLabel?: string;
+  /** 過去シーズンとの重ね合わせ（設計書 2026-11-06-data-explore E8、E13、E14）。あるときは view の発生の塗りと県の件数の札を出さない */
+  overlay?: OverlayState | null;
 }
 
 type Geo = Awaited<ReturnType<typeof loadWebGeoStore>>;
@@ -106,6 +108,9 @@ export default function MapView(props: MapViewProps) {
         for (const [id, color] of HATCH_COLORS) {
           map.addImage(id, hatchImage(hexToRgb(color)), { pixelRatio: HATCH_PIXEL_RATIO });
         }
+        map.addImage(PAINT.hatchCmpOne, hatchImage(hexToRgb(PAINT.cmpOne)), { pixelRatio: HATCH_PIXEL_RATIO });
+        map.addImage(PAINT.hatchCmpTwo, hatchImage(hexToRgb(PAINT.cmpTwo), undefined, undefined, "down"), { pixelRatio: HATCH_PIXEL_RATIO });
+        map.addImage(PAINT.hatchCmpBoth, crossHatchImage(hexToRgb(PAINT.cmpBoth)), { pixelRatio: HATCH_PIXEL_RATIO });
         map.addImage(IMAGE_IDS.birdScreening, ringImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
         map.addImage(IMAGE_IDS.birdConfirmed, squareImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
         map.addSource("muni", { type: "geojson", data: munis, tolerance: 0.3 });
@@ -159,9 +164,17 @@ export default function MapView(props: MapViewProps) {
       myMuniCode: props.myMuniCode,
       nearMuniCodes: props.nearMuniCodes,
     });
+    // 重ね合わせの間は、1 シーズン分の発生の塗りを消して 3 つの模様で塗る
+    const overlay = props.overlay ?? null;
+    if (overlay) {
+      map.setFilter("case-suspected", codeFilter("c", []));
+      map.setFilter("case-confirmed", codeFilter("c", []));
+    }
+    applyOverlay(map as unknown as ViewTarget, overlay);
+    updateBadges.current?.();
     // failedKey と nearKey が配列の中身の変化を表す
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, props.view, failedKey, props.myMuniCode, nearKey]);
+  }, [ready, props.view, failedKey, props.myMuniCode, nearKey, props.overlay]);
 
   // 3) 野鳥の点
   useEffect(() => {
@@ -226,7 +239,8 @@ export default function MapView(props: MapViewProps) {
     }
     const update = () => {
       const view = latest.current.view;
-      const shown = new Map(badgeStates(view, map.getZoom()).map((s) => [s.prefCode, s.text]));
+      // 重ね合わせの間は 1 シーズン分の数の札を出さない（E13）
+      const shown = new Map(latest.current.overlay ? [] : badgeStates(view, map.getZoom()).map((s) => [s.prefCode, s.text]));
       for (const [code, el] of badges) {
         const text = shown.get(code);
         el.hidden = text === undefined;
@@ -305,6 +319,7 @@ export default function MapView(props: MapViewProps) {
             onSelectMuni={props.onSelectMuni}
             onInspectMuni={props.onInspectMuni}
             ringCenter={props.ringCenter}
+            overlay={props.overlay}
             onUnplaced={setUnplaced}
             onFailed={() => setFailed(true)}
           />

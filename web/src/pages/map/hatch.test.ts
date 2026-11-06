@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hatchImage, ringImage, squareImage } from "./hatch";
+import { crossHatchImage, hatchImage, ringImage, squareImage } from "./hatch";
 
 function alphaAt(img: { width: number; data: Uint8Array | Uint8ClampedArray }, x: number, y: number): number {
   return img.data[(y * img.width + x) * 4 + 3]!;
@@ -21,6 +21,21 @@ describe("画像", () => {
     const a = alphaAt(img, 3, 0);
     expect(alphaAt(img, 2, 1)).toBe(a);
     expect(alphaAt(img, 1, 2)).toBe(a);
+  });
+
+  it("右下がりの斜線は、右上がりの左右反転。既定は今までと同じ右上がり", () => {
+    const up = hatchImage([0, 0, 0]);
+    const down = hatchImage([0, 0, 0], undefined, undefined, "down");
+    expect([...hatchImage([0, 0, 0], undefined, undefined, "up").data]).toEqual([...up.data]);
+    for (let y = 0; y < up.height; y++) for (let x = 0; x < up.width; x++) expect(alphaAt(down, x, y)).toBe(alphaAt(up, up.width - 1 - x, y));
+  });
+
+  it("網目は、右上がりと右下がりの和", () => {
+    const up = hatchImage([0, 0, 0]);
+    const down = hatchImage([0, 0, 0], undefined, undefined, "down");
+    const cross = crossHatchImage([0, 0, 0]);
+    for (let y = 0; y < up.height; y++)
+      for (let x = 0; x < up.width; x++) expect(alphaAt(cross, x, y)).toBe(Math.max(alphaAt(up, x, y), alphaAt(down, x, y)));
   });
 
   it("野鳥の印は、検査中が輪で確定が塗りつぶし（形で区別できる）", () => {

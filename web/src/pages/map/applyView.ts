@@ -70,6 +70,39 @@ export function applyView(map: ViewTarget, s: ViewState): void {
   map.setPaintProperty("case-suspected", "fill-pattern", st.suspectedHatch);
 }
 
+/** 過去シーズンとの重ね合わせ（設計書 2026-11-06-data-explore E8、E14）。first と second は発生のあった町 */
+export type OverlayShow = "both" | "one" | "two";
+export interface OverlayState {
+  first: readonly MuniCode[];
+  second: readonly MuniCode[];
+  show: OverlayShow;
+  /** 確認できていない県。今季を比べに選んだときだけ入る */
+  unwatchedPrefCodes: readonly PrefCode[];
+}
+
+/** 1 だけ、2 だけ、両方に分ける。見せ方が「1 だけ」「2 だけ」なら、その片方を全部 one か two に入れる */
+export function overlayStyle(s: OverlayState): { one: MuniCode[]; two: MuniCode[]; both: MuniCode[] } {
+  if (s.show === "one") return { one: [...s.first], two: [], both: [] };
+  if (s.show === "two") return { one: [], two: [...s.second], both: [] };
+  const second = new Set(s.second);
+  const first = new Set(s.first);
+  return {
+    one: s.first.filter((c) => !second.has(c)),
+    two: s.second.filter((c) => !first.has(c)),
+    both: s.first.filter((c) => second.has(c)),
+  };
+}
+
+/** 重ね合わせの 3 層と、確認できていない県の灰色の層を塗る。null なら全部を空にする（斜線の pref-unwatched は applyView に任せる） */
+export function applyOverlay(map: ViewTarget, s: OverlayState | null): void {
+  const st = s ? overlayStyle(s) : { one: [], two: [], both: [] };
+  map.setFilter("cmp-one", codeFilter("c", st.one));
+  map.setFilter("cmp-two", codeFilter("c", st.two));
+  map.setFilter("cmp-both", codeFilter("c", st.both));
+  map.setFilter("pref-unwatched-flat", codeFilter("p", s ? s.unwatchedPrefCodes : []));
+  if (s) map.setFilter("pref-unwatched", codeFilter("p", []));
+}
+
 export interface WildBirdFeature {
   type: "Feature";
   geometry: { type: "Point"; coordinates: [number, number] };

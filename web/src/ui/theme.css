@@ -22,6 +22,10 @@
   --lv2: #8a5a00;
   --lv3: #0017c1;
   --lv4: #4a4f57;
+  /* 過去シーズンとの重ね合わせ（設計書 2026-11-06-data-explore E9）。地図の mapStyle.ts の PAINT.cmp* と同じ値 */
+  --cmp-one: #d97a00;
+  --cmp-two: #00857a;
+  --cmp-both: #3b3b8f;
   --on-lv: #ffffff;
   --accent: #0017c1;
   --on-accent: #ffffff;

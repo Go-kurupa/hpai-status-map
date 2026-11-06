@@ -11,7 +11,8 @@ import type { GeometryCollection, Topology } from "topojson-specification";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { distanceRingsAt, distanceRingsOf, ringLabel, ringTop, visibleRingKms, type DistanceRings } from "../../geo/distanceRings";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
-import { viewStyle, wildBirdFeatures, type WildBirdFeature } from "./applyView";
+import { overlayStyle, viewStyle, wildBirdFeatures, type WildBirdFeature } from "./applyView";
+import { CMP_TEXT } from "./compareTexts";
 import { HATCH_PERIOD, HATCH_PIXEL_RATIO, HATCH_STRIPE } from "./hatch";
 import { HATCH_COLORS, overlayLayers, PAINT } from "./mapStyle";
 import type { MapViewProps } from "./MapView";
@@ -19,7 +20,7 @@ import { badgeStates, JAPAN_BOUNDS } from "./seasonView";
 import { TEXT } from "./texts";
 
 export interface SvgMapProps
-  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni"> {
+  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni" | "overlay"> {
   /** 場所が分からず置けなかった野鳥の数（注記は MapView が出す） */
   onUnplaced?: (n: number) => void;
   /** 形を読めなかった（知らせは MapView が出す） */
@@ -210,18 +211,28 @@ function activate(fn: () => void) {
   };
 }
 
-/** 斜線の模様。hatchImage と同じ周期と太さ（右上がり） */
-function Hatch({ id, color }: { id: string; color: string }) {
+/** 斜線の模様。hatchImage と同じ周期と太さ。既定は右上がり、"down" は左右反転、"cross" は両方（重ね合わせ。設計書 2026-11-06-data-explore E8） */
+function Hatch({ id, color, dir = "up" }: { id: string; color: string; dir?: "up" | "down" | "cross" }) {
   const p = HATCH_PERIOD;
   const s = HATCH_STRIPE;
   const k = W / REF_WIDTH / HATCH_PIXEL_RATIO;
-  return (
-    <pattern id={id} data-color={color} patternUnits="userSpaceOnUse" width={p} height={p} patternTransform={`scale(${k})`}>
+  const up = (
+    <>
       <polygon points={`0,0 ${s},0 0,${s}`} fill={color} />
       <polygon points={`0,${p} ${p},0 ${p},${s} ${s},${p}`} fill={color} />
+    </>
+  );
+  const flipped = <g transform={`matrix(-1 0 0 1 ${p} 0)`}>{up}</g>;
+  return (
+    <pattern id={id} data-color={color} patternUnits="userSpaceOnUse" width={p} height={p} patternTransform={`scale(${k})`}>
+      {dir === "down" ? flipped : up}
+      {dir === "cross" ? flipped : null}
     </pattern>
   );
 }
+
+/** 重ね合わせの模様の id */
+const CMP_HATCH = { "cmp-one": PAINT.hatchCmpOne, "cmp-two": PAINT.hatchCmpTwo, "cmp-both": PAINT.hatchCmpBoth } as const;
 
 /** 距離の輪と km のラベル。scale は viewBox の 1 単位が画面の何 px か */
 function RingMarks({ rings, proj, scale }: { rings: DistanceRings; proj: Projection; scale: number }) {
@@ -329,15 +340,22 @@ export default function SvgMap(props: SvgMapProps) {
     myMuniCode: props.myMuniCode,
     nearMuniCodes: props.nearMuniCodes,
   });
+  // 過去シーズンとの重ね合わせ（設計書 2026-11-06-data-explore E8、E14）。あるときは発生の塗りの代わりに 3 つの模様で塗る
+  const overlay = props.overlay ?? null;
+  const cmp = useMemo(() => {
+    if (!overlay) return null;
+    const st = overlayStyle(overlay);
+    return { one: new Set(st.one), two: new Set(st.two), both: new Set(st.both) };
+  }, [overlay]);
   const sets = useMemo(
     () => ({
       suspected: new Set(style.suspectedMuniCodes),
       confirmed: new Set(style.confirmedMuniCodes),
-      unwatched: new Set(style.unwatchedPrefCodes),
+      unwatched: new Set(overlay ? overlay.unwatchedPrefCodes : style.unwatchedPrefCodes),
       mine: new Set(style.myMuniCodes),
       near: new Set(style.nearMuniCodes),
     }),
-    [style.suspectedMuniCodes, style.confirmedMuniCodes, style.unwatchedPrefCodes, style.myMuniCodes, style.nearMuniCodes],
+    [style.suspectedMuniCodes, style.confirmedMuniCodes, style.unwatchedPrefCodes, style.myMuniCodes, style.nearMuniCodes, overlay],
   );
 
   // 4) 野鳥。場所の決め方は MapView と同じ（町の中心、なければ県の代表の位置）
@@ -372,8 +390,18 @@ export default function SvgMap(props: SvgMapProps) {
       {HATCH_COLORS.map(([id, color]) => (
         <Hatch key={id} id={hatchId(id)} color={color} />
       ))}
+      <Hatch id={hatchId(PAINT.hatchCmpOne)} color={PAINT.cmpOne} />
+      <Hatch id={hatchId(PAINT.hatchCmpTwo)} color={PAINT.cmpTwo} dir="down" />
+      <Hatch id={hatchId(PAINT.hatchCmpBoth)} color={PAINT.cmpBoth} dir="cross" />
     </defs>
   );
+  // 確認できていない県。重ね合わせの間は斜線が「比べる 1」と同じ向きになるので、薄い灰色の塗りにする（E14）
+  const unwatchedFill = (key: string, d: string) =>
+    overlay ? (
+      <path key={key} d={d} fill={PAINT.muted} fillOpacity={0.25} data-unwatched-flat="true" />
+    ) : (
+      <path key={key} d={d} fill={`url(#${hatchId(PAINT.hatchMuted)})`} />
+    );
   // 町を押したとき: 場所を選んでいる間は選ぶ、それ以外はその町の事例を見る。「さわっても選べます」の案内は選ぶときだけ
   const select = props.onSelectMuni ?? props.onInspectMuni;
   const picking = props.onSelectMuni !== undefined;
@@ -382,7 +410,8 @@ export default function SvgMap(props: SvgMapProps) {
   if (!japan || !store) {
     body = <p role="status">{TEXT.svgLoading}</p>;
   } else if (prefCode === null) {
-    const badges = new Map(badgeStates(props.view, 0).map((b) => [b.prefCode, b.text]));
+    // 重ね合わせの間は 1 シーズン分の数の札を出さない（E13）
+    const badges = new Map(overlay ? [] : badgeStates(props.view, 0).map((b) => [b.prefCode, b.text]));
     const anchorOf = (s: Shape) => (anchors?.[s.code] ? japan.proj.at(...anchors[s.code]!) : [s.box.cx, s.box.cy]);
     const labelOf = (s: Shape) => {
       const t = badges.get(s.code);
@@ -414,9 +443,7 @@ export default function SvgMap(props: SvgMapProps) {
           <g pointerEvents="none">
             {japan.prefs
               .filter((s) => sets.unwatched.has(s.code))
-              .map((s) => (
-                <path key={s.code} d={s.d} fill={`url(#${hatchId(PAINT.hatchMuted)})`} />
-              ))}
+              .map((s) => unwatchedFill(s.code, s.d))}
             {japan.prefs.map((s) => (
               <path key={s.code} className="svg-pref-line" d={s.d} fill="none" {...LINE.pref} />
             ))}
@@ -460,11 +487,12 @@ export default function SvgMap(props: SvgMapProps) {
   } else {
     const prefName = PREF_NAME.get(prefCode) ?? prefCode;
     const unwatched = sets.unwatched.has(prefCode);
-    const fillOf = (c: MuniCode) => (sets.confirmed.has(c) ? "confirmed" : sets.suspected.has(c) ? "suspected" : null);
+    const fillOf = (c: MuniCode) =>
+      cmp ? (cmp.one.has(c) ? "cmp-one" : cmp.two.has(c) ? "cmp-two" : cmp.both.has(c) ? "cmp-both" : null) : sets.confirmed.has(c) ? "confirmed" : sets.suspected.has(c) ? "suspected" : null;
     const labelOf = (s: Shape) => {
       const parts = [s.name];
       const f = fillOf(s.code);
-      if (f) parts.push(f === "confirmed" ? TEXT.svgConfirmed : TEXT.svgSuspected);
+      if (f) parts.push(f === "confirmed" ? TEXT.svgConfirmed : f === "suspected" ? TEXT.svgSuspected : f === "cmp-one" ? CMP_TEXT.svgOne : f === "cmp-two" ? CMP_TEXT.svgTwo : CMP_TEXT.svgBoth);
       if (sets.mine.has(s.code)) parts.push(TEXT.myTown);
       if (sets.near.has(s.code)) parts.push(TEXT.svgNear);
       if (unwatched) parts.push(TEXT.svgUnwatched);
@@ -499,7 +527,12 @@ export default function SvgMap(props: SvgMapProps) {
                 />
               ))}
               <g pointerEvents="none">
-                {unwatched ? munis.map((s) => <path key={s.code} d={s.d} fill={`url(#${hatchId(PAINT.hatchMuted)})`} />) : null}
+                {unwatched ? munis.map((s) => unwatchedFill(s.code, s.d)) : null}
+                {cmp
+                  ? munis
+                      .filter((s) => fillOf(s.code) !== null)
+                      .map((s) => <path key={s.code} d={s.d} data-code={s.code} data-fill={fillOf(s.code)!} fill={`url(#${hatchId(CMP_HATCH[fillOf(s.code) as keyof typeof CMP_HATCH])})`} />)
+                  : null}
                 {munis
                   .filter((s) => fillOf(s.code) === "suspected")
                   .map((s) => (

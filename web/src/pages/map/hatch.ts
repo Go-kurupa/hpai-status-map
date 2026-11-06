@@ -29,14 +29,27 @@ export const HATCH_STRIPE = 3;
 export const HATCH_PIXEL_RATIO = 2;
 
 /**
- * 右上がりの斜線。周期 12 画素の中の 3 画素が線で、繰り返しても継ぎ目が出ない。
+ * 斜線。既定は右上がり（"up"）。周期 12 画素の中の 3 画素が線で、繰り返しても継ぎ目が出ない。
  * 疑い（--lv1 の線）と、確認できていない県（--muted の線）に使う。
+ * 右下がり（"down"）は右上がりの左右反転で、過去シーズンとの重ね合わせの「比べる 2」に使う（設計書 2026-11-06-data-explore E8）。
  */
-export function hatchImage(color: Rgb, period = HATCH_PERIOD, stripe = HATCH_STRIPE): RgbaImage {
+export function hatchImage(color: Rgb, period = HATCH_PERIOD, stripe = HATCH_STRIPE, dir: "up" | "down" = "up"): RgbaImage {
   const img = blank(period);
   for (let y = 0; y < period; y++) {
     for (let x = 0; x < period; x++) {
-      if ((x + y) % period < stripe) put(img, x, y, color);
+      const sx = dir === "up" ? x : period - 1 - x;
+      if ((sx + y) % period < stripe) put(img, x, y, color);
+    }
+  }
+  return img;
+}
+
+/** 網目（右上がりと右下がりの和）。重ね合わせの「両方で発生」に使う */
+export function crossHatchImage(color: Rgb, period = HATCH_PERIOD, stripe = HATCH_STRIPE): RgbaImage {
+  const img = blank(period);
+  for (let y = 0; y < period; y++) {
+    for (let x = 0; x < period; x++) {
+      if ((x + y) % period < stripe || (period - 1 - x + y) % period < stripe) put(img, x, y, color);
     }
   }
   return img;

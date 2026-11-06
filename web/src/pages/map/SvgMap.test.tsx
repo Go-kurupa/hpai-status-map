@@ -285,4 +285,25 @@ describe("代わりの地図（SVG）", () => {
     const words = [TEXT.svgMapNote, TEXT.svgMapAria, TEXT.svgBack, TEXT.svgUnwatched, TEXT.svgPrefList, TEXT.svgMuniList, TEXT.svgPrefHint];
     expect(findWordingViolations(words.join(""))).toEqual([]);
   });
+
+  // 過去シーズンとの重ね合わせ（設計書 2026-11-06-data-explore E8、E11、E13、E14）
+  it("重ね合わせを渡すと、市町村の図で 1 だけ・2 だけ・両方を 3 つの模様で塗る。確認できていない県は斜線でなく灰色", async () => {
+    const overlay = { first: ["33203", "33214"], second: ["33214", "33202"], show: "both" as const, unwatchedPrefCodes: ["33"] };
+    render(<SvgMap {...props({ overlay, failedPrefCodes: [] })} />);
+    await openPref(/^岡山県/);
+    await screen.findByRole("group", { name: /岡山県の市町村/ });
+    const fill = (c: string) => document.querySelector(`[data-code='${c}'][data-fill]`)?.getAttribute("data-fill");
+    expect(fill("33203")).toBe("cmp-one");
+    expect(fill("33202")).toBe("cmp-two");
+    expect(fill("33214")).toBe("cmp-both");
+    expect(document.querySelector("[data-unwatched-flat='true']")).toBeTruthy();
+    expect(document.querySelector("[data-fill='suspected'], [data-fill='confirmed']")).toBeNull();
+  });
+
+  it("重ね合わせの間は、全国の図に県の件数の札を出さない", async () => {
+    const overlay = { first: ["33203"], second: [], show: "both" as const, unwatchedPrefCodes: [] };
+    render(<SvgMap {...props({ overlay })} />);
+    await screen.findByRole("group", { name: TEXT.svgMapAria });
+    expect(document.querySelector(".svg-badge")).toBeNull();
+  });
 });

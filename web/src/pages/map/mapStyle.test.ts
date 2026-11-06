@@ -16,6 +16,10 @@ describe("地図の層", () => {
       "pref-unwatched",
       "case-suspected",
       "case-confirmed",
+      "pref-unwatched-flat",
+      "cmp-one",
+      "cmp-two",
+      "cmp-both",
       "muni-line",
       "near-line",
       "pref-line",
@@ -33,6 +37,19 @@ describe("地図の層", () => {
     expect(by["case-confirmed"]!.minzoom).toBe(MUNI_ZOOM);
     expect(by["muni-line"]!.minzoom).toBe(5.5);
     expect(by["pref-unwatched"]!.minzoom).toBeUndefined();
+  });
+
+  it("重ね合わせの 3 層は全国の広さから塗る（minzoom なし。設計書 2026-11-06-data-explore E13）。模様は 3 つの画像", () => {
+    const by = Object.fromEntries(layers.map((l) => [l.id, l]));
+    for (const id of ["cmp-one", "cmp-two", "cmp-both", "pref-unwatched-flat"]) expect(by[id]!.minzoom, id).toBeUndefined();
+    expect((by["cmp-one"]!.paint as Record<string, unknown>)["fill-pattern"]).toBe(PAINT.hatchCmpOne);
+    expect((by["cmp-two"]!.paint as Record<string, unknown>)["fill-pattern"]).toBe(PAINT.hatchCmpTwo);
+    expect((by["cmp-both"]!.paint as Record<string, unknown>)["fill-pattern"]).toBe(PAINT.hatchCmpBoth);
+    expect((by["pref-unwatched-flat"]!.paint as Record<string, unknown>)["fill-color"]).toBe(PAINT.muted);
+  });
+
+  it("重ね合わせの色は橙と青緑（設計書 E9）", () => {
+    expect([PAINT.cmpOne, PAINT.cmpTwo, PAINT.cmpBoth]).toEqual(["#d97a00", "#00857a", "#3b3b8f"]);
   });
 
   it("circle の層がない（農場を点で示さない）", () => {
@@ -85,6 +102,9 @@ describe("地図の層", () => {
     expect(PAINT.ink.toLowerCase()).toBe(v("fg"));
     expect(PAINT.near.toLowerCase()).toBe(v("lv2"));
     expect(PAINT.mine.toLowerCase()).toBe(v("accent"));
+    expect(PAINT.cmpOne.toLowerCase()).toBe(v("cmp-one"));
+    expect(PAINT.cmpTwo.toLowerCase()).toBe(v("cmp-two"));
+    expect(PAINT.cmpBoth.toLowerCase()).toBe(v("cmp-both"));
   });
 });
 

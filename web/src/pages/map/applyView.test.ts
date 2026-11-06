@@ -2,7 +2,7 @@ import type { Case, HistoryCase, WildBird } from "@hpai/shared/types";
 import { describe, expect, it, vi } from "vitest";
 import historyJson from "../../../../data/history/cases.json";
 import { distanceRingsOf } from "../../geo/distanceRings";
-import { applyDistanceRings, applyView, applyWildBirds, wildBirdFeatures, type ViewTarget } from "./applyView";
+import { applyDistanceRings, applyOverlay, applyView, applyWildBirds, overlayStyle, wildBirdFeatures, type ViewTarget } from "./applyView";
 import { PAINT } from "./mapStyle";
 import { buildSeasonView } from "./seasonView";
 
@@ -178,5 +178,27 @@ describe("applyDistanceRings", () => {
     expect(setData).toHaveBeenLastCalledWith(rings);
     applyDistanceRings(map, null);
     expect(setData).toHaveBeenLastCalledWith({ type: "FeatureCollection", features: [] });
+  });
+});
+
+describe("重ね合わせ（設計書 2026-11-06-data-explore E8、E14）", () => {
+  const codes = (f: unknown) => ((f as unknown[])[2] as unknown[])[1];
+  it("1 だけ、2 だけ、両方に分ける。見せ方で片方だけにする", () => {
+    const base = { first: ["A", "B"], second: ["B", "C"], unwatchedPrefCodes: [] };
+    expect(overlayStyle({ ...base, show: "both" })).toEqual({ one: ["A"], two: ["C"], both: ["B"] });
+    expect(overlayStyle({ ...base, show: "one" })).toEqual({ one: ["A", "B"], two: [], both: [] });
+    expect(overlayStyle({ ...base, show: "two" })).toEqual({ one: [], two: ["B", "C"], both: [] });
+  });
+
+  it("重ねる間は確認できていない県を灰色の層に移し、斜線の層を空にする。null なら 3 層と灰色の層を空にする", () => {
+    const { map, filters } = fakeMap();
+    applyOverlay(map, { first: ["A"], second: ["B"], show: "both", unwatchedPrefCodes: ["01"] });
+    expect(codes(filters.get("cmp-one"))).toEqual(["A"]);
+    expect(codes(filters.get("cmp-two"))).toEqual(["B"]);
+    expect(codes(filters.get("cmp-both"))).toEqual([]);
+    expect(codes(filters.get("pref-unwatched-flat"))).toEqual(["01"]);
+    expect(codes(filters.get("pref-unwatched"))).toEqual([]);
+    applyOverlay(map, null);
+    for (const id of ["cmp-one", "cmp-two", "cmp-both", "pref-unwatched-flat"]) expect(codes(filters.get(id)), id).toEqual([]);
   });
 });
