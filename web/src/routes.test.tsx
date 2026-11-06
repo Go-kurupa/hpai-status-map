@@ -61,7 +61,7 @@ describe("経路", () => {
 });
 
 describe("骨格", () => {
-  it("メニューの自分の農場に『対策項目』『死亡・消毒の記録』『農場と通知の設定』があり、header に『設定』がある。下のタブはない", async () => {
+  it("会員の印がなければ、メニューの養鶏事業者の方は『対策項目』『会員のログイン』で、header に『設定』はない。下のタブはない", async () => {
     const router = createMemoryRouter(routes, { initialEntries: ["/todo"] });
     render(<RouterProvider router={router} />);
     await screen.findByRole("heading", { name: "対策項目" });
@@ -71,11 +71,27 @@ describe("骨格", () => {
     const todo = within(nav).getByRole("link", { name: /^対策項目/ });
     expect(todo.getAttribute("href")).toBe("/todo");
     expect(todo.getAttribute("aria-current")).toBe("page");
-    expect(within(nav).getByRole("link", { name: /^死亡・消毒の記録\s*会員$/ }).getAttribute("href")).toBe("/record/deaths");
+    expect(within(nav).getByRole("link", { name: "会員のログイン" }).getAttribute("href")).toBe("/login");
+    expect(within(nav).queryByRole("link", { name: /死亡・消毒の記録|農場と通知の設定|記録を試す/ })).toBeNull();
     expect(within(nav).getByRole("link", { name: /^今季の発生/ }).getAttribute("aria-current")).toBeNull();
+    expect(within(screen.getByRole("banner")).queryByRole("link", { name: "設定" })).toBeNull();
+  });
 
-    const settings = within(screen.getByRole("banner")).getByRole("link", { name: "設定" });
-    expect(settings.getAttribute("href")).toBe("/settings/farm");
+  it("会員の印があれば、メニューに記録と設定が出て、header に『設定』がある", async () => {
+    localStorage.setItem("hpai.member.v1", "1");
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ["/todo"] });
+      render(<RouterProvider router={router} />);
+      await screen.findByRole("heading", { name: "対策項目" });
+      const nav = screen.getByRole("navigation", { name: "メニュー" });
+      expect(within(nav).getByRole("link", { name: "死亡・消毒の記録" }).getAttribute("href")).toBe("/record/deaths");
+      expect(within(nav).getByRole("link", { name: "農場と通知の設定" }).getAttribute("href")).toBe("/settings/farm");
+      expect(within(nav).queryByRole("link", { name: "会員のログイン" })).toBeNull();
+      const settings = within(screen.getByRole("banner")).getByRole("link", { name: "設定" });
+      expect(settings.getAttribute("href")).toBe("/settings/farm");
+    } finally {
+      localStorage.clear();
+    }
   });
 
   it("画面の本文は header と nav の外の main に出る", async () => {

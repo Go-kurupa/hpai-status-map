@@ -74,6 +74,7 @@ import LoginPage, { LOGIN_TEXT_CHECKED_ON, LoginText } from "./LoginPage";
 import { RequireMember } from "./RequireMember";
 
 const EMAIL_KEY = "hpai.emailForSignIn";
+const MEMBER_KEY = "hpai.member.v1";
 
 beforeEach(() => {
   calls.length = 0;
@@ -496,5 +497,43 @@ describe("RequireMember", () => {
     gate("firestore");
     expect((await screen.findByRole("alert")).textContent).toMatch(/確かめられませんでした/);
     expect(screen.queryByLabelText("招待コード")).toBeNull();
+  });
+
+  // 端末に残す会員の印（決定 15）。メニューの出し分けだけに使う
+  it("会員と確かめられたら会員の印を付け、未ログインと分かったら外す", async () => {
+    claimMember = true;
+    auth.currentUser = makeUser();
+    gate("firestore");
+    await screen.findByText("会員の中身");
+    expect(localStorage.getItem(MEMBER_KEY)).toBe("1");
+    cleanup();
+    auth.currentUser = null;
+    gate("firestore");
+    await waitFor(() => expect(screen.getByTestId("at").textContent).toBe("/login"));
+    expect(localStorage.getItem(MEMBER_KEY)).toBeNull();
+  });
+
+  it("ログインしていても claim がなければ会員の印を外す", async () => {
+    localStorage.setItem(MEMBER_KEY, "1");
+    auth.currentUser = makeUser();
+    gate("firestore");
+    await screen.findByLabelText("招待コード");
+    expect(localStorage.getItem(MEMBER_KEY)).toBeNull();
+  });
+
+  it("ログイン状態を確かめられないときは、会員の印を外さない（通信の失敗は会員でないことではない）", async () => {
+    localStorage.setItem(MEMBER_KEY, "1");
+    auth.currentUser = makeUser();
+    auth.currentUser.getIdTokenResult.mockRejectedValue(new Error("network"));
+    gate("firestore");
+    await screen.findByRole("alert");
+    expect(localStorage.getItem(MEMBER_KEY)).toBe("1");
+  });
+
+  it("見本の農場は Firebase を読まないので、会員の印に触らない", async () => {
+    localStorage.setItem(MEMBER_KEY, "1");
+    gate("sample");
+    await screen.findByText("会員の中身");
+    expect(localStorage.getItem(MEMBER_KEY)).toBe("1");
   });
 });

@@ -17,8 +17,8 @@ export const SECTION_TABS = {
     label: "過去の発生の見方",
     tabs: [
       { to: "/compare", label: "全国とシーズン", match: (p) => under(p, "/compare") },
+      // 去年の再現は審査員向けの見本なので、ここに並べず「このサイトについて」の審査員の節から開く（決定 16）
       { to: "/town", label: "自分の町のまわり", match: (p) => under(p, "/town") || under(p, "/area") },
-      { to: "/replay", label: "去年をたどる（再現）", match: (p) => under(p, "/replay") },
     ],
   },
 } satisfies Record<string, { label: string; tabs: Tab[] }>;

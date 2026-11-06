@@ -1,6 +1,7 @@
 // ログイン中の利用者と、会員の claim。onIdTokenChanged で見る（getIdToken(true) の後にも届く）。
 import type { Auth, User } from "firebase/auth";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { writeMemberMark } from "../../data/memberMark";
 import { getFirebase } from "../../firebase";
 
 export interface AuthState {
@@ -62,6 +63,11 @@ export function useAuthUser(): AuthState {
     const s = await snapshotOf(auth.currentUser);
     if (alive.current) setState(s);
   }, []);
+
+  // 確かめられたときだけ会員の印を付け外しする（通信の失敗は「会員でない」ではないので触らない）
+  useEffect(() => {
+    if (!state.loading && !state.error) writeMemberMark(state.member);
+  }, [state.loading, state.error, state.member]);
 
   return { ...state, refresh };
 }

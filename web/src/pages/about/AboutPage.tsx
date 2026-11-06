@@ -1,16 +1,17 @@
 import { useEffect } from "react";
+import { Link } from "react-router";
 import { OPERATOR_NOTE } from "../../ui/AppShell";
 import { operatorName, PrivacyContent } from "../privacy/PrivacyPage";
 import { PRIVACY_NOTICE, PRIVACY_REVIEWED_ON } from "../privacy/privacyNotice";
 import ResultsPage from "../results/ResultsPage";
-import { ABOUT_TEXT, DATA_SOURCES } from "./aboutTexts";
+import { ABOUT_TEXT, DATA_SOURCES, JUDGE_LINKS } from "./aboutTexts";
 
-export type AboutSection = "operator" | "sources" | "ai" | "privacy";
-const ORDER: AboutSection[] = ["operator", "sources", "ai", "privacy"];
+export type AboutSection = "judges" | "operator" | "sources" | "ai" | "privacy";
+const ORDER: AboutSection[] = ["judges", "operator", "sources", "ai", "privacy"];
 const anchor = (s: AboutSection) => `about-${s}`;
 
 /**
- * このサイトについて（設計書 2026-11-06-ui-frame 3 章、決定 12）。運営者、データの出典、AI の読み取りの確かさと費用
+ * このサイトについて（設計書 2026-11-06-ui-frame 3 章、決定 12・16）。審査員の方への入口、運営者、データの出典、AI の読み取りの確かさと費用
  * （今までの /results）、集める情報と消し方（今までの /privacy）を 1 画面に。focus を渡すと、開いたときにその節へ送る
  * （/results と /privacy の URL を残すため）
  */
@@ -36,6 +37,26 @@ export default function AboutPage({ focus }: { focus?: AboutSection }) {
           ))}
         </ul>
       </nav>
+
+      <section id={anchor("judges")} aria-labelledby={`${anchor("judges")}-h`}>
+        <h2 id={`${anchor("judges")}-h`}>{ABOUT_TEXT.sections.judges}</h2>
+        <p>{ABOUT_TEXT.judgesLead}</p>
+        <ul className="about-judges">
+          {JUDGE_LINKS.map((l) => (
+            <li key={l.to}>
+              {l.to.startsWith("#") ? (
+                <a href={l.to} className="tap-link">
+                  {l.label}
+                </a>
+              ) : (
+                <Link to={l.to} className="tap-link">
+                  {l.label}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section id={anchor("operator")} aria-labelledby={`${anchor("operator")}-h`}>
         <h2 id={`${anchor("operator")}-h`}>{ABOUT_TEXT.sections.operator}</h2>

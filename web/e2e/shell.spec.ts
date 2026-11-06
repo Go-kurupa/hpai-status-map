@@ -16,7 +16,7 @@ test.describe("骨格", () => {
     const burger = menuButton(page);
     await expect(burger).toBeVisible();
     await expect(burger).toHaveAttribute("aria-expanded", "false");
-    // 設定は、スマホではメニューの中（農場と通知の設定）にある（2026-11-06 骨組みの作り直し）
+    // スマホの見出しには設定を出さない。会員はメニューの中の「農場と通知の設定」から開く（決定 15）
     await expect(page.getByRole("banner").getByRole("link", { name: "設定" })).toBeHidden();
 
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
@@ -38,15 +38,29 @@ test.describe("骨格", () => {
     await expect(menuNav(page)).toBeHidden();
   });
 
-  test("PC（1280x860）は左に固定のメニューで、三本線も設定のリンクも出る。下のタブはない", async ({ page }) => {
+  test("PC（1280x860）は左に固定のメニューで、三本線は出ない。会員でない人には設定のリンクを出さない。下のタブはない", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 860 });
     await installFixture(page, { now: "2025-12-21T09:00:00+09:00", cases: [], wildBirds: [], watch: [] });
     await page.goto("/");
     await expect(page.getByRole("navigation", { name: "メイン" })).toHaveCount(0);
     await expect(menuButton(page)).toBeHidden();
     await expect(menuNav(page)).toBeVisible();
-    await expect(page.getByRole("banner").getByRole("link", { name: "設定" })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("link", { name: "設定" })).toHaveCount(0);
     await expect(menuNav(page).getByRole("link", { name: "今季の発生", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(menuNav(page).getByRole("link", { name: "会員のログイン" })).toBeVisible();
+    await expect(menuNav(page).getByRole("link", { name: /記録を試す|死亡・消毒の記録|農場と通知の設定/ })).toHaveCount(0);
+  });
+
+  test("PC（1280x860）で端末に会員の印があれば、メニューに記録と設定、右上に設定のリンク（決定 15）", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 860 });
+    await installFixture(page, { now: "2025-12-21T09:00:00+09:00", cases: [], wildBirds: [], watch: [] });
+    await page.addInitScript(() => localStorage.setItem("hpai.member.v1", "1"));
+    await page.goto("/");
+    const nav = menuNav(page);
+    await expect(nav.getByRole("link", { name: "死亡・消毒の記録" })).toHaveAttribute("href", "/record/deaths");
+    await expect(nav.getByRole("link", { name: "農場と通知の設定" })).toHaveAttribute("href", "/settings/farm");
+    await expect(nav.getByRole("link", { name: "会員のログイン" })).toHaveCount(0);
+    await expect(page.getByRole("banner").getByRole("link", { name: "設定" })).toBeVisible();
   });
 });
 

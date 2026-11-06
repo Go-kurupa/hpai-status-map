@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,6 +6,7 @@ import type { ChecklistClass } from "@hpai/shared/types";
 import { afterEach, describe, expect, it } from "vitest";
 import { AsOf, AsOfPrecisionContext, formatAsOf } from "./AsOf";
 import { Button } from "./Button";
+import { writeMemberMark } from "../data/memberMark";
 import { AppShell, OPERATOR_NOTE, shellContextOf } from "./AppShell";
 import { RouteError } from "./RouteError";
 import { ClassBlock } from "./ClassBlock";
@@ -243,38 +244,87 @@ describe("shellContextOf", () => {
     expect(shellContextOf("/samplex").mode).toBeNull();
     expect(shellContextOf("/todo").mode).toBeNull();
   });
-  it("/recordx は記録に当たらない", () => {
-    const items = (p: string) => shellContextOf(p).groups.flatMap((g) => g.items);
+  it("/recordx は記録に当たらない（会員）", () => {
+    const items = (p: string) => shellContextOf(p, true).groups.flatMap((g) => g.items);
     expect(items("/recordx").some((t) => t.current)).toBe(false);
     expect(items("/record").find((t) => t.label === "死亡・消毒の記録")!.current).toBe(true);
   });
+  it("会員の印がなければ記録と設定を出さず、会員のログインを出す。/login と /join で選択中", () => {
+    const farm = (p: string, member: boolean) => shellContextOf(p, member).groups.find((g) => g.label === "養鶏事業者の方")!.items;
+    expect(farm("/", false).map((i) => [i.label, i.to])).toEqual([["対策項目", "/todo"], ["会員のログイン", "/login"]]);
+    expect(farm("/", true).map((i) => [i.label, i.to])).toEqual([["対策項目", "/todo"], ["死亡・消毒の記録", "/record/deaths"], ["農場と通知の設定", "/settings/farm"]]);
+    expect(farm("/login", false).find((i) => i.label === "会員のログイン")!.current).toBe(true);
+    expect(farm("/join/abc", false).find((i) => i.label === "会員のログイン")!.current).toBe(true);
+    // 見本の中は会員の印に関係なく、見本の行き先と記録を試す
+    for (const member of [false, true]) {
+      expect(farm("/sample/todo", member).map((i) => i.to)).toEqual(["/sample/todo", "/sample/record/deaths", "/sample"]);
+    }
+  });
 });
 
-// 10 項目（設計書 2026-11-06-ui-frame 3 章、決定 8〜14。掲示用の貼り紙は入口を外した）
-const MENU_HREFS = ["/", "/compare", "/trends", "/todo", "/record/deaths", "/settings/farm", "/sample", "/known", "/public", "/about"];
+// 決定 15・16。会員でない人は 8 項目、会員は 9 項目。審査員向けの見本（記録を試す、去年の再現）は並べない
+const GUEST_HREFS = ["/", "/compare", "/trends", "/todo", "/login", "/known", "/public", "/about"];
+const MEMBER_HREFS = ["/", "/compare", "/trends", "/todo", "/record/deaths", "/settings/farm", "/known", "/public", "/about"];
+const SAMPLE_HREFS = ["/", "/compare", "/trends", "/sample/todo", "/sample/record/deaths", "/sample", "/known", "/public", "/about"];
+
+function asMember() {
+  localStorage.setItem("hpai.member.v1", "1");
+}
 
 describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章）", () => {
-  it("/ は帯なし。メニューは 10 の行き先で、今季の発生が選択中。下のタブはない", () => {
+  afterEach(() => localStorage.clear());
+  it("/ は帯なし。会員でない人のメニューは 8 の行き先で、今季の発生が選択中。札も右上の設定もない。下のタブはない", () => {
     const { container } = renderShell("/");
     expect(container.querySelector(".app-context")).toBeNull();
-    expect(hrefs()).toEqual(MENU_HREFS);
+    expect(hrefs()).toEqual(GUEST_HREFS);
     expect(currentLabels()).toEqual(["今季の発生"]);
+    expect(tabs().some((a) => a.textContent?.includes("会員") && a.textContent !== "会員のログイン")).toBe(false);
+    expect(screen.queryByRole("link", { name: "設定" })).toBeNull();
     expect(screen.queryByRole("navigation", { name: "メイン" })).toBeNull();
   });
-  it("/record と /record/self-check で記録が選択中", () => {
+  it("会員の印があれば 9 の行き先と右上の設定。札はない", () => {
+    asMember();
+    renderShell("/");
+    expect(hrefs()).toEqual(MEMBER_HREFS);
+    expect(tabs().some((a) => a.textContent?.includes("会員"))).toBe(false);
+    expect(screen.getByRole("link", { name: "設定" }).getAttribute("href")).toBe("/settings/farm");
+  });
+  it("別のタブで印が変わったとき（storage の知らせ）も描き直す", () => {
+    renderShell("/");
+    localStorage.setItem("hpai.member.v1", "1");
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: "hpai.member.v1", newValue: "1" }));
+    });
+    expect(hrefs()).toEqual(MEMBER_HREFS);
+    localStorage.clear();
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: null }));
+    });
+    expect(hrefs()).toEqual(GUEST_HREFS);
+  });
+  it("同じタブで印が付くと、読み直さなくてもメニューと右上が変わる", () => {
+    renderShell("/");
+    expect(hrefs()).toEqual(GUEST_HREFS);
+    act(() => writeMemberMark(true));
+    expect(hrefs()).toEqual(MEMBER_HREFS);
+    expect(screen.getByRole("link", { name: "設定" })).toBeTruthy();
+    act(() => writeMemberMark(false));
+    expect(hrefs()).toEqual(GUEST_HREFS);
+  });
+  it("/record と /record/self-check で記録が選択中（会員）", () => {
+    asMember();
     renderShell("/record");
-    expect(currentLabels()).toEqual(["死亡・消毒の記録会員"]);
+    expect(currentLabels()).toEqual(["死亡・消毒の記録"]);
     cleanup();
     renderShell("/record/self-check");
-    expect(currentLabels()).toEqual(["死亡・消毒の記録会員"]);
+    expect(currentLabels()).toEqual(["死亡・消毒の記録"]);
   });
-  it("/todo で対策項目が選択中。会員の印は会員だけが使える記録と設定に付く（対策項目は会員でなくても使える）", () => {
+  it("/todo で対策項目が選択中（会員でなくても出る）", () => {
     renderShell("/todo");
     expect(currentLabels()).toEqual(["対策項目"]);
-    expect(tabs().filter((a) => a.textContent?.includes("会員")).map((a) => a.getAttribute("href"))).toEqual(["/record/deaths", "/settings/farm"]);
   });
-  it("/season は今季の発生、/compare /town /area/xxx /replay は過去の発生、/results /privacy はこのサイトについてが選択中", () => {
-    for (const [p, label] of [["/season", "今季の発生"], ["/compare", "過去の発生"], ["/town", "過去の発生"], ["/area/33203", "過去の発生"], ["/replay", "過去の発生"], ["/results", "このサイトについて"], ["/privacy", "このサイトについて"], ["/about", "このサイトについて"]] as const) {
+  it("/season は今季の発生、/compare /town /area/xxx は過去の発生、/results /privacy はこのサイトについてが選択中", () => {
+    for (const [p, label] of [["/season", "今季の発生"], ["/compare", "過去の発生"], ["/town", "過去の発生"], ["/area/33203", "過去の発生"], ["/results", "このサイトについて"], ["/privacy", "このサイトについて"], ["/about", "このサイトについて"]] as const) {
       renderShell(p);
       expect(currentLabels()).toEqual([label]);
       cleanup();
@@ -305,9 +355,10 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
     render(<RouterProvider router={router} />);
     expect(screen.getByText(OPERATOR_NOTE)).toBeTruthy();
   });
-  it("/sample/todo は見本の行き先、帯に見本を終わる、設定なし", () => {
+  it("/sample/todo は見本の行き先、帯に見本を終わる、設定なし（会員でも）", () => {
+    asMember();
     const { container } = renderShell("/sample/todo");
-    expect(hrefs()).toEqual(MENU_HREFS.flatMap((h) => (h === "/todo" ? ["/sample/todo"] : h === "/record/deaths" ? ["/sample/record/deaths"] : h === "/settings/farm" ? [] : [h])));
+    expect(hrefs()).toEqual(SAMPLE_HREFS);
     expect(currentLabels()).toEqual(["対策項目"]);
     const band = container.querySelector(".app-context")!;
     expect(band.textContent).toContain("見本の農場を見ています");
@@ -318,13 +369,14 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
   });
   it("/sample/record/deaths と /sample の選択中", () => {
     renderShell("/sample/record/deaths");
-    expect(currentLabels()).toEqual(["死亡・消毒の記録会員"]);
+    expect(currentLabels()).toEqual(["死亡・消毒の記録"]);
     cleanup();
     const { container } = renderShell("/sample");
     expect(currentLabels()).toEqual(["記録を試す"]);
     expect(container.querySelector(".app-context")).not.toBeNull();
   });
-  it("/replay と /replay/backstage は帯に再現を終わる、行き先は通常、過去の発生が選択中", () => {
+  it("/replay と /replay/backstage は帯に再現を終わる、行き先は通常（記録を試すは並べない）、過去の発生が選択中", () => {
+    asMember();
     for (const p of ["/replay", "/replay/backstage"]) {
       const { container, unmount } = renderShell(p);
       const band = container.querySelector(".app-context")!;
@@ -333,7 +385,7 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
       const end = within(band as HTMLElement).getByRole("link", { name: "再現を終わる" });
       expect(end.getAttribute("href")).toBe("/");
       expect(end.className).toContain("tap-link");
-      expect(hrefs()).toEqual(MENU_HREFS);
+      expect(hrefs()).toEqual(MEMBER_HREFS);
       expect(currentLabels()).toEqual(["過去の発生"]);
       expect(screen.getByRole("link", { name: "設定" })).toBeTruthy();
       unmount();

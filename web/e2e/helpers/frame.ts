@@ -15,15 +15,13 @@ export const menuNav = (page: Page): Locator => page.getByRole("navigation", { n
 /** スマホの三本線 */
 export const menuButton = (page: Page): Locator => page.getByRole("button", { name: "メニューを開く" });
 
-/** メニューの 10 の行き先（設計書 2026-11-06-ui-frame 3 章、決定 8〜14） */
+/** 会員でない人のメニューの 8 の行き先（設計書 2026-11-06-ui-frame 3 章、決定 8〜16。記録と設定は会員の印があるときだけ） */
 export const MENU_ITEMS: ReadonlyArray<{ name: string; path: string }> = [
   { name: "今季の発生", path: "/" },
   { name: "過去の発生", path: "/compare" },
   { name: "全国の傾向", path: "/trends" },
   { name: "対策項目", path: "/todo" },
-  { name: "死亡・消毒の記録", path: "/record/deaths" },
-  { name: "農場と通知の設定", path: "/settings/farm" },
-  { name: "記録を試す", path: "/sample" },
+  { name: "会員のログイン", path: "/login" },
   { name: "分かっていること", path: "/known" },
   { name: "鶏を飼っていない方へ", path: "/public" },
   { name: "このサイトについて", path: "/about" },
@@ -35,7 +33,6 @@ const VIEWS: Readonly<Record<string, { menu: string; tabs: string; tab: string }
   今季の一覧と数: { menu: "今季の発生", tabs: "今季の発生の見方", tab: "一覧と数" },
   過去シーズンとの比べ: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "全国とシーズン" },
   自分の町の過去: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "自分の町のまわり" },
-  去年の再現: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "去年をたどる（再現）" },
 };
 
 /**

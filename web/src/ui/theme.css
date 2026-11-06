@@ -266,17 +266,6 @@ button:focus-visible {
   border-radius: 2px;
   background: var(--accent);
 }
-.menu-tag {
-  flex: 0 0 auto;
-  margin-left: auto;
-  white-space: nowrap;
-  padding: 0 6px;
-  border: 1px solid var(--outer);
-  border-radius: 4px;
-  color: var(--sub);
-  font-size: 0.9rem;
-  font-weight: 400;
-}
 /* スマホのヘッダの「設定」はメニューの中にあるので出さない（題を 1 行に収める） */
 @media (max-width: 63.99rem) {
   .app-header .settings-link {
@@ -357,6 +346,15 @@ button:focus-visible {
   padding: 8px 0;
   border-bottom: 1px solid var(--hair);
   overflow-wrap: anywhere;
+}
+
+/* このサイトについて: 審査員の方への入口（決定 16） */
+.about-judges {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
 }
 
 /* ── 部品 ── */

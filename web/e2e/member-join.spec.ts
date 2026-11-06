@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { menuButton, menuNav } from "./helpers/frame";
 import { latestSignInLink, seedInvite } from "./helpers/seedInvite";
 
 // 招待で会員になり、農場の地点を保存する通し（M-01）。
@@ -60,6 +61,13 @@ test("招待リンクを別の文脈で開き、会員になって、地点を�
   await page.getByRole("button", { name: "つづける" }).click();
   await expect(page).toHaveURL(/\/settings\/farm/);
   await expect(page.getByRole("heading", { name: "農場の設定" })).toBeVisible();
+
+  // 会員と確かめられたので、メニューに記録と設定が出て、会員のログインは消える（決定 15。読み直しなし）
+  await menuButton(page).click();
+  await expect(menuNav(page).getByRole("link", { name: "死亡・消毒の記録" })).toBeVisible();
+  await expect(menuNav(page).getByRole("link", { name: "会員のログイン" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(menuNav(page)).toBeHidden();
 
   // 地図が出て（Worker の読み込みに失敗しない）、地点を選べる
   await expect(page.getByRole("region", { name: "農場の地点を選ぶ地図" })).toBeVisible();

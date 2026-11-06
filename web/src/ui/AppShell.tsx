@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
+import { useMemberMark } from "../data/memberMark";
 
 export const OPERATOR_NOTE = "民間の運営です。国や県の公式のサイトではありません。";
 
 export type ShellMode = "replay" | "sample" | null;
-export type MenuItem = { to: string; label: string; current: boolean; member?: boolean };
+export type MenuItem = { to: string; label: string; current: boolean };
 export type MenuGroup = { label: string; items: MenuItem[]; collapsible?: boolean };
 
 function under(path: string, base: string): boolean {
@@ -12,37 +13,42 @@ function under(path: string, base: string): boolean {
 }
 
 /**
- * 道筋から、今の画面の帯の種類と、メニューの項目・選択中を決める（設計書 2026-11-06-ui-frame 3 章）。
- * 見本の中は「自分の農場」を見本の画面へ向け、設定を出さない（今までの見本の決まり）。
+ * 道筋と会員の印から、今の画面の帯の種類と、メニューの項目・選択中を決める（設計書 2026-11-06-ui-frame 3 章）。
+ * 見本の中は「養鶏事業者の方」を見本の画面へ向け、設定を出さない（今までの見本の決まり）。
+ * 見本の外は、記録と設定を会員の印があるときだけ出し、ないときは会員のログインを出す（決定 15）。
+ * 審査員向けの見本（記録を試す、去年の再現）はメニューに並べず、「このサイトについて」から開く（決定 16）。
  */
-export function shellContextOf(pathname: string): { mode: ShellMode; groups: MenuGroup[]; currentLabel: string | null } {
+export function shellContextOf(pathname: string, member = false): { mode: ShellMode; groups: MenuGroup[]; currentLabel: string | null } {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") || "/" : pathname;
   const mode: ShellMode = under(path, "/replay") ? "replay" : under(path, "/sample") ? "sample" : null;
   const prefix = mode === "sample" ? "/sample" : "";
-  const item = (to: string, label: string, current: boolean, member = false): MenuItem => (member ? { to, label, current, member } : { to, label, current });
-  const farm: MenuItem[] = [
-    // 対策項目は会員でなくても使える（地図で選んだ町や地点を使う）ので、会員の印を付けない（2026-11-06 作者の決定）
-    item(`${prefix}/todo`, "対策項目", under(path, `${prefix}/todo`)),
-    item(`${prefix}/record/deaths`, "死亡・消毒の記録", under(path, `${prefix}/record`), true),
-  ];
-  if (mode !== "sample") farm.push(item("/settings/farm", "農場と通知の設定", under(path, "/settings"), true));
-  // 設計書 2026-11-06-ui-frame 3 章（決定 8〜14）。10 項目。今季と過去は中の切り替え（SectionTabs）で見方を選ぶ
+  const item = (to: string, label: string, current: boolean): MenuItem => ({ to, label, current });
+  // 対策項目は会員でなくても使える（地図で選んだ町や地点を使う）ので、いつも出す（2026-11-06 作者の決定）
+  const farm: MenuItem[] = [item(`${prefix}/todo`, "対策項目", under(path, `${prefix}/todo`))];
+  if (mode === "sample") {
+    farm.push(item("/sample/record/deaths", "死亡・消毒の記録", under(path, "/sample/record")));
+    farm.push(item("/sample", "記録を試す", !farm.some((f) => f.current)));
+  } else if (member) {
+    farm.push(item("/record/deaths", "死亡・消毒の記録", under(path, "/record")));
+    farm.push(item("/settings/farm", "農場と通知の設定", under(path, "/settings")));
+  } else {
+    farm.push(item("/login", "会員のログイン", under(path, "/login") || under(path, "/join")));
+  }
+  // 設計書 2026-11-06-ui-frame 3 章（決定 8〜16）。今季と過去は中の切り替え（SectionTabs）で見方を選ぶ
   const groups: MenuGroup[] = [
     {
       label: "発生状況",
       items: [
         item("/", "今季の発生", path === "/" || under(path, "/season")),
+        // 再現はメニューにも切り替えにも並べないが、中にいる間は今までどおり過去の発生を選択中にする（決定 16）
         item("/compare", "過去の発生", under(path, "/compare") || under(path, "/town") || under(path, "/area") || mode === "replay"),
         item("/trends", "全国の傾向", under(path, "/trends")),
       ],
     },
     {
       label: "養鶏事業者の方",
-      items: [
-        ...farm,
-        // 掲示用の貼り紙は入口だけ外した（画面と /poster は残す。2026-11-06 作者の決定: 入口の注意の紙は各自で作れる）
-        item("/sample", "記録を試す", mode === "sample" && !farm.some((f) => f.current)),
-      ],
+      // 掲示用の貼り紙は入口だけ外した（画面と /poster は残す。2026-11-06 作者の決定: 入口の注意の紙は各自で作れる）
+      items: farm,
     },
     {
       label: "鳥インフルエンザとは",
@@ -68,7 +74,6 @@ function Menu({ groups, onPick }: { groups: MenuGroup[]; onPick: () => void }) {
               <li key={i.to}>
                 <Link to={i.to} className="menu-link" aria-current={i.current ? "page" : undefined} onClick={onPick}>
                   <span>{i.label}</span>
-                  {i.member ? <span className="menu-tag">会員</span> : null}
                 </Link>
               </li>
             ))}
@@ -118,7 +123,8 @@ function useFocusTitleOnRouteChange(pathname: string) {
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
-  const { mode, groups } = shellContextOf(pathname);
+  const member = useMemberMark();
+  const { mode, groups } = shellContextOf(pathname, member);
   const [open, setOpen] = useState(false);
   const menuBtn = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
@@ -149,7 +155,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <p className="app-title">
           <Link to="/">鳥インフル発生状況マップ</Link>
         </p>
-        {mode === "sample" ? null : (
+        {/* 設定は会員だけ（会員でない人の入口はメニューの「会員のログイン」の 1 か所。決定 15） */}
+        {mode === "sample" || !member ? null : (
           <Link className="settings-link" to="/settings/farm">
             設定
           </Link>

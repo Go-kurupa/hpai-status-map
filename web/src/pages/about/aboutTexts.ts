@@ -3,9 +3,10 @@
 
 export const ABOUT_TEXT = {
   title: "このサイトについて",
-  lead: "このサイトの運営者、使っているデータの出典、AI の読み取りの確かさと費用、集める情報と消し方の説明です。",
+  lead: "審査員の方への入口と、このサイトの運営者、使っているデータの出典、AI の読み取りの確かさと費用、集める情報と消し方の説明です。",
   tocLabel: "もくじ",
   sections: {
+    judges: "審査員の方へ",
     operator: "運営者",
     sources: "データの出典",
     ai: "AI の読み取りの確かさと費用",
@@ -13,7 +14,16 @@ export const ABOUT_TEXT = {
   },
   sourcesLead: "国、県、国土交通省、国土地理院が公開しているデータを使っています。県の連絡が正です。",
   sourcesMore: "利用条件と加工の詳しい記録は、この作品のリポジトリの文書（docs/data-sources.md）にあります。",
+  judgesLead: "ハッカソンの審査のために、登録なしで見られるものです。再現と記録を試すは見本で、本物の今季の状況とは別のものです。",
 } as const;
+
+/** 審査員の方への入口（決定 16）。メニューには並べず、ここと README の「審査員の方へ」から開く */
+export const JUDGE_LINKS: ReadonlyArray<{ to: string; label: string }> = [
+  { to: "/replay", label: "去年の再現（2025 年 12 月の 4 事例と全国の流れ）" },
+  { to: "/replay/backstage", label: "舞台裏（2 つの Claude の読み取りと、プログラムの検査）" },
+  { to: "/sample", label: "記録を試す（架空の農場。数字は作り物）" },
+  { to: "#about-ai", label: "AI の読み取りの確かさと費用（このページの下の節）" },
+];
 
 export interface DataSource {
   name: string;
