@@ -239,6 +239,27 @@ describe("内容の検査", () => {
     expect(runHook(COMMIT).status).toBe(0);
   });
 
+  // 相談の知見のカードは、利用条件が自由な資料の短い引用を根拠として持つ（2026-11-07 作者が例外を了承）。
+  // 例外はこの 1 ファイルだけ。同じフォルダのほかのファイルと、ほかの検査は今までどおり。
+  it("data/consult/cards.json の quote だけは止めない", () => {
+    stage({ "data/consult/cards.json": `{\n  "quote": "原文"\n}\n` });
+    expect(runHook(COMMIT).status).toBe(0);
+
+    git(["reset", "-q"]);
+    fs.rmSync(path.join(repo, "data"), { recursive: true });
+    stage({ "data/consult/other.json": `{\n  "quote": "原文"\n}\n` });
+    const r = runHook(COMMIT);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("data/consult/other.json:2:data_quote");
+
+    git(["reset", "-q"]);
+    fs.rmSync(path.join(repo, "data"), { recursive: true });
+    stage({ "data/consult/cards.json": `{\n  "quote": "原文 ${EMAIL}"\n}\n` });
+    const r2 = runHook(COMMIT);
+    expect(r2.status).toBe(2);
+    expect(r2.stderr).toContain("data/consult/cards.json:2:email");
+  });
+
   it("日本語の行番号と長い行でも位置が合う", () => {
     const body = ["日本語の行", "", "++ b/見かけ", `${"あ".repeat(5000)} ${EMAIL}`].join("\n") + "\n";
     stage({ "docs/ja.md": body });

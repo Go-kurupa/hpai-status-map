@@ -8,7 +8,7 @@
 #
 # 検査:
 #   経路        private/（どの階層でも）、HANDOFF.md、CLAUDE.local.md、.env*（.env.example を除く）
-#   内容        anthropic_key、google_api_key、private_key、email、phone、data_quote（data/ の下）
+#   内容        anthropic_key、google_api_key、private_key、email、phone、data_quote（data/ の下。data/consult/cards.json は除く）
 #   語の一覧    private/public-denylist.txt の各行（denylist）。一覧がなくても動く。
 #               英数字だけの語は前後が英数字でないときだけ一致（URL の長い数字を誤検知しない）。
 #               日本語など他の語は部分一致。大文字小文字と全角半角は区別しない。
@@ -130,7 +130,8 @@ function scanLine(file, n, text, ctx) {
   if (RE_PRIVATE_KEY.test(text)) add(file, n, "private_key");
   if (emailHit(text)) add(file, n, "email");
   if (phoneHit(text)) add(file, n, "phone");
-  if (file.startsWith("data/") && RE_QUOTE.test(text)) add(file, n, "data_quote");
+  // 相談の知見のカードは、利用条件が自由な資料の短い引用を根拠として持つ（2026-11-07 作者が例外を了承。この 1 ファイルだけ）
+  if (file.startsWith("data/") && file !== "data/consult/cards.json" && RE_QUOTE.test(text)) add(file, n, "data_quote");
   if (ctx.deny.length) {
     const f = fold(text);
     for (const r of ctx.deny) {
