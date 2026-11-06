@@ -314,4 +314,26 @@ describe("代わりの地図（SVG）", () => {
     await screen.findByRole("group", { name: TEXT.svgMapAria });
     expect(document.querySelector(".svg-badge")).toBeNull();
   });
+
+  // 作者 11/6 夜: 代わりの地図でも、全国の図に町の模様を出し、地方の広さで出す
+  it("重ね合わせの間は、全国の図にも町の模様を出す（県を押さなくても見える）", async () => {
+    const overlay = { first: ["33203", "33214"], second: ["33214", "01100"], show: "both" as const, unwatchedPrefCodes: [] };
+    render(<SvgMap {...props({ overlay })} />);
+    await screen.findByRole("group", { name: TEXT.svgMapAria });
+    const fill = (c: string) => document.querySelector(`[data-code='${c}'][data-fill]`)?.getAttribute("data-fill");
+    await waitFor(() => expect(fill("33203")).toBe("cmp-one"));
+    expect(fill("01100")).toBe("cmp-two");
+    expect(fill("33214")).toBe("cmp-both");
+  });
+
+  it("地方の広さ（2 つ以上の県の町）を指定すると、県の図にせず、全国の図をその地方の範囲で出す", async () => {
+    const { rerender } = render(<SvgMap {...props()} />);
+    const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    const full = map.getAttribute("viewBox");
+    rerender(<SvgMap {...props({ focus: { kind: "muni", codes: ["31201", "32201", "33203", "34100", "35201"], nonce: 1 } })} />);
+    await waitFor(() => expect(screen.getByRole("group", { name: TEXT.svgMapAria }).getAttribute("viewBox")).not.toBe(full));
+    expect(screen.queryByRole("group", { name: /鳥取県の市町村/ })).toBeNull();
+    rerender(<SvgMap {...props({ focus: { kind: "japan", codes: [], nonce: 2 } })} />);
+    await waitFor(() => expect(screen.getByRole("group", { name: TEXT.svgMapAria }).getAttribute("viewBox")).toBe(full));
+  });
 });

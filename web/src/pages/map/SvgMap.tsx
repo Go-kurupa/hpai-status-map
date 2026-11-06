@@ -278,6 +278,8 @@ export default function SvgMap(props: SvgMapProps) {
   const [anchors, setAnchors] = useState<Anchors | null>(null);
   const [japan, setJapan] = useState<JapanData | null>(null);
   const [prefCode, setPrefCode] = useState<PrefCode | null>(null);
+  // 地方の広さ（2 つ以上の県の町）を指定されたときの県。全国の図をこの県の範囲で切り取って出す（作者 11/6 夜）
+  const [regionPrefs, setRegionPrefs] = useState<PrefCode[] | null>(null);
   const [pref, setPref] = useState<PrefData | null>(null);
   const [scale, setScale] = useState(REF_WIDTH / W); // viewBox の 1 単位が画面の何 px か（実測できるまでは目安）
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -331,10 +333,19 @@ export default function SvgMap(props: SvgMapProps) {
   useEffect(() => {
     const f = latest.current.focus;
     if (!f || !store) return;
-    if (f.kind === "japan") setPrefCode(null);
-    else {
-      const p = f.codes.map((c) => store.index[c]?.prefCode).find((x): x is PrefCode => !!x);
-      if (p) setPrefCode(p);
+    if (f.kind === "japan") {
+      setPrefCode(null);
+      setRegionPrefs(null);
+      return;
+    }
+    const prefs = [...new Set(f.codes.map((c) => store.index[c]?.prefCode).filter((x): x is PrefCode => !!x))];
+    if (prefs.length > 1) {
+      // 地方: 県の図にせず、全国の図をその県の範囲で出す（1 つめの県だけの図にしない）
+      setPrefCode(null);
+      setRegionPrefs(prefs);
+    } else if (prefs.length === 1) {
+      setPrefCode(prefs[0]!);
+      setRegionPrefs(null);
     }
   }, [nonce, store]);
 
@@ -425,10 +436,25 @@ export default function SvgMap(props: SvgMapProps) {
       return `${parts.join("、")}。押すと市町村の図になります`;
     };
     const lines = (codes: Set<MuniCode>) => [...codes].map((c) => japan.muniPath(c)).filter((d): d is string => !!d);
+    // 地方の広さなら、その県の外枠をつないだ範囲に切り取る（少し余白を足す）
+    const regionShapes = regionPrefs ? japan.prefs.filter((s) => regionPrefs.includes(s.code)) : [];
+    const japanViewBox = (() => {
+      if (regionShapes.length === 0) return `0 0 ${W} ${japan.proj.height}`;
+      const x0 = Math.min(...regionShapes.map((s) => s.box.cx - s.box.size / 2));
+      const y0 = Math.min(...regionShapes.map((s) => s.box.cy - s.box.size / 2));
+      const x1 = Math.max(...regionShapes.map((s) => s.box.cx + s.box.size / 2));
+      const y1 = Math.max(...regionShapes.map((s) => s.box.cy + s.box.size / 2));
+      const pad = Math.max(x1 - x0, y1 - y0) * 0.05;
+      return `${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}`;
+    })();
+    // 重ね合わせの間は、全国の図にも町の模様と縁を描く（県を押さなくても見える。作者 11/6 夜）
+    const cmpCodes: Array<[MuniCode, keyof typeof CMP_HATCH]> = cmp
+      ? [...[...cmp.one].map((c): [MuniCode, keyof typeof CMP_HATCH] => [c, "cmp-one"]), ...[...cmp.two].map((c): [MuniCode, keyof typeof CMP_HATCH] => [c, "cmp-two"]), ...[...cmp.both].map((c): [MuniCode, keyof typeof CMP_HATCH] => [c, "cmp-both"])]
+      : [];
     body = (
       <>
         <p className="map-note">{TEXT.svgPrefHint}</p>
-        <svg className="svg-map" viewBox={`0 0 ${W} ${japan.proj.height}`} role="group" aria-label={TEXT.svgMapAria}>
+        <svg className="svg-map" viewBox={japanViewBox} role="group" aria-label={TEXT.svgMapAria}>
           {defs}
           {japan.prefs.map((s) => (
             <path
@@ -448,6 +474,10 @@ export default function SvgMap(props: SvgMapProps) {
             {japan.prefs
               .filter((s) => sets.unwatched.has(s.code))
               .map((s) => unwatchedFill(s.code, s.d))}
+            {cmpCodes.map(([c, f]) => {
+              const d = japan.muniPath(c);
+              return d ? <path key={c} d={d} data-code={c} data-fill={f} fill={`url(#${hatchId(CMP_HATCH[f])})`} stroke={CMP_COLOR[f]} strokeWidth={2} vectorEffect="non-scaling-stroke" /> : null;
+            })}
             {japan.prefs.map((s) => (
               <path key={s.code} className="svg-pref-line" d={s.d} fill="none" {...LINE.pref} />
             ))}
