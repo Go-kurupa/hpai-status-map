@@ -41,9 +41,39 @@ function lengthAndUrlFailures(text: string, maxChars: number): string[] {
   return failures;
 }
 
-// 文に書いてある数字。正規化の後で数える（全角の数字も同じ数字）。
+// 漢数字（〇〜九、十、百、千、万）を整数にする。「二十」は 20、「二〇」は 20。
+function kanjiToInt(k: string): number {
+  const digit = "〇一二三四五六七八九";
+  if (![...k].some((c) => "十百千万".includes(c))) {
+    return Number([...k].map((c) => digit.indexOf(c)).join(""));
+  }
+  const unit: Record<string, number> = { 十: 10, 百: 100, 千: 1000 };
+  let total = 0;
+  let section = 0;
+  let num = 0;
+  for (const c of k) {
+    const d = digit.indexOf(c);
+    if (d >= 0) num = d;
+    else if (c === "万") {
+      total += (section + num || 1) * 10000;
+      section = 0;
+      num = 0;
+    } else {
+      section += (num || 1) * (unit[c] ?? 0);
+      num = 0;
+    }
+  }
+  return total + section + num;
+}
+
+// 「倍」「割」「%」「羽」「戸」の直前の漢数字は数字として扱う（三倍、二十羽）。十分、一部は対象外。
+const KANJI_COUNT = /[〇一二三四五六七八九十百千万]+(?=倍|割|%|羽|戸)/gu;
+
+// 文に書いてある数字。正規化の後で数える（全角の数字も同じ数字）。漢数字の数量も数字にする。
 function numbersOf(s: string): string[] {
-  return normalizeForMatch(s).match(/\d+/gu) ?? [];
+  const n = normalizeForMatch(s);
+  const kanji = (n.match(KANJI_COUNT) ?? []).map((k) => String(kanjiToInt(k)));
+  return [...(n.match(/\d+/gu) ?? []), ...kanji];
 }
 
 // 引いたカードに書いてよい数字: quote、appliesTo、action にある数字。

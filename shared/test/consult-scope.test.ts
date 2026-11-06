@@ -8,6 +8,8 @@ describe("範囲外の問いの見分け", () => {
 
   it("健康の問いは範囲外", () => {
     expect(isOutOfScopeQuestion("人にうつりますか")).toBe(true);
+    expect(isOutOfScopeQuestion("ヒトにも感染する？")).toBe(true);
+    expect(isOutOfScopeQuestion("従業員の健康への影響は？")).toBe(true);
     expect(isOutOfScopeQuestion("人へ感染しますか")).toBe(true);
     expect(isOutOfScopeQuestion("人間にも感染する？")).toBe(true);
     expect(isOutOfScopeQuestion("人の健康への影響は？")).toBe(true);
@@ -25,7 +27,10 @@ describe("範囲外の問いの見分け", () => {
   it("診断の問いは範囲外", () => {
     expect(isOutOfScopeQuestion("鶏が元気がないのは鳥インフルですか")).toBe(true);
     expect(isOutOfScopeQuestion("この症状は何ですか")).toBe(true);
-    expect(isOutOfScopeQuestion("鶏が死んだのですが")).toBe(true);
+    expect(isOutOfScopeQuestion("鳥インフルエンザですか")).toBe(true);
+    expect(isOutOfScopeQuestion("鳥インフルかもしれない")).toBe(true);
+    expect(isOutOfScopeQuestion("鶏が死んでいるのが急に増えた")).toBe(true);
+    expect(isOutOfScopeQuestion("ぐったりしている")).toBe(true);
     expect(isOutOfScopeQuestion("陽性ですか")).toBe(true);
   });
 
@@ -41,5 +46,12 @@ describe("範囲外の問いの見分け", () => {
   it("単独のうつる、感染するは健康の問いとみなさない", () => {
     expect(isOutOfScopeQuestion("鶏舎にウイルスがうつる経路は？")).toBe(false);
     expect(isOutOfScopeQuestion("鶏舎の間で感染する経路は？")).toBe(false);
+  });
+
+  it("人や健康や死んだ、が出てくるだけの対策の問いは範囲内", () => {
+    expect(isOutOfScopeQuestion("外部の人に長靴を貸してよい？")).toBe(false);
+    expect(isOutOfScopeQuestion("業者の人に消毒をお願いするには")).toBe(false);
+    expect(isOutOfScopeQuestion("鶏の健康管理の基本は？")).toBe(false);
+    expect(isOutOfScopeQuestion("死んだ鶏の処理・消毒は？")).toBe(false);
   });
 });

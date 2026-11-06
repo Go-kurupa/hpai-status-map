@@ -87,6 +87,21 @@ describe("validatePlan", () => {
     expect(r.rows.map((x) => x.cardId)).toEqual(["a"]);
   });
 
+  it("漢数字の数量（三倍）も数字として検査する。十分、一部は対象外", () => {
+    const r = validatePlan(
+      { items: [{ cardId: "a", reason: "被害が三倍になる" }, { cardId: "b", reason: "十分に離す" }, { cardId: "c", reason: "一部を覆う" }] },
+      candidates,
+      allCards,
+    );
+    expect(r.rows.map((x) => x.cardId)).toEqual(["b", "c"]);
+    // 二十羽は 20。カードに 20 があれば通る
+    const d = makeCard({ id: "d", appliesTo: "20羽以上" });
+    const r2 = validatePlan({ items: [{ cardId: "d", reason: "二十羽以上が対象" }] }, [cand(d)], [d]);
+    expect(r2.rows.map((x) => x.cardId)).toEqual(["d"]);
+    const r3 = validatePlan({ items: [{ cardId: "d", reason: "三十羽以上が対象" }] }, [cand(d)], [d]);
+    expect(r3.source).toBe("program");
+  });
+
   it("別のカードの数字は通らない", () => {
     const r = validatePlan({ items: [{ cardId: "b", reason: "網目は 2 cm 以下" }, { cardId: "c", reason: "理由" }] }, candidates, allCards);
     expect(r.rows.map((x) => x.cardId)).toEqual(["c"]);
@@ -177,6 +192,11 @@ describe("validateFollowup", () => {
     expect(validateFollowup({ answer: "3 倍になります", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
     // 引いていない別のカードの数字も不可
     expect(validateFollowup({ answer: "網目は 2 cm 以下", cardIds: ["b"] }, ["a", "b"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+  });
+
+  it("カードにない三倍を含む答えは落ち、十分には落ちない", () => {
+    expect(validateFollowup({ answer: "被害は三倍になります", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(validateFollowup({ answer: "十分に離してください", cardIds: ["a"] }, ["a"], cards).answer).toBe("十分に離してください");
   });
 
   it("カードの一覧を渡さないときは、数字を確かめられないので数字を含む答えを通さない", () => {
