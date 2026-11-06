@@ -45,7 +45,7 @@ describe("AboutPage（このサイトについて）", () => {
     expect(screen.queryByRole("heading", { name: "プライバシー" })).toBeNull();
     expect(screen.getAllByRole("heading", { name: "運営者" })).toHaveLength(1);
   });
-  it("審査員の方への節に、去年の再現、舞台裏、記録を試す、AI の読み取りの確かさの 5 つの入口がある（決定 16。対策の相談を足した）", () => {
+  it("審査員の方への節に、去年の再現、舞台裏、記録を試す、対策の相談を試す、AI の読み取りの確かさの 5 つの入口がある（決定 16。対策の相談を足した）", () => {
     render(<MemoryRouter><AboutPage /></MemoryRouter>);
     const sec = document.getElementById("about-judges") as HTMLElement;
     expect(within(sec).getByRole("heading", { level: 2 }).textContent).toBe("審査員の方へ");

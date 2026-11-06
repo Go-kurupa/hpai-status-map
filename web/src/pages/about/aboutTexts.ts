@@ -12,7 +12,7 @@ export const ABOUT_TEXT = {
     ai: "AI の読み取りの確かさと費用",
     privacy: "集める情報と消し方",
   },
-  sourcesLead: "国、県、国土交通省、国土地理院が公開しているデータを使っています。県の連絡が正です。",
+  sourcesLead: "国、県、国土交通省、国土地理院が公開しているデータと、対策の相談では海外の公的機関の資料と論文を使っています。県の連絡が正です。",
   sourcesMore: "利用条件と加工の詳しい記録は、この作品のリポジトリの文書（docs/data-sources.md）にあります。",
   judgesLead: "ハッカソンの審査のために、登録なしで見られるものです。再現と記録を試すは見本で、本物の今季の状況とは別のものです。",
 } as const;
@@ -22,7 +22,7 @@ export const JUDGE_LINKS: ReadonlyArray<{ to: string; label: string }> = [
   { to: "/replay", label: "去年の再現（2025 年 12 月の 4 事例と全国の流れ）" },
   { to: "/replay/backstage", label: "舞台裏（2 つの Claude の読み取りと、プログラムの検査）" },
   { to: "/sample", label: "記録を試す（架空の農場。数字は作り物）" },
-  { to: "/consult?judge=1", label: "対策の相談を試す（公的資料のカードだけで答えます。回数に上限あり、保存しません）" },
+  { to: "/consult?judge=1", label: "対策の相談を試す（公的資料と論文のカードだけで答えます。回数に上限あり、保存しません）" },
   { to: "#about-ai", label: "AI の読み取りの確かさと費用（このページの下の節）" },
 ];
 
@@ -65,6 +65,11 @@ export const DATA_SOURCES: readonly DataSource[] = [
     url: "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html",
   },
   {
+    name: "国土交通省「大字・町丁目位置参照情報」（令和 7 年）",
+    use: "くわしい場所を決めるとき、地区（大字）を選んで地図を寄せる目安の点（この作品の作者が、県ごとの一覧に作成）",
+    url: "https://nlftp.mlit.go.jp/isj/index.html",
+  },
+  {
     name: "国土地理院 地理院タイル",
     use: "地図の下絵（行政区域を追記して掲載）",
     url: "https://maps.gsi.go.jp/development/ichiran.html",
@@ -72,6 +77,11 @@ export const DATA_SOURCES: readonly DataSource[] = [
   {
     name: "厚生労働省、環境省、農林水産省の公開の文書",
     use: "「鶏を飼っていない方へ」などに、原文のまま短く引用した文",
+    url: null,
+  },
+  {
+    name: "対策の相談の資料 23 件（農林水産省、県、論文 10 本、英国 Defra、米国 USDA APHIS の公開資料）",
+    use: "対策の相談の根拠のカード。資料ごとの題と URL は、相談の画面のカードに出しています",
     url: null,
   },
 ];
