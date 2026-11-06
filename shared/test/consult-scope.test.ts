@@ -29,6 +29,8 @@ describe("範囲外の問いの見分け", () => {
     expect(isOutOfScopeQuestion("この症状は何ですか")).toBe(true);
     expect(isOutOfScopeQuestion("鳥インフルエンザですか")).toBe(true);
     expect(isOutOfScopeQuestion("鳥インフルかもしれない")).toBe(true);
+    expect(isOutOfScopeQuestion("鳥インフルの疑いがある")).toBe(true);
+    expect(isOutOfScopeQuestion("鳥インフルにかかったかも")).toBe(true);
     expect(isOutOfScopeQuestion("鶏が死んでいるのが急に増えた")).toBe(true);
     expect(isOutOfScopeQuestion("ぐったりしている")).toBe(true);
     expect(isOutOfScopeQuestion("陽性ですか")).toBe(true);
@@ -53,5 +55,9 @@ describe("範囲外の問いの見分け", () => {
     expect(isOutOfScopeQuestion("業者の人に消毒をお願いするには")).toBe(false);
     expect(isOutOfScopeQuestion("鶏の健康管理の基本は？")).toBe(false);
     expect(isOutOfScopeQuestion("死んだ鶏の処理・消毒は？")).toBe(false);
+    expect(isOutOfScopeQuestion("鳥インフルエンザ対策は何ですか")).toBe(false);
+    expect(isOutOfScopeQuestion("鳥インフルの予防で大事なことは何ですか")).toBe(false);
+    expect(isOutOfScopeQuestion("鳥インフルエンザの侵入を防ぐ方法は何ですか")).toBe(false);
+    expect(isOutOfScopeQuestion("死亡の原因になる野生動物の侵入を防ぐには")).toBe(false);
   });
 });
