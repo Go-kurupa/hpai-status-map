@@ -68,7 +68,10 @@ function rig(o: { cases?: Case[]; failed?: string[]; historyFails?: boolean } = 
   );
 }
 
-const press = (group: string, name: string) => fireEvent.click(within(screen.getByRole("group", { name: group })).getByRole("button", { name }));
+// ボタンの名前は「採卵鶏 171」のように件数が付く。件数の前の語で探す
+const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const chip = (name: string) => new RegExp(`^${esc(name)}( [0-9,]+ 件)?$`);
+const press = (group: string, name: string) => fireEvent.click(within(screen.getByRole("group", { name: group })).getByRole("button", { name: group === EXPLORE_TEXT.questionsAria ? name : chip(name) }));
 const answer = () => document.querySelector(".explore-answer")!.textContent ?? "";
 
 afterEach(cleanup);
@@ -79,16 +82,16 @@ describe("ExplorePage", () => {
     await screen.findByText(/過去 6 シーズンと今季/);
     press(EXPLORE_TEXT.questionsAria, "中国地方の過去は？");
     const region = screen.getByRole("group", { name: EXPLORE_TEXT.regionLabel });
-    expect(within(region).getByRole("button", { name: "中国" }).getAttribute("aria-pressed")).toBe("true");
-    expect(within(screen.getByRole("group", { name: EXPLORE_TEXT.useLabel })).getByRole("button", { name: "すべて" }).getAttribute("aria-pressed")).toBe("true");
-    expect(within(screen.getByRole("group", { name: EXPLORE_TEXT.bandLabel })).getByRole("button", { name: "すべて" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(region).getByRole("button", { name: chip("中国") }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(screen.getByRole("group", { name: EXPLORE_TEXT.useLabel })).getByRole("button", { name: chip("すべて") }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(screen.getByRole("group", { name: EXPLORE_TEXT.bandLabel })).getByRole("button", { name: chip("すべて") }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("各段は複数選べる。もう一度押すと外れ、「すべて」で戻る。地方が 2 つなら地図への口は出さない", async () => {
     rig();
     await screen.findByText(/過去 6 シーズンと今季/);
     const use = () => screen.getByRole("group", { name: EXPLORE_TEXT.useLabel });
-    const pressed = () => within(use()).getAllByRole("button").filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.textContent);
+    const pressed = () => within(use()).getAllByRole("button").filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.firstChild!.textContent);
     press(EXPLORE_TEXT.useLabel, "採卵鶏");
     press(EXPLORE_TEXT.useLabel, "肉用鶏");
     expect(pressed()).toEqual(["採卵鶏", "肉用鶏"]);
@@ -172,6 +175,73 @@ describe("ExplorePage", () => {
     await screen.findByText(/過去 6 シーズンと今季/);
     const nav = screen.getByRole("navigation", { name: "過去の発生の見方" });
     expect(within(nav).getByRole("link", { name: "条件で見る" }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("ボタンに件数が出る。選んでもその段のほかのボタンは 0 にならない", async () => {
+    rig();
+    await screen.findByText(/過去 6 シーズンと今季/);
+    const use = screen.getByRole("group", { name: EXPLORE_TEXT.useLabel });
+    expect(within(use).getByRole("button", { name: "採卵鶏 171 件" })).toBeTruthy();
+    press(EXPLORE_TEXT.useLabel, "採卵鶏");
+    expect(within(use).getByRole("button", { name: "肉用鶏 54 件" })).toBeTruthy();
+    press(EXPLORE_TEXT.regionLabel, "中国");
+    expect(within(use).getByRole("button", { name: "採卵鶏 16 件" })).toBeTruthy();
+    // 並びは固定（件数で並べ替えない）
+    expect(within(use).getAllByRole("button").map((b) => b.firstChild!.textContent)).toEqual(["すべて", "採卵鶏", "肉用鶏", "あひる", "その他"]);
+  });
+
+  it("月ごとの件数は 6 月から 5 月の 12 か月。月の行を押すとその月だけになり、もう一度押すと戻る", async () => {
+    rig();
+    await screen.findByText(/過去 6 シーズンと今季/);
+    const months = screen.getByRole("group", { name: EXPLORE_TEXT.monthsAria });
+    const buttons = within(months).getAllByRole("button");
+    expect(buttons).toHaveLength(12);
+    expect(buttons[0]!.textContent).toContain("6 月");
+    expect(buttons[11]!.textContent).toContain("5 月");
+    const dec = within(months).getByRole("button", { name: /^12 月/ });
+    expect(dec.textContent).toContain("72 件");
+    fireEvent.click(dec);
+    expect(dec.getAttribute("aria-pressed")).toBe("true");
+    expect(answer()).toContain("72 件");
+    expect(answer()).toContain("12 月");
+    expect(document.querySelectorAll(".explore-cases tbody tr")).toHaveLength(72);
+    // 月で絞っても、ほかの月の数は消えない
+    expect(within(months).getByRole("button", { name: /^1 月/ }).textContent).toContain("74 件");
+    fireEvent.click(dec);
+    expect(dec.getAttribute("aria-pressed")).toBe("false");
+    expect(answer()).toContain("247 件");
+  });
+
+  it("日付の記載がない今季の事例は数を伝える", async () => {
+    rig({ cases: [nowCase({ stages: {} })] });
+    await screen.findByText(/過去 6 シーズンと今季/);
+    expect(screen.getByText(EXPLORE_TEXT.undated(1))).toBeTruthy();
+  });
+
+  it("シーズン × 月の表のセルに数が出る", async () => {
+    rig();
+    await screen.findByText(/過去 6 シーズンと今季/);
+    const table = screen.getByRole("table", { name: EXPLORE_TEXT.gridCaption });
+    expect(table.querySelectorAll("tbody tr")).toHaveLength(7);
+    expect(table.querySelectorAll("thead th")).toHaveLength(13);
+    const total = [...table.querySelectorAll("tbody td")].reduce((n, td) => n + Number(td.textContent), 0);
+    expect(total).toBe(247);
+  });
+
+  it("守る文は結果全体に 1 回だけ（月ごとには出さない）", async () => {
+    rig();
+    await screen.findByText(/過去 6 シーズンと今季/);
+    press(EXPLORE_TEXT.regionLabel, "中国");
+    press(EXPLORE_TEXT.bandLabel, "1,000 羽未満");
+    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+  });
+
+  it("問いのボタンは月の絞りを外す", async () => {
+    rig();
+    await screen.findByText(/過去 6 シーズンと今季/);
+    fireEvent.click(within(screen.getByRole("group", { name: EXPLORE_TEXT.monthsAria })).getByRole("button", { name: /^12 月/ }));
+    press(EXPLORE_TEXT.questionsAria, "中国地方の過去は？");
+    expect(answer()).toContain("19 件");
   });
 
   it("画面に禁じた語がない", async () => {

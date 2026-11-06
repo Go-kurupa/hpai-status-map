@@ -66,6 +66,14 @@
   color: var(--on-accent);
   font-weight: 700;
 }
+/* ボタンに添える件数（E4b）。語より小さく、押されたときも読める色 */
+.explore-chip-count {
+  margin-left: 2px;
+  font-size: 0.85em;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
 .explore-answer {
   margin: 4px 0 0;
   font-size: 1.15rem;
@@ -103,6 +111,80 @@
 }
 .explore-bars tr.is-current .explore-bar-fill {
   background: var(--lv1);
+}
+/* 月ごとの件数。1 行が 1 つのボタン（押すとその月に絞る） */
+.explore-months h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+.explore-months [role="group"] {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+}
+.explore-months button {
+  display: grid;
+  grid-template-columns: 3.5em 1fr 5em;
+  gap: 8px;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+.explore-months button[aria-pressed="true"] {
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-control);
+  font-weight: 700;
+}
+.explore-months button[aria-pressed="true"] .explore-bar-fill {
+  background: var(--accent);
+}
+.explore-month-count {
+  text-align: right;
+  white-space: nowrap;
+}
+.explore-month-track {
+  display: block;
+}
+.explore-month-track .explore-bar-fill {
+  display: block;
+}
+/* シーズン × 月の表。数を必ず書き、薄い色は補助。スマホは横に送る */
+.explore-grid {
+  overflow-x: auto;
+}
+.explore-grid table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.explore-grid th,
+.explore-grid td {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.explore-grid th {
+  font-weight: 400;
+}
+.explore-grid tbody th {
+  text-align: left;
+}
+.explore-grid .is-picked {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  font-weight: 700;
+}
+.explore-grid tr.is-current th {
+  font-weight: 700;
 }
 .explore-cases {
   max-height: 28rem;
