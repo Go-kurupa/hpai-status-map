@@ -20,7 +20,8 @@ export const SECTION_TABS = {
       // 用途・羽数・地方で絞る（設計書 2026-11-06-data-explore E1）
       { to: "/explore", label: "条件で見る", match: (p) => under(p, "/explore") },
       // 去年の再現は審査員向けの見本なので、ここに並べず「このサイトについて」の審査員の節から開く（決定 16）
-      { to: "/town", label: "選択地域のまわり", match: (p) => under(p, "/town") || under(p, "/area") },
+      // 選択地域のまわり（/town）は、最初の画面の右の欄と案内ページ（/area）と中身が重なるので並べない（作者 11/7）。
+      // 画面は残し、最初の画面の「選択地域の過去を見る」から開く
     ],
   },
 } satisfies Record<string, { label: string; tabs: Tab[] }>;

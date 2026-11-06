@@ -28,12 +28,13 @@ export const MENU_ITEMS: ReadonlyArray<{ name: string; path: string }> = [
 ];
 
 /** 今季の発生・過去の発生の中の見方（メニューの項目と、中の切り替えの名前） */
-const VIEWS: Readonly<Record<string, { menu: string; tabs: string; tab: string }>> = {
+const VIEWS: Readonly<Record<string, { menu: string; tabs?: string; tab?: string; link?: string }>> = {
   今季の発生と地図: { menu: "今季の発生", tabs: "今季の発生の見方", tab: "地図" },
   今季の一覧と数: { menu: "今季の発生", tabs: "今季の発生の見方", tab: "一覧と数" },
   過去シーズンとの比べ: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "全国とシーズン" },
   条件で見る: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "条件で見る" },
-  選択地域の過去: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "選択地域のまわり" },
+  // 切り替えには並べない（作者 11/7）。最初の画面の「選択地域の過去を見る」のリンクから開く
+  選択地域の過去: { menu: "今季の発生", link: "選択地域の過去を見る" },
 };
 
 /**
@@ -47,5 +48,6 @@ export async function goViaMenu(page: Page, name: string): Promise<void> {
   const nav = menuNav(page);
   await expect(nav).toBeVisible();
   await nav.getByRole("link", { name: view ? view.menu : name }).first().click();
-  if (view) await page.getByRole("navigation", { name: view.tabs }).getByRole("link", { name: view.tab, exact: true }).click();
+  if (view?.link) await page.getByRole("link", { name: view.link, exact: true }).first().click();
+  else if (view?.tabs && view.tab) await page.getByRole("navigation", { name: view.tabs }).getByRole("link", { name: view.tab, exact: true }).click();
 }
