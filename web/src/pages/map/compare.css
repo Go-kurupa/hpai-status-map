@@ -1,0 +1,75 @@
+/* 過去シーズンとの重ね合わせ（設計書 2026-11-06-data-explore E8〜E15）。色は ui/theme.css の --cmp-*。
+   map.css は別の作業と同時に直されることがあるので、重ね合わせの見た目はここに分けて置く */
+.cmp-overlay {
+  display: grid;
+  gap: 8px;
+}
+.cmp-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+.cmp-picks .compare-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.cmp-show,
+.cmp-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cmp-show button,
+.cmp-scope button {
+  min-height: var(--tap);
+  padding: 4px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.cmp-show button[aria-pressed="true"],
+.cmp-scope button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+/* 凡例の見本。「／」は比べる 1、「＼」は比べる 2、「×」は両方。地図の斜線と同じ向き */
+.cmp-swatch {
+  display: inline-block;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  border: 1px solid var(--line);
+  vertical-align: middle;
+}
+.cmp-swatch.is-one {
+  background: repeating-linear-gradient(135deg, var(--cmp-one) 0 3px, var(--surface) 3px 8px);
+}
+.cmp-swatch.is-two {
+  background: repeating-linear-gradient(45deg, var(--cmp-two) 0 3px, var(--surface) 3px 8px);
+}
+.cmp-swatch.is-both {
+  background:
+    repeating-linear-gradient(135deg, var(--cmp-both) 0 3px, transparent 3px 8px),
+    repeating-linear-gradient(45deg, var(--cmp-both) 0 3px, var(--surface) 3px 8px);
+}
+.cmp-swatch.is-unwatched {
+  background: color-mix(in srgb, var(--muted) 25%, var(--surface));
+}
+.cmp-cases-block h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 12px 0 4px;
+  font-size: 1rem;
+}
+.cmp-cases-block + .cmp-cases-block {
+  border-top: 1px solid var(--line);
+}

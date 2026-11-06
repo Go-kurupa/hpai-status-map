@@ -493,10 +493,15 @@ function cssRules(): { file: string; selector: string; body: string }[] {
 
 describe("機械の検査: css", () => {
   const MAP = "web/src/pages/map/map.css";
+  const CMP = "web/src/pages/map/compare.css";
   const DECOR_ALLOWED = new Set([
     `${MAP} .swatch-hatch`,
     `${MAP} .swatch-unwatched`,
     `${MAP} .swatch-hatch.is-past`,
+    // 過去シーズンとの重ね合わせの凡例の見本（「／」「＼」「×」。設計書 2026-11-06-data-explore E8）
+    `${CMP} .cmp-swatch.is-one`,
+    `${CMP} .cmp-swatch.is-two`,
+    `${CMP} .cmp-swatch.is-both`,
   ]);
   const RADIUS_ALLOWED = new Set([`${MAP} .pref-badge`, `${MAP} .swatch-ring`]);
   // 影は地図のカードだけ（設計書 2-2）。今の画面に地図のポップアップはない
@@ -514,6 +519,11 @@ describe("機械の検査: css", () => {
     // 条件で見るの問いと条件のボタン（設計書 2026-11-06-data-explore E2、E3）
     ".explore-questions button",
     ".explore-row button",
+    // 条件で見るの月の行（押すとその月に絞る。設計書 E4b）
+    '.explore-months button[aria-pressed="true"]',
+    // 重ね合わせの見せ方と、地図の広さのボタン（設計書 E8、E15）
+    ".cmp-show button",
+    ".cmp-scope button",
     ".case-list-toggle",
     ".record-tabs a",
     ".sample-nav a",
@@ -547,7 +557,7 @@ describe("機械の検査: css", () => {
     const hits = files.filter((f) => /#(?:00639b|5c6168|1b1d21|f1f2f4|e6eef5)\b/i.test(fs.readFileSync(f, "utf8")));
     expect(hits.map((f) => path.relative(repoRoot, f))).toEqual([]);
   });
-  it("グラデーション・ぼかしは許可の 3 つ以外に無い", () => {
+  it("グラデーション・ぼかしは許可したもの以外に無い", () => {
     const bad = cssRules().filter(
       (r) =>
         /linear-gradient|radial-gradient|backdrop-filter|text-shadow/i.test(r.body) &&
@@ -555,7 +565,7 @@ describe("機械の検査: css", () => {
     );
     expect(bad.map((r) => `${r.file} ${r.selector}`)).toEqual([]);
   });
-  it("許可の 3 つは、凡例の斜線の見本としてだけ使われている", () => {
+  it("許可したものは、凡例の斜線の見本としてだけ使われている", () => {
     const used = cssRules()
       .filter((r) => /gradient|text-shadow|backdrop-filter/i.test(r.body))
       .map((r) => `${r.file} ${r.selector}`)
