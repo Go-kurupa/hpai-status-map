@@ -147,8 +147,9 @@ test.describe("自分の町の 1 文", () => {
     // / にはシーズンの切り替えがない（設計書 2026-11-06-ui-frame 4.1）。/compare で昨季を選び、画面の中の移動で / へ戻っても、色は lv1 のまま
     // （画面は行き先ごとに作り直すので、/ はいつも今季）
     await goViaMenu(page, "過去シーズンとの比べ");
-    await page.getByRole("button", { name: /昨季/ }).click();
-    await expect(page.getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
+    // 比べるシーズンのボタンにも「昨季」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
+    await page.locator(".season-bar").getByRole("button", { name: /昨季/ }).click();
+    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
     await goViaMenu(page, "今季の発生と地図");
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");

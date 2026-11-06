@@ -89,15 +89,16 @@ test.describe("一覧", () => {
     }
     // シーズンの切り替えは /compare。昨季を選ぶと 24 件
     await page.goto("/compare");
-    await page.getByRole("button", { name: /昨季.*24 件/ }).click();
-    await expect(page.getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
+    // 比べるシーズンのボタンにも「昨季」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
+    await page.locator(".season-bar").getByRole("button", { name: /昨季.*24 件/ }).click();
+    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   // 昨季を選んで 24 行を見る。シーズンの切り替えと、選んだシーズンの一覧は /compare にある（設計書 2026-11-06-ui-frame 4.4）。
   // 画面は行き先ごとに作り直すので、選んだシーズンは他の画面へ持ち越さない（/ はいつも今季）
   test("昨季を /compare で選ぶと、そこの一覧が 24 行で、出典は maff.go.jp", async ({ page }) => {
     await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird], path: "/compare" });
-    await page.getByRole("button", { name: /昨季.*24 件/ }).click();
+    await page.locator(".season-bar").getByRole("button", { name: /昨季.*24 件/ }).click();
     const toggle = page.getByRole("button", { name: /一覧/ });
     await toggle.click();
     const rows = page.getByRole("list", { name: "発生の一覧" }).getByRole("listitem");
