@@ -45,6 +45,7 @@ web/public/evals/
 web/public/trends/
 web/public/migration/
 web/public/consult/
+web/public/oaza/
 .firebase/
 .secret.local
 web/test-results/

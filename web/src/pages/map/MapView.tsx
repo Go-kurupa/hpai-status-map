@@ -28,7 +28,11 @@ export interface MapViewProps {
    * minZoom は場所合わせ（くわしい場所を決める）のときだけ渡す。codes の町へ寄せ、拡大がこれに届かなければ最初の町の中心でこの拡大まで寄せる。
    * 場所合わせを始めると地図の箱の幅が変わるので、寄せる前に地図の大きさを測り直す
    */
-  focus: { kind: "japan" | "muni" | "rings"; codes: MuniCode[]; nonce: number; minZoom?: number } | null;
+  /**
+   * 見る場所。point は場所合わせで選んだ地区（大字）の目安の点 at（[経度, 緯度]）へ、拡大 OAZA_ZOOM で寄せる。
+   * 点は寄せる先の計算だけに使い、保存も送信もしない
+   */
+  focus: { kind: "japan" | "muni" | "rings" | "point"; codes: MuniCode[]; nonce: number; minZoom?: number; at?: [number, number] } | null;
   pickMode?: boolean;
   onSelectMuni?: (code: MuniCode) => void;
   /** 場所を選んでいないときに町を押したら、その町の事例を見る（設計書 2026-11-06-ui-frame 決定 4）。onSelectMuni が優先 */
@@ -54,6 +58,8 @@ type Bounds = [number, number, number, number];
 const FIT = { padding: 8 } as const;
 /** 3 つ以上の比べで、発生したシーズンの数の札を出し始める倍率（全国の広さでは重なるので出さない） */
 const COUNT_ZOOM = 7;
+/** 地区（大字）の目安の点へ寄せる拡大。約 1km のマス目が見分けられ、決められる拡大（SPOT_MIN_ZOOM）より大きい */
+export const OAZA_ZOOM = 13;
 // WebGL2 が使えない端末の、境の線だけの代わりの地図。必要なときだけ別の chunk で読む
 const SvgMap = lazy(() => import("./SvgMap"));
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
@@ -320,6 +326,11 @@ export default function MapView(props: MapViewProps) {
     if (!ready || !map || !geo || !f) return;
     if (f.kind === "japan") {
       map.fitBounds(JAPAN_BOUNDS, FIT);
+      return;
+    }
+    if (f.kind === "point") {
+      // 地区の目安の点へ。今より引いた広さにはしない（十字で合わせかけている拡大を保つ）
+      if (f.at) map.jumpTo({ center: f.at, zoom: Math.max(map.getZoom(), OAZA_ZOOM) });
       return;
     }
     const outer = f.kind === "rings" ? rings?.features.at(-1)?.geometry.coordinates[0] : undefined;

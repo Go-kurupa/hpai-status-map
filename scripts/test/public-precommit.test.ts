@@ -305,6 +305,18 @@ describe("非公開の語の一覧", () => {
     expect(r.stderr).not.toContain("README.md");
   });
 
+  it("data/oaza/ の下（国の地名の一覧）だけは語を照合しない。ほかの data/ の下は止める", () => {
+    denylist();
+    stage({ "data/oaza/33.json": `{"33000":[["${WORD_JA}町",35,134]]}\n` });
+    expect(runHook(COMMIT).status).toBe(0);
+
+    stage({ "data/other/33.json": `{"33000":[["${WORD_JA}町",35,134]]}\n` });
+    const r = runHook(COMMIT);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("data/other/33.json:1:denylist");
+    expect(r.stderr).not.toContain("data/oaza");
+  });
+
   it("README.md でも、通常の語は止める", () => {
     denylist();
     stage({ "README.md": `${WORD_JA}\n` });

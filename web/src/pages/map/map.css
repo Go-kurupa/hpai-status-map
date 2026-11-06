@@ -846,6 +846,26 @@
 .spot-picker h2 {
   font-size: 1.05rem;
 }
+/* 地区（大字）で地図を寄せる選択欄（2026-11-06 作者の決定）。町の選択欄と同じ形 */
+.spot-oaza {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+.spot-oaza label {
+  font-weight: 700;
+}
+.spot-oaza select {
+  width: 100%;
+  max-width: 24rem;
+  min-height: var(--tap);
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
 
 /* 場所を合わせる十字。地図の中央（地図の高さの半分）。さわれない */
 .crosshair {

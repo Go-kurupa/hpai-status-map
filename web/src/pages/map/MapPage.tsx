@@ -798,6 +798,11 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         onClear={spotState.clearDeviceSpot}
         mapless={mapless}
         town={town}
+        onAimAt={(lng, lat) => {
+          // 地区（大字）の目安の点へ寄せる。点は寄せる先にだけ使い、保存しない（決めるのは十字の下の約 1km のマス目）
+          nonce.current += 1;
+          setFocus({ kind: "point", codes: town ? [town] : [], nonce: nonce.current, at: [lng, lat] });
+        }}
       />
       ) : null}
         </>

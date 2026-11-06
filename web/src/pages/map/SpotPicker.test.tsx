@@ -1,6 +1,7 @@
 import type { GeoStore, MuniEntry } from "@hpai/shared/geo";
 import type { FarmPoint } from "@hpai/shared/types";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { clearOazaCache } from "../../data/oaza";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PickTarget } from "./pickSpot";
@@ -159,5 +160,72 @@ describe("SpotPicker（WebGL2 が使えない端末、mapless）", () => {
     fireEvent.click(screen.getByRole("button", { name: TEXT.spotRetry }));
     expect(onAimingChange).not.toHaveBeenCalledWith(true);
     expect(screen.getByRole("button", { name: TEXT.meshUseCenter })).toBeTruthy();
+  });
+});
+
+// 地区（大字）で地図を寄せる（2026-11-06 作者の決定）。一覧は県ごとのファイルを端末に読み、何も送らない
+describe("SpotPicker: 地区（大字）で地図を寄せる", () => {
+  const geo = { index: { "33643": entry("33643", "西粟倉村", "33"), "33214": entry("33214", "真庭市", "33") } } as unknown as Pick<GeoStore, "index">;
+  const PREF33 = { "33643": [["大字筏津", 35.1511, 134.3236], ["大字影石", 35.187, 134.3223]], "33214": [] };
+  afterEach(() => {
+    clearOazaCache();
+    vi.unstubAllGlobals();
+  });
+  const stubFetch = (body: unknown, ok = true) => {
+    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify(body), { status: ok ? 200 : 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+
+  it("十字を合わせている間、選んだ町の地区を並べ、選ぶと [経度, 緯度] で寄せ先を渡す。読むのは県のファイルだけ", async () => {
+    const fetchMock = stubFetch(PREF33);
+    const onAimAt = vi.fn();
+    render(<Harness geo={geo} town="33643" onAimAt={onAimAt} />);
+    expect(screen.queryByLabelText(TEXT.oazaLabel)).toBeNull(); // 十字を出す前は出さない
+    expect(fetchMock).not.toHaveBeenCalled(); // 画面を開いただけでは読まない
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotStart }));
+    const select = (await screen.findByLabelText(TEXT.oazaLabel)) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual([TEXT.oazaChoose, "大字筏津", "大字影石"]);
+    fireEvent.change(select, { target: { value: "1" } });
+    expect(onAimAt).toHaveBeenCalledWith(134.3223, 35.187);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]![0])).toMatch(/oaza\/33\.json$/u);
+    expect(screen.getByText(TEXT.oazaSource)).toBeTruthy();
+    expect(findWordingViolations(TEXT.oazaLabel + TEXT.oazaNote + TEXT.oazaSource)).toEqual([]);
+  });
+
+  it("「やめる」で選んだ地区を空に戻す", async () => {
+    stubFetch(PREF33);
+    render(<Harness geo={geo} town="33643" onAimAt={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotStart }));
+    fireEvent.change(await screen.findByLabelText(TEXT.oazaLabel), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: TEXT.cancel }));
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotStart }));
+    expect(((await screen.findByLabelText(TEXT.oazaLabel)) as HTMLSelectElement).value).toBe("");
+  });
+
+  it("町に地区がない、一覧を読めない、寄せ先を受け取らない、地図が描けない端末では出さない（十字で決められる）", async () => {
+    stubFetch(PREF33);
+    const { unmount } = render(<Harness geo={geo} town="33214" onAimAt={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotStart }));
+    await waitFor(() => expect(screen.getByText(TEXT.spotHint)).toBeTruthy());
+    expect(screen.queryByLabelText(TEXT.oazaLabel)).toBeNull();
+    unmount();
+    clearOazaCache();
+    stubFetch({}, false);
+    const second = render(<Harness geo={geo} town="33643" onAimAt={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotStart }));
+    await waitFor(() => expect(screen.getByText(TEXT.spotHint)).toBeTruthy());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByLabelText(TEXT.oazaLabel)).toBeNull();
+    second.unmount();
+    const fetchMock = stubFetch(PREF33);
+    render(<Harness geo={geo} town="33643" />);
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotStart }));
+    expect(screen.queryByLabelText(TEXT.oazaLabel)).toBeNull();
+    cleanup();
+    render(<Harness geo={geo} mapless town="33643" onAimAt={vi.fn()} />);
+    expect(screen.queryByLabelText(TEXT.oazaLabel)).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

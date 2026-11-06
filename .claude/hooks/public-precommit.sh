@@ -13,6 +13,8 @@
 #               英数字だけの語は前後が英数字でないときだけ一致（URL の長い数字を誤検知しない）。
 #               日本語など他の語は部分一致。大文字小文字と全角半角は区別しない。
 #               readme-ok:語 の行は README.md（リポジトリ直下）でだけ通す。
+#               data/oaza/ の下（国土交通省の大字・町丁目位置参照情報から作った地名の一覧）は照合しない。
+#               国の公開の地名が一覧の語と偶然同じ文字を含むため（2026-11-07 作者が了承。このフォルダだけ）。
 #   stage が決まらない commit  git add -A / --all / . / -u を同じコマンドで続ける、git commit -a / --all。
 #
 # このファイルの検査パターンは、自分自身に一致しないように書く（連結や文字クラスを使う）。
@@ -132,7 +134,8 @@ function scanLine(file, n, text, ctx) {
   if (phoneHit(text)) add(file, n, "phone");
   // 相談の知見のカードは、利用条件が自由な資料の短い引用を根拠として持つ（2026-11-06 作者が例外を了承。この 1 ファイルだけ）
   if (file.startsWith("data/") && file !== "data/consult/cards.json" && RE_QUOTE.test(text)) add(file, n, "data_quote");
-  if (ctx.deny.length) {
+  // 大字・町丁目の地名の一覧は国の公開データで、地名が一覧の語と偶然重なる（2026-11-07 作者が例外を了承。このフォルダだけ）
+  if (ctx.deny.length && !file.startsWith("data/oaza/")) {
     const f = fold(text);
     for (const r of ctx.deny) {
       if (r.readmeOk && file === "README.md") continue;

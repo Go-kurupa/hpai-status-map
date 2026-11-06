@@ -9,6 +9,8 @@ const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUl
 type MapHandle = {
   getLayer(id: string): unknown;
   isMoving(): boolean;
+  getCenter(): { lng: number; lat: number };
+  getZoom(): number;
   getCanvas(): HTMLCanvasElement;
   queryRenderedFeatures(p: [number, number], o: { layers: string[] }): { properties?: Record<string, unknown> }[];
 };
@@ -82,6 +84,37 @@ test.describe("くわしい場所を決める", () => {
       await page.getByRole("button", { name: "ここに決める" }).click();
       await expect(page.locator(".spot-picker strong")).toHaveText(new RegExp(c.name));
       await expect(page.locator(".spot-picker")).toContainText("の上です");
+    });
+  }
+});
+
+// 地区（大字）で地図を寄せる（2026-11-06 作者の決定）。国土交通省「大字・町丁目位置参照情報」の目安の点
+test.describe("くわしい場所を決める: 地区（大字）で地図を寄せる", () => {
+  for (const [w, h] of [[1280, 860], [390, 800]] as const) {
+    test(`${w}px、西粟倉村: 大字影石を選ぶと、地図がその目安の点へ寄り、十字の下は西粟倉村。そのまま決められる`, async ({ page }) => {
+      const requests: string[] = [];
+      page.on("request", (r) => requests.push(r.url()));
+      await openWithTown(page, w, h, "33643");
+      await page.getByRole("button", { name: "地図で場所を合わせる" }).click();
+      const select = page.getByLabel("地区（大字）で地図を寄せる");
+      await expect(select).toBeVisible({ timeout: 15_000 });
+      await expect(select.locator("option")).toHaveText(["選んでください", "大字筏津", "大字大茅", "大字影石", "大字坂根", "大字知社", "大字長尾"]);
+      await select.selectOption({ label: "大字影石" });
+      await expect.poll(() => page.evaluate(() => (window as unknown as WithMap).__hpaiMap!.isMoving()), { timeout: 15_000 }).toBe(false);
+      const at = await page.evaluate(() => {
+        const m = (window as unknown as WithMap).__hpaiMap!;
+        return { ...m.getCenter(), zoom: m.getZoom() };
+      });
+      // 大字影石の目安の点（35.187, 134.3223）。拡大は 13 以上
+      expect(Math.abs(at.lat - 35.187)).toBeLessThan(0.002);
+      expect(Math.abs(at.lng - 134.3223)).toBeLessThan(0.002);
+      expect(at.zoom).toBeGreaterThanOrEqual(13);
+      expect(await townUnderCrosshair(page)).toEqual(["33643"]);
+      await page.getByRole("button", { name: "ここに決める" }).click();
+      await expect(page.locator(".spot-picker strong")).toHaveText(/西粟倉村/u);
+      // 読むのは同梱の県のファイルだけ。地区の名前や位置を外へ送らない
+      expect(requests.filter((u) => /oaza/u.test(u))).toEqual([expect.stringMatching(/\/oaza\/33\.json$/u)]);
+      expect(requests.some((u) => u.includes(encodeURIComponent("影石")) || u.includes("影石"))).toBe(false);
     });
   }
 });
