@@ -7,7 +7,7 @@ import type { NearbyTown } from "@hpai/shared/past";
 import { TEXT } from "./texts";
 
 /** 文の塊を並べる。塊の中だけで折れ、言葉の途中では折れない */
-function Chunks({ parts }: { parts: readonly string[] }) {
+export function Chunks({ parts }: { parts: readonly string[] }) {
   return (
     <>
       {parts.map((t, i) => (
@@ -20,13 +20,13 @@ function Chunks({ parts }: { parts: readonly string[] }) {
 }
 
 /** 日付を「2025 年 12 月 20 日」に */
-function dateText(iso: string | null): string {
+export function dateText(iso: string | null): string {
   const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
   return m ? `${m[1]} 年 ${Number(m[2])} 月 ${Number(m[3])} 日` : TEXT.panelNoDate;
 }
 
 /** 時点を「2026 年 11 月 4 日 8:30」に（日本時間）。読めなければ null */
-function asOfText(iso: IsoDateTime | null): string | null {
+export function asOfText(iso: IsoDateTime | null): string | null {
   const t = iso ? new Date(iso).getTime() : Number.NaN;
   if (Number.isNaN(t)) return null;
   const d = new Date(t + 9 * 60 * 60 * 1000);
@@ -34,7 +34,7 @@ function asOfText(iso: IsoDateTime | null): string | null {
 }
 
 /** 用途・飼い方・羽数。記載がなければそう書く（空欄にしない）。羽数は数と「羽」の間で折らない */
-function Detail({ birdUse, housing, headCount }: { birdUse: string | null; housing: string | null; headCount: number | null }) {
+export function Detail({ birdUse, housing, headCount }: { birdUse: string | null; housing: string | null; headCount: number | null }) {
   return (
     <span>
       {birdUse ?? TEXT.panelNoUse}・{housing ?? TEXT.panelNoHousing}・

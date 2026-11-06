@@ -31,6 +31,11 @@ export interface MapViewProps {
   onMapReady?: (map: MlMap) => void;
   /** 地図が描けない（WebGL2 がない、初期化に失敗）。代わりの地図に切り替えたことを親に知らせる */
   onUnsupported?: () => void;
+  /** 比べの画面の何枚目か（0 か 1）。試験の組み立てでは 2 枚目を別の名前で window に置き、1 枚目（選んだシーズン）を上書きしない。
+   *  名前の文字は試験の組み立ての中だけで作る（本番の build に試験の入口の文字を残さない。scripts/test/no-fixture-in-prod.test.ts） */
+  mapIndex?: 0 | 1;
+  /** 地図の領域の名前。比べの 2 枚は、比べる 1／2 とシーズンを入れて読み上げで区別する */
+  ariaLabel?: string;
 }
 
 type Geo = Awaited<ReturnType<typeof loadWebGeoStore>>;
@@ -86,7 +91,7 @@ export default function MapView(props: MapViewProps) {
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
     mapRef.current = map;
-    if (import.meta.env.MODE === "e2e") (window as unknown as { __hpaiMap?: MlMap }).__hpaiMap = map;
+    if (import.meta.env.MODE === "e2e") (window as unknown as Record<string, MlMap>)[latest.current.mapIndex === 1 ? "__hpaiMap2" : "__hpaiMap"] = map;
 
     async function init() {
       try {
@@ -286,7 +291,7 @@ export default function MapView(props: MapViewProps) {
 
   return (
     <div className="map-wrap">
-      <div ref={boxRef} className="map-canvas" role="region" aria-label="発生状況の地図" hidden={unsupported} />
+      <div ref={boxRef} className="map-canvas" role="region" aria-label={props.ariaLabel ?? "発生状況の地図"} hidden={unsupported} />
       {unsupported ? (
         <Suspense fallback={<p role="status">{TEXT.svgLoading}</p>}>
           <SvgMap

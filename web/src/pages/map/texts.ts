@@ -60,6 +60,14 @@ export const TEXT = {
   panelRetry: "もう一度読む",
   panelHint: "地図で町を押すと、その町の今季と過去の発生が出ます。近くで過去に発生のある町:",
   panelPickAria: "町を選んで発生を見る",
+  // 過去シーズンとの比べの 2 枚の地図（設計書 2026-11-06-ui-frame 4.4、決定 5）。シーズンは日付の範囲でも示す
+  compareFirst: "比べる 1",
+  compareSecond: "比べる 2",
+  compareOption: (label: string, season: number) => `${label}（${season} 年 6 月〜${season + 1} 年 5 月）`,
+  compareHead: (name: string, season: number) => [name, `（${season} 年 6 月〜${season + 1} 年 5 月）`],
+  compareMapAria: (name: string, season: string) => `発生状況の地図（${name}: ${season}）`,
+  compareMapWait:"地図は、画面に入ってから読み込みます",
+  compareHint: "地図で町を押すと、2 つのシーズンのその町の発生が、地図の下に並んで出ます。",
   // 町だけ選んだ人の、町の中心からの輪（設計書 2026-11-06-ui-frame 決定 6）
   ringNoteTown: "輪は町の中心からの距離の目安で、発表の区域ではありません。",
   // 最初の画面の過去の行から「自分の町の過去」へ（設計書 2026-11-06-ui-frame 4.1）

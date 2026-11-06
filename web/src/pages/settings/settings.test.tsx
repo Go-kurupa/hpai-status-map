@@ -214,7 +214,11 @@ describe("/settings/farm", () => {
     expect(screen.getByText(/約 1km のマス目で保存します/)).toBeTruthy();
     expect(screen.queryByLabelText(/住所/)).toBeNull();
     expect(container.querySelector('input[name*="address" i], input[autocomplete*="address"]')).toBeNull();
-    const m = maps[0]!;
+    // 地図は effect で作る（上の試験と同じ）。重いときは欄の DOM の後になるので、作られるのを待つ
+    const m = await waitFor(() => {
+      expect(maps[0]).toBeDefined();
+      return maps[0]!;
+    });
     expect(m.sources.size).toBeLessThanOrEqual(2); // 町の境の線とマス目の四角だけ。点の層はない
   });
 

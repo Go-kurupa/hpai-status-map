@@ -394,7 +394,8 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(lastProps().onInspectMuni).toBeUndefined();
     cleanup();
 
-    for (const section of ["all", "compare", "season"] as const) {
+    // 再現（all）と一覧（season）では押しても欄を出さない。比べ（compare）は 2 つのシーズンの欄を出す（下の試験）
+    for (const section of ["all", "season"] as const) {
       seen.length = 0;
       const other = rig();
       show(other, { section });
@@ -403,6 +404,43 @@ describe("MapPage: 自分の町の 1 文", () => {
       expect(document.querySelector(".town-cases")).toBeNull();
       cleanup();
     }
+  });
+
+  // 設計書 2026-11-06-ui-frame 4.4、決定 5
+  it("過去シーズンとの比べは地図が 2 枚。初めは比べる 1 が昨季、比べる 2 が今季。町を押すと 2 つのシーズンの事例が並び、比べる 2 は選び直せる", async () => {
+    seen.length = 0;
+    const r = rig();
+    show(r, { section: "compare" });
+    await screen.findAllByTestId("map");
+    r.deliverCases([]);
+    const latestOf = (h: "__hpaiMap" | "__hpaiMap2") => [...seen].reverse().find((p) => (p.mapIndex === 1 ? "__hpaiMap2" : "__hpaiMap") === h)!;
+    await waitFor(() => expect(latestOf("__hpaiMap").view.season).toBe(2025));
+    expect(latestOf("__hpaiMap2").view.season).toBe(2026);
+    // 読み上げで 2 枚を区別できる
+    expect(latestOf("__hpaiMap").ariaLabel).toBe("発生状況の地図（比べる 1: 昨季（2025 年 6 月〜2026 年 5 月））");
+    expect(latestOf("__hpaiMap2").ariaLabel).toBe("発生状況の地図（比べる 2: 今季（2026 年 6 月〜2027 年 5 月））");
+
+    act(() => latestOf("__hpaiMap2").onInspectMuni!("33203"));
+    expect(await screen.findByRole("heading", { level: 2, name: "津山市" })).toBeTruthy();
+    const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(heads).toEqual(["比べる 1（2025 年 6 月〜2026 年 5 月）", "比べる 2（2026 年 6 月〜2027 年 5 月）"]);
+    const cols = [...document.querySelectorAll(".compare-cases-col")];
+    expect(cols[0]!.querySelectorAll("li").length).toBeGreaterThan(0); // 津山市は 2025 年シーズンに国の事例一覧の記録がある
+    // 今季に記録がない文は、時点の日付で言う（2026-11-06 作者の決定）
+    expect(cols[1]!.querySelector("p")!.textContent).toMatch(/^(\d{4} 年 \d+ 月 \d+ 日 \d+:\d{2} 時点で、)?発生記録はありません。$/);
+
+    // 比べる 1 を選び直すと 1 枚目と下のシーズンの選びが替わる。開いたときの昨季への切り替えは 1 度だけで、戻されない
+    fireEvent.change(screen.getByLabelText("比べる 1"), { target: { value: "2023" } });
+    await waitFor(() => expect(latestOf("__hpaiMap").view.season).toBe(2023));
+    expect(screen.getAllByRole("heading", { level: 3 })[0]!.textContent).toBe("比べる 1（2023 年 6 月〜2024 年 5 月）");
+    r.deliverCases([]);
+    expect(latestOf("__hpaiMap").view.season).toBe(2023);
+
+    fireEvent.change(screen.getByLabelText("比べる 2"), { target: { value: "2024" } });
+    await waitFor(() => expect(latestOf("__hpaiMap2").view.season).toBe(2024));
+    expect(screen.getAllByRole("heading", { level: 3 })[1]!.textContent).toBe("比べる 2（2024 年 6 月〜2025 年 5 月）");
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.queryByRole("heading", { level: 2, name: "津山市" })).toBeNull();
   });
 
   it("別の町を選ぶと、前のくわしい場所を消して、そう伝える", async () => {

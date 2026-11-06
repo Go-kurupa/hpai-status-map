@@ -16,6 +16,8 @@ import { listRows, wildBirdRows } from "./listRows";
 import { MapChunkBoundary } from "./MapChunkBoundary";
 import { SectionTabs } from "../../ui/SectionTabs";
 import { TownCasesPanel } from "./TownCasesPanel";
+import { CompareMaps } from "./CompareMaps";
+import { buildSeasonView } from "./seasonView";
 import { MapLinks, NextLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import { countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
@@ -92,10 +94,26 @@ const SECTION_TITLE: Record<Exclude<MapSection, "now" | "all">, string> = {
 
 export default function MapPage({ replayStats = false, section = "all" }: { replayStats?: boolean; section?: MapSection }) {
   const inMap = section === "now" || section === "all";
-  // 地図を出すまとまり。compare は段階 3 の 2 枚の地図ができるまで、選んだシーズンの地図を 1 枚出す
+  // 地図を出すまとまり。compare は 2 枚の地図（CompareMaps。設計書 2026-11-06-ui-frame 4.4）
   const showMap = inMap || section === "compare";
   const d = useSeasonData();
   const { view } = d;
+  // 比べる 1 は下のシーズンの一覧と同じ選び（d.selected）で、初めは昨季。比べる 2 は初めは今季【AI の既定案】
+  const [secondSeason, setSecondSeason] = useState(d.current);
+  const secondView = useMemo(
+    () => buildSeasonView({ season: secondSeason, current: d.current, currentCases: d.currentCases, history: d.history }),
+    [secondSeason, d.current, d.currentCases, d.history],
+  );
+  // 画面に出ている地図の中身。比べは 2 枚とも見て、今季の断り（読めていない、確認の行）を出す（どちらかが今季なら）
+  const shownViews = section === "compare" ? [view, secondView] : [view];
+  const reviewingShown = [...new Set(shownViews.flatMap((v) => v.reviewingPrefCodes))];
+  const firstPicked = useRef(false);
+  useEffect(() => {
+    if (section !== "compare" || firstPicked.current) return;
+    firstPicked.current = true;
+    d.select(d.current - 1);
+    // 開いたときに 1 度だけ。d は毎回作り直されるので依存に入れない
+  }, [section]);
   const ds = useDataSource();
   const spotState = useSpotState();
   const { geo, failed: geoFailed } = useGeoStore();
@@ -404,7 +422,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       {section === "now" || section === "season" ? <SectionTabs group="now" /> : null}
       {section === "compare" || section === "town" ? <SectionTabs group="past" /> : null}
       <h1 ref={h1Ref}>{section === "now" || section === "all" ? `${view.label}の発生状況` : SECTION_TITLE[section]}</h1>
-      {section === "town" ? null : view.isCurrent ? (
+      {/* 比べ（2 枚の地図）は、時点の行を地図ごとに出す（CompareMaps の renderSideNotes） */}
+      {section === "town" || section === "compare" ? null : view.isCurrent ? (
         <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
       ) : (
         <>
@@ -415,13 +434,13 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         </>
       )}
 
-      {view.isCurrent && !view.loaded ? (
+      {shownViews.some((v) => v.isCurrent && !v.loaded) ? (
         <p className="state-unknown" role="status">
           今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。
           {d.casesSlow ? <> {TEXT.slowLoad}</> : null}
         </p>
       ) : null}
-      {!view.isCurrent && !view.loaded ? (
+      {shownViews.some((v) => !v.isCurrent && !v.loaded) ? (
         <p className={d.historyFailed ? "state-unknown" : "state-wait"} role="status">
           過去の記録をまだ読めていません。
           {d.historyFailed ? (
@@ -434,10 +453,10 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           ) : null}
         </p>
       ) : null}
-      {section !== "town" && view.isCurrent && !watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
-      {section !== "town" && view.reviewingPrefCodes.length > 0 ? (
+      {section !== "town" && shownViews.some((v) => v.isCurrent) && !watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
+      {section !== "town" && reviewingShown.length > 0 ? (
         <p className="state-wait">
-          確認中の発表がある県: {names(view.reviewingPrefCodes)}
+          確認中の発表がある県: {names(reviewingShown)}
           。件数にはまだ入れていません。
         </p>
       ) : null}
@@ -521,6 +540,54 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         </div>
       ) : null}
 
+      {section === "compare" ? (
+        <CompareMaps
+          options={d.bars}
+          first={d.selected}
+          second={secondSeason}
+          onFirst={d.select}
+          onSecond={setSecondSeason}
+          current={d.current}
+          currentCases={d.currentCases}
+          history={d.history}
+          historyFailed={d.historyFailed}
+          onRetryHistory={d.retryHistory}
+          asOf={d.asOf}
+          focus={focus}
+          muniName={(c) => (geo ? (geo.index[c]?.name ?? null) : null)}
+          renderSideNotes={(i) => {
+            const v = i === 0 ? view : secondView;
+            // 地図ごとの時点と凡例（今季と過去で色が違う）
+            return (
+              <>
+                {v.isCurrent ? <WatchAsOf loaded={d.watchLoaded} line={d.watch} /> : <p className="as-of">{TEXT.pastAsOf}</p>}
+                <Legend isCurrent={v.isCurrent} />
+              </>
+            );
+          }}
+          renderMap={(o) => (
+            <MapChunkBoundary>
+              <Suspense fallback={<p role="status">地図を読み込んでいます</p>}>
+                <MapView
+                  view={o.index === 0 ? view : secondView}
+                  wildBirds={d.wildBirds}
+                  failedPrefCodes={d.failedPrefCodes}
+                  myMuniCode={town}
+                  nearMuniCodes={townLine.nearMuniCodes}
+                  farmMeshCode={farmMeshCode}
+                  ringCenter={ringCenter}
+                  onInspectMuni={o.onInspectMuni}
+                  focus={o.focus}
+                  onMapReady={o.onMapReady}
+                  onUnsupported={() => setMapless(true)}
+                  mapIndex={o.index}
+                  ariaLabel={o.ariaLabel}
+                />
+              </Suspense>
+            </MapChunkBoundary>
+          )}
+        />
+      ) : (
       <div className="map-box" ref={boxRef}>
         <MapChunkBoundary>
           <Suspense fallback={<p role="status">地図を読み込んでいます</p>}>
@@ -572,6 +639,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           </div>
         ) : null}
       </div>
+      )}
 
       <p className="map-disclaimer">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
       {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : ringCenter !== null ? <p className="map-ring-note">{TEXT.ringNoteTown}</p> : null}
@@ -614,7 +682,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         />
       ) : null}
       {inMap && town !== null ? picker : null}
-      <Legend isCurrent={view.isCurrent} />
+      {section === "compare" ? null : <Legend isCurrent={view.isCurrent} />}
 
       {mapless ? null : (
         <p className="map-attribution">
