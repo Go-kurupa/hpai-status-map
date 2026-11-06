@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
-import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 // 契約 4.2。alice は f1、bob は f2 の会員。
@@ -697,5 +697,87 @@ describe("数の上限、空の名前、記録の id の長さ（M-1）", () => 
     await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ date: "2026-11-04T00:00" })));
     await assertFails(setDoc(doc(db, "farms/f1/deaths/x"), death({ date: "26-11-04" })));
     await assertFails(setDoc(doc(db, "farms/f1/checks/d1"), { kind: "disinfection", date: "2026-11-04 ", itemId: "i" }));
+  });
+});
+
+describe("対策項目に足した相談のカード（farms/{farmId}/reviews/{cardId}）", () => {
+  // 保存するのはカードの id（文書の id）、足した日時、足した人だけ。自由な文は入れない
+  const review = (uid: string, over: Record<string, unknown> = {}) => ({ addedAt: serverTimestamp(), addedBy: uid, ...over });
+
+  it("その農場の会員は、足す・読む・消すができる", async () => {
+    const db = alice();
+    await assertSucceeds(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice")));
+    await assertSucceeds(getDoc(doc(db, "farms/f1/reviews/card-001")));
+    await assertSucceeds(getDocs(collection(db, "farms/f1/reviews")));
+    await assertSucceeds(deleteDoc(doc(db, "farms/f1/reviews/card-001")));
+  });
+
+  it("他の農場の会員は、読めず、書けず、消せない", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "farms/f1/reviews/card-001"), { addedAt: Timestamp.now(), addedBy: "alice" });
+    });
+    const db = bob();
+    await assertFails(getDoc(doc(db, "farms/f1/reviews/card-001")));
+    await assertFails(getDocs(collection(db, "farms/f1/reviews")));
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-002"), review("bob")));
+    await assertFails(deleteDoc(doc(db, "farms/f1/reviews/card-001")));
+  });
+
+  it("農場の会員でない member、operator、未ログインは、読めず書けない", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "farms/f1/reviews/card-001"), { addedAt: Timestamp.now(), addedBy: "alice" });
+    });
+    for (const [db, uid] of [[memberOnly(), "carol"], [operator(), "op"], [operatorMember(), "op"], [anon(), "x"]] as const) {
+      await assertFails(getDoc(doc(db, "farms/f1/reviews/card-001")));
+      await assertFails(setDoc(doc(db, "farms/f1/reviews/card-002"), review(uid)));
+      await assertFails(deleteDoc(doc(db, "farms/f1/reviews/card-001")));
+    }
+  });
+
+  it("余分な項目（note など）があると拒否される。必須の項目が欠けても拒否される", async () => {
+    const db = alice();
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice", { note: "自由な文" })));
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), { addedBy: "alice" }));
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), { addedAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), {}));
+    await assertSucceeds(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice")));
+  });
+
+  it("addedBy が他人（同じ農場の会員の uid も含む）だと拒否される", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "farms/f1"), farm("alice", { memberUids: ["alice", "dave"] }));
+    });
+    const db = alice();
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), review("bob")));
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), review("dave")));
+    await assertSucceeds(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice")));
+  });
+
+  it("addedAt は日時で、サーバーの時刻でなければならない（文字・数・過去の日時は拒否）", async () => {
+    const db = alice();
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice", { addedAt: "2026-11-06T09:00:00+09:00" })));
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice", { addedAt: 1762387200000 })));
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice", { addedAt: Timestamp.fromDate(new Date("2020-01-01T00:00:00Z")) })));
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice", { addedAt: null })));
+  });
+
+  it("cardId は 1〜64 字の英数字とハイフンだけ", async () => {
+    const db = alice();
+    await assertSucceeds(setDoc(doc(db, "farms/f1/reviews/A"), review("alice")));
+    await assertSucceeds(setDoc(doc(db, `farms/f1/reviews/${"a".repeat(64)}`), review("alice")));
+    await assertFails(setDoc(doc(db, `farms/f1/reviews/${"a".repeat(65)}`), review("alice")));
+    for (const bad of ["card_001", "card.001", "カード", "card 001", "card:1"]) {
+      await assertFails(setDoc(doc(db, `farms/f1/reviews/${bad}`), review("alice")));
+    }
+  });
+
+  it("上書き（update）はできない。足すか消すかだけ。消してから足し直せる", async () => {
+    const db = alice();
+    await assertSucceeds(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice")));
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice")));
+    await assertFails(updateDoc(doc(db, "farms/f1/reviews/card-001"), { addedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db, "farms/f1/reviews/card-001"), { note: "x" }));
+    await assertSucceeds(deleteDoc(doc(db, "farms/f1/reviews/card-001")));
+    await assertSucceeds(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice")));
   });
 });

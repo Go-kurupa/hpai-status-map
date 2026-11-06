@@ -187,6 +187,23 @@ service cloud.firestore {
         allow create, update: if isFarmMember(farmId) && checkId.size() <= 128 && checkOk();
         allow delete: if isFarmMember(farmId);
       }
+
+      // 対策の見直し相談で「対策項目に足す」とした結果の行。文書の id がカードの id。
+      // 保存するのは足した日時と足した人だけで、自由な文は入れない。
+      // addedAt は書いた時刻（serverTimestamp）と一致する値だけ。日時をさかのぼって書けない。
+      // 足すか消すかだけで、上書き（update）は許さない
+      match /reviews/{cardId} {
+        function reviewOk() {
+          let r = request.resource.data;
+          return r.keys().hasOnly(['addedAt', 'addedBy'])
+            && r.keys().hasAll(['addedAt', 'addedBy'])
+            && r.addedAt is timestamp && r.addedAt == request.time
+            && r.addedBy is string && r.addedBy == request.auth.uid;
+        }
+        allow read: if isFarmMember(farmId);
+        allow create: if isFarmMember(farmId) && cardId.matches('^[a-zA-Z0-9-]{1,64}$') && reviewOk();
+        allow delete: if isFarmMember(farmId);
+      }
     }
 
     // sources、documents、invites（_attempts を含む）、sentNotices、usage、書かれていない集合は
