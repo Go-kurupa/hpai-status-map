@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OUT_OF_SCOPE_TEXT } from "../src/consult/scope";
-import { validateFollowup } from "../src/consult/validate";
+import { stripCardRefs, validateFollowup } from "../src/consult/validate";
 import type { ConsultCard } from "../src/consult/types";
 
 function makeCard(over: Partial<ConsultCard> & { id: string }): ConsultCard {
@@ -172,5 +172,57 @@ describe("validateFollowup: 箇条書きの番号と項目の数は事実の数�
   it("maxCards が 5 より小さいときは、それを超える「N点」は数える", () => {
     expect(validateFollowup({ answer: "4点です", cardIds: ids }, ids, many, 3).failures).toEqual(["unknown_number:4"]);
     expect(validateFollowup({ answer: "3点です", cardIds: ids }, ids, many, 3).failures).toEqual([]);
+  });
+});
+
+describe("答えの文のカードの id の書き込みを取り除く（Ruling 23）", () => {
+  const ID_SHAPE = /(?:maff|papers|overseas|okayama|aphis|paper|defra)-[A-Za-z0-9]/u;
+
+  it("stripCardRefs: id だけの括弧は括弧ごと、言葉と並ぶ括弧は id と前の読点だけ、括弧の外の id も消す", () => {
+    expect(stripCardRefs("ネットを張ります（maff-M01）。次です。")).toBe("ネットを張ります。次です。");
+    expect(stripCardRefs("対策です(maff-M13a/M13b)。")).toBe("対策です。");
+    expect(stripCardRefs("対策です（maff-M01、maff-M02a）。")).toBe("対策です。");
+    expect(stripCardRefs("義務です（基準上の義務、maff-M01）。")).toBe("義務です（基準上の義務）。");
+    expect(stripCardRefs("義務です（maff-M01、基準上の義務）。")).toBe("義務です（基準上の義務）。");
+    expect(stripCardRefs("研究（papers-C15）は対象です。")).toBe("研究は対象です。");
+    expect(stripCardRefs("maff-M01 によると必要です。")).toBe(" によると必要です。");
+    expect(stripCardRefs("overseas-X1 と okayama-OK3 と aphis-A1 と paper-P1 と defra-D1 です").match(ID_SHAPE)).toBeNull();
+    // id でないものは残す
+    expect(stripCardRefs("3倍に増える（目安）")).toBe("3倍に増える（目安）");
+    expect(stripCardRefs("maff という語と M01 だけ")).toBe("maff という語と M01 だけ");
+  });
+
+  const idsA = ["maff-M01", "maff-M02a", "maff-M03", "maff-M11a", "maff-M34"];
+  const idsB = ["maff-M13a", "maff-M01", "maff-M34", "maff-M31", "papers-C15"];
+  const mk = (ids: string[]) => ids.map((id) => makeCard({ id, action: "確認する", appliesTo: "農場", quote: "網目は 2cm 以下。毎週 1 回の点検。5,000 羽以上の商業農場。" }));
+  const ANSWER_A = "農場の様子が書かれていないため、一般的な見直し点をまとめます。\n1. 防鳥ネットは網目2cm以下で設置し、定期的に破損を確認・修繕します（基準上の義務、maff-M01）。\n2. 家きん舎・堆肥舎の防鳥ネットだけでなく、除糞・集卵設備の開口部や壁の破損も点検し、野鳥・野生動物が入れる隙間をなくします。こうした破損や隙間は発生農場で多く確認されています（maff-M02a）。\n3. 壁面やネットの破損を放置しないこと。イタチや野鳥の侵入・食害を経験した農場では特に重要です（maff-M03）。\n4. 集卵ベルトのシャッターや鶏卵・鶏糞の搬出口の覆いも確認し、侵入口を減らします。対象は、これらの設備が屋外に開口している農場です（maff-M11a）。\n5. 点検は毎週決めた曜日に行うなど、習慣化すると漏れを防げます。これは小規模農家向けマニュアルの例です（maff-M34）。";
+  const ANSWER_B = "裏の田んぼに冬に水が張る点を踏まえ、次を優先して見直すことをおすすめします。\n1. 水田への対策：近くに水田がある農場向けの対策として、水抜き、テグス・忌避テープ、水田の耕起、雑草や不要な樹木の除去が挙げられています（maff-M13a/M13b）。田んぼが家きん舎からどのくらい離れているかを確認し、所有者や地域と相談して進めてください。\n2. 鶏舎の防鳥ネット：網目2cm以下のネットを張り、破損がないか定期的に確認・修繕します（maff-M01）。\n3. 週1回の点検：小規模農家向けの例として、毎週決めた曜日に防護柵・防鳥ネットの破損と野生動物の侵入を確認する方法があります（maff-M34）。\n4. 飼料・水の管理：飼料や給水設備に野鳥・ねずみの排せつ物が入らないようにします（maff-M31）。\nなお、水辺の近さと発生の関連を示した研究（papers-C15）は5,000羽以上の商業農場が対象で、300羽の平飼いにそのまま当てはまるとは言えません。";
+
+  it("本物の答え（防鳥ネット）は、id を取り除いた後に通る。answer に id の形が残らない", () => {
+    const r = validateFollowup({ answer: ANSWER_A, cardIds: idsA }, idsA, mk(idsA), 5);
+    expect(r.failures).toEqual([]);
+    expect(r.outOfScope).toBe(false);
+    expect(r.answer).not.toMatch(ID_SHAPE);
+    expect(r.answer).toContain("（基準上の義務）");
+    expect(r.cardIds).toEqual(idsA);
+  });
+
+  it("本物の答え（裏の田んぼ。433 字）は、id の分を除いた長さで通る。相談の文の数字（300 羽）も通る", () => {
+    expect(Array.from(ANSWER_B).length).toBeGreaterThan(400);
+    const r = validateFollowup({ answer: ANSWER_B, cardIds: idsB }, idsB, mk(idsB), 5, "裏の田んぼに冬に水が張ります。300 羽の平飼いです");
+    expect(r.failures).toEqual([]);
+    expect(r.answer).not.toMatch(ID_SHAPE);
+    expect(Array.from(r.answer).length).toBeLessThanOrEqual(400);
+    expect(r.answer).toContain("研究は5,000羽以上");
+  });
+
+  it("id 以外の数字は今までどおり落ちる（id を取り除いても）", () => {
+    const r = validateFollowup({ answer: "3倍に増えます（maff-M01）。", cardIds: ["maff-M01"] }, ["maff-M01"], mk(["maff-M01"]), 5);
+    expect(r.failures).toEqual(["unknown_number:3"]);
+  });
+
+  it("id を取り除いた後でも 400 字を超える答えは落ちる", () => {
+    const r = validateFollowup({ answer: "あ".repeat(401) + "（maff-M01）", cardIds: ["maff-M01"] }, ["maff-M01"], mk(["maff-M01"]), 5);
+    expect(r.failures).toEqual(["too_long"]);
   });
 });

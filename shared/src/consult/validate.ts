@@ -98,6 +98,24 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+// カードの id の形（答えの文には書かせない。画面が選んだカードを答えの下に並べる）。
+const CARD_ID = String.raw`(?:maff|papers|overseas|okayama|aphis|paper|defra)-[A-Za-z0-9]+(?:/[A-Za-z0-9]+)*`;
+const SEP = String.raw`\s*[、，,]\s*`;
+const ID_ONLY_BRACKET = new RegExp(String.raw`[（(]\s*${CARD_ID}(?:${SEP}${CARD_ID})*\s*[）)]`, "gu");
+const ID_AFTER_SEP = new RegExp(String.raw`${SEP}${CARD_ID}`, "gu");
+const ID_BEFORE_SEP = new RegExp(String.raw`${CARD_ID}${SEP}`, "gu");
+const BARE_ID = new RegExp(CARD_ID, "gu");
+
+/**
+ * 答えの文からカードの id の書き込みを取り除く。検査（長さ・数字）の前に通し、返す answer も取り除いた後のもの。
+ *  - id だけの括弧（「（maff-M01）」「（maff-M13a/M13b）」）は括弧ごと消す。
+ *  - 括弧の中で他の言葉と並ぶ id（「（基準上の義務、maff-M01）」）は、id と読点だけ消す。
+ *  - 括弧の外の id も消す。
+ */
+export function stripCardRefs(text: string): string {
+  return text.replace(ID_ONLY_BRACKET, "").replace(ID_AFTER_SEP, "").replace(ID_BEFORE_SEP, "").replace(BARE_ID, "");
+}
+
 // 落ちたときの結果。failures は理由の符号だけ（答えの文、相談者の文は入れない）。
 const fallbackOf = (failures: string[]): FollowupResult => ({ answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true, failures });
 
@@ -121,12 +139,14 @@ export function validateFollowup(
   ].slice(0, maxCards);
   if (cardIds.length === 0) return fallbackOf(["no_valid_id"]);
 
+  // カードの id の書き込みを取り除いてから検査する（返す answer もこの後のもの）
+  const answer = stripCardRefs(raw.answer);
   // 答えの落ちる理由は、見つかった分を全部残す（調べのため）
-  const failures = lengthAndUrlFailures(raw.answer, ANSWER_MAX_CHARS);
+  const failures = lengthAndUrlFailures(answer, ANSWER_MAX_CHARS);
   const cited = cards.filter((c) => cardIds.includes(c.id));
-  for (const n of new Set(unknownNumbers(raw.answer, allowedNumbers(cited, extraText), maxCards))) failures.push(`unknown_number:${n}`);
-  if (raw.answer.trim() === "") failures.push("empty");
+  for (const n of new Set(unknownNumbers(answer, allowedNumbers(cited, extraText), maxCards))) failures.push(`unknown_number:${n}`);
+  if (answer.trim() === "") failures.push("empty");
   if (failures.length > 0) return fallbackOf(failures);
 
-  return { answer: raw.answer, cardIds, outOfScope: false, failures: [] };
+  return { answer, cardIds, outOfScope: false, failures: [] };
 }

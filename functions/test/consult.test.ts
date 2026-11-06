@@ -158,6 +158,11 @@ describe("Claude に渡すもの（buildAskRequest）", () => {
     expect(CONSULT_SYSTEM).toContain(`${CONSULT_MAX_CARDS} 枚まで`);
   });
 
+  it("CONSULT_SYSTEM は、カードの id を答えに書かないことと、頻度の言い方をカードにあるときだけ使うことを言う", () => {
+    expect(CONSULT_SYSTEM).toContain("カードの id（cardId）は cardIds にだけ入れ、答えの文には書きません。画面が選んだカードを答えの下に並べます。");
+    expect(CONSULT_SYSTEM).toContain("「多く」「ほとんど」「半数」のような頻度や件数の言い方は、カードの対策・効く条件の文にあるときだけ使います。");
+  });
+
   it("CONSULT_SYSTEM は条件の問い・優先順・理由（前の流れ）の文を含まない", () => {
     for (const s of ["answers", "120 字", "見直す順"]) expect(CONSULT_SYSTEM).not.toContain(s);
   });
