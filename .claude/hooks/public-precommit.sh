@@ -130,7 +130,7 @@ function scanLine(file, n, text, ctx) {
   if (RE_PRIVATE_KEY.test(text)) add(file, n, "private_key");
   if (emailHit(text)) add(file, n, "email");
   if (phoneHit(text)) add(file, n, "phone");
-  // 相談の知見のカードは、利用条件が自由な資料の短い引用を根拠として持つ（2026-11-07 作者が例外を了承。この 1 ファイルだけ）
+  // 相談の知見のカードは、利用条件が自由な資料の短い引用を根拠として持つ（2026-11-06 作者が例外を了承。この 1 ファイルだけ）
   if (file.startsWith("data/") && file !== "data/consult/cards.json" && RE_QUOTE.test(text)) add(file, n, "data_quote");
   if (ctx.deny.length) {
     const f = fold(text);
