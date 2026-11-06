@@ -1,0 +1,883 @@
+{
+  "checkedAt": "2026-11-06T18:49:12+09:00",
+  "sources": [
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "maff-s1",
+      "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-239.pdf",
+      "sha256": "27ff0bb00ed9cc814087fae41e01234d640bc8887ce247acd06b9ce28d6dc7d7",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-239.pdf",
+          "sha256": "27ff0bb00ed9cc814087fae41e01234d640bc8887ce247acd06b9ce28d6dc7d7",
+          "kind": "pdf",
+          "bytes": 2603352
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "maff-s3",
+      "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-284.pdf",
+      "sha256": "623ff1d9dd0f40a8b5053107f0cf37717c2636ac878608921ecb82d82b990df3",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-284.pdf",
+          "sha256": "623ff1d9dd0f40a8b5053107f0cf37717c2636ac878608921ecb82d82b990df3",
+          "kind": "pdf",
+          "bytes": 816714
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "maff-s4",
+      "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-4.pdf",
+      "sha256": "fdede492750d1864206d2299e77592311fcf8e3b066720eeb75019d6af1cd2b3",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-4.pdf",
+          "sha256": "fdede492750d1864206d2299e77592311fcf8e3b066720eeb75019d6af1cd2b3",
+          "kind": "pdf",
+          "bytes": 1512008
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "maff-s5",
+      "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-1.pdf",
+      "sha256": "2ce4449ba54ee944db1e7f63954b5122a7b6932959ce567d7cf5bcfc3976b39f",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-1.pdf",
+          "sha256": "2ce4449ba54ee944db1e7f63954b5122a7b6932959ce567d7cf5bcfc3976b39f",
+          "kind": "pdf",
+          "bytes": 384525
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "maff-s7",
+      "effectiveUrl": "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_94/attach/pdf/kakin_94-10.pdf",
+      "sha256": "7af19b86a101e527b1c2e3f9cbe845cbe63f255512c32ad7d28a0d85e6dd729c",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_94/attach/pdf/kakin_94-10.pdf",
+          "sha256": "7af19b86a101e527b1c2e3f9cbe845cbe63f255512c32ad7d28a0d85e6dd729c",
+          "kind": "pdf",
+          "bytes": 3758547
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "maff-s11",
+      "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-177.pdf",
+      "sha256": "c51c9ed2239ce4cb9c4ac7753256d294bcb3a381e0a31382cd91928acda4ec30",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-177.pdf",
+          "sha256": "c51c9ed2239ce4cb9c4ac7753256d294bcb3a381e0a31382cd91928acda4ec30",
+          "kind": "pdf",
+          "bytes": 438144
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "okayama-fly",
+      "effectiveUrl": "https://www.pref.okayama.jp/uploaded/life/1030753_9970502_misc.pdf",
+      "sha256": "e005eea3d79bd15a1cfb9f16ea7ff63d2ec802e484d6c61d53d773744f273825",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.pref.okayama.jp/uploaded/life/1030753_9970502_misc.pdf",
+          "sha256": "e005eea3d79bd15a1cfb9f16ea7ff63d2ec802e484d6c61d53d773744f273825",
+          "kind": "pdf",
+          "bytes": 733930
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "okayama-lime",
+      "effectiveUrl": "https://www.pref.okayama.jp/uploaded/life/1030753_9970487_misc.pdf",
+      "sha256": "1ddc9109bad32353adb5adf8a4c54975f35e786f447067a8dd3e30a3620d665f",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.pref.okayama.jp/uploaded/life/1030753_9970487_misc.pdf",
+          "sha256": "1ddc9109bad32353adb5adf8a4c54975f35e786f447067a8dd3e30a3620d665f",
+          "kind": "pdf",
+          "bytes": 383146
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "paper-pmc12629688",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12629688/fullTextXML",
+      "sha256": "bb3bfbe189a0f89d7958aeff6e36f629a2f994d1f763e4bb60d9a77d0fea989e",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12629688/fullTextXML",
+          "sha256": "bb3bfbe189a0f89d7958aeff6e36f629a2f994d1f763e4bb60d9a77d0fea989e",
+          "kind": "xml",
+          "bytes": 110201
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "paper-pmc5818671",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC5818671/fullTextXML",
+      "sha256": "aef3d804ad6170b5a341c915348c11c567b986ab917ace4f12cdc9e53548ac21",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC5818671/fullTextXML",
+          "sha256": "aef3d804ad6170b5a341c915348c11c567b986ab917ace4f12cdc9e53548ac21",
+          "kind": "xml",
+          "bytes": 40405
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "paper-pmc11434905",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11434905/fullTextXML",
+      "sha256": "81de7edbff3e4427a628aaf02b4a2cb6f9149b8651c4239ec1a9eedd992067b2",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11434905/fullTextXML",
+          "sha256": "81de7edbff3e4427a628aaf02b4a2cb6f9149b8651c4239ec1a9eedd992067b2",
+          "kind": "xml",
+          "bytes": 102158
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "paper-pmc10408129",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC10408129/fullTextXML",
+      "sha256": "9c17189470edba416247e8a072c340ebe2b4acf5e5900fecb8b6ab7f0b588d71",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC10408129/fullTextXML",
+          "sha256": "9c17189470edba416247e8a072c340ebe2b4acf5e5900fecb8b6ab7f0b588d71",
+          "kind": "xml",
+          "bytes": 161536
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "paper-pmc10498466",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC10498466/fullTextXML",
+      "sha256": "903d8010023527d2f3f8508664115c58ca692089957a05b8d569ca993600a65a",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC10498466/fullTextXML",
+          "sha256": "903d8010023527d2f3f8508664115c58ca692089957a05b8d569ca993600a65a",
+          "kind": "xml",
+          "bytes": 125050
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "paper-pmc13423691",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC13423691/fullTextXML",
+      "sha256": "05aeb3d6b3f858b51c6702e8c3adaa4fae1cc104fa90d20fedd2193fc75f40eb",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC13423691/fullTextXML",
+          "sha256": "05aeb3d6b3f858b51c6702e8c3adaa4fae1cc104fa90d20fedd2193fc75f40eb",
+          "kind": "xml",
+          "bytes": 98510
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "paper-pmc12389693",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12389693/fullTextXML",
+      "sha256": "a4d25693d93cf466d8743cf36d4d5352150a3f7b11f0ebd33c7c1407ce3111ed",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12389693/fullTextXML",
+          "sha256": "a4d25693d93cf466d8743cf36d4d5352150a3f7b11f0ebd33c7c1407ce3111ed",
+          "kind": "xml",
+          "bytes": 144320
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "paper-pmc6006767",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6006767/fullTextXML",
+      "sha256": "014872556ab277c34be92d7da0087d3f0d28c1a1a85286fb95b0ac873e7dab4b",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6006767/fullTextXML",
+          "sha256": "014872556ab277c34be92d7da0087d3f0d28c1a1a85286fb95b0ac873e7dab4b",
+          "kind": "xml",
+          "bytes": 93049
+        }
+      ]
+    },
+    {
+      "id": "paper-pmid39808886",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:39808886%20AND%20SRC:MED&resultType=core&format=xml",
+      "sha256": "37399f11df547ed9639c62ca0fa6d525781f57769ee654597679051bb5603080",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:39808886%20AND%20SRC:MED&resultType=core&format=xml",
+          "sha256": "37399f11df547ed9639c62ca0fa6d525781f57769ee654597679051bb5603080",
+          "kind": "xml",
+          "bytes": 11035
+        }
+      ],
+      "checkedAt": "2026-11-06T18:49:01+09:00"
+    },
+    {
+      "id": "paper-pmid42869858",
+      "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:42869858%20AND%20SRC:MED&resultType=core&format=xml",
+      "sha256": "ccfee7f8d02b262bb3a637f4beaefb5270c701d0f6c5f9fc6b22ba73a42021ee",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:42869858%20AND%20SRC:MED&resultType=core&format=xml",
+          "sha256": "ccfee7f8d02b262bb3a637f4beaefb5270c701d0f6c5f9fc6b22ba73a42021ee",
+          "kind": "xml",
+          "bytes": 9175
+        }
+      ],
+      "checkedAt": "2026-11-06T18:49:12+09:00"
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "aphis-s1",
+      "effectiveUrl": "https://www.aphis.usda.gov/sites/default/files/hpai-table-egg-layers-case-control-study-updated-findings.pdf",
+      "sha256": "7378c47af33716beb44db9584cd5413dc2b494b415af88e1a34a17359bafd60a",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.aphis.usda.gov/sites/default/files/hpai-table-egg-layers-case-control-study-updated-findings.pdf",
+          "sha256": "7378c47af33716beb44db9584cd5413dc2b494b415af88e1a34a17359bafd60a",
+          "kind": "pdf",
+          "bytes": 225224
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "aphis-s2",
+      "effectiveUrl": "https://www.aphis.usda.gov/sites/default/files/hpai-turkey-case-control-study-updated-findings.pdf",
+      "sha256": "46d3f502f891aa981a2c67872403f313f9a17341a634abe6e41d06fbf2498191",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.aphis.usda.gov/sites/default/files/hpai-turkey-case-control-study-updated-findings.pdf",
+          "sha256": "46d3f502f891aa981a2c67872403f313f9a17341a634abe6e41d06fbf2498191",
+          "kind": "pdf",
+          "bytes": 241059
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "aphis-s5",
+      "effectiveUrl": "https://www.aphis.usda.gov/sites/default/files/epi-analyses-avian-flu-poultry-7th-interim-rpt.pdf",
+      "sha256": "e65e8bbd39ffb882aa27067484d71a7f8f28f1f7ac061711befcf7f0cb0ceec3",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.aphis.usda.gov/sites/default/files/epi-analyses-avian-flu-poultry-7th-interim-rpt.pdf",
+          "sha256": "e65e8bbd39ffb882aa27067484d71a7f8f28f1f7ac061711befcf7f0cb0ceec3",
+          "kind": "pdf",
+          "bytes": 2482836
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "defra-s12",
+      "effectiveUrl": "https://assets.publishing.service.gov.uk/media/6773db806c34906cc84c942c/AIPZ_checklist_for_poultry_and_captive_bird_keepers_-_with_housing_measures_word_-_Copy.docx",
+      "sha256": "4b46ca548c3e9791cdbcdb0133e784d523c029c546d5bc9bf0970e5be6b90860",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.gov.uk/government/publications/avian-influenza-prevention-zone-aipz-checklist-for-poultry-and-captive-bird-keepers",
+          "sha256": "8a350be14f6e4ecd45873bac3f61b2e0b6253e70f584fbcaea8ca21e663ffa76",
+          "kind": "html",
+          "bytes": 76040
+        },
+        {
+          "url": "https://assets.publishing.service.gov.uk/media/6773db806c34906cc84c942c/AIPZ_checklist_for_poultry_and_captive_bird_keepers_-_with_housing_measures_word_-_Copy.docx",
+          "sha256": "4b46ca548c3e9791cdbcdb0133e784d523c029c546d5bc9bf0970e5be6b90860",
+          "kind": "docx",
+          "bytes": 50257
+        }
+      ]
+    },
+    {
+      "checkedAt": "2026-11-06T18:46:21+09:00",
+      "id": "defra-s13",
+      "effectiveUrl": "https://www.gov.uk/government/publications/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions",
+      "sha256": "7184b46723bc0f05f7232b78f41eeaffde0f1e5db5a4583166d600b4ef305f7d",
+      "status": "ok",
+      "parts": [
+        {
+          "url": "https://www.gov.uk/government/publications/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions",
+          "sha256": "7184b46723bc0f05f7232b78f41eeaffde0f1e5db5a4583166d600b4ef305f7d",
+          "kind": "html",
+          "bytes": 489415
+        }
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "id": "maff-M01",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M02a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M02b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M03",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M04a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M04b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M04c",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M05",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M06a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M06b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M07a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M07b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M08a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M08b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M09a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M09b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M10",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M11a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M11b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M12a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M12b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M13a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M13b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M14a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M14b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M15",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M16",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M17",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M18",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M19a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M19b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M20a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M20b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M21a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M21b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M22a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M22b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M23a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M23b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M24a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M24b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M25a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M25b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M26",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M27",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M28a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M28b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M29",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M30",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M31",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "maff-M34",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "papers-C01",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C02",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C03",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C04a",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C04b",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C05",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C06",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C07",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C08",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C15",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C16",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C17",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C20a",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C20b",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C22a",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C22b",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C22c",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C22d",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C23",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C24",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C25",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C26",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C27a",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C27b",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C28a",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C28b",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C30",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C33",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "papers-C34",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "okayama-OK1",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "okayama-OK2",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "okayama-OK3",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "okayama-OK4",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-U1a",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "overseas-U1b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-U2a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-U2b",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "overseas-U3",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "overseas-U4a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-U4b",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "overseas-U5",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-U6",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "overseas-U7",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-U8",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-U9a",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-U9b",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-U10",
+      "verified": true,
+      "method": "xml"
+    },
+    {
+      "id": "overseas-U11",
+      "verified": true,
+      "method": "pdf-unpdf"
+    },
+    {
+      "id": "overseas-K1a",
+      "verified": true,
+      "method": "docx"
+    },
+    {
+      "id": "overseas-K1b",
+      "verified": true,
+      "method": "docx"
+    },
+    {
+      "id": "overseas-K2",
+      "verified": true,
+      "method": "docx"
+    },
+    {
+      "id": "overseas-K3",
+      "verified": true,
+      "method": "docx"
+    },
+    {
+      "id": "overseas-K4a",
+      "verified": true,
+      "method": "html"
+    },
+    {
+      "id": "overseas-K4b",
+      "verified": true,
+      "method": "html"
+    }
+  ]
+}
