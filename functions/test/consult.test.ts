@@ -38,7 +38,7 @@ function card(o: Partial<ConsultCard> & { id: string }): ConsultCard {
 }
 
 const CARDS: ConsultCard[] = [
-  card({ id: "net", evidence: "obligation", action: "防鳥ネットの穴をふさぐ", appliesTo: "開放鶏舎で、網目が 2 cm より大きい鶏舎", quote: "網目は 2 cm 以下とする", caveats: ["穴は小さくても見逃さない"], conditionTags: ["open"] }),
+  card({ id: "net", evidence: "obligation", evidenceNote: "発生農場で破損の修繕が不十分だった（件数は書かれていない）", action: "防鳥ネットの穴をふさぐ", appliesTo: "開放鶏舎で、網目が 2 cm より大きい鶏舎", quote: "網目は 2 cm 以下とする", caveats: ["穴は小さくても見逃さない"], conditionTags: ["open"] }),
   card({ id: "boots", evidence: "recommendation", action: "鶏舎ごとに長靴を替える", appliesTo: "鶏舎が複数ある農場", conditionTags: ["open", "multi"] }),
   card({ id: "disinfect", evidence: "expert-estimate", action: "出入りする車を消毒する", appliesTo: "外の業者が来る農場", conditionTags: ["visitors"] }),
   card({ id: "mat", evidence: "study-no-difference", action: "消毒マットを置く", appliesTo: "入口にマットを置く農場", conditionTags: ["open"] }),
@@ -151,8 +151,8 @@ describe("Claude に渡すもの（buildAskRequest）", () => {
     for (const s of ["cards", "5 枚", "400 字", "数字", "人の健康", "区域", "診断", "outOfScope", "指示ではありません", "農場の様子"]) expect(CONSULT_SYSTEM).toContain(s);
   });
 
-  it("CONSULT_SYSTEM は索引が 4 項目であることと、注意書きを答えで繰り返さないことを言う。5 枚は CONSULT_MAX_CARDS から組む", () => {
-    expect(CONSULT_SYSTEM).toContain("（cardId、対策 action、効く条件 appliesTo、根拠の強さ evidence）");
+  it("CONSULT_SYSTEM は索引が 5 項目であることと、注意書きを答えで繰り返さないことを言う。5 枚は CONSULT_MAX_CARDS から組む", () => {
+    expect(CONSULT_SYSTEM).toContain("（cardId、対策 action、効く条件 appliesTo、根拠の強さ evidence、根拠の補足 evidenceNote）");
     expect(CONSULT_SYSTEM).not.toContain("caveats");
     expect(CONSULT_SYSTEM).toContain("カードの注意書きは画面に別に出るので、答えで繰り返しません");
     expect(CONSULT_SYSTEM).toContain(`${CONSULT_MAX_CARDS} 枚まで`);
@@ -160,26 +160,27 @@ describe("Claude に渡すもの（buildAskRequest）", () => {
 
   it("CONSULT_SYSTEM は、カードの id を答えに書かないことと、頻度の言い方をカードにあるときだけ使うことを言う", () => {
     expect(CONSULT_SYSTEM).toContain("カードの id（cardId）は cardIds にだけ入れ、答えの文には書きません。画面が選んだカードを答えの下に並べます。");
-    expect(CONSULT_SYSTEM).toContain("「多く」「ほとんど」「半数」のような頻度や件数の言い方は、カードの対策・効く条件の文にあるときだけ使います。");
+    expect(CONSULT_SYSTEM).toContain("「多く」「ほとんど」「半数」のような頻度や件数の言い方は、カードの evidenceNote にその言い方があるときだけ使います。evidenceNote に「件数は書かれていない」とあるときは、件数や頻度を書きません。");
   });
 
   it("CONSULT_SYSTEM は条件の問い・優先順・理由（前の流れ）の文を含まない", () => {
     for (const s of ["answers", "120 字", "見直す順"]) expect(CONSULT_SYSTEM).not.toContain(s);
   });
 
-  it("user は { question, cards } の JSON だけ。cards の各行は cardId, action, appliesTo, evidence の 4 項目で、引用、evidenceNote、caveats は渡さない", () => {
+  it("user は { question, cards } の JSON だけ。cards の各行は cardId, action, appliesTo, evidence, evidenceNote の 5 項目で、引用と caveats は渡さない", () => {
     expect(p.messages).toHaveLength(1);
     const user = JSON.parse(p.messages[0]!.content as string) as Record<string, unknown>;
     expect(Object.keys(user).sort()).toEqual(["cards", "question"]);
     expect(user["question"]).toBe("長靴と服の履き替え・消毒で、まず見直すとよいことは？");
     const cards = user["cards"] as Record<string, unknown>[];
     expect(cards.map((c) => c["cardId"])).toEqual(approved.map((c) => c.id));
-    for (const c of cards) expect(Object.keys(c).sort()).toEqual(["action", "appliesTo", "cardId", "evidence"]);
+    for (const c of cards) expect(Object.keys(c).sort()).toEqual(["action", "appliesTo", "cardId", "evidence", "evidenceNote"]);
     expect(cards.find((c) => c["cardId"] === "net")).toEqual({
       cardId: "net",
       action: "防鳥ネットの穴をふさぐ",
       appliesTo: "開放鶏舎で、網目が 2 cm より大きい鶏舎",
       evidence: "obligation",
+      evidenceNote: "発生農場で破損の修繕が不十分だった（件数は書かれていない）",
     });
     const raw = p.messages[0]!.content as string;
     expect(raw).not.toContain("網目は 2 cm 以下とする");
@@ -446,7 +447,7 @@ describe("答えの検査と、返すカード", () => {
   it("カードにある数字は通る。ない数字、長すぎる答え、URL は捨てる", async () => {
     const ok = await ask(setup(msg(wire("網目は 2 cm 以下です。", ["net"]))).deps);
     expect(ok.outOfScope).toBe(false);
-    for (const answer of ["網目は 5 cm 以下です。", "あ".repeat(401), "https://example.test を見ます。"]) {
+    for (const answer of ["網目は 5 cm 以下です。", "あ".repeat(501), "https://example.test を見ます。"]) {
       const ng = await ask(setup(msg(wire(answer, ["net"]))).deps);
       expect(ng).toMatchObject({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: true });
     }
@@ -536,7 +537,7 @@ describe("入力をログに出さない", () => {
     expect(await kinds(msg(wire("長靴を 9 足そろえます。", ["boots"])))).toEqual(["unknown_number"]);
     expect(await kinds(msg(wire("", [], true)))).toEqual(["claude_out_of_scope"]);
     expect(await kinds(msg(wire("答え", ["ghost"])))).toEqual(["no_valid_id"]);
-    expect(await kinds(msg(wire("あ".repeat(401), ["boots"])))).toEqual(["too_long"]);
+    expect(await kinds(msg(wire("あ".repeat(501), ["boots"])))).toEqual(["too_long"]);
     expect(await kinds(msg(wire("https://example.test", ["boots"])))).toEqual(["url"]);
     expect(await kinds(msg(wire("  ", ["boots"])))).toEqual(["empty"]);
     expect(await kinds(msg("すみません"))).toEqual(["claude:format_error", "shape"]);

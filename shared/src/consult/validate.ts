@@ -7,8 +7,8 @@ import type { ConsultCard } from "./types";
 
 export { OUT_OF_SCOPE_TEXT };
 
-// 答えの字数の上限。
-const ANSWER_MAX_CHARS = 400;
+// 答えの字数の上限。指示（CONSULT_SYSTEM）は 400 字だが、わずかな超過で答えを捨てないよう、検査は 500 字まで。
+const ANSWER_MAX_CHARS = 500;
 
 export interface FollowupResult {
   answer: string;
@@ -61,11 +61,11 @@ function numbersOf(s: string): string[] {
   return [...(n.match(/\d+/gu) ?? []), ...kanji];
 }
 
-// 書いてよい数字: 引いたカードの quote、appliesTo、action にある数字と、相談の文（extraText）に書かれた数字。
+// 書いてよい数字: 引いたカードの quote、appliesTo、action、evidenceNote にある数字と、相談の文（extraText）に書かれた数字。
 function allowedNumbers(cards: ConsultCard[], extraText: string): Set<string> {
   const set = new Set<string>(numbersOf(extraText));
   for (const card of cards) {
-    for (const text of [card.quote, card.appliesTo, card.action]) {
+    for (const text of [card.quote, card.appliesTo, card.action, card.evidenceNote]) {
       for (const n of numbersOf(text)) set.add(n);
     }
   }

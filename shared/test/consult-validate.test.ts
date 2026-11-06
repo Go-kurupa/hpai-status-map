@@ -48,9 +48,10 @@ describe("validateFollowup", () => {
     expect(r.outOfScope).toBe(false);
   });
 
-  it("400 字を超える答え、URL を含む答えは、決まった文を返す", () => {
-    expect(validateFollowup({ answer: "あ".repeat(401), cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
-    expect(validateFollowup({ answer: "あ".repeat(400), cardIds: ["a"] }, ["a"], cards).answer).toBe("あ".repeat(400));
+  it("500 字を超える答え、URL を含む答えは、決まった文を返す", () => {
+    expect(validateFollowup({ answer: "あ".repeat(501), cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+    // 指示は 400 字だが、検査の上限は 500 字（わずかな超過で捨てない）
+    for (const n of [400, 401, 500]) expect(validateFollowup({ answer: "あ".repeat(n), cardIds: ["a"] }, ["a"], cards).answer).toBe("あ".repeat(n));
     expect(validateFollowup({ answer: "https://evil.example を見て", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
   });
 
@@ -81,7 +82,7 @@ describe("validateFollowup", () => {
     expect(f({ answer: "答え", cardIds: [] })).toEqual(["no_valid_id"]);
     expect(f({ answer: "答え", cardIds: ["zzz", 3] })).toEqual(["no_valid_id"]);
     // 長さ、URL
-    expect(f({ answer: "あ".repeat(401), cardIds: ["a"] })).toEqual(["too_long"]);
+    expect(f({ answer: "あ".repeat(501), cardIds: ["a"] })).toEqual(["too_long"]);
     expect(f({ answer: "https://evil.example を見て", cardIds: ["a"] })).toEqual(["url"]);
     // カードにない数字（数字そのものは入る。同じ数字は 1 つ。相談の文の数字は通る）
     expect(f({ answer: "3 倍と 3 倍と 7 日", cardIds: ["a"] })).toEqual(["unknown_number:3", "unknown_number:7"]);
@@ -102,6 +103,12 @@ describe("validateFollowup", () => {
     expect(r.outOfScope).toBe(false);
     // 渡さないときは絞らない
     expect(validateFollowup({ answer: "答え", cardIds: ids }, ids, many).cardIds).toEqual(ids);
+  });
+
+  it("カードの evidenceNote にある数字は通る。ない数字は落ちる", () => {
+    const note = makeCard({ id: "n", evidenceNote: "調査で 12 農場のうち 7 農場に破損があった" });
+    expect(validateFollowup({ answer: "12 農場のうち 7 農場でした", cardIds: ["n"] }, ["n"], [note]).failures).toEqual([]);
+    expect(validateFollowup({ answer: "12 農場のうち 8 農場でした", cardIds: ["n"] }, ["n"], [note]).failures).toEqual(["unknown_number:8"]);
   });
 
   it("extraText（相談の文）に書かれた数字は通る。ない数字、別の数字は落ちる", () => {
@@ -212,7 +219,7 @@ describe("答えの文のカードの id の書き込みを取り除く（Ruling
     const r = validateFollowup({ answer: ANSWER_B, cardIds: idsB }, idsB, mk(idsB), 5, "裏の田んぼに冬に水が張ります。300 羽の平飼いです");
     expect(r.failures).toEqual([]);
     expect(r.answer).not.toMatch(ID_SHAPE);
-    expect(Array.from(r.answer).length).toBeLessThanOrEqual(400);
+    expect(Array.from(r.answer).length).toBeLessThanOrEqual(500);
     expect(r.answer).toContain("研究は5,000羽以上");
   });
 
@@ -221,8 +228,8 @@ describe("答えの文のカードの id の書き込みを取り除く（Ruling
     expect(r.failures).toEqual(["unknown_number:3"]);
   });
 
-  it("id を取り除いた後でも 400 字を超える答えは落ちる", () => {
-    const r = validateFollowup({ answer: "あ".repeat(401) + "（maff-M01）", cardIds: ["maff-M01"] }, ["maff-M01"], mk(["maff-M01"]), 5);
+  it("id を取り除いた後でも 500 字を超える答えは落ちる", () => {
+    const r = validateFollowup({ answer: "あ".repeat(501) + "（maff-M01）", cardIds: ["maff-M01"] }, ["maff-M01"], mk(["maff-M01"]), 5);
     expect(r.failures).toEqual(["too_long"]);
   });
 });
