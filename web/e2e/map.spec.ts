@@ -24,6 +24,8 @@ type MapHandle = {
   jumpTo(o: { center: [number, number]; zoom: number }): void;
   querySourceFeatures(source: string): unknown[];
   queryRenderedFeatures(q: undefined, o: { layers: string[] }): unknown[];
+  queryRenderedFeatures(q: [number, number], o: { layers: string[] }): Array<{ properties?: Record<string, unknown> }>;
+  getCanvas(): HTMLCanvasElement;
   getFilter(id: string): unknown;
   getLayer(id: string): unknown;
   dragRotate: { isEnabled(): boolean };
@@ -420,6 +422,68 @@ test.describe("地図（入口）", () => {
       }
       await page.evaluate(() => window.__hpaiMap!.jumpTo({ center: [134.0, 35.07], zoom: 4 }));
       await expect(page.locator(".ring-label", { hasText: "約 10 km" })).toBeHidden();
+    });
+
+    // 設計書 2026-11-06-ui-frame 決定 6: 地点がなく町だけ選んだ人も、町の中心から輪を描く
+    test("町だけ選んだ人は、町の中心から輪が描かれ、自分の近くは約 60 km の輪の全体が入る。断りは町の中心の文", async ({ page }) => {
+      await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
+      await open(page, 1280);
+      await expect(page.getByText("輪は町の中心からの距離の目安で、発表の区域ではありません。")).toBeVisible();
+      await expect(page.getByText(RING_NOTE)).toHaveCount(0);
+      await expect
+        .poll(() => page.evaluate(() => window.__hpaiMap!.queryRenderedFeatures(undefined, { layers: ["distance-rings"] }).length), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+      const canvas = (await page.locator(".map-canvas").boundingBox())!;
+      const label = (await page.locator(".ring-label", { hasText: "約 60 km" }).boundingBox())!;
+      expect(label.y).toBeGreaterThanOrEqual(canvas.y);
+      expect(label.y + label.height).toBeLessThanOrEqual(canvas.y + canvas.height);
+    });
+  });
+
+  // 設計書 2026-11-06-ui-frame 決定 4: 地図で町を押すと、その町の今季と過去の事例が右の列（スマホは地図の下）に出る
+  test.describe("押した町の事例", () => {
+    test("PC: 地図の真ん中（自分の町）を押すと右の列の先頭に欄が出て、題へ移る。戻ると近くの町のボタン、押すと過去の事例が出る", async ({ page }) => {
+      await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
+      await open(page, 1280);
+      const panel = page.locator(".town-cases");
+      await expect(panel.getByRole("button", { name: "美作市" })).toBeVisible({ timeout: 20_000 });
+      // 輪の広さへ動いている最中に押すと動きが止まり、町の塗りのない広さに残る。真ん中に自分の町の塗りが描かれてから押す
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => {
+              const m = window.__hpaiMap!;
+              const r = m.getCanvas().getBoundingClientRect();
+              return m.queryRenderedFeatures([r.width / 2, r.height / 2], { layers: ["muni-fill"] }).map((f) => f.properties?.["c"]);
+            }),
+          { timeout: 15_000 },
+        )
+        .toEqual(["33643"]);
+      const c = (await page.locator(".map-canvas").boundingBox())!;
+      await page.mouse.click(c.x + c.width / 2, c.y + c.height / 2);
+      const heading = panel.getByRole("heading", { level: 2, name: "西粟倉村" });
+      await expect(heading).toBeFocused();
+      await expect(panel.getByText("今季の発生の記録はありません。")).toBeVisible();
+      // 右の列の先頭で、地図の上端と並ぶ
+      const canvas = (await page.locator(".map-canvas").boundingBox())!;
+      const box = (await panel.boundingBox())!;
+      expect(box.x).toBeGreaterThan(canvas.x + canvas.width);
+      expect(Math.abs(box.y - canvas.y)).toBeLessThanOrEqual(2);
+      await panel.getByRole("button", { name: "自分の町に戻る" }).click();
+      await panel.getByRole("button", { name: "美作市" }).click();
+      await expect(panel.getByRole("heading", { level: 2, name: "美作市" })).toBeFocused();
+      await expect(panel.getByText("2020 年 12 月 11 日")).toBeVisible();
+      await expect(panel.getByRole("link", { name: "資料を開く" }).first()).toHaveAttribute("rel", /noopener/);
+    });
+
+    test("欄は今季の発生の地図だけ。過去の発生（/compare）と自分の町のまわり（/town）には出ない", async ({ page }) => {
+      await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
+      for (const path of ["/compare", "/town"]) {
+        await open(page, 1280, path);
+        // 欄（近くの町のボタン）は国の事例一覧が届いてから出る。届く前に数えると空振りするので、通信が落ち着くまで待つ
+        await page.waitForLoadState("networkidle");
+        await expect(page.locator(".town-cases")).toHaveCount(0);
+      }
     });
   });
 });

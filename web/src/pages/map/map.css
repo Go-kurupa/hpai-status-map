@@ -503,6 +503,79 @@
   font-weight: 700;
 }
 
+/* 地図で押した町の事例（設計書 2026-11-06-ui-frame 決定 4）。枠は外周の色、影は付けない */
+.town-cases {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--outer);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.town-cases h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.town-cases h2:focus {
+  outline: none;
+}
+.town-cases h2:focus-visible {
+  outline: 3px solid var(--fg);
+  outline-offset: 2px;
+}
+.town-cases h3 {
+  margin: 8px 0 0;
+  font-size: 1rem;
+}
+.town-cases p {
+  margin: 0;
+}
+.town-cases-label,
+.town-cases-note,
+.town-cases-hint {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.town-cases-list,
+.town-cases-picks {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-cases-list li {
+  display: grid;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: var(--soft);
+  overflow-wrap: anywhere;
+}
+.town-cases-list b {
+  color: var(--navy);
+}
+.town-cases-nowrap {
+  white-space: nowrap;
+}
+.town-cases-picks {
+  display: flex;
+  flex-wrap: wrap;
+}
+.town-cases-season-label {
+  margin: 6px 0 2px;
+  font-weight: 700;
+}
+.town-cases > .btn {
+  justify-self: start;
+}
+/* 町を押している間は、右の欄の自分の町の 1 文をその町の事例に替える。「自分の町に戻る」で戻る（設計書 2026-11-06-ui-frame 4.1） */
+.map-page:has(> .town-cases h2) > .town-banner {
+  display: none;
+}
+
 /* 自分の町の 1 文（§15）。色は今季の段階だけ。過去の行は色を持たない */
 .town-banner {
   margin: 0 0 12px;
@@ -1239,6 +1312,13 @@
     top: 0;
     right: 0;
     margin: 0;
+  }
+  /* 押した町の事例は右の列の先頭（地図の隣）に出す。町を選ぶ一覧は、自分の町の 1 文（order 3）の後ろ（DOM の順） */
+  .map-page:not(:has(> .spot-picker[data-active="true"])) > .town-cases:has(h2) {
+    order: 1;
+  }
+  .map-page:not(:has(> .spot-picker[data-active="true"])) > .town-cases:not(:has(h2)) {
+    order: 3;
   }
   /* 「自分の町の過去」（/town）は地図がないので、町の文を横いっぱい（読みやすい幅まで）に置く */
   .map-page[data-section="town"] > .town-banner {

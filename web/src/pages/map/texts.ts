@@ -33,6 +33,29 @@ export const TEXT = {
   myTown: "自分の町",
   // 地図の見る場所の切り替え
   mapNear: "自分の近く",
+  // 地図で押した町の事例の欄（設計書 2026-11-06-ui-frame 4.1、決定 4）
+  panelLabel: "選んだ町",
+  panelNow: "今季",
+  panelPast: "過去 6 シーズン（国の事例一覧）",
+  panelLoading: "読み込んでいます",
+  panelNoneNow: "今季の発生の記録はありません。記録がないことは、これから出ないという意味ではありません。",
+  panelNonePast: "国の事例一覧に、この町の記録はありません。記録がないことは、これから出ないという意味ではありません。",
+  panelSuspected: "疑い",
+  panelConfirmed: "確定",
+  panelNoDate: "日付の記載なし",
+  panelNoUse: "用途の記載なし",
+  panelNoHousing: "飼い方の記載なし",
+  panelNoHead: "羽数の記載なし",
+  panelSource: "資料を開く",
+  panelNote: "出典: 農林水産省と各県の発表、国の事例一覧。関連農場は件数に入れていません。",
+  panelClose: "自分の町に戻る",
+  panelCloseNoTown: "閉じる",
+  panelPastFailed: "過去の記録をまだ読めていません。",
+  panelRetry: "もう一度読む",
+  panelHint: "地図で町を押すと、その町の今季と過去の発生が出ます。近くで過去に発生のある町:",
+  panelPickAria: "町を選んで発生を見る",
+  // 町だけ選んだ人の、町の中心からの輪（設計書 2026-11-06-ui-frame 決定 6）
+  ringNoteTown: "輪は町の中心からの距離の目安で、発表の区域ではありません。",
   // 最初の画面の過去の行から「自分の町の過去」へ（設計書 2026-11-06-ui-frame 4.1）
   townPastLink: "自分の町の過去を見る",
   mapScopeAria: "地図の見る場所",
@@ -159,6 +182,8 @@ export const TEXT = {
   svgNear: "隣の町",
   svgPrefList: "県の一覧から選ぶ",
   svgMuniList: "市町村の一覧から選ぶ",
+  // 場所を選んでいないときは、押すとその町の発生を見る（設計書 2026-11-06-ui-frame 決定 4）
+  svgMuniListInspect: "市町村の一覧から発生を見る",
   svgLoading: "地図の形を読み込んでいます",
   // 農場の地点（MeshPicker）を、地図なしで決める。座標は送らず、約 1km のマス目と町のコードだけを使う
   meshNoMap: "この端末では地図を表示できないため、選んだ市町村の中心あたりの約 1km のマス目で登録できます。",

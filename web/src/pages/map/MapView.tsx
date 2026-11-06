@@ -3,7 +3,7 @@ import type { MeshCode, MuniCode, PrefCode, WildBird } from "@hpai/shared/types"
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { feature, mesh } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
-import { distanceRingsOf, pxPerKmAtZoom, ringLabel, ringTop, visibleRingKms } from "../../geo/distanceRings";
+import { distanceRingsAt, distanceRingsOf, pxPerKmAtZoom, ringLabel, ringTop, visibleRingKms } from "../../geo/distanceRings";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { Marker, MlMap } from "../../geo/maplibre";
 import { applyDistanceRings, applyView, applyWildBirds, type ViewTarget } from "./applyView";
@@ -20,10 +20,14 @@ export interface MapViewProps {
   nearMuniCodes: readonly MuniCode[];
   /** 距離の輪の中心にする地点のマス目。緯度経度はこの部品の中で作り、外へ渡さない */
   farmMeshCode?: MeshCode | null;
+  /** 地点がないときの距離の輪の中心（町の中心、[経度, 緯度]）。地点があればそちらを使う（設計書 2026-11-06-ui-frame 決定 6） */
+  ringCenter?: [number, number] | null;
   /** rings は距離の輪の全体が入る広さ（輪がなければ codes の町）。代わりの地図は codes の町の県を出す */
   focus: { kind: "japan" | "muni" | "rings"; codes: MuniCode[]; nonce: number } | null;
   pickMode?: boolean;
   onSelectMuni?: (code: MuniCode) => void;
+  /** 場所を選んでいないときに町を押したら、その町の事例を見る（設計書 2026-11-06-ui-frame 決定 4）。onSelectMuni が優先 */
+  onInspectMuni?: (code: MuniCode) => void;
   onMapReady?: (map: MlMap) => void;
   /** 地図が描けない（WebGL2 がない、初期化に失敗）。代わりの地図に切り替えたことを親に知らせる */
   onUnsupported?: () => void;
@@ -108,7 +112,9 @@ export default function MapView(props: MapViewProps) {
         map.on("click", (e) => {
           const hit = map.queryRenderedFeatures(e.point, { layers: ["muni-fill"] })[0];
           const code = hit?.properties?.["c"];
-          if (typeof code === "string") latest.current.onSelectMuni?.(code);
+          if (typeof code !== "string") return;
+          const pick = latest.current.onSelectMuni ?? latest.current.onInspectMuni;
+          pick?.(code);
         });
         setGeo({ store, anchors });
         setReady(true);
@@ -164,7 +170,12 @@ export default function MapView(props: MapViewProps) {
   }, [ready, geo, props.wildBirds]);
 
   // 距離の輪。ラベルは文字の層が使えない（glyphs の外部 URL が要る）ので、県のバッジと同じ Marker で出す
-  const rings = useMemo(() => distanceRingsOf(props.farmMeshCode), [props.farmMeshCode]);
+  const ringLng = props.ringCenter?.[0];
+  const ringLat = props.ringCenter?.[1];
+  const rings = useMemo(
+    () => (props.farmMeshCode ? distanceRingsOf(props.farmMeshCode) : distanceRingsAt(ringLng !== undefined && ringLat !== undefined ? [ringLng, ringLat] : null)),
+    [props.farmMeshCode, ringLng, ringLat],
+  );
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
@@ -287,6 +298,8 @@ export default function MapView(props: MapViewProps) {
             farmMeshCode={props.farmMeshCode}
             focus={props.focus}
             onSelectMuni={props.onSelectMuni}
+            onInspectMuni={props.onInspectMuni}
+            ringCenter={props.ringCenter}
             onUnplaced={setUnplaced}
             onFailed={() => setFailed(true)}
           />

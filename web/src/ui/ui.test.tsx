@@ -451,7 +451,8 @@ describe("機械の検査: css", () => {
   const SHADOW_ALLOWED = new Set([`${MAP} .map-canvas, .svg-map`, "web/src/pages/settings/settings.css .picker-canvas"]);
   // 角丸の上限を上げてよいものを名指しする。カードは 12px、押す部品と入力は 8px、ほかは 4px
   // 地図のカードの下の端に重ねる「地図に印のない発表」の帯は、カードの下の角と同じ角丸（影は付けない）
-  const RADIUS_CARD = new Set([...SHADOW_ALLOWED, `${MAP} .near-unmarked`]);
+  // 地図で押した町の事例の欄もカード（設計書 2026-11-06-ui-frame 決定 4）
+  const RADIUS_CARD = new Set([...SHADOW_ALLOWED, `${MAP} .near-unmarked`, `${MAP} .town-cases`]);
   const RADIUS_CONTROL = new Set([
     ".btn",
     ".map-home-btn",

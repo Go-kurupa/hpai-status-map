@@ -504,7 +504,8 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
       expect(above).not.toContain("47 都道府県のうち");
       // 地図の断りは地図のすぐ下
       await expect(page.locator(".map-box + .map-disclaimer")).toBeVisible();
-      await expect(page.locator(".map-disclaimer + .map-ring-note")).toHaveCount(s.spot ? 1 : 0);
+      // 輪は地点があればそこから、町だけなら町の中心から描く（設計書 2026-11-06-ui-frame 決定 6）。どちらでもなければ断りもない
+      await expect(page.locator(".map-disclaimer + .map-ring-note")).toHaveCount(s.spot || s.town ? 1 : 0);
       // 確認の行は消さず、地図の下で読める
       const watchLine = page.getByTestId("watch-line");
       await expect(watchLine).toBeVisible();

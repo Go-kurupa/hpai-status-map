@@ -15,6 +15,7 @@ import { Legend } from "./Legend";
 import { listRows, wildBirdRows } from "./listRows";
 import { MapChunkBoundary } from "./MapChunkBoundary";
 import { SectionTabs } from "../../ui/SectionTabs";
+import { TownCasesPanel } from "./TownCasesPanel";
 import { MapLinks, NextLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import { countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
@@ -185,7 +186,11 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     if (open) setAiming(false);
   }, []);
   // 地点があれば距離の輪の全体、町だけならその町が「自分の近く」
-  const nearKind = farmMeshCode !== null ? "rings" : "muni";
+  // 地点がなく町だけ選んだ人は、町の中心から距離の輪を描く（設計書 2026-11-06-ui-frame 決定 6）。「自分の近く」は輪の全体が入る広さ
+  const ringCenter = farmMeshCode === null && town !== null && geo ? (geo.index[town]?.center ?? null) : null;
+  const nearKind = farmMeshCode !== null || ringCenter !== null ? "rings" : "muni";
+  // 地図で押した町（設計書 2026-11-06-ui-frame 決定 4）。今季の発生の地図だけ
+  const [inspected, setInspected] = useState<MuniCode | null>(null);
   const showNear = useCallback(() => {
     if (town !== null) moveTo(nearKind, [town]);
   }, [town, nearKind, moveTo]);
@@ -526,6 +531,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
               myMuniCode={town}
               nearMuniCodes={townLine.nearMuniCodes}
               farmMeshCode={farmMeshCode}
+              ringCenter={ringCenter}
+              onInspectMuni={section === "now" && !(picking && canEdit) && !aiming ? setInspected : undefined}
               focus={focus}
               pickMode={picking && canEdit}
               onSelectMuni={picking && canEdit ? choose : undefined}
@@ -567,7 +574,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       </div>
 
       <p className="map-disclaimer">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
-      {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : null}
+      {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : ringCenter !== null ? <p className="map-ring-note">{TEXT.ringNoteTown}</p> : null}
       {narrow && riskAboveStats ? (
         <p className="map-risk-source">
           {TEXT.listSource}: {RISK_SOURCE}{" "}
@@ -589,6 +596,22 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         </div>
       ) : null}
       {inMap && bannerAfterMap ? banner : null}
+      {/* 右の欄（設計書 2026-11-06-ui-frame 4.1）: ふだんは自分の町の 1 文。町を押すとその町の事例に替わる（map.css で町の文を隠す） */}
+      {section === "now" ? (
+        <TownCasesPanel
+          muniCode={inspected}
+          muniName={inspected && geo ? (geo.index[inspected]?.name ?? null) : null}
+          currentCases={d.currentCases}
+          history={d.history}
+          historyFailed={d.historyFailed}
+          onRetryHistory={d.retryHistory}
+          current={d.current}
+          nearbyTowns={nearby.status === "ready" ? nearby.summary.towns.filter((t) => t.muniCode !== town) : []}
+          hasTown={town !== null}
+          onPick={setInspected}
+          onClose={() => setInspected(null)}
+        />
+      ) : null}
       {inMap && town !== null ? picker : null}
       <Legend isCurrent={view.isCurrent} />
 

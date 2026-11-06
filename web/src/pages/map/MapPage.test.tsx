@@ -356,7 +356,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
     expect(localStorage.getItem(TOWN_KEY)).toBe("33214");
     expect(localStorage.getItem(SPOT_KEY)).toBeNull();
-    expect(lastProps().focus?.kind).toBe("muni");
+    expect(lastProps().focus?.kind).toBe("rings") /* 町だけの人も町の中心の輪の全体（設計書 2026-11-06-ui-frame 決定 6） */;
     expect(lastProps().focus?.codes).toEqual(["33214"]);
   });
 
@@ -374,6 +374,35 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(localStorage.getItem(TOWN_KEY)).toBe("33214");
     expect(lastProps().onSelectMuni).toBeUndefined();
     expect(lastProps().pickMode).toBeFalsy();
+  });
+
+  it("町を押して事例を見られるのは今季の地図（section now）だけで、場所を選ぶ画面を開いているあいだは選ぶほうが優先", async () => {
+    localStorage.setItem(TOWN_KEY, "33643");
+    const r = rig();
+    show(r, { section: "now" });
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    expect(lastProps().onInspectMuni).toBeTypeOf("function");
+    act(() => lastProps().onInspectMuni!("33203"));
+    expect(await screen.findByRole("heading", { level: 2, name: "津山市" })).toBeTruthy();
+    // 町を押している間は、自分の町の 1 文を欄に替える（CSS で隠す。DOM には残る）
+    expect(document.querySelector(".map-page > .town-cases h2")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "自分の町に戻る" }));
+    expect(screen.queryByRole("heading", { level: 2, name: "津山市" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "町を変える" }));
+    expect(lastProps().onSelectMuni).toBeTypeOf("function");
+    expect(lastProps().onInspectMuni).toBeUndefined();
+    cleanup();
+
+    for (const section of ["all", "compare", "season"] as const) {
+      seen.length = 0;
+      const other = rig();
+      show(other, { section });
+      await screen.findByTestId("map").catch(() => null);
+      if (seen.length) expect(lastProps().onInspectMuni).toBeUndefined();
+      expect(document.querySelector(".town-cases")).toBeNull();
+      cleanup();
+    }
   });
 
   it("別の町を選ぶと、前のくわしい場所を消して、そう伝える", async () => {
@@ -470,7 +499,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     r.deliverCases([]);
     const near = screen.getByRole("button", { name: TEXT.mapNear });
     const japan = screen.getByRole("button", { name: "全国" });
-    await waitFor(() => expect(lastProps().focus?.kind).toBe("muni"));
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("rings") /* 町だけの人も町の中心の輪の全体（設計書 2026-11-06-ui-frame 決定 6） */);
     expect(lastProps().focus?.codes).toEqual(["33214"]);
     expect(near.getAttribute("aria-pressed")).toBe("true");
     expect(japan.getAttribute("aria-pressed")).toBe("false");
@@ -481,7 +510,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(near.getAttribute("aria-pressed")).toBe("false");
     expect(lastProps().focus!.nonce).toBeGreaterThan(nonce);
     fireEvent.click(near);
-    expect(lastProps().focus?.kind).toBe("muni");
+    expect(lastProps().focus?.kind).toBe("rings") /* 町だけの人も町の中心の輪の全体（設計書 2026-11-06-ui-frame 決定 6） */;
     expect(near.getAttribute("aria-pressed")).toBe("true");
   });
 
@@ -1186,14 +1215,30 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       expect(bandCard()).toBeUndefined();
     });
 
-    it("町だけを選んだときも輪は出さない（地点がない）", async () => {
+    it("町だけを選んだときは、町の中心を輪の中心に渡し、町の中心の断りを出す（設計書 2026-11-06-ui-frame 決定 6）", async () => {
       localStorage.setItem(TOWN_KEY, "33203");
       const r = rig();
       show(r);
       await screen.findByTestId("map");
       r.deliverCases([]);
       expect(lastProps().farmMeshCode).toBeNull();
+      const center = (indexJson as unknown as Record<string, { center: [number, number] }>)["33203"]!.center;
+      await waitFor(() => expect(lastProps().ringCenter).toEqual(center));
       expect(screen.queryByText(TEXT.ringNote)).toBeNull();
+      expect(screen.getByText(TEXT.ringNoteTown).previousElementSibling?.className).toBe("map-disclaimer");
+    });
+
+    it("地点も町もあれば、輪は地点から。町の中心は渡さず、断りは地点の文だけ", async () => {
+      setSpot();
+      localStorage.setItem(TOWN_KEY, "33203");
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      expect(lastProps().farmMeshCode).toBe(FARM_MESH);
+      expect(lastProps().ringCenter ?? null).toBeNull();
+      expect(screen.getByText(TEXT.ringNote)).toBeTruthy();
+      expect(screen.queryByText(TEXT.ringNoteTown)).toBeNull();
     });
 
     it("地点があれば、マス目を地図に渡し、断りを色がない場所の断りのすぐ後に出す", async () => {
@@ -1678,7 +1723,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
       tsuyamaCase({ id: "c-1" }),
     ]);
     r.deliverWatch(okWatch());
-    await waitFor(() => expect(lastProps().focus?.kind).toBe("muni"));
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("rings") /* 町だけの人も町の中心の輪の全体（設計書 2026-11-06-ui-frame 決定 6） */);
     const line = await waitFor(() => document.querySelector(".map-box .near-unmarked")!);
     // 県の並びは都道府県の順。町の分かる発表（津山市）は地図に塗られるので出さない
     expect(line.querySelector("p")!.textContent).toBe("地図に印のない発表: 兵庫県 確認中、鳥取県 1 件（町名なし）");
@@ -1695,7 +1740,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase({ id: "c-1" })]);
     r.deliverWatch(okWatch());
-    await waitFor(() => expect(lastProps().focus?.kind).toBe("muni"));
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("rings") /* 町だけの人も町の中心の輪の全体（設計書 2026-11-06-ui-frame 決定 6） */);
     expect(document.querySelector(".near-unmarked")).toBeNull();
   });
 

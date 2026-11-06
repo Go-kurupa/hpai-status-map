@@ -192,6 +192,31 @@ describe("代わりの地図（SVG）", () => {
     expect(onSelectMuni).toHaveBeenLastCalledWith("33586");
   });
 
+  // 設計書 2026-11-06-ui-frame 決定 4: 場所を選んでいないときは、町を押すとその町の発生を見る。読み上げも「選ぶ」と言わない
+  it("町を見るだけのとき（onInspectMuni だけ）は、押すとその町の発生を見る。読み上げと一覧の題は『選ぶ』と言わず、選ぶ案内も出さない", async () => {
+    const onInspectMuni = vi.fn();
+    render(<SvgMap {...props({ onInspectMuni })} />);
+    await openPref(/^岡山県/);
+    const map = await screen.findByRole("group", { name: /岡山県の市町村/ });
+    const tsuyama = within(map).getByRole("button", { name: /^津山市/ });
+    expect(tsuyama.getAttribute("aria-label")).toMatch(/押すとこの町の発生を見ます$/);
+    expect(tsuyama.getAttribute("aria-label")).not.toContain("選びます");
+    fireEvent.click(tsuyama);
+    expect(onInspectMuni).toHaveBeenCalledWith("33203");
+    const list = screen.getByRole("group", { name: TEXT.svgMuniListInspect });
+    fireEvent.click(within(list).getByRole("button", { name: "新庄村" }));
+    expect(onInspectMuni).toHaveBeenLastCalledWith("33586");
+    expect(screen.queryByText(TEXT.mapTapHint)).toBeNull();
+  });
+
+  it("町だけ選んだ人の輪は、町の中心（ringCenter）から描く。地点があればそちらが先", async () => {
+    const { rerender } = render(<SvgMap {...props({ ringCenter: [134.0, 35.07] })} />);
+    const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    expect(map.querySelectorAll(".svg-ring")).toHaveLength(3);
+    rerender(<SvgMap {...props({ ringCenter: null })} />);
+    expect((await screen.findByRole("group", { name: TEXT.svgMapAria })).querySelectorAll(".svg-ring")).toHaveLength(0);
+  });
+
   it("見る場所の指定（focus）で、町の県の図や全国の図に移る", async () => {
     const { rerender } = render(<SvgMap {...props()} />);
     await screen.findByRole("group", { name: TEXT.svgMapAria });

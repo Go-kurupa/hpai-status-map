@@ -9,7 +9,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { feature, merge } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
-import { distanceRingsOf, ringLabel, ringTop, visibleRingKms, type DistanceRings } from "../../geo/distanceRings";
+import { distanceRingsAt, distanceRingsOf, ringLabel, ringTop, visibleRingKms, type DistanceRings } from "../../geo/distanceRings";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { viewStyle, wildBirdFeatures, type WildBirdFeature } from "./applyView";
 import { HATCH_PERIOD, HATCH_PIXEL_RATIO, HATCH_STRIPE } from "./hatch";
@@ -19,7 +19,7 @@ import { badgeStates, JAPAN_BOUNDS } from "./seasonView";
 import { TEXT } from "./texts";
 
 export interface SvgMapProps
-  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "focus" | "onSelectMuni"> {
+  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni"> {
   /** 場所が分からず置けなかった野鳥の数（注記は MapView が出す） */
   onUnplaced?: (n: number) => void;
   /** 形を読めなかった（知らせは MapView が出す） */
@@ -268,7 +268,12 @@ export default function SvgMap(props: SvgMapProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const latest = useRef(props);
   latest.current = props;
-  const rings = useMemo(() => distanceRingsOf(props.farmMeshCode), [props.farmMeshCode]);
+  const ringLng = props.ringCenter?.[0];
+  const ringLat = props.ringCenter?.[1];
+  const rings = useMemo(
+    () => (props.farmMeshCode ? distanceRingsOf(props.farmMeshCode) : distanceRingsAt(ringLng !== undefined && ringLat !== undefined ? [ringLng, ringLat] : null)),
+    [props.farmMeshCode, ringLng, ringLat],
+  );
 
   // 1) 全国の形、索引、県の代表の位置を読む（1 度だけ）
   useEffect(() => {
@@ -369,7 +374,9 @@ export default function SvgMap(props: SvgMapProps) {
       ))}
     </defs>
   );
-  const select = props.onSelectMuni;
+  // 町を押したとき: 場所を選んでいる間は選ぶ、それ以外はその町の事例を見る。「さわっても選べます」の案内は選ぶときだけ
+  const select = props.onSelectMuni ?? props.onInspectMuni;
+  const picking = props.onSelectMuni !== undefined;
 
   let body: React.ReactNode;
   if (!japan || !store) {
@@ -461,7 +468,7 @@ export default function SvgMap(props: SvgMapProps) {
       if (sets.mine.has(s.code)) parts.push(TEXT.myTown);
       if (sets.near.has(s.code)) parts.push(TEXT.svgNear);
       if (unwatched) parts.push(TEXT.svgUnwatched);
-      return parts.join("、") + (select ? "。押すとこの町を選びます" : "");
+      return parts.join("、") + (picking ? "。押すとこの町を選びます" : select ? "。押すとこの町の発生を見ます" : "");
     };
     const munis = pref?.munis ?? [];
     body = (
@@ -473,7 +480,7 @@ export default function SvgMap(props: SvgMapProps) {
           <p role="status">{TEXT.svgLoading}</p>
         ) : (
           <>
-            {select ? <p className="map-note">{TEXT.mapTapHint}</p> : null}
+            {picking ? <p className="map-note">{TEXT.mapTapHint}</p> : null}
             <svg className="svg-map" viewBox={`0 0 ${W} ${pref.proj.height}`} role="group" aria-label={`発生状況の地図（${prefName}の市町村）`}>
               {defs}
               {munis.map((s) => (
@@ -533,8 +540,8 @@ export default function SvgMap(props: SvgMapProps) {
             </svg>
             {select ? (
               <details className="svg-list">
-                <summary>{TEXT.svgMuniList}</summary>
-                <div role="group" aria-label={TEXT.svgMuniList}>
+                <summary>{picking ? TEXT.svgMuniList : TEXT.svgMuniListInspect}</summary>
+                <div role="group" aria-label={picking ? TEXT.svgMuniList : TEXT.svgMuniListInspect}>
                   {munis.map((s) => (
                     <button key={s.code} type="button" className="btn" onClick={() => select(s.code)}>
                       {s.name}
