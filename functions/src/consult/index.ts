@@ -1,18 +1,11 @@
-// consult の領域。対策の見直し相談（カードの根拠を示しながら、見直す順と続けての質問に答える）。
+// consult の領域。対策の相談（話題か文で聞くと、確認済みのカードの根拠を示しながらおすすめを返す）。
 import Anthropic from "@anthropic-ai/sdk";
 import { onCall, type CallableRequest } from "firebase-functions/v2/https";
 import { ANTHROPIC_API_KEY } from "../secrets";
 import { recordUsage } from "../usage/record";
 import { readRuntimeSettings, readUsageMonth } from "../usage/settings";
 import { loadConsultData, type ConsultData } from "./data";
-import {
-  CONSULT_DAILY_LIMIT,
-  CONSULT_JUDGE_DAILY_LIMIT,
-  handleConsultFollowup,
-  handleConsultPlan,
-  type ConsultCaller,
-  type ConsultDeps,
-} from "./handler";
+import { CONSULT_DAILY_LIMIT, CONSULT_JUDGE_DAILY_LIMIT, handleConsultAsk, type ConsultCaller, type ConsultDeps } from "./handler";
 import { reserveConsultCall, reserveJudgeCall } from "./limit";
 
 // 同梱の資料はインスタンスの中で変わらないので、一度読めたら使い回す。読めなかったときは覚えず、次の呼び出しでやり直す。
@@ -42,10 +35,7 @@ const callerOf = (auth: CallableRequest["auth"]): ConsultCaller | null => (auth 
 const OPTIONS = { timeoutSeconds: 120, memory: "256MiB" as const, maxInstances: 3, secrets: [ANTHROPIC_API_KEY] };
 
 /**
- * `{profile, judge?}` → `{rows, source, notice}`。会員だけ。judge: true は、ログインなしで架空の農場の答えを使う。
- * 会員 1 人は 1 日 10 回まで（followup と合計）、審査員の入口は全体で 1 日 30 回まで。月の費用は soft の上限で止める。
+ * `{question | topicId, judge?}` → `{answer, cards, outOfScope, notice}`。会員だけ。judge: true は、ログインなしで使える審査員の入口。
+ * 会員 1 人は 1 日 10 回まで、審査員の入口は全体で 1 日 30 回まで。月の費用は soft の上限で止める。
  */
-export const consultPlan = onCall(OPTIONS, (request) => handleConsultPlan(deps, callerOf(request.auth), request.data));
-
-/** `{question, cardId, profile, judge?}` → `{answer, cards, outOfScope, notice}`。 */
-export const consultFollowup = onCall(OPTIONS, (request) => handleConsultFollowup(deps, callerOf(request.auth), request.data));
+export const consultAsk = onCall(OPTIONS, (request) => handleConsultAsk(deps, callerOf(request.auth), request.data));

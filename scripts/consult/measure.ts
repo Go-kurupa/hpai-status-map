@@ -1,22 +1,21 @@
-// 対策の見直し相談の測定（Task 7）。本番と同じ要求（buildPlanRequest）を、下書きのカード全部から選んだ候補で 1 回だけ測る。
+// 対策の相談の測定。本番と同じ要求（buildAskRequest）を、下書きのカード全部（approved にして）と決まった質問で 1 回だけ測る。
 //
 //   bash scripts/with-dev-key.sh npx tsx scripts/consult/measure.ts --count   入力のトークン数の数え（無料）と、費用の見積もり
 //   bash scripts/with-dev-key.sh npx tsx scripts/consult/measure.ts --yes     **有料**。messages.create を 1 回だけ呼ぶ
 //
 // 入力は private/consult/cards-draft.json。ファイルは書き換えず、メモリの中だけで全カードを approved: true にする。
-// 問いの確定版はまだないので、カードに多く出る conditionTags 4 つから「はい／いいえ」の問いを 4 つ作り、4 問とも「はい」と答えたことにする。
+// 質問は話題「長靴・服」の文（MEASURE_QUESTION）。カードは索引（cardId, action, appliesTo, evidence, caveats）だけを渡す。
 // 鍵は SDK が環境変数 ANTHROPIC_API_KEY から読む。ここでは読まず、表示もしない。
-// 返事の中身は出さない。出すのは、秒数、usage、stop_reason、費用、validatePlan の行数と source、失敗の符号だけ。
+// 返事の中身は出さない。出すのは、秒数、usage、stop_reason、費用、validateFollowup の結果（outOfScope、カード数）と、失敗の符号だけ。
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { parseCardsFile } from "@hpai/shared/consult/schema";
-import { selectCandidates } from "@hpai/shared/consult/select";
-import type { ConsultCard, ConsultProfile, ConsultQuestion } from "@hpai/shared/consult/types";
-import { validatePlan } from "@hpai/shared/consult/validate";
-import { buildPlanRequest, CONSULT_EFFORT, CONSULT_MAX_TOKENS, CONSULT_MODEL } from "../../functions/src/consult/claude";
+import type { ConsultCard } from "@hpai/shared/consult/types";
+import { validateFollowup } from "@hpai/shared/consult/validate";
+import { buildAskRequest, CONSULT_EFFORT, CONSULT_MAX_CARDS, CONSULT_MAX_TOKENS, CONSULT_MODEL } from "../../functions/src/consult/claude";
 import { decodeMessage } from "../../functions/src/read/claude";
 import { normalizeDraft } from "./verify-cards";
 
@@ -31,8 +30,8 @@ const USD_OUTPUT = 20;
 const JPY_PER_USD = 155;
 // --count の見積もりで仮定する出力のトークン数。
 const ASSUMED_OUTPUT_TOKENS = 2000;
-const MEASURE_QUESTION_COUNT = 4;
-const CANDIDATE_MAX = 12;
+// 測定用の質問（話題「長靴・服」の文）。
+const MEASURE_QUESTION = "長靴と服の履き替え・消毒で、まず見直すとよいことは？";
 
 const usd = (n: number): string => `$${n.toFixed(4)}`;
 const jpy = (n: number): string => `${(n * JPY_PER_USD).toFixed(1)} 円`;
@@ -46,26 +45,6 @@ function loadCards(): ConsultCard[] {
   return parseCardsFile(approved).cards;
 }
 
-/** 多く出る tag を 4 つ（同数なら文字コードの順）。測定用の問いと、4 問とも「はい」の答えを作る。 */
-function buildMeasureInput(cards: ConsultCard[]): { questions: ConsultQuestion[]; profile: ConsultProfile; tags: string[] } {
-  const counts = new Map<string, number>();
-  for (const c of cards) for (const t of new Set(c.conditionTags)) counts.set(t, (counts.get(t) ?? 0) + 1);
-  const tags = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
-    .slice(0, MEASURE_QUESTION_COUNT)
-    .map(([t]) => t);
-  const questions: ConsultQuestion[] = tags.map((tag, i) => ({
-    id: `m${i + 1}`,
-    text: `測定用の問い（条件 ${tag}）に当てはまりますか`,
-    options: [
-      { id: "yes", label: "はい", tags: [tag] },
-      { id: "no", label: "いいえ", tags: [] },
-    ],
-  }));
-  const profile: ConsultProfile = Object.fromEntries(questions.map((q) => [q.id, "yes"]));
-  return { questions, profile, tags };
-}
-
 /** API の失敗の符号。状態の番号か例外の名前だけ（本文や応答の文は出さない）。 */
 function errorCode(e: unknown): string {
   const status = (e as { status?: unknown } | null)?.status;
@@ -73,7 +52,7 @@ function errorCode(e: unknown): string {
   return e instanceof Error ? e.name : "unknown";
 }
 
-async function runCount(client: Anthropic, params: Anthropic.MessageCreateParamsNonStreaming, cardCount: number, candidateCount: number): Promise<number> {
+async function runCount(client: Anthropic, params: Anthropic.MessageCreateParamsNonStreaming, cardCount: number): Promise<number> {
   // countTokens が受け付ける引数だけ渡す。output_config を受け付けない（400）ときは外してやり直す（1 回だけ）。
   const base = { model: params.model, system: params.system, messages: params.messages };
   const dropped: string[] = [];
@@ -94,22 +73,17 @@ async function runCount(client: Anthropic, params: Anthropic.MessageCreateParams
     }
   }
 
-  // カードは候補だけを user に入れる（キャッシュなし）。入力は全部、通常の料金で見積もる。
+  // カードは索引を user に入れる（キャッシュなし）。入力は全部、通常の料金で見積もる。
   const cost = (inputTokens * USD_INPUT + ASSUMED_OUTPUT_TOKENS * USD_OUTPUT) / 1_000_000;
   console.log(`モデル: ${CONSULT_MODEL}  effort: ${CONSULT_EFFORT}  max_tokens: ${fmt(CONSULT_MAX_TOKENS)}`);
-  console.log(`カード: ${cardCount} 枚（全部 approved にして候補を選ぶ）  候補: ${candidateCount} 件（この分だけを user に入れる）`);
+  console.log(`カード: ${cardCount} 枚（全部 approved にして、索引を user に入れる）`);
   console.log(`countTokens で外した引数: ${dropped.length === 0 ? "なし" : dropped.join(", ")}${dropped.length > 0 ? "（出力の形の指定の分だけ、実際より少なく数えている）" : ""}`);
   console.log(`入力のトークン数: ${fmt(inputTokens)}`);
   console.log(`見積もり（出力 ${fmt(ASSUMED_OUTPUT_TOKENS)} トークンと仮定。キャッシュなし: 入力 $${USD_INPUT}/MTok、出力 $${USD_OUTPUT}/MTok、1 ドル ${JPY_PER_USD} 円）: ${money(cost)}`);
   return 0;
 }
 
-async function runYes(
-  client: Anthropic,
-  params: Anthropic.MessageCreateParamsNonStreaming,
-  candidates: ReturnType<typeof selectCandidates>,
-  cards: ConsultCard[],
-): Promise<number> {
+async function runYes(client: Anthropic, params: Anthropic.MessageCreateParamsNonStreaming, cards: ConsultCard[]): Promise<number> {
   console.log(`messages.create を 1 回だけ呼びます（${CONSULT_MODEL}、effort ${CONSULT_EFFORT}、max_tokens ${fmt(CONSULT_MAX_TOKENS)}）`);
   const started = Date.now();
   let message: Anthropic.Message;
@@ -139,8 +113,8 @@ async function runYes(
     console.log(`復号の失敗: ${attempt.reason}（${attempt.detail}）`);
     return 1;
   }
-  const result = validatePlan(attempt.value, candidates, cards);
-  console.log(`validatePlan: 行数=${result.rows.length} source=${result.source} 失敗の符号=${result.failures.length === 0 ? "なし" : result.failures.join(",")}`);
+  const result = validateFollowup(attempt.value, cards.map((c) => c.id), cards, CONSULT_MAX_CARDS);
+  console.log(`validateFollowup: outOfScope=${result.outOfScope} カード数=${result.cardIds.length} 答えの字数=${Array.from(result.answer).length}`);
   return 0;
 }
 
@@ -158,13 +132,11 @@ async function main(): Promise<number> {
   }
 
   const cards = loadCards();
-  const { questions, profile, tags } = buildMeasureInput(cards);
-  const candidates = selectCandidates(cards, questions, profile, CANDIDATE_MAX);
-  const params = buildPlanRequest(cards, questions, profile, candidates);
-  console.log(`測定用の条件（4 問とも「はい」）: ${tags.join(", ")}`);
+  const params = buildAskRequest(cards, MEASURE_QUESTION);
+  console.log(`測定用の質問: ${MEASURE_QUESTION}`);
 
   const client = new Anthropic(); // 鍵は SDK が ANTHROPIC_API_KEY から読む
-  return values.yes ? runYes(client, params, candidates, cards) : runCount(client, params, cards.length, candidates.length);
+  return values.yes ? runYes(client, params, cards) : runCount(client, params, cards.length);
 }
 
 main().then((code) => process.exit(code));

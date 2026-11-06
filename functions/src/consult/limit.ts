@@ -1,5 +1,5 @@
-// 対策の見直し相談の 1 日の回数。取引の中で数える（drafts/dailyLimit.ts と同じ作り）。日付は日本時間。
-//  - 会員: usage/consult-calls-{YYYY-MM-DD}-{uid}。plan と followup の合計
+// 対策の相談の 1 日の回数。取引の中で数える（drafts/dailyLimit.ts と同じ作り）。日付は日本時間。
+//  - 会員: usage/consult-calls-{YYYY-MM-DD}-{uid}。話題と文の合計
 //  - 審査員の入口: usage/consult-judge-{YYYY-MM-DD}。全体で 1 つ
 // 回数と日付（と uid）だけを持つ。入力した問いの文は持たない。
 import { jstDateOf } from "@hpai/shared/dates";

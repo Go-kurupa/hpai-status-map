@@ -56,7 +56,7 @@ export interface ConsultCard {
   // 資料の中の場所（章、頁など）。
   locator: string;
   caveats: string[];
-  // 条件の問いの選択肢（ConsultQuestion.options[].tags）と突き合わせる印。
+  // 条件の印。相談の関数は使わない。
   conditionTags: string[];
   // 引用が原文にあると、プログラムが照合したか。
   quoteVerified?: boolean;
@@ -68,13 +68,3 @@ export interface ConsultCardsFile {
   sources: ConsultSource[];
   cards: ConsultCard[];
 }
-
-// 条件の問い（選択式）。
-export interface ConsultQuestion {
-  id: string;
-  text: string;
-  options: { id: string; label: string; tags: string[] }[];
-}
-
-// 答え。問いの id から選択肢の id へ。
-export type ConsultProfile = Record<string, string>;
