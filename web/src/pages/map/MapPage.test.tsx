@@ -40,7 +40,7 @@ vi.mock("./MapView", () => ({
   },
 }));
 
-import MapPage from "./MapPage";
+import MapPage, { type MapSection } from "./MapPage";
 
 const history = historyJson as HistoryCase[];
 const NOW = new Date("2026-11-04T09:00:00+09:00"); // 今季は 2026
@@ -87,10 +87,10 @@ function rig(opts: { history?: "now" | "deferred" } = {}): Rig {
   };
 }
 
-function show(r: Rig, o: { store?: RecordStore } = {}) {
+function show(r: Rig, o: { store?: RecordStore; section?: MapSection } = {}) {
   const page = (
     <SpotProvider>
-      <MapPage />
+      <MapPage section={o.section} />
     </SpotProvider>
   );
   return render(
@@ -1936,3 +1936,66 @@ describe("県ごとと週ごとの棒", () => {
     expect(charts.textContent).toContain("出典: 国の事例一覧");
   });
 });
+
+describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章）", () => {
+  const has = (sel: string) => document.querySelector(sel) !== null;
+  it("now（/）は題、札、地図、町の文と次の画面へのリンク。一覧、シーズンの棒、比べ、月の表、ほかのページのリンクは出さない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r, { section: "now" });
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(has(".stat-row")).toBe(true));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("今季の発生状況");
+    expect(has(".map-box")).toBe(true);
+    expect(has(".case-list")).toBe(false);
+    expect(has(".season-bar")).toBe(false);
+    expect(has(".season-compare")).toBe(false);
+    expect(has(".month-bars")).toBe(false);
+    expect(has(".map-links")).toBe(false);
+    const next = within(screen.getByRole("navigation", { name: "次の画面" })).getAllByRole("link");
+    expect(next.map((a) => a.getAttribute("href"))).toEqual(["/town", "/season", "/compare"]);
+  });
+
+  it("town は町の文を全部（過去の行のくわしい部分を含む）出し、地図と札は出さない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r, { section: "town" });
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(has(".town-banner")).toBe(true));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("自分の町の過去");
+    expect(has(".map-box")).toBe(false);
+    expect(has(".stat-row")).toBe(false);
+    expect(has(".town-area-link")).toBe(true);
+  });
+
+  it("season は一覧と月の表を出し、地図と比べは出さない", async () => {
+    const r = rig();
+    show(r, { section: "season" });
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(has(".case-list")).toBe(true));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("今季の一覧と数");
+    expect(has(".month-bars")).toBe(true);
+    expect(has(".map-box")).toBe(false);
+    expect(has(".season-compare")).toBe(false);
+  });
+
+  it("compare はシーズンの棒と比べ、選んだシーズンの地図と一覧を出す（段階 3 の 2 枚の地図までのつなぎ）。町の文と場所の設定は出さない", async () => {
+    const r = rig();
+    show(r, { section: "compare" });
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(has(".season-bar")).toBe(true));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("過去シーズンとの比べ");
+    expect(has(".season-compare")).toBe(true);
+    expect(has(".map-box")).toBe(true);
+    expect(has(".case-list")).toBe(true);
+    expect(has(".town-banner")).toBe(false);
+    expect(has(".spot-picker")).toBe(false);
+    expect(has(".stat-row")).toBe(false);
+  });
+});
+

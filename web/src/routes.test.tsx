@@ -56,17 +56,18 @@ describe("経路", () => {
 });
 
 describe("骨格", () => {
-  it("nav は『地図』『やること』『記録』の 3 つで、header に『設定』がある", async () => {
+  it("メニューの自分の農場に『やること』『記録』『農場と知らせの設定』があり、header に『設定』がある。下のタブはない", async () => {
     const router = createMemoryRouter(routes, { initialEntries: ["/todo"] });
     render(<RouterProvider router={router} />);
     await screen.findByRole("heading", { name: "やること" });
 
-    const nav = screen.getByRole("navigation", { name: "メイン" });
-    const links = within(nav).getAllByRole("link");
-    expect(links.map((a) => a.textContent)).toEqual(["地図", "やること", "記録"]);
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/", "/todo", "/record/deaths"]);
-    expect(links[1]!.getAttribute("aria-current")).toBe("page");
-    expect(links[0]!.getAttribute("aria-current")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "メイン" })).toBeNull();
+    const nav = screen.getByRole("navigation", { name: "メニュー" });
+    const todo = within(nav).getByRole("link", { name: /^やること/ });
+    expect(todo.getAttribute("href")).toBe("/todo");
+    expect(todo.getAttribute("aria-current")).toBe("page");
+    expect(within(nav).getByRole("link", { name: /^記録/ }).getAttribute("href")).toBe("/record/deaths");
+    expect(within(nav).getByRole("link", { name: /^今季の発生と地図/ }).getAttribute("aria-current")).toBeNull();
 
     const settings = within(screen.getByRole("banner")).getByRole("link", { name: "設定" });
     expect(settings.getAttribute("href")).toBe("/settings/farm");

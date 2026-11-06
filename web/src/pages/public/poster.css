@@ -141,7 +141,8 @@ body:has(.poster-page) {
 /* 印刷では、貼り紙だけを出す（骨格の題とタブ、説明、ボタンは出さない） */
 @media print {
   body:has(.poster-page) .app-header,
-  body:has(.poster-page) .app-nav,
+  body:has(.poster-page) .app-menu,
+  body:has(.poster-page) .menu-btn,
   body:has(.poster-page) .poster-controls {
     display: none;
   }

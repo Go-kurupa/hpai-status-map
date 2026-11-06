@@ -2,28 +2,51 @@ import type { Case, WatchStatus } from "@hpai/shared/types";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { distanceRingsOf } from "../src/geo/distanceRings";
 import { installFixture } from "./fixtures";
+import { bottomY, goViaMenu, menuButton, menuNav, viewportBottom } from "./helpers/frame";
 
 test.describe("骨格", () => {
-  test("幅 360px で横にはみ出さず、『やること』で /todo に行く", async ({ page }) => {
+  test("幅 360px で横にはみ出さず、下のタブがない。三本線から開くメニューで『やること』に行く", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 740 });
     await installFixture(page, { now: "2025-12-21T09:00:00+09:00", cases: [], wildBirds: [], watch: [] });
     await page.goto("/");
 
-    const nav = page.getByRole("navigation", { name: "メイン" });
-    await expect(nav.getByRole("link")).toHaveText(["地図", "やること", "記録"]);
-    await expect(page.getByRole("banner").getByRole("link", { name: "設定" })).toBeVisible();
+    // 下のタブ（名前「メイン」）はない。メニューは閉じていて、三本線だけが見える
+    await expect(page.getByRole("navigation", { name: "メイン" })).toHaveCount(0);
+    await expect(menuNav(page)).toBeHidden();
+    const burger = menuButton(page);
+    await expect(burger).toBeVisible();
+    await expect(burger).toHaveAttribute("aria-expanded", "false");
+    // 設定は、スマホではメニューの中（農場と知らせの設定）にある（2026-11-06 骨組みの作り直し）
+    await expect(page.getByRole("banner").getByRole("link", { name: "設定" })).toBeHidden();
 
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(360);
+    // 押せるものは高さ 48px 以上（三本線も）
+    expect((await burger.boundingBox())!.height).toBeGreaterThanOrEqual(48);
 
-    // 押せるものは高さ 48px 以上
+    await burger.click();
+    await expect(burger).toHaveAttribute("aria-expanded", "true");
+    const nav = menuNav(page);
+    await expect(nav).toBeVisible();
     for (const link of await nav.getByRole("link").all()) {
+      if (!(await link.isVisible())) continue;
       expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(48);
     }
-
     await nav.getByRole("link", { name: "やること" }).click();
     await expect(page).toHaveURL(/\/todo$/);
     await expect(page.getByRole("heading", { name: "やること" })).toBeVisible();
+    await expect(menuNav(page)).toBeHidden();
+  });
+
+  test("PC（1280x860）は左に固定のメニューで、三本線も設定のリンクも出る。下のタブはない", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 860 });
+    await installFixture(page, { now: "2025-12-21T09:00:00+09:00", cases: [], wildBirds: [], watch: [] });
+    await page.goto("/");
+    await expect(page.getByRole("navigation", { name: "メイン" })).toHaveCount(0);
+    await expect(menuButton(page)).toBeHidden();
+    await expect(menuNav(page)).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("link", { name: "設定" })).toBeVisible();
+    await expect(menuNav(page).getByRole("link", { name: "今季の発生と地図" })).toHaveAttribute("aria-current", "page");
   });
 });
 
@@ -37,11 +60,11 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     failingSince: null,
   }));
 
+  // 下のタブをなくしたので、画面の下端（ビューポートの高さ）より上に入ることを確かめる（設計書 2026-11-06-ui-frame 6 章 8）
   async function bottomAboveNav(page: Page, locator: Locator) {
     await expect(locator).toBeVisible();
     const box = (await locator.boundingBox())!;
-    const nav = (await page.getByRole("navigation", { name: "メイン" }).boundingBox())!;
-    expect(box.y + box.height).toBeLessThanOrEqual(nav.y);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewportBottom(page).y);
   }
 
   test.beforeEach(async ({ page }) => {
@@ -49,7 +72,7 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     await installFixture(page, { now: "2026-11-04T09:00:00+09:00", cases: [], wildBirds: [], watch });
   });
 
-  // 開いた瞬間に、断り、数字、地図の全部（と地図の断り）が下のタブより上に入る。地図は横幅いっぱい
+  // 開いた瞬間に、断り、数字、地図の全部（と地図の断り）が画面の下端より上に入る。地図は横幅いっぱい
   async function firstScreen(page: Page) {
     await expect(page.locator(".stat-row")).toBeVisible();
     await bottomAboveNav(page, page.locator(".map-risk"));
@@ -150,7 +173,8 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
   }
   const waitMap = (page: Page) => page.waitForFunction(() => !!(window as unknown as { __hpaiMap?: MapHandle }).__hpaiMap?.getLayer("case-suspected"), undefined, { timeout: 20_000 });
   const box = async (l: Locator) => (await l.boundingBox())!;
-  const tabs = (page: Page) => box(page.getByRole("navigation", { name: "メイン" }));
+  // 下のタブの代わりに画面の下端を基準にする
+  const tabs = async (page: Page) => viewportBottom(page);
   const canvasOf = (page: Page) => box(page.locator(".map-box .map-canvas"));
 
   async function goNational(page: Page) {
@@ -177,7 +201,7 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 
-    // 地図の断りと輪の注記は地図のすぐ下で、下のタブより上。地図の切り替えは地図に重ねず、その後ろ
+    // 地図の断りと輪の注記は地図のすぐ下で、画面の下端より上。地図の切り替えは地図に重ねず、その後ろ
     const disclaimer = await box(page.locator(".map-disclaimer"));
     const ringNote = await box(page.locator(".map-ring-note"));
     expect(disclaimer.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
@@ -276,7 +300,7 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
     ["4 事例", 14],
     ["全国の流れ", 24],
   ] as const) {
-    test(`360x740 の${name}: 次へで最後まで進めても、地図は下のタブより上にあり、次へが同じ場所にある`, async ({ page }) => {
+    test(`360x740 の${name}: 次へで最後まで進めても、地図は画面の下端より上にあり、次へが同じ場所にある`, async ({ page }) => {
       await openReplay(page, 360, 740);
       if (total === 24) await goNational(page);
       const next = page.getByRole("button", { name: "次へ" });
@@ -299,7 +323,8 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
       const nav = await tabs(page);
       expect(canvas.y + canvas.height).toBeLessThanOrEqual(nav.y);
       expect(canvas.height).toBeGreaterThanOrEqual(360);
-      expect(canvas.width).toBeGreaterThan(600);
+      // 2026-11-06 骨組みの作り直し（設計書 2026-11-06-ui-frame）: 左のメニュー（幅 240px）の分、本文が狭くなった。実測 590.39px
+      expect(canvas.width).toBeGreaterThan(560);
       const next = await box(page.getByRole("button", { name: "次へ" }));
       const switchOne = await box(page.getByRole("button", { name: "12 月の 4 事例" }));
       expect(next.y).toBe(switchOne.y);
@@ -440,10 +465,10 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     });
 
   for (const [i, s] of STATES.entries()) {
-    test(`${s.name}: 地図の全部が下のタブより上に入り、高さが横幅の 85% 以上`, async ({ page }) => {
+    test(`${s.name}: 地図の全部が画面の下端より上に入り、高さが横幅の 85% 以上`, async ({ page }) => {
       await openState(page, s);
       const canvas = (await page.locator(".map-box .map-canvas").boundingBox())!;
-      const nav = (await page.getByRole("navigation", { name: "メイン" }).boundingBox())!;
+      const nav = viewportBottom(page); // 下のタブの代わりに画面の下端
       if (process.env.SHOTS_DIR) {
         await page.waitForTimeout(800);
         await page.screenshot({ path: `${process.env.SHOTS_DIR}/${String(i + 1).padStart(2, "0")}-${s.name}.png` });
@@ -641,7 +666,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     const l = (await line.boundingBox())!;
     expect(l.y).toBeGreaterThanOrEqual(canvas.y);
     expect(l.y + l.height).toBeLessThanOrEqual(canvas.y + canvas.height + 1);
-    expect(l.y + l.height).toBeLessThanOrEqual((await page.getByRole("navigation", { name: "メイン" }).boundingBox())!.y);
+    expect(l.y + l.height).toBeLessThanOrEqual(bottomY(page));
     const japan = line.getByRole("button", { name: "全国で見る" });
     expect((await japan.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await japan.click();
@@ -733,8 +758,8 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       const wait = page.locator(".state-wait").filter({ hasText: "確認中の発表がある県" });
       await expect(wait).toBeVisible();
       const w = (await wait.boundingBox())!;
-      // 札の 0 件だけが読まれないよう、札のすぐ下（見回りの行の次）で、下のタブより上に入れる
-      const nav = (await page.getByRole("navigation", { name: "メイン" }).boundingBox())!;
+      // 札の 0 件だけが読まれないよう、札のすぐ下（見回りの行の次）で、画面の下端より上に入れる
+      const nav = viewportBottom(page);
       expect(w.y).toBeGreaterThanOrEqual(row.y + row.height);
       // 切り替えのある登録ありは、切り替えの高さ（約 56px）だけ下がる（2026-11-06 作者の決定）
       expect(w.y).toBeLessThan(row.y + row.height + (spot ? 200 : 140));
@@ -742,7 +767,9 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       // 札が伸びる分だけ、地図はふだんの 320px より少し下がる（実測 333px）。
       // 登録ありは切り替えを地図の真上に置くので、さらに約 56px 下がる（2026-11-06 作者の決定）
       const box = (await canvas.boundingBox())!;
-      expect(box.y).toBeLessThan(spot ? 410 : 350);
+      // 2026-11-06 骨組みの作り直し（設計書 2026-11-06-ui-frame）: 左のメニュー（幅 240px）の分、本文が狭く、札の文が 1 行増える。
+      // 実測は登録ありで 431.94px（それまで 410px 未満）。登録なしは変わらず 350px 未満
+      expect(box.y).toBeLessThan(spot ? 450 : 350);
       expect(box.y + box.height).toBeLessThanOrEqual(nav.y + 180);
     });
 
@@ -755,9 +782,10 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       await expect(canvas).toBeVisible();
       await expect(page.locator(".stat-row")).toBeVisible();
       const box = (await canvas.boundingBox())!;
-      const nav = (await page.getByRole("navigation", { name: "メイン" }).boundingBox())!;
+      const nav = viewportBottom(page);
       // 登録ありは切り替えを地図の真上に置くので、約 56px 下がる（実測 369.75px。2026-11-06 作者の決定）
-      expect(box.y).toBeLessThan(spot ? 380 : 320);
+      // 2026-11-06 骨組みの作り直し（設計書 2026-11-06-ui-frame）: 左のメニューの分、本文が狭くなる。登録ありの実測 396.94px（それまで 369.75px）
+      expect(box.y).toBeLessThan(spot ? 410 : 320);
       expect(box.height).toBeLessThanOrEqual(640);
       expect(box.y + box.height).toBeLessThanOrEqual(nav.y + 180);
     });

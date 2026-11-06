@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { installFixture } from "./fixtures";
+import { menuButton, menuNav } from "./helpers/frame";
 
 // 貼り紙 /poster（W-07）。A4（794x1123 px = 96dpi）の 1 枚に収まり、印刷ではタブと説明が消える。
 // 大きさは poster.css の変数（--poster-h、--poster-sub、--poster-body）。収まらないときは、まず --poster-sub を下げる。
@@ -12,9 +13,13 @@ test.describe("貼り紙", () => {
     await expect(page.getByTestId("poster-sheet")).toBeVisible();
   });
 
-  test("印刷では、骨格のタブと説明が消え、高さが A4（1123px）以内で、@page が A4", async ({ page }) => {
+  test("印刷では、骨格のメニューと三本線と説明が消え、高さが A4（1123px）以内で、@page が A4", async ({ page }) => {
+    // 画面では三本線が出ている（印刷で消えることの前提）。下のタブ（メイン）は、もうない
+    await expect(menuButton(page)).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "メイン" })).toHaveCount(0);
     await page.emulateMedia({ media: "print" });
-    await expect(page.getByRole("navigation", { name: "メイン" })).toBeHidden();
+    await expect(menuButton(page)).toBeHidden();
+    await expect(menuNav(page)).toBeHidden();
     await expect(page.getByRole("banner")).toBeHidden();
     await expect(page.getByRole("button", { name: "印刷する" })).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(1123);
@@ -29,6 +34,22 @@ test.describe("貼り紙", () => {
     });
     // ブラウザは CSS の size: A4 を小文字（a4）に直して返すので、大文字小文字は区別しない
     expect(pageRule).toMatch(/size:\s*a4\b/iu);
+  });
+
+  test("PC の幅（左に固定のメニューが出る）でも、印刷ではメニューが消える。開いたスマホのメニューも消える", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(menuNav(page)).toBeVisible();
+    await expect(menuButton(page)).toBeHidden();
+    await page.emulateMedia({ media: "print" });
+    await expect(menuNav(page)).toBeHidden();
+    await expect(menuButton(page)).toBeHidden();
+    // スマホの幅で全画面のメニューを開いたままでも、印刷には出さない
+    await page.emulateMedia({ media: "screen" });
+    await page.setViewportSize({ width: 794, height: 1123 });
+    await menuButton(page).click();
+    await expect(menuNav(page)).toBeVisible();
+    await page.emulateMedia({ media: "print" });
+    await expect(menuNav(page)).toBeHidden();
   });
 
   test("見出しは 2 行以内で、横にはみ出さない", async ({ page }) => {

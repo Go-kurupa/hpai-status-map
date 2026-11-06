@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installFixture } from "./fixtures";
+import { goViaMenu, MENU_ITEMS, menuButton, menuNav } from "./helpers/frame";
 
 // 地図の入口（W-02）。本番と同じ build（mode=e2e）で、window.__hpaiMap から地図の状態を読む。
 // 地理院タイルは外へ出さず、1 画素の PNG で答える（要求の形だけを確かめる）。
@@ -39,11 +40,20 @@ declare global {
   }
 }
 
-async function open(page: Page, width = 390) {
+/**
+ * path が "/" のときは地図まで待つ。地図は "/"（と再現・見本）にだけある。
+ * 一覧・棒・月の表は /season、シーズンの切り替えと比べは /compare、町の文の全部は /town（設計書 2026-11-06-ui-frame 4 章）。
+ * 地図のない画面は、題が出て札の行が描かれるまで待つ。
+ */
+async function open(page: Page, width = 390, path = "/") {
   await page.setViewportSize({ width, height: 800 });
   await page.route("https://cyberjapandata.gsi.go.jp/**", (route) => route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG_1PX }));
   await installFixture(page, { now: "2026-11-04T09:00:00+09:00", cases: [], wildBirds: [], watch: WATCH_OK });
-  await page.goto("/");
+  await page.goto(path);
+  if (path !== "/") {
+    await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
+    return;
+  }
   // 重ねる層まで入ったら準備ができている
   await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("case-confirmed"), undefined, { timeout: 20_000 });
 }
@@ -83,19 +93,39 @@ test.describe("地図（入口）", () => {
     expect(await page.evaluate(() => [window.__hpaiMap!.getBearing(), window.__hpaiMap!.getPitch()])).toEqual([0, 0]);
   });
 
-  test("昨季を押すと『24 件』になり、case-confirmed に 33203 が入る。japan.topo.json の要求は 1 回", async ({ page }) => {
+  test("昨季を押すと『24 件』になる。シーズンの切り替えは /compare にあり、/ にはない", async ({ page }) => {
+    // シーズンの切り替えは「過去シーズンとの比べ」（/compare）へ移った（設計書 2026-11-06-ui-frame 4.4）。/ には出さない
+    await open(page);
+    await expect(page.getByRole("button", { name: /昨季/ })).toHaveCount(0);
+    await goViaMenu(page, "過去シーズンとの比べ");
+    await expect(page).toHaveURL(/\/compare$/);
+    await expect(page.getByRole("button", { name: /昨季/ })).toBeVisible();
+    await page.getByRole("button", { name: /昨季/ }).click();
+    await expect(page.getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: /昨季.*24 件/ })).toBeVisible();
+    await page.getByRole("button", { name: /今季/ }).click();
+    await expect(page.getByRole("button", { name: /今季/ })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  // 昨季を選んだときの地図の塗り。/compare には段階 3 の 2 枚の地図ができるまで、選んだシーズンの地図が 1 枚ある。
+  // 画面は行き先ごとに作り直すので、/ へ戻ると今季に戻る（設計書 2026-11-06-ui-frame 4.1、4.4）
+  test("昨季を /compare で選ぶと、そこの地図の case-confirmed に 33203 が入る。/ へ戻ると今季。japan.topo.json の要求は 1 回", async ({ page }) => {
     const topoRequests: string[] = [];
     page.on("request", (r) => {
       if (r.url().includes("japan.topo.json")) topoRequests.push(r.url());
     });
-    await open(page);
-    await page.getByRole("button", { name: /昨季/ }).click();
-    await expect(page.getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("button", { name: /昨季.*24 件/ })).toBeVisible();
+    await open(page, 390, "/compare");
+    await page.getByRole("button", { name: /昨季.*24 件/ }).click();
+    await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("case-confirmed"), undefined, { timeout: 20_000 });
     await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("case-confirmed")).includes("33203"));
     await page.getByRole("button", { name: /今季/ }).click();
     await page.getByRole("button", { name: /昨季/ }).click();
+    await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("case-confirmed")).includes("33203"));
     expect(topoRequests).toHaveLength(1);
+    // / へ戻ると今季（題が「今季の発生状況」）。選んだシーズンを持ち越さない
+    await goViaMenu(page, "今季の発生と地図");
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("今季の発生状況");
   });
 
   test("case-* は minzoom 6 から（全国の倍率では県のバッジ）", async ({ page }) => {
@@ -136,45 +166,102 @@ test.describe("地図（入口）", () => {
     expect(text).not.toMatch(/区域の外です|安全|安心/);
   });
 
-  test("地図の下のリンクで各ページに着く。タブは 3 つのまま", async ({ page }) => {
+  test("メニューの 15 の行き先で各ページに着き、下のタブも地図の下のリンクの列もない（スマホは三本線から）", async ({ page }) => {
     await open(page);
-    const nav = page.getByRole("navigation", { name: "メイン" });
-    await expect(nav.getByRole("link")).toHaveCount(3);
+    // 下のタブ（メイン）は出さない。地図の下には、次の画面へのリンクだけ。ほかのページへのリンクの列（ほかのページ）は / から消えた
+    await expect(page.getByRole("navigation", { name: "メイン" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "ほかのページ" })).toHaveCount(0);
+    const next = page.getByRole("navigation", { name: "次の画面" });
+    await expect(next.getByRole("link")).toHaveText(["自分の町の過去を見る", "今季の一覧と数を見る", "過去シーズンと比べる"]);
     for (const [name, path] of [
-      ["鶏を飼っていない方へ", "/public"],
-      ["分かっていること", "/known"],
-      ["去年の再現", "/replay"],
-      ["試験の結果", "/results"],
-      ["プライバシー", "/privacy"],
+      ["自分の町の過去を見る", "/town"],
+      ["今季の一覧と数を見る", "/season"],
+      ["過去シーズンと比べる", "/compare"],
     ] as const) {
-      await page.getByRole("navigation", { name: "ほかのページ" }).getByRole("link", { name }).click();
+      await next.getByRole("link", { name }).click();
       await expect(page).toHaveURL(new RegExp(`${path}$`));
-      await expect(nav.getByRole("link")).toHaveCount(3);
       await page.goBack();
-      await expect(page.getByRole("navigation", { name: "ほかのページ" })).toBeVisible();
+      await expect(next).toBeVisible();
+    }
+
+    expect(MENU_ITEMS).toHaveLength(15);
+    const burger = menuButton(page);
+    expect(await burger.isVisible()).toBe(true); // 390px はスマホ（三本線）
+    for (const { name, path } of MENU_ITEMS) {
+      const from = path === "/privacy" ? "/known" : "/privacy"; // どの項目も「今いる所」と違う画面から押す
+      await page.goto(from);
+      await goViaMenu(page, name);
+      await expect(page, name).toHaveURL(new RegExp(`${path === "/" ? "/$" : `${path}$`}`));
+      await expect(menuNav(page)).toBeHidden(); // 押すと閉じる
+      await page.goBack();
+      await expect(page, `${name} から戻る`).toHaveURL(new RegExp(`${from}$`)); // 戻る操作で元の画面
     }
   });
 
-  test("登録した町の札、野鳥の札、町の枠の周辺の表が 360px で横にはみ出さない", async ({ page }) => {
+  test("PC（1280px）は左のメニューで 15 の行き先へ 1 回で行ける。今いる項目に aria-current が付く", async ({ page }) => {
+    await open(page, 1280);
+    await expect(menuButton(page)).toBeHidden();
+    const nav = menuNav(page);
+    await expect(nav).toBeVisible();
+    for (const { name, path } of MENU_ITEMS) {
+      await page.goto(path === "/privacy" ? "/known" : "/privacy");
+      await goViaMenu(page, name);
+      await expect(page, name).toHaveURL(new RegExp(`${path === "/" ? "/$" : `${path}$`}`));
+      await expect(nav.getByRole("link", { name }).first()).toHaveAttribute("aria-current", "page");
+    }
+  });
+
+  test("スマホのメニューは、開くと中へフォーカスが移り、Escape で閉じて三本線へ戻る。画面が替わると題へフォーカスが移る", async ({ page }) => {
+    await open(page);
+    const burger = menuButton(page);
+    await expect(burger).toHaveAttribute("aria-expanded", "false");
+    await burger.click();
+    await expect(burger).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("button", { name: "メニューを閉じる" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(menuNav(page)).toBeHidden();
+    await expect(burger).toHaveAttribute("aria-expanded", "false");
+    await expect(burger).toBeFocused();
+    // 閉じるボタンでも閉じ、三本線へ戻る
+    await burger.click();
+    await page.getByRole("button", { name: "メニューを閉じる" }).click();
+    await expect(menuNav(page)).toBeHidden();
+    await expect(burger).toBeFocused();
+    // 項目を押して画面が替わると、フォーカスは新しい画面の題（h1）へ
+    await goViaMenu(page, "全国の傾向");
+    await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeFocused();
+  });
+
+  test("登録した町の札、野鳥の札、町の枠の周辺の表が 360px で横にはみ出さない（札は /、野鳥の札は /season、周辺の表は /town）", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
     await page.addInitScript(
       (s) => window.localStorage.setItem("hpai.spot.v1", JSON.stringify(s)),
       { meshCode: "52344080", muniCode: "33203", frequentMuniCodes: ["33202"] }, // 津山市のあたり（試験の地点）
     );
+    const noOverflow = async () => {
+      const widths = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, win: window.innerWidth }));
+      expect(widths.doc).toBeLessThanOrEqual(widths.win);
+    };
+    // / : 数字の欄の登録した町の札
     await open(page);
     await expect(page.getByText("登録した町の今季")).toBeVisible();
     await expect(page.locator(".stat", { hasText: "登録した町の今季" })).toContainText("倉敷市");
+    await noOverflow();
+    // /season : 野鳥の札と、定点の水鳥へのリンク（43px 以下にしない）
+    await page.goto("/season");
     await expect(page.getByText("野鳥の陽性（今季）")).toBeVisible();
     const link = page.getByRole("link", { name: "定点の水鳥の数を見る" });
     await expect(link).toHaveAttribute("href", "/trends");
     expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await noOverflow();
+    // /town : 町の枠の周辺の表（過去 6 シーズン）
+    await page.goto("/town");
     await page.locator(".nearby-past summary").click();
     const table = page.getByRole("table", { name: "周辺の町の過去の発生" });
     await expect(table).toBeVisible();
     await expect(table.locator('td[data-label="距離"]').first()).toContainText("この町");
     await expect(page.getByText("農場のマス目から町の境までの距離")).toBeVisible();
-    const widths = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, win: window.innerWidth }));
-    expect(widths.doc).toBeLessThanOrEqual(widths.win);
+    await noOverflow();
     const smallest = await page.locator(".nearby-past").evaluate((b) => Math.min(...[...b.querySelectorAll("p,th,td,summary")].map((c) => parseFloat(getComputedStyle(c).fontSize))));
     expect(smallest).toBeGreaterThanOrEqual(14);
   });
@@ -215,7 +302,7 @@ test.describe("地図（入口）", () => {
       await page.setViewportSize({ width, height: 800 });
       await page.route("https://cyberjapandata.gsi.go.jp/**", (route) => route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG_1PX }));
       await installFixture(page, { now: NOW, cases, wildBirds: [], watch });
-      await page.goto("/");
+      await page.goto("/season"); // 県ごと・週ごとの棒は /season へ移った（設計書 2026-11-06-ui-frame 4.3）
       await expect(page.locator(".season-charts")).toBeVisible({ timeout: 20_000 });
     };
 
@@ -273,9 +360,13 @@ test.describe("地図（入口）", () => {
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     });
 
-    test("今季 0 件で全県確認なら枠を出さない", async ({ page }) => {
+    test("今季 0 件で全県確認なら枠を出さない（/ にも /season にも）", async ({ page }) => {
       await open(page, 360);
       await expect(page.getByText(/どこでも感染のリスクがあります/)).toBeVisible();
+      await expect(page.locator(".season-charts")).toHaveCount(0);
+      // /season は、野鳥の札（今季の数字）が描かれてから調べる
+      await page.goto("/season");
+      await expect(page.getByText("野鳥の陽性（今季）")).toBeVisible();
       await expect(page.locator(".season-charts")).toHaveCount(0);
     });
   });

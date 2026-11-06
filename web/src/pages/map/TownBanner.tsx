@@ -35,14 +35,25 @@ export interface TownBannerProps {
   children?: ReactNode;
   /** スマホの段階の文を地図の前に置くとき、lead は段階の文だけ、rest はそれ以外を描く。既定は全部 */
   part?: "all" | "lead" | "rest";
+  /** 過去の行を 1 文と「自分の町の過去」へのリンクだけにする（最初の画面。設計書 2026-11-06-ui-frame 4.1） */
+  pastBrief?: boolean;
 }
 
-function PastRow({ past, nearby, town, line, showDisclaimer, riskShownAbove }: { past: PastState; nearby?: NearbyPastState; town: MuniCode | null; line: TownLine | null; showDisclaimer: boolean; riskShownAbove: boolean }) {
+function PastRow({ past, nearby, town, line, showDisclaimer, riskShownAbove, brief }: { past: PastState; nearby?: NearbyPastState; town: MuniCode | null; line: TownLine | null; showDisclaimer: boolean; riskShownAbove: boolean; brief: boolean }) {
   if (past.status === "idle") return null;
   let body: ReactNode;
   if (past.status === "loading") body = <p>{TEXT.pastLoading}</p>;
   else if (past.status === "failed") body = <p role="alert">{TEXT.pastFailed}</p>;
-  else {
+  else if (brief) {
+    body = (
+      <p>
+        <span className="town-label">{TEXT.pastLabel}</span> {past.summary.sentence}{" "}
+        <Link to="/town" className="tap-link">
+          {TEXT.townPastLink}
+        </Link>
+      </p>
+    );
+  } else {
     const { summary } = past;
     const hits: readonly PastHit[] = summary.hits;
     const riskMissing = !riskShownAbove && !line?.details.includes(FIXED_TEXT.riskAnywhere);
@@ -144,7 +155,7 @@ export function TownBanner(p: TownBannerProps) {
         </p>
       ) : null}
       {now}
-      <PastRow past={p.past} nearby={p.nearby} town={p.muniCode} line={p.line} showDisclaimer={p.showPastDisclaimer} riskShownAbove={p.riskShownAbove ?? false} />
+      <PastRow past={p.past} nearby={p.nearby} town={p.muniCode} line={p.line} showDisclaimer={p.showPastDisclaimer} riskShownAbove={p.riskShownAbove ?? false} brief={p.pastBrief ?? false} />
       <p className="town-area-link">
         <Link to={`/area/${p.muniCode}`} className="tap-link">{TEXT.areaLink}</Link>
       </p>

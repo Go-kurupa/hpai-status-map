@@ -10,6 +10,7 @@ import {
   TSUYAMA_CASE,
   waitForWord,
 } from "./wording.helper";
+import { goViaMenu } from "./helpers/frame";
 
 // 文言と時点の通し（X-20、設計書 §3.1、§15、§16「文言」）。
 // 全ての経路で、画面に禁句（区域の外です、安全、安心）と、過去の発生の NG の語がないこと、
@@ -64,7 +65,10 @@ test.describe("全経路の文言と時点", () => {
 });
 
 // ── 地図の入口 ──
-// ①②③④と、町を選んでいない状態の 5 つ。それぞれで今季、昨季、2 年前…と、6 シーズン前まで切り替えても禁句がない。
+// ①②③④と、町を選んでいない状態の 5 つ。それぞれで、/ の段階の色・文・禁句・時点を確かめ、
+// /compare で今季、昨季、2 年前…と、6 シーズン前まで切り替えても禁句がなく時点が出ることを確かめる。
+// / にはシーズンの切り替えがない（設計書 2026-11-06-ui-frame 4.1）。画面は行き先ごとに作り直し、選んだシーズンを
+// 持ち越さないので、/season、/town、/ は最後に 1 度ずつ開いて調べる。
 
 const REPLAY_DEFAULT_SPOT = JSON.parse(
   readFileSync(resolve(process.cwd(), "..", "data", "replay", "scenario.json"), "utf8"),
@@ -74,6 +78,8 @@ interface Level {
   name: string;
   /** 段階を示す 1 文（W-03 の画面の文）。fixture が意図した段階になっていることの確認 */
   sentence: string;
+  /** 段階の色（data-tone）。町を選んでいないときは持たない */
+  tone?: "lv1" | "lv2" | "lv3" | "lv4";
   setup: (page: Page) => Promise<void>;
   storage?: Record<string, string>;
 }
@@ -82,23 +88,27 @@ const LEVELS: readonly Level[] = [
   {
     name: "①（区域に入っている可能性）",
     sentence: "区域に入っている可能性があります。県の連絡を確かめてください",
+    tone: "lv1",
     storage: { "hpai.spot.v1": JSON.stringify(REPLAY_DEFAULT_SPOT) },
     setup: async () => {},
   },
   {
     name: "②（隣町で発生）",
     sentence: "隣町で発生しました",
+    tone: "lv2",
     setup: async (page) => chooseTown(page, "33", "33214"),
   },
   {
     name: "③（行き来する町で発生）",
     sentence: "登録した町で発生しました",
+    tone: "lv3",
     storage: { "hpai.spot.v1": JSON.stringify({ meshCode: KURASHIKI_MESH, muniCode: "33202", frequentMuniCodes: ["33203"] }) },
     setup: async () => {},
   },
   {
     name: "④（全国の動き）",
     sentence: "全国の動きをお知らせしています",
+    tone: "lv4",
     setup: async (page) => chooseTown(page, "01", "01100"),
   },
   {
@@ -108,34 +118,66 @@ const LEVELS: readonly Level[] = [
   },
 ];
 
-test.describe("地図の入口: 段階とシーズンの切り替え", () => {
+test.describe("地図の入口: 段階の色と文", () => {
   for (const level of LEVELS) {
-    test(`${level.name}: 全てのシーズンに切り替えても、禁句がなく、時点が出る`, async ({ page }) => {
+    test(`${level.name}: / で段階の色と文が出て、禁句がなく、時点が出る`, async ({ page }) => {
       await prepare(page, { cases: [TSUYAMA_CASE], storage: level.storage });
       await page.goto("/");
       await waitForWord(page, "時点");
       await level.setup(page);
       // fixture が意図した段階になっているか（違えば、別の段階を調べてしまう）
       await expect(page.getByText(level.sentence, { exact: false }).first()).toBeVisible();
+      if (level.tone) await expect(page.locator("[data-tone]").first()).toHaveAttribute("data-tone", level.tone);
       await expectNoForbiddenText(page);
+      await waitForWord(page, "時点");
+    });
+  }
+});
 
+test.describe("地図の入口: シーズンの切り替え（/compare）", () => {
+  for (const level of LEVELS) {
+    test(`${level.name}: /compare で全てのシーズンに切り替えても、禁句がなく、時点が出る。/season、/town、/ も同じ（いつも今季）`, async ({ page }) => {
+      await prepare(page, { cases: [TSUYAMA_CASE], storage: level.storage });
+      await page.goto("/");
+      await waitForWord(page, "時点");
+      await level.setup(page);
+      await expect(page.getByText(level.sentence, { exact: false }).first()).toBeVisible();
+
+      await goViaMenu(page, "過去シーズンとの比べ");
+      await expect(page).toHaveURL(/\/compare$/);
+      const buttons = page.locator('section[aria-label="シーズンの切り替え"] button');
+      await expect(buttons.first()).toBeVisible(); // 画面が描かれるまで待ってから数える
       const labels = await seasonButtonLabels(page);
       expect(labels.length, "シーズンの切り替えのボタンの数").toBeGreaterThanOrEqual(6);
-      const buttons = page.locator('section[aria-label="シーズンの切り替え"] button');
-      for (let i = 0; i < labels.length; i++) {
-        const label = (labels[i] ?? "").replace(/\s+/gu, " ");
-        await buttons.nth(i).click();
-        await expect(buttons.nth(i)).toHaveAttribute("aria-pressed", "true");
-        // 禁句は、どのシーズンでも落とす。時点は、全ての画面に出す決まり（§15）なので、出ないシーズンを全部数えてから落とす
+      // 禁句は、どのシーズンでも落とす。時点は、全ての画面に出す決まり（§15）なので、出ないシーズンを全部数えてから落とす
+      const check = async (where: string, needAsOf: boolean) => {
         await expectNoForbiddenText(page).catch((e: Error) => {
-          throw new Error(`${level.name} / ${label}: ${e.message}`);
+          throw new Error(`${where}: ${e.message}`);
         });
+        if (!needAsOf) return;
         const hasAsOf = await page.waitForFunction(() => document.body.innerText.includes("時点"), undefined, { timeout: 4_000 }).then(
           () => true,
           () => false,
         );
-        expect.soft(hasAsOf, `${level.name} / ${label}: 「時点」が出ていない`).toBe(true);
+        expect.soft(hasAsOf, `${where}: 「時点」が出ていない`).toBe(true);
+      };
+      for (let i = 0; i < labels.length; i++) {
+        const label = (labels[i] ?? "").replace(/\s+/gu, " ");
+        await buttons.nth(i).click();
+        await expect(buttons.nth(i)).toHaveAttribute("aria-pressed", "true");
+        await check(`${level.name} / ${label} / /compare`, true);
       }
+      // ほかの画面は行き先ごとに作り直し、いつも今季を出す（選んだシーズンを持ち越さない）。各画面を 1 度ずつ開いて調べる
+      // （自分の町の過去は、時点の行を持たない画面）
+      await goViaMenu(page, "今季の一覧と数");
+      await expect(page.getByRole("heading", { level: 1, name: "今季の一覧と数" })).toBeVisible();
+      await check(`${level.name} / /season`, true);
+      await goViaMenu(page, "自分の町の過去");
+      await expect(page.getByRole("heading", { level: 1, name: "自分の町の過去" })).toBeVisible();
+      await check(`${level.name} / /town`, false);
+      await goViaMenu(page, "今季の発生と地図");
+      await expect(page.getByRole("heading", { level: 1 }).first()).toHaveText("今季の発生状況");
+      await check(`${level.name} / /`, true);
     });
   }
 });

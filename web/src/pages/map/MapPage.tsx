@@ -14,7 +14,7 @@ import { CaseListSheet } from "./CaseListSheet";
 import { Legend } from "./Legend";
 import { listRows, wildBirdRows } from "./listRows";
 import { MapChunkBoundary } from "./MapChunkBoundary";
-import { MapLinks } from "./MapLinks";
+import { MapLinks, NextLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import { countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
 import type { PickTarget } from "./pickSpot";
@@ -76,7 +76,22 @@ const [, RISK_SENTENCE, RISK_SOURCE, RISK_URL] = RISK_PARTS;
  * 塗りがないことを「何もない」と読ませない。64rem 以上の 2 列は map.css の order で組む。
  * replayStats は再現の全国の流れだけが渡す。件数の札を再現の時計で出す（野鳥の札は、再現が野鳥を持たないので出さない）。
  */
-export default function MapPage({ replayStats = false }: { replayStats?: boolean }) {
+/**
+ * 見せるまとまり（設計書 2026-11-06-ui-frame 4 章）。now は「今季の発生と地図」（/）、town は「自分の町の過去」、
+ * season は「今季の一覧と数」、compare は「過去シーズンとの比べ」。all は再現と見本の中（今の並びのまま全部）。
+ */
+export type MapSection = "now" | "town" | "season" | "compare" | "all";
+
+const SECTION_TITLE: Record<Exclude<MapSection, "now" | "all">, string> = {
+  town: "自分の町の過去",
+  season: "今季の一覧と数",
+  compare: "過去シーズンとの比べ",
+};
+
+export default function MapPage({ replayStats = false, section = "all" }: { replayStats?: boolean; section?: MapSection }) {
+  const inMap = section === "now" || section === "all";
+  // 地図を出すまとまり。compare は段階 3 の 2 枚の地図ができるまで、選んだシーズンの地図を 1 枚出す
+  const showMap = inMap || section === "compare";
   const d = useSeasonData();
   const { view } = d;
   const ds = useDataSource();
@@ -295,7 +310,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
     riskShownAbove: riskMovedUp,
   };
   const banner = (
-    <TownBanner {...bannerProps} part={townLead ? "rest" : "all"}>
+    <TownBanner {...bannerProps} part={townLead ? "rest" : "all"} pastBrief={section === "now"}>
       {town === null ? picker : null}
     </TownBanner>
   );
@@ -379,9 +394,9 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
   const showUnmarked = narrow && town !== null && showingNear && !mapless && view.loaded && unmarked.length > 0;
 
   return (
-    <div className="map-page">
-      <h1 ref={h1Ref}>{view.label}の発生状況</h1>
-      {view.isCurrent ? (
+    <div className="map-page" data-section={section}>
+      <h1 ref={h1Ref}>{section === "now" || section === "all" ? `${view.label}の発生状況` : SECTION_TITLE[section]}</h1>
+      {section === "town" ? null : view.isCurrent ? (
         <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
       ) : (
         <>
@@ -411,8 +426,8 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           ) : null}
         </p>
       ) : null}
-      {view.isCurrent && !watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
-      {view.reviewingPrefCodes.length > 0 ? (
+      {section !== "town" && view.isCurrent && !watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
+      {section !== "town" && view.reviewingPrefCodes.length > 0 ? (
         <p className="state-wait">
           確認中の発表がある県: {names(view.reviewingPrefCodes)}
           。件数にはまだ入れていません。
@@ -422,15 +437,15 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
       {/* PC は未確認の断りを札ごとに繰り返さず、札の上の 1 文にまとめる（2026-11-06 作者の決定）。
           文はスマホの stat-unchecked と同じ。斜線の一文は、すぐ下の確認の行にあるので繰り返さない。
           守る文（riskAnywhere）が札のすぐ前に来る決まりを崩さないよう、その前に置く */}
-      {showStats && !narrow && d.watchLoaded && failedCount > 0 ? (
+      {inMap && showStats && !narrow && d.watchLoaded && failedCount > 0 ? (
         <p className="stat-unchecked-wide">
           {/* 文ごとに 1 つの塊にして、狭い右の列（再現）でも「ませ／ん。」と折らない */}
           {noneConfirmed ? null : <span className="stat-sentence">{TEXT.watchShortRange}</span>}
           <span className="stat-sentence">{TEXT.watchShortWho(failedWho)}</span>
         </p>
       ) : null}
-      {riskAboveStats ? riskText("map-notice map-risk") : null}
-      {showStats ? (
+      {inMap && riskAboveStats ? riskText("map-notice map-risk") : null}
+      {inMap && showStats ? (
         <div className="stat-row">
           <p className="stat-headline">{TEXT.statHeadline}</p>
           {narrow && d.watchLoaded && failedCount > 0 ? (
@@ -477,9 +492,16 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           {narrow ? null : pastStat}
         </div>
       ) : null}
-      {townLead ? <TownBanner {...bannerProps} part="lead" /> : null}
-      {bannerAfterMap ? null : banner}
+      {section === "town" ? (
+        <TownBanner {...bannerProps} part="all">
+          {town === null ? picker : null}
+        </TownBanner>
+      ) : null}
+      {inMap && townLead ? <TownBanner {...bannerProps} part="lead" /> : null}
+      {inMap && !bannerAfterMap ? banner : null}
 
+      {showMap ? (
+        <>
       {town !== null ? (
         <div className="map-scope" role="group" aria-label={TEXT.mapScopeAria}>
           <button type="button" aria-pressed={showingNear} onClick={showNear}>
@@ -552,7 +574,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         </p>
       ) : null}
       {watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
-      {showStats && (farmMeshCode !== null || hasFrequent) ? (
+      {inMap && showStats && (farmMeshCode !== null || hasFrequent) ? (
         <div className="stat-below">
           {farmMeshCode !== null ? (
             <div className="stat-band-more">
@@ -563,8 +585,8 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
           {frequentStat}
         </div>
       ) : null}
-      {bannerAfterMap ? banner : null}
-      {town !== null ? picker : null}
+      {inMap && bannerAfterMap ? banner : null}
+      {inMap && town !== null ? picker : null}
       <Legend isCurrent={view.isCurrent} />
 
       {mapless ? null : (
@@ -576,6 +598,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         </p>
       )}
 
+      {inMap ? (
       <SpotPicker
         getMap={() => mapRef.current}
         geo={geo}
@@ -592,18 +615,23 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         mapless={mapless}
         town={town}
       />
+      ) : null}
+        </>
+      ) : null}
 
+      {section === "season" || section === "compare" || section === "all" ? (
       <CaseListSheet
         rows={rows}
         birds={view.isCurrent ? birdRows : null}
         loaded={d.listCases !== null}
         unwatchedCount={view.isCurrent ? d.failedPrefCodes.length : 0}
       />
+      ) : null}
 
-      {showStats && ((narrow && pastStat !== null) || ds.mode !== "replay") ? (
+      {showStats && ((inMap && narrow && pastStat !== null) || (ds.mode !== "replay" && (section === "season" || section === "all"))) ? (
         <div className="stat-rest">
-          {narrow ? pastStat : null}
-          {ds.mode === "replay" ? null : (
+          {inMap && narrow ? pastStat : null}
+          {ds.mode === "replay" || !(section === "season" || section === "all") ? null : (
             <div className="stat stat-wide">
               <p className="stat-title">{TEXT.statBirds}</p>
               <p className="stat-value">{birdText}</p>
@@ -619,10 +647,10 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         </div>
       ) : null}
 
-      <SeasonBar bars={bars} selected={d.selected} onSelect={selectSeason} current={d.current} />
+      {section === "compare" || section === "all" ? <SeasonBar bars={bars} selected={d.selected} onSelect={selectSeason} current={d.current} /> : null}
 
       {/* 再現（去年の再現）は日付を過去に置いた画面なので、今日の比べは出さない */}
-      {ds.mode === "replay" ? null : (
+      {ds.mode === "replay" || !(section === "compare" || section === "all") ? null : (
         <SeasonCompare
           today={today}
           current={d.current}
@@ -636,7 +664,7 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
       )}
 
       {/* 札と同じ条件で出す（今季だけ。再現は全国の流れだけで、再現の時計までを描く） */}
-      {showStats ? (
+      {showStats && (section === "season" || section === "all") ? (
         <SeasonCharts
           loaded={view.loaded}
           allUnchecked={noneConfirmed}
@@ -651,11 +679,16 @@ export default function MapPage({ replayStats = false }: { replayStats?: boolean
         />
       ) : null}
 
-      {!view.isCurrent && view.loaded ? <p className="map-notice">{FIXED_TEXT.pastDisclaimer}</p> : null}
-      {view.undatedCases > 0 ? <p className="map-note">日付のない事例が {view.undatedCases} 件あり、月の棒には入っていません。</p> : null}
+      {!view.isCurrent && view.loaded && section !== "town" ? <p className="map-notice">{FIXED_TEXT.pastDisclaimer}</p> : null}
+      {view.undatedCases > 0 && (section === "season" || section === "compare" || section === "all") ? (
+        <p className="map-note">日付のない事例が {view.undatedCases} 件あり、月の棒には入っていません。</p>
+      ) : null}
 
-      <MonthBars months={view.months} loaded={view.loaded} allUnchecked={view.isCurrent && noneConfirmed} past={!view.isCurrent} />
-      <MapLinks />
+      {section === "season" || section === "compare" || section === "all" ? (
+        <MonthBars months={view.months} loaded={view.loaded} allUnchecked={view.isCurrent && noneConfirmed} past={!view.isCurrent} />
+      ) : null}
+      {section === "now" ? <NextLinks /> : null}
+      {section === "all" ? <MapLinks /> : null}
     </div>
   );
 }

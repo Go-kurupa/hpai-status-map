@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import fs from "node:fs";
 import path from "node:path";
@@ -172,12 +172,19 @@ describe("theme.css", () => {
       expect(contrastWithWhite(m![1]!), name).toBeGreaterThanOrEqual(4.5);
     }
   });
-  it("選択中のタブと主のボタンは濃い青に白い文字で、比は 4.5 以上", () => {
+  it("主のボタンは濃い青に白い文字で、比は 4.5 以上。メニューの選択中は紺の文字と左の青い線で、地との比は 4.5 以上", () => {
     expect(css).toMatch(/--on-accent:\s*#ffffff\b/i);
     const m = css.match(/--accent:\s*#([0-9a-fA-F]{6})/);
     expect(m).not.toBeNull();
     expect(contrastWithWhite(m![1]!)).toBeGreaterThanOrEqual(4.5);
-    for (const sel of [/\.app-nav a\[aria-current="page"\]/, /\.btn-primary/]) {
+    const menu = css.match(/\.menu-link\[aria-current="page"\]\s*{([^}]*)}/)?.[1];
+    expect(menu).toMatch(/color:\s*var\(--navy\)/);
+    expect(menu).toMatch(/background:\s*var\(--soft\)/);
+    expect(css).toMatch(/\.menu-link\[aria-current="page"\]::before\s*{[^}]*background:\s*var\(--accent\)/);
+    const navy = css.match(/--navy:\s*#([0-9a-fA-F]{6})/)![1]!;
+    const soft = css.match(/--soft:\s*#([0-9a-fA-F]{6})/)![1]!;
+    expect(contrast(navy, soft)).toBeGreaterThanOrEqual(4.5);
+    for (const sel of [/\.btn-primary/]) {
       const body = css.match(new RegExp(`${sel.source}\\s*{([^}]*)}`))?.[1];
       expect(body, sel.source).toMatch(/background:\s*var\(--accent\)/);
       expect(body, sel.source).toMatch(/(?:^|[\s;])color:\s*var\(--on-accent\)/);
@@ -213,7 +220,7 @@ function renderShell(pathname: string) {
   return render(<RouterProvider router={router} />);
 }
 function tabs() {
-  const nav = screen.getByRole("navigation", { name: "メイン" });
+  const nav = screen.getByRole("navigation", { name: "メニュー" });
   return within(nav).getAllByRole("link");
 }
 function currentLabels(): string[] {
@@ -237,28 +244,51 @@ describe("shellContextOf", () => {
     expect(shellContextOf("/todo").mode).toBeNull();
   });
   it("/recordx は記録に当たらない", () => {
-    expect(shellContextOf("/recordx").tabs.some((t) => t.current)).toBe(false);
-    expect(shellContextOf("/record").tabs.find((t) => t.label === "記録")!.current).toBe(true);
+    const items = (p: string) => shellContextOf(p).groups.flatMap((g) => g.items);
+    expect(items("/recordx").some((t) => t.current)).toBe(false);
+    expect(items("/record").find((t) => t.label === "記録")!.current).toBe(true);
   });
 });
 
-describe("AppShell の帯とタブ", () => {
-  it("/ は帯なし。行き先は / /todo /record/deaths で地図が選択中", () => {
+const MENU_HREFS = ["/", "/town", "/season", "/compare", "/todo", "/record/deaths", "/settings/farm", "/public", "/known", "/trends", "/replay", "/sample", "/poster", "/results", "/privacy"];
+
+describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章）", () => {
+  it("/ は帯なし。メニューは 15 の行き先で、今季の発生と地図が選択中。下のタブはない", () => {
     const { container } = renderShell("/");
     expect(container.querySelector(".app-context")).toBeNull();
-    expect(hrefs()).toEqual(["/", "/todo", "/record/deaths"]);
-    expect(currentLabels()).toEqual(["地図"]);
+    expect(hrefs()).toEqual(MENU_HREFS);
+    expect(currentLabels()).toEqual(["今季の発生と地図"]);
+    expect(screen.queryByRole("navigation", { name: "メイン" })).toBeNull();
   });
   it("/record と /record/self-check で記録が選択中", () => {
     renderShell("/record");
-    expect(currentLabels()).toEqual(["記録"]);
+    expect(currentLabels()).toEqual(["記録会員"]);
     cleanup();
     renderShell("/record/self-check");
-    expect(currentLabels()).toEqual(["記録"]);
+    expect(currentLabels()).toEqual(["記録会員"]);
   });
-  it("/todo でやることが選択中", () => {
+  it("/todo でやることが選択中。会員の画面には会員の印", () => {
     renderShell("/todo");
-    expect(currentLabels()).toEqual(["やること"]);
+    expect(currentLabels()).toEqual(["やること会員"]);
+    expect(tabs().filter((a) => a.textContent?.includes("会員")).map((a) => a.getAttribute("href"))).toEqual(["/todo", "/record/deaths", "/settings/farm"]);
+  });
+  it("/town /season /compare と /area/xxx は、いまの状況のそれぞれが選択中", () => {
+    for (const [p, label] of [["/town", "自分の町の過去"], ["/area/33203", "自分の町の過去"], ["/season", "今季の一覧と数"], ["/compare", "過去シーズンとの比べ"]] as const) {
+      renderShell(p);
+      expect(currentLabels()).toEqual([label]);
+      cleanup();
+    }
+  });
+  it("三本線でメニューを開くと中へフォーカスが移り、Escape で閉じて三本線へ戻る。aria-expanded が変わる", () => {
+    renderShell("/");
+    const btn = screen.getByRole("button", { name: "メニューを開く" });
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(btn);
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "メニューを閉じる" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(btn);
   });
   it("どの画面にも民間の運営の 1 行が出て、印刷には出ない", () => {
     for (const path of ["/", "/replay", "/sample/todo", "/poster"]) {
@@ -276,8 +306,8 @@ describe("AppShell の帯とタブ", () => {
   });
   it("/sample/todo は見本の行き先、帯に見本を終わる、設定なし", () => {
     const { container } = renderShell("/sample/todo");
-    expect(hrefs()).toEqual(["/", "/sample/todo", "/sample/record/deaths"]);
-    expect(currentLabels()).toEqual(["やること"]);
+    expect(hrefs()).toEqual(MENU_HREFS.flatMap((h) => (h === "/todo" ? ["/sample/todo"] : h === "/record/deaths" ? ["/sample/record/deaths"] : h === "/settings/farm" ? [] : [h])));
+    expect(currentLabels()).toEqual(["やること会員"]);
     const band = container.querySelector(".app-context")!;
     expect(band.textContent).toContain("見本の農場を見ています");
     const end = within(band as HTMLElement).getByRole("link", { name: "見本を終わる" });
@@ -287,13 +317,13 @@ describe("AppShell の帯とタブ", () => {
   });
   it("/sample/record/deaths と /sample の選択中", () => {
     renderShell("/sample/record/deaths");
-    expect(currentLabels()).toEqual(["記録"]);
+    expect(currentLabels()).toEqual(["記録会員"]);
     cleanup();
     const { container } = renderShell("/sample");
-    expect(currentLabels()).toEqual([]);
+    expect(currentLabels()).toEqual(["見本の農場"]);
     expect(container.querySelector(".app-context")).not.toBeNull();
   });
-  it("/replay と /replay/backstage は帯に再現を終わる、行き先は通常、選択中なし", () => {
+  it("/replay と /replay/backstage は帯に再現を終わる、行き先は通常、去年の再現が選択中", () => {
     for (const p of ["/replay", "/replay/backstage"]) {
       const { container, unmount } = renderShell(p);
       const band = container.querySelector(".app-context")!;
@@ -302,8 +332,8 @@ describe("AppShell の帯とタブ", () => {
       const end = within(band as HTMLElement).getByRole("link", { name: "再現を終わる" });
       expect(end.getAttribute("href")).toBe("/");
       expect(end.className).toContain("tap-link");
-      expect(hrefs()).toEqual(["/", "/todo", "/record/deaths"]);
-      expect(currentLabels()).toEqual([]);
+      expect(hrefs()).toEqual(MENU_HREFS);
+      expect(currentLabels()).toEqual(["去年の再現"]);
       expect(screen.getByRole("link", { name: "設定" })).toBeTruthy();
       unmount();
     }
@@ -351,7 +381,8 @@ describe("theme.css の土台", () => {
   });
   it("帯: sticky、scroll-padding、印刷で隠す", () => {
     expect(rule(".app-context")).toMatch(/position:\s*sticky/);
-    expect(css).toMatch(/scroll-padding-bottom:\s*64px/);
+    // 下のタブはなくした（設計書 2026-11-06-ui-frame）。下に余白を空けて隠れを防ぐ必要もない
+    expect(css).not.toMatch(/\.app-nav\s*{/);
     expect(css).toMatch(/html:has\(\.app-context\)\s*{[^}]*scroll-padding-top:\s*56px/);
     expect(css).toMatch(/@media print\s*{[^@]*\.app-context/);
   });
@@ -432,6 +463,9 @@ describe("機械の検査: css", () => {
     ".replay-item",
     ".invite-url",
     ".explainer-text",
+    ".menu-btn",
+    ".menu-close",
+    ".menu-link",
   ]);
   const isControl = (selector: string) =>
     selector.split(", ").every((s) => RADIUS_CONTROL.has(s) || /(?:^| )(?:select|textarea|input(?:\[[^\]]*\])?)$/.test(s));

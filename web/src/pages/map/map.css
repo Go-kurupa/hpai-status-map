@@ -1229,6 +1229,11 @@
   .season-charts > :not(section) {
     grid-column: 1 / -1;
   }
+  /* 「自分の町の過去」（/town）は地図がないので、町の文を横いっぱい（読みやすい幅まで）に置く */
+  .map-page[data-section="town"] > .town-banner {
+    grid-column: 1 / -1;
+    max-width: 48rem;
+  }
   /* 町の文は地図を押し下げないよう、右の列の先頭に置く */
   .map-page > .town-banner {
     grid-column: 2;

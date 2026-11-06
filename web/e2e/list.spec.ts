@@ -1,6 +1,7 @@
 import type { Case, WatchStatus, WildBird } from "@hpai/shared/types";
 import { expect, test, type Page } from "@playwright/test";
 import { installFixture } from "./fixtures";
+import { goViaMenu } from "./helpers/frame";
 
 // 確認状況と一覧（W-06）。画面の時計は 2026-11-04 09:00。見回りの checkedAt は 08:30（6 時間以内）なので、
 // 失敗にした県以外は「確認できた」と数える。地理院タイルは外へ出さず、1 画素の PNG で答える。
@@ -56,40 +57,58 @@ const bird: WildBird = {
   sourceUrl: "https://example.invalid/bird",
 };
 
-async function open(page: Page, o: { watch: WatchStatus[]; cases?: Case[]; wildBirds?: WildBird[] }) {
+/**
+ * 既定は "/"（地図まで待つ）。一覧と野鳥の一覧は /season、シーズンの切り替えは /compare へ移った
+ * （設計書 2026-11-06-ui-frame 4 章）。地図のない画面は、一覧の開閉ボタンが描かれるまで待つ。
+ */
+async function open(page: Page, o: { watch: WatchStatus[]; cases?: Case[]; wildBirds?: WildBird[]; path?: string }) {
   await page.setViewportSize({ width: 390, height: 900 });
   await page.route("https://cyberjapandata.gsi.go.jp/**", (route) =>
     route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG_1PX }),
   );
   await installFixture(page, { now: "2026-11-04T09:00:00+09:00", cases: o.cases ?? [], wildBirds: o.wildBirds ?? [], watch: o.watch });
-  await page.goto("/");
+  await page.goto(o.path ?? "/");
+  if (o.path !== undefined && o.path !== "/") {
+    await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
+    return;
+  }
   await page.waitForFunction(() => !!(window as unknown as { __hpaiMap?: { getLayer(id: string): unknown } }).__hpaiMap?.getLayer("case-confirmed"), undefined, {
     timeout: 20_000,
   });
 }
 
 test.describe("一覧", () => {
-  test("『一覧』を押すと aria-expanded が true。昨季を選ぶと 24 行で、出典は maff.go.jp。注記が 3 つ出る", async ({ page }) => {
-    await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird] });
+  test("『一覧』（/season）を押すと aria-expanded が true。今季の行と注記が 3 つ出る。昨季の切り替えは /compare で『24 件』", async ({ page }) => {
+    await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird], path: "/season" });
     const toggle = page.getByRole("button", { name: /一覧/ });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-
-    await page.getByRole("button", { name: /昨季.*24 件/ }).click();
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    for (const t of ["疑いは、県の発表を見つけられた県だけ出ます", "環境省の野鳥監視重点区域は、防疫指針の区域とは別のものです", "監視強化区域は"]) {
+      await expect(page.getByText(t)).toBeVisible();
+    }
+    // シーズンの切り替えは /compare。昨季を選ぶと 24 件
+    await page.goto("/compare");
+    await page.getByRole("button", { name: /昨季.*24 件/ }).click();
+    await expect(page.getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  // 昨季を選んで 24 行を見る。シーズンの切り替えと、選んだシーズンの一覧は /compare にある（設計書 2026-11-06-ui-frame 4.4）。
+  // 画面は行き先ごとに作り直すので、選んだシーズンは他の画面へ持ち越さない（/ はいつも今季）
+  test("昨季を /compare で選ぶと、そこの一覧が 24 行で、出典は maff.go.jp", async ({ page }) => {
+    await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird], path: "/compare" });
+    await page.getByRole("button", { name: /昨季.*24 件/ }).click();
+    const toggle = page.getByRole("button", { name: /一覧/ });
+    await toggle.click();
     const rows = page.getByRole("list", { name: "発生の一覧" }).getByRole("listitem");
     await expect(rows).toHaveCount(24);
     const hrefs = await rows.locator("a").evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).hostname));
     expect(hrefs.length).toBeGreaterThanOrEqual(24);
     expect(hrefs.every((h) => h.endsWith("maff.go.jp"))).toBe(true);
-
-    for (const t of ["疑いは、県の発表を見つけられた県だけ出ます", "環境省の野鳥監視重点区域は、防疫指針の区域とは別のものです", "監視強化区域は"]) {
-      await expect(page.getByText(t)).toBeVisible();
-    }
   });
 
-  test("今季の一覧は、確認中の事例を県名と『確認中』とリンクだけで出し、野鳥は検査中と出す", async ({ page }) => {
-    await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird] });
+  test("今季の一覧（/season）は、確認中の事例を県名と『確認中』とリンクだけで出し、野鳥は検査中と出す", async ({ page }) => {
+    await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird], path: "/season" });
     await page.getByRole("button", { name: /一覧/ }).click();
     const row = page.getByRole("list", { name: "発生の一覧" }).getByRole("listitem");
     await expect(row).toHaveCount(1);

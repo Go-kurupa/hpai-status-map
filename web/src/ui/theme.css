@@ -43,7 +43,6 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  scroll-padding-bottom: 64px;
 }
 html:has(.app-context) {
   scroll-padding-top: 56px;
@@ -139,31 +138,178 @@ button:focus-visible {
   font-size: 0.9rem;
 }
 
-.app-nav {
-  position: sticky;
-  bottom: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid var(--outer);
-  background: var(--surface);
-}
-.app-nav a {
-  display: flex;
+/* メニュー（設計書 2026-11-06-ui-frame 3 章）。スマホは三本線から全画面、PC は左に固定 */
+.menu-btn,
+.menu-close {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--tap);
-  padding: 8px 0;
-  border-right: 1px solid var(--hair);
-  color: var(--fg);
+  width: var(--tap);
+  height: var(--tap);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--navy);
+  font: inherit;
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+.app-header .menu-btn {
+  margin-left: -8px;
+}
+.app-header .app-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.app-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.app-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.app-menu {
+  display: none;
+}
+.app-menu.is-open {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 0 0 24px;
+  background: var(--surface);
+}
+.menu-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px var(--gutter);
+  border-bottom: 1px solid var(--hair);
+  background: var(--surface);
+  color: var(--navy);
   font-weight: 700;
+}
+.menu-head .menu-close {
+  margin-left: -8px;
+}
+.menu-group {
+  padding: 8px 8px 0;
+}
+.menu-group-label {
+  margin: 0;
+  padding: 8px 12px 4px;
+  color: var(--sub);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.menu-more > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap);
+  cursor: pointer;
+  list-style: none;
+}
+.menu-more > summary::-webkit-details-marker {
+  display: none;
+}
+/* 開閉できることを示す印。開くと向きが変わる */
+.menu-more > summary::after {
+  content: "▾";
+  font-size: 1rem;
+}
+.menu-more[open] > summary::after {
+  content: "▴";
+}
+.menu-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.menu-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  color: var(--fg);
   text-decoration: none;
 }
-.app-nav a:last-child {
-  border-right: 0;
+.menu-link:hover {
+  background: var(--soft);
 }
-.app-nav a[aria-current="page"] {
+.menu-link[aria-current="page"] {
+  position: relative;
+  background: var(--soft);
+  color: var(--navy);
+  font-weight: 700;
+}
+/* 選択中の左の青い線（影は地図のカードだけの決まりなので、影ではなく細い帯で描く） */
+.menu-link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 4px;
+  border-radius: 2px;
   background: var(--accent);
-  color: var(--on-accent);
+}
+.menu-tag {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+  padding: 0 6px;
+  border: 1px solid var(--outer);
+  border-radius: 4px;
+  color: var(--sub);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+/* スマホのヘッダの「設定」はメニューの中にあるので出さない（題を 1 行に収める） */
+@media (max-width: 63.99rem) {
+  .app-header .settings-link {
+    display: none;
+  }
+}
+@media (min-width: 64rem) {
+  .menu-btn,
+  .menu-head {
+    display: none;
+  }
+  .app-body {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    align-items: start;
+  }
+  .app-menu,
+  .app-menu.is-open {
+    position: sticky;
+    top: 0;
+    inset: auto;
+    z-index: auto;
+    display: block;
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    padding: 4px 0 24px;
+    border-right: 1px solid var(--hair);
+    background: var(--surface);
+  }
+  .app-content {
+    min-height: 100%;
+  }
 }
 
 /* ── 部品 ── */
@@ -471,7 +617,8 @@ button:focus-visible {
   .app-header,
   .app-context,
   .app-operator-note,
-  .app-nav {
+  .app-menu,
+  .menu-btn {
     display: none;
   }
 }

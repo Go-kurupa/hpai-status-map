@@ -25,3 +25,24 @@ export function MapLinks() {
     </nav>
   );
 }
+
+const NEXT: ReadonlyArray<{ to: string; label: string }> = [
+  { to: "/town", label: "自分の町の過去を見る" },
+  { to: "/season", label: "今季の一覧と数を見る" },
+  { to: "/compare", label: "過去シーズンと比べる" },
+];
+
+/** 最初の画面の地図の下から、次の画面へ（設計書 2026-11-06-ui-frame 4.1）。ほかのページはメニューから */
+export function NextLinks() {
+  return (
+    <nav className="next-links" aria-label="次の画面">
+      <ul>
+        {NEXT.map((l) => (
+          <li key={l.to}>
+            <Link to={l.to}>{l.label}</Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}

@@ -69,7 +69,12 @@ export const routes: RouteObject[] = [
     element: <Root />,
     errorElement: <RouteError />,
     children: [
-      { index: true, element: <MapPage /> },
+      { index: true, element: <MapPage key="now" section="now" /> },
+      // 地図の画面のまとまりを分けた行き先（設計書 2026-11-06-ui-frame 3 章）。key で行き先ごとに作り直し、
+      // 選んだシーズンを持ち越さない（/ はいつも今季）
+      { path: "town", element: <MapPage key="town" section="town" /> },
+      { path: "season", element: <MapPage key="season" section="season" /> },
+      { path: "compare", element: <MapPage key="compare" section="compare" /> },
       { path: "public", element: <PublicPage /> },
       { path: "area/:muniCode", element: <AreaPage /> },
       { path: "poster", element: <PosterPage /> },

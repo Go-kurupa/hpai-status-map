@@ -1,6 +1,7 @@
 import type { Case } from "@hpai/shared/types";
 import { expect, test, type Page } from "@playwright/test";
 import { installFixture } from "./fixtures";
+import { goViaMenu } from "./helpers/frame";
 
 // 自分の町の 1 文（W-03）。実データ（data/history/cases.json）と、今季（2026）の事例 1 件で確かめる。
 // 公開の画面の時計は 2026-11-10。地理院タイルは外へ出さず、1 画素の PNG で答える。
@@ -116,7 +117,7 @@ test.describe("自分の町の 1 文", () => {
     await expect(page.getByRole("link", { name: /この町のくわしい状況/ })).toHaveAttribute("href", "/area/33214");
   });
 
-  test("地点を指定すると『区域に入っている可能性があります』（①）。シーズンを変えても色は lv1 のまま", async ({ page }) => {
+  test("地点を指定すると『区域に入っている可能性があります』（①）。/compare でシーズンを変えても色は lv1 のまま", async ({ page }) => {
     await open(page);
     await chooseTown(page, "33", "33203");
     await expect(page.getByText("全国の動きをお知らせしています")).toHaveCount(0);
@@ -128,10 +129,19 @@ test.describe("自分の町の 1 文", () => {
     await expect(page.getByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeVisible();
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");
 
+    // / にはシーズンの切り替えがない（設計書 2026-11-06-ui-frame 4.1）。/compare で昨季を選び、画面の中の移動で / へ戻っても、色は lv1 のまま
+    // （画面は行き先ごとに作り直すので、/ はいつも今季）
+    await goViaMenu(page, "過去シーズンとの比べ");
     await page.getByRole("button", { name: /昨季/ }).click();
     await expect(page.getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
+    await goViaMenu(page, "今季の発生と地図");
+    await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");
     await expect(page.getByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeVisible();
+    // 自分の町の過去（/town）にも、同じ色の文が出る
+    await goViaMenu(page, "自分の町の過去");
+    await expect(page).toHaveURL(/\/town$/);
+    await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");
   });
 
   test("行き来する町（登録した町）の事例で『登録した町で発生しました』（③）", async ({ page }) => {
