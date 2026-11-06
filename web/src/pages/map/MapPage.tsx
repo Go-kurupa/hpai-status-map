@@ -4,7 +4,7 @@ import { DISTANCE_BAND_KM, isCountable } from "@hpai/shared/level";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import type { MuniCode } from "@hpai/shared/types";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { useDataSource } from "../../data/context";
 import { useFormatAsOf } from "../../ui/AsOf";
@@ -16,7 +16,9 @@ import { listRows, wildBirdRows } from "./listRows";
 import { MapChunkBoundary } from "./MapChunkBoundary";
 import { SectionTabs } from "../../ui/SectionTabs";
 import { TownCasesPanel } from "./TownCasesPanel";
-import { CompareMaps } from "./CompareMaps";
+import { CompareOverlay } from "./CompareOverlay";
+import { parseRegion, type RegionId } from "../../geo/regions";
+import { regionMuniCodes, ScopeButtons, type Scope } from "./ScopeButtons";
 import { buildSeasonView } from "./seasonView";
 import { MapLinks, NextLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
@@ -94,7 +96,7 @@ const SECTION_TITLE: Record<Exclude<MapSection, "now" | "all">, string> = {
 
 export default function MapPage({ replayStats = false, section = "all" }: { replayStats?: boolean; section?: MapSection }) {
   const inMap = section === "now" || section === "all";
-  // 地図を出すまとまり。compare は 2 枚の地図（CompareMaps。設計書 2026-11-06-ui-frame 4.4）
+  // 地図を出すまとまり。compare は 2 つのシーズンを 1 枚に重ねた地図（CompareOverlay。設計書 2026-11-06-data-explore E8）
   const showMap = inMap || section === "compare";
   const d = useSeasonData();
   const { view } = d;
@@ -217,12 +219,32 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     if (town !== null) moveTo(nearKind, [town]);
   }, [town, nearKind, moveTo]);
   // 町があれば近くで始める。全国の広さでは輪も町の塗りも見えない。再現の 4 事例だけは全国の広さで見せる
-  const startNear = ds.mode !== "replay" || replayStats;
+  // 比べを「条件で見る」から ?region= で開いたときは、その地方へ寄せ、選択地域付近へは動かさない（設計書 2026-11-06-data-explore E15）
+  const [searchParams] = useSearchParams();
+  const [regionParam] = useState<RegionId | null>(() => (section === "compare" ? parseRegion(searchParams.get("region")) : null));
+  const startNear = (ds.mode !== "replay" || replayStats) && regionParam === null;
   // 町だけの人は、町の形が届くまで動かさない。届く前は町の中心が分からず、町へ寄ってから輪の広さへもう一度動いてしまう
   const geoPending = farmMeshCode === null && town !== null && geo === null && !geoFailed;
   useEffect(() => {
     if (startNear && !geoPending) showNear();
   }, [startNear, geoPending, showNear]);
+  // 比べの広さのボタン（1 段。押された印は最後に押した 1 つ）。地方へ寄せるには町の形が要るので、届く前に押されたら届いてから寄せる
+  const [cmpScope, setCmpScope] = useState<Scope>(() => regionParam ?? (town !== null && startNear ? "near" : "japan"));
+  const pendingRegion = useRef<RegionId | null>(regionParam);
+  const goRegion = useCallback(
+    (id: RegionId) => {
+      setCmpScope(id);
+      if (geo) moveTo("muni", regionMuniCodes(id, Object.keys(geo.index)));
+      else pendingRegion.current = id;
+    },
+    [geo, moveTo],
+  );
+  useEffect(() => {
+    const id = pendingRegion.current;
+    if (!geo || id === null) return;
+    pendingRegion.current = null;
+    moveTo("muni", regionMuniCodes(id, Object.keys(geo.index)));
+  }, [geo, moveTo]);
   // 十字を合わせ始めたら、地図の上端を画面の先頭に寄せる（地図の上に町の欄があり、地図が下に隠れやすい）
   useEffect(() => {
     if (aiming) boxRef.current?.scrollIntoView?.({ block: "start" });
@@ -453,8 +475,14 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       {section === "now" || section === "season" ? <SectionTabs group="now" /> : null}
       {section === "compare" || section === "town" ? <SectionTabs group="past" /> : null}
       <h1 ref={h1Ref}>{section === "now" || section === "all" ? `${view.label}の発生状況` : SECTION_TITLE[section]}</h1>
-      {/* 比べ（2 枚の地図）は、時点の行を地図ごとに出す（CompareMaps の renderSideNotes） */}
-      {section === "town" || section === "compare" ? null : view.isCurrent ? (
+      {/* 比べは、どちらかが今季なら今季の時点、どちらも過去なら過去の記録の断り */}
+      {section === "town" ? null : section === "compare" ? (
+        shownViews.some((v) => v.isCurrent) ? (
+          <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
+        ) : (
+          <p className="as-of">{TEXT.pastAsOf}</p>
+        )
+      ) : view.isCurrent ? (
         <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
       ) : (
         <>
@@ -560,7 +588,23 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
 
       {showMap ? (
         <>
-      {town !== null ? (
+      {section === "compare" ? (
+        <ScopeButtons
+          hasNear={town !== null}
+          picked={cmpScope}
+          onNear={() => {
+            setCmpScope("near");
+            pendingRegion.current = null;
+            showNear();
+          }}
+          onJapan={() => {
+            setCmpScope("japan");
+            pendingRegion.current = null;
+            moveTo("japan", []);
+          }}
+          onRegion={goRegion}
+        />
+      ) : town !== null ? (
         <div className="map-scope" role="group" aria-label={TEXT.mapScopeAria}>
           <button type="button" aria-pressed={showingNear} onClick={showNear}>
             {TEXT.mapNear}
@@ -572,7 +616,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       ) : null}
 
       {section === "compare" ? (
-        <CompareMaps
+        <CompareOverlay
           options={d.bars}
           first={d.selected}
           second={secondSeason}
@@ -584,23 +628,16 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           historyFailed={d.historyFailed}
           onRetryHistory={d.retryHistory}
           asOf={d.asOf}
+          failedPrefCodes={d.failedPrefCodes}
+          firstView={view}
+          secondView={secondView}
           focus={focus}
           muniName={(c) => (geo ? (geo.index[c]?.name ?? null) : null)}
-          renderSideNotes={(i) => {
-            const v = i === 0 ? view : secondView;
-            // 地図ごとの時点と凡例（今季と過去で色が違う）
-            return (
-              <>
-                {v.isCurrent ? <WatchAsOf loaded={d.watchLoaded} line={d.watch} /> : <p className="as-of">{TEXT.pastAsOf}</p>}
-                <Legend isCurrent={v.isCurrent} />
-              </>
-            );
-          }}
           renderMap={(o) => (
             <MapChunkBoundary>
               <Suspense fallback={<p role="status">地図を読み込んでいます</p>}>
                 <MapView
-                  view={o.index === 0 ? view : secondView}
+                  view={view}
                   wildBirds={d.wildBirds}
                   failedPrefCodes={d.failedPrefCodes}
                   myMuniCode={town}
@@ -609,10 +646,9 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
                   ringCenter={ringCenter}
                   onInspectMuni={o.onInspectMuni}
                   focus={o.focus}
-                  onMapReady={o.onMapReady}
                   onUnsupported={() => setMapless(true)}
-                  mapIndex={o.index}
                   ariaLabel={o.ariaLabel}
+                  overlay={o.overlay}
                 />
               </Suspense>
             </MapChunkBoundary>

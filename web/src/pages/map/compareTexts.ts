@@ -18,8 +18,6 @@ export const CMP_TEXT = {
   legendNote: "町の数は、発生のあった市区町村の数です。県名だけの発表は地図に塗れないので、数に入れていません。",
   currentSuspected: "今季は疑いを含みます",
   sameSeason: "同じシーズンを選んでいます。別のシーズンを選ぶと比べられます。",
-  currentWait: "今季の発生をまだ読めていません",
-  pastWait: "過去の記録をまだ読めていません",
   mapAria: (one: string, two: string): string => `発生状況の地図（比べる 1: ${one} と、比べる 2: ${two} の重ね合わせ）`,
   hint: "地図で町を押すと、2 つのシーズンのその町の発生が、地図の下に上下に並んで出ます。",
   scopeAria: "地図の広さ",

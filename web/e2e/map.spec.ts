@@ -42,7 +42,7 @@ type MapHandle = {
 declare global {
   interface Window {
     __hpaiMap?: MapHandle;
-    /** 過去シーズンとの比べの 2 枚目（比べる 2） */
+    /** 過去シーズンとの比べが 2 枚の地図だったころの 2 枚目。今は 1 枚に重ねるので作られない（作られないことを確かめる） */
     __hpaiMap2?: MapHandle;
   }
 }
@@ -114,20 +114,25 @@ test.describe("地図（入口）", () => {
     await expect(page.getByRole("button", { name: /今季/ })).toHaveAttribute("aria-pressed", "true");
   });
 
-  // 昨季を選んだときの地図の塗り。/compare には段階 3 の 2 枚の地図ができるまで、選んだシーズンの地図が 1 枚ある。
-  // 画面は行き先ごとに作り直すので、/ へ戻ると今季に戻る（設計書 2026-11-06-ui-frame 4.1、4.4）
-  test("昨季を /compare で選ぶと、そこの地図の case-confirmed に 33203 が入る。/ へ戻ると今季。japan.topo.json の要求は 1 回", async ({ page }) => {
+  // 昨季を選んだときの地図の塗り。/compare は 2 つのシーズンを 1 枚に重ねる（設計書 2026-11-06-data-explore E8）。
+  // 下のシーズンの棒で選ぶのは比べる 1。比べる 2 は今季（試験の今季は 0 件）なので、昨季の町は「比べる 1 だけ」の層に入る。
+  // 画面は行き先ごとに作り直すので、/ へ戻ると今季に戻る（設計書 2026-11-06-ui-frame 4.1）
+  test("昨季を /compare で選ぶと、重ねた地図の cmp-one に 33203 が入る。/ へ戻ると今季。japan.topo.json の要求は 1 回", async ({ page }) => {
     const topoRequests: string[] = [];
     page.on("request", (r) => {
       if (r.url().includes("japan.topo.json")) topoRequests.push(r.url());
     });
     await open(page, 390, "/compare");
     await page.getByRole("button", { name: /昨季.*24 件/ }).click();
-    await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("case-confirmed"), undefined, { timeout: 20_000 });
-    await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("case-confirmed")).includes("33203"));
+    await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("cmp-one"), undefined, { timeout: 20_000 });
+    const has = (layer: string) => page.waitForFunction((l) => JSON.stringify(window.__hpaiMap!.getFilter(l)).includes("33203"), layer);
+    await has("cmp-one");
+    // 重ねている間は、発生の塗り（case-confirmed）を使わない
+    expect(JSON.stringify(await page.evaluate(() => window.__hpaiMap!.getFilter("case-confirmed")))).not.toContain("33203");
     await page.getByRole("button", { name: /今季/ }).click();
+    await page.waitForFunction(() => !JSON.stringify(window.__hpaiMap!.getFilter("cmp-one")).includes("33203"));
     await page.getByRole("button", { name: /昨季/ }).click();
-    await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("case-confirmed")).includes("33203"));
+    await has("cmp-one");
     expect(topoRequests).toHaveLength(1);
     // / へ戻ると今季（題が「今季の発生状況」）。選んだシーズンを持ち越さない
     await goViaMenu(page, "今季の発生と地図");
@@ -445,68 +450,64 @@ test.describe("地図（入口）", () => {
     });
   });
 
-  // 設計書 2026-11-06-ui-frame 4.4、決定 5: 過去シーズンとの比べは 2 枚の地図。片方を動かすともう片方も同じ場所へ動く
-  test("PC: /compare は比べる 1（昨季）と比べる 2（今季）の地図が左右に並び、1 枚目をドラッグすると 2 枚目も同じ中心と倍率へ動く。町を押すと 2 つのシーズンの欄", async ({ page }) => {
+  // 設計書 2026-11-06-data-explore E8、E15: 過去シーズンとの比べは 1 枚の地図に「／」「＼」「×」で重ねる。広さのボタンは 1 段で、地方へ寄せる
+  const centerIn = (page: Page, box: [number, number, number, number]) =>
+    expect
+      .poll(
+        () =>
+          page.evaluate((b) => {
+            const m = window.__hpaiMap!;
+            const c = m.getCenter();
+            return !m.isMoving() && c.lng >= b[0] && c.lng <= b[2] && c.lat >= b[1] && c.lat <= b[3];
+          }, box),
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+  const CHUGOKU: [number, number, number, number] = [131.0, 33.8, 134.5, 35.7];
+
+  test("PC: /compare は 1 枚の地図に昨季と今季を重ね、［中国］で中国地方へ寄せる。町を押すと 2 つのシーズンが 1 つの欄に上下に並ぶ", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33203"));
     await open(page, 1280, "/compare");
-    await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("case-confirmed") && !!window.__hpaiMap2?.getLayer("case-confirmed"), undefined, { timeout: 20_000 });
+    await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("cmp-one"), undefined, { timeout: 20_000 });
     await expect(page.getByLabel("比べる 1", { exact: true })).toHaveValue("2025");
     await expect(page.getByLabel("比べる 2", { exact: true })).toHaveValue("2026");
-    // 右上の見方の切り替えは、「選択地域付近／全国」の枠に重ならない（11/6 本番で重なっていた）
+    // 地図は 1 枚だけ
+    await expect(page.locator(".cmp-overlay .map-canvas")).toHaveCount(1);
+    expect(await page.evaluate(() => !!window.__hpaiMap2)).toBe(false);
+    await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("cmp-one")).includes("33203"));
+    // 右上の見方の切り替えは、広さのボタンに重ならない（11/6 本番で重なっていた）
     const tabs = (await page.locator(".map-page > .section-tabs").boundingBox())!;
-    const scope = (await page.locator(".map-page > .map-scope").boundingBox())!;
-    expect(tabs.y + tabs.height).toBeLessThanOrEqual(scope.y);
-    const [a, b] = await page.locator(".compare-side .map-canvas").all();
-    const boxA = (await a!.boundingBox())!;
-    const boxB = (await b!.boundingBox())!;
-    expect(boxB.x).toBeGreaterThan(boxA.x + boxA.width);
-    expect(Math.abs(boxB.y - boxA.y)).toBeLessThanOrEqual(1);
-    // 初めの広さへ動き終わってから動かす
-    await expect.poll(() => page.evaluate(() => window.__hpaiMap!.isMoving() || window.__hpaiMap2!.isMoving()), { timeout: 15_000 }).toBe(false);
-    await page.mouse.move(boxA.x + boxA.width / 2, boxA.y + boxA.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(boxA.x + boxA.width / 2 + 120, boxA.y + boxA.height / 2 + 40, { steps: 8 });
-    await page.mouse.up();
-    // 2 枚の中心と倍率を 1 回の読み取りで比べる（惰性で動いている間も、止まった後も同じ）
-    const same = () =>
-      page.evaluate(() => {
-        const at = (m: MapHandle) => [m.getCenter().lng.toFixed(4), m.getCenter().lat.toFixed(4), m.getZoom().toFixed(2)].join();
-        return !window.__hpaiMap!.isMoving() && at(window.__hpaiMap!) === at(window.__hpaiMap2!);
-      });
-    await expect.poll(same, { timeout: 10_000 }).toBe(true);
-    // 2 枚目を動かすと 1 枚目もついてくる
-    await page.mouse.move(boxB.x + boxB.width / 2, boxB.y + boxB.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(boxB.x + boxB.width / 2 - 100, boxB.y + boxB.height / 2 - 30, { steps: 8 });
-    await page.mouse.up();
-    await expect.poll(same, { timeout: 10_000 }).toBe(true);
-    // 2 枚目の津山市を押す（2 枚目のどこを押しても欄は同じ町の 2 つのシーズン）
-    await page.evaluate(() => window.__hpaiMap2!.jumpTo({ center: [134.0, 35.07], zoom: 9 }));
+    const scope = page.getByRole("group", { name: "地図の広さ" });
+    expect(tabs.y + tabs.height).toBeLessThanOrEqual((await scope.boundingBox())!.y);
+    // 地方のボタンで寄せる。押された印は最後に押した 1 つ
+    await expect.poll(() => page.evaluate(() => window.__hpaiMap!.isMoving()), { timeout: 15_000 }).toBe(false);
+    await scope.getByRole("button", { name: "中国" }).click();
+    await expect(scope.getByRole("button", { name: "中国" })).toHaveAttribute("aria-pressed", "true");
+    await expect(scope.getByRole("button", { name: "選択地域付近" })).toHaveAttribute("aria-pressed", "false");
+    await centerIn(page, CHUGOKU);
+    // 津山市を押す
+    await page.evaluate(() => window.__hpaiMap!.jumpTo({ center: [134.0, 35.07], zoom: 9 }));
     await expect
-      .poll(() => page.evaluate(() => { const m = window.__hpaiMap2!; const r = m.getCanvas().getBoundingClientRect(); return m.queryRenderedFeatures([r.width / 2, r.height / 2], { layers: ["muni-fill"] }).map((f) => f.properties?.["c"]); }), { timeout: 15_000 })
+      .poll(() => page.evaluate(() => { const m = window.__hpaiMap!; const r = m.getCanvas().getBoundingClientRect(); return m.queryRenderedFeatures([r.width / 2, r.height / 2], { layers: ["muni-fill"] }).map((f) => f.properties?.["c"]); }), { timeout: 15_000 })
       .toEqual(["33203"]);
-    await page.mouse.click(boxB.x + boxB.width / 2, boxB.y + boxB.height / 2);
+    const box = (await page.locator(".cmp-overlay .map-canvas").boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     const panel = page.locator(".compare-cases");
     await expect(panel.getByRole("heading", { level: 2, name: "津山市" })).toBeFocused();
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(["比べる 1（2025 年 6 月〜2026 年 5 月）", "比べる 2（2026 年 6 月〜2027 年 5 月）"]);
   });
 
-  // スマホは 2 枚目を画面に入ってから作る。作ったときに古い広さの指定を当て直して、1 枚目で動かした位置を消さない
-  test("スマホ: /compare の 2 枚目は下へ送ってから作られ、1 枚目で動かした位置に合わせる（1 枚目の位置は変わらない）", async ({ page }) => {
-    await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33203"));
-    // 2 枚目は 200px 手前から読み込むので、高さを低くして初めは範囲の外に置く
-    await open(page, 390, "/compare", 500);
-    await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("case-confirmed"), undefined, { timeout: 20_000 });
-    await expect.poll(() => page.evaluate(() => window.__hpaiMap!.isMoving()), { timeout: 15_000 }).toBe(false);
-    expect(await page.evaluate(() => !!window.__hpaiMap2)).toBe(false);
-    // 1 枚目を九州へ
-    await page.evaluate(() => window.__hpaiMap!.jumpTo({ center: [130.7, 32.8], zoom: 7 }));
-    await page.locator(".compare-side").nth(1).scrollIntoViewIfNeeded();
-    await page.waitForFunction(() => !!window.__hpaiMap2?.getLayer("case-confirmed"), undefined, { timeout: 20_000 });
-    await page.waitForTimeout(800);
-    const at = await page.evaluate(() => [window.__hpaiMap!, window.__hpaiMap2!].map((m) => [m.getCenter().lng.toFixed(2), m.getCenter().lat.toFixed(2), m.getZoom().toFixed(1)].join()));
-    expect(at[0]).toBe("130.70,32.80,7.0");
-    expect(at[1]).toBe(at[0]);
+  test("スマホ: 条件で見るの「地図で中国を見る」から開くと、選択地域があっても中国地方に寄せる。見せ方を「1 だけ」にすると、比べる 1 の町が cmp-one に入る", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "01100"));
+    await open(page, 390, "/explore");
+    await page.getByRole("group", { name: "地方" }).getByRole("button", { name: /^中国/ }).click();
+    await page.getByRole("link", { name: "地図で中国を見る" }).click();
+    await expect(page).toHaveURL(/\/compare\?region=chugoku$/);
+    await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("cmp-one"), undefined, { timeout: 20_000 });
+    await expect(page.getByRole("group", { name: "地図の広さ" }).getByRole("button", { name: "中国" })).toHaveAttribute("aria-pressed", "true");
+    await centerIn(page, CHUGOKU);
+    await page.getByRole("group", { name: "地図の見せ方" }).getByRole("button", { name: "1 だけ" }).click();
+    await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("cmp-one")).includes("33203") && !JSON.stringify(window.__hpaiMap!.getFilter("cmp-both")).includes("33203"));
   });
 
   // 設計書 2026-11-06-ui-frame 決定 4: 地図で町を押すと、その町の今季と過去の事例が右の列（スマホは地図の下）に出る

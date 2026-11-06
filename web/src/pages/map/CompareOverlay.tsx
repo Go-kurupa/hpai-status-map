@@ -1,12 +1,13 @@
 // 過去シーズンとの比べを 1 枚の地図に重ねる（設計書 2026-11-06-data-explore E8〜E14）。
 // 比べる 1 だけの町は「／」、比べる 2 だけの町は「＼」、両方の町は「×」。見せ方は「重ねる／1 だけ／2 だけ」。
 // 町を押すと、2 つのシーズンのその町の事例を 1 つの欄に上下に並べる。地図の読み込みの分け方は MapPage が持つので、地図は renderMap で描いてもらう。
-// 2 枚の地図を並べる CompareMaps の置き換え。MapPage へのつなぎ込みは、別の作業（右の欄の文言整理）の commit の後に行う
+// 読めていない間の断り（「今季の発生をまだ読めていません」など）は MapPage が地図の上に出す。ここでは塗らない（overlay を null にする）だけ
+import { isCountable } from "@hpai/shared/level";
+import { caseDate, isSuspectedOnly } from "@hpai/shared/overview";
 import type { Case, HistoryCase, IsoDateTime, MuniCode, PrefCode, Season } from "@hpai/shared/types";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { overlayStyle, type OverlayShow, type OverlayState } from "./applyView";
-import { rowsOf } from "./CompareMaps";
 import { CMP_TEXT } from "./compareTexts";
 import type { MapViewProps } from "./MapView";
 import type { SeasonView } from "./seasonView";
@@ -37,6 +38,36 @@ export interface CompareOverlayProps {
   focus: Focus;
   muniName: (code: MuniCode) => string | null;
   renderMap: (o: { overlay: OverlayState | null; focus: Focus; ariaLabel: string; onInspectMuni: (c: MuniCode) => void }) => ReactNode;
+}
+
+/** 欄の 1 行。今季の事例と過去の事例を同じ形にそろえる */
+interface Row {
+  key: string;
+  date: string | null;
+  suspected: boolean;
+  birdUse: string | null;
+  housing: string | null;
+  headCount: number | null;
+  url: string | null;
+}
+
+/**
+ * あるシーズンのある町の事例。今季は件数に数える事例（否定・確認中を除く）、過去は国の事例一覧から関連農場を除く。新しい順。
+ * 読めていなければ null
+ */
+export function rowsOf(season: Season, code: MuniCode, p: Pick<CompareOverlayProps, "current" | "currentCases" | "history">): Row[] | null {
+  if (season === p.current) {
+    if (p.currentCases === null) return null;
+    return p.currentCases
+      .filter((c) => c.muniCode === code && c.season === season && isCountable(c))
+      .map((c) => ({ key: c.id, date: caseDate(c), suspected: isSuspectedOnly(c), birdUse: c.birdUse, housing: c.housing, headCount: c.headCount, url: c.sourceUrls[0] ?? null }))
+      .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+  }
+  if (p.history === null) return null;
+  return p.history
+    .filter((h) => h.muniCode === code && h.season === season && !h.related)
+    .map((h) => ({ key: `${h.season}-${h.no}`, date: h.date, suspected: false, birdUse: h.birdUse, housing: h.housing, headCount: h.headCount, url: h.sourceUrl }))
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 }
 
 /** 発生のあった町。今季は疑いを含む（E10） */
@@ -86,19 +117,6 @@ export function CompareOverlay(p: CompareOverlayProps) {
       </select>
     </p>
   );
-  const waiting = (v: SeasonView) =>
-    v.loaded ? null : v.isCurrent ? (
-      <p role="status">{CMP_TEXT.currentWait}</p>
-    ) : p.historyFailed ? (
-      <p className="state-unknown" role="status">
-        {TEXT.panelPastFailed}{" "}
-        <button type="button" className="btn" onClick={p.onRetryHistory}>
-          {TEXT.panelRetry}
-        </button>
-      </p>
-    ) : (
-      <p role="status">{CMP_TEXT.pastWait}</p>
-    );
   const showButton = (value: OverlayShow, text: string) => (
     <button type="button" aria-pressed={show === value} onClick={() => setShow(value)}>
       {text}
@@ -119,7 +137,6 @@ export function CompareOverlay(p: CompareOverlayProps) {
         {showButton("one", CMP_TEXT.showOne)}
         {showButton("two", CMP_TEXT.showTwo)}
       </div>
-      {waiting(p.firstView) ?? waiting(p.secondView)}
       <div className="map-box">
         {p.renderMap({ overlay, focus: p.focus, ariaLabel: CMP_TEXT.mapAria(labelOf(p.first), labelOf(p.second)), onInspectMuni: setInspected })}
       </div>

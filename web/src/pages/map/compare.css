@@ -73,3 +73,7 @@
 .cmp-cases-block + .cmp-cases-block {
   border-top: 1px solid var(--line);
 }
+.cmp-overlay > .map-box {
+  margin: 0;
+  min-height: var(--map-h);
+}

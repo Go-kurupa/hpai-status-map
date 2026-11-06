@@ -148,7 +148,8 @@ describe("CompareOverlay", () => {
   it("今季を読めていない間は塗らない", () => {
     const r = rig({ first: 2026, firstView: view(2026, { currentCases: null }), currentCases: null });
     expect(r.last().overlay).toBeNull();
-    expect(screen.getByText(CMP_TEXT.currentWait)).toBeTruthy();
+    // 凡例も町の数も出さない（読めていない断りは MapPage が出す）
+    expect(screen.queryByRole("list", { name: CMP_TEXT.legendAria })).toBeNull();
   });
 
   it("今季を選ぶと、疑いを含むと添え、確認できていない県を重ねる間も示す", () => {

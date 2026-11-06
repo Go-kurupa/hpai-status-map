@@ -586,21 +586,7 @@
   display: none;
 }
 
-/* 過去シーズンとの比べの 2 枚の地図（設計書 2026-11-06-ui-frame 4.4、決定 5）。スマホは上下、PC は左右 */
-.compare-maps {
-  display: grid;
-  gap: 12px;
-  margin: 0 0 8px;
-}
-.compare-side {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-.compare-side > .map-box {
-  margin: 0;
-  min-height: var(--map-h);
-}
+/* 過去シーズンとの比べのシーズンの選び（重ね合わせの見た目は compare.css。設計書 2026-11-06-data-explore E8） */
 .compare-pick {
   display: flex;
   flex-wrap: wrap;
@@ -619,16 +605,6 @@
   color: var(--fg);
   font: inherit;
   font-weight: 400;
-}
-.compare-cases-cols {
-  display: grid;
-  gap: 12px;
-}
-.compare-cases-col {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  min-width: 0;
 }
 .compare-cases h3 {
   margin: 0;
@@ -1334,21 +1310,16 @@
   .map-page:not(:has(> .spot-picker[data-active="true"])) > .map-box ~ * {
     order: 2;
   }
-  /* 過去シーズンとの比べは右の列を持たない。2 枚の地図を左右に並べ、ほかは全幅（設計書 2026-11-06-ui-frame 4.4） */
+  /* 過去シーズンとの比べは右の列を持たない。重ねた 1 枚の地図も、ほかも全幅（設計書 2026-11-06-data-explore E8） */
   /* 後ろの「右の列に置く」規則（.map-page > :is(.state-unknown, …) など）より強くする */
   .map-page.map-page[data-section="compare"] > * {
     grid-column: 1 / -1;
   }
-  .map-page[data-section="compare"] > .compare-maps {
+  .map-page[data-section="compare"] > .cmp-overlay {
     order: 1;
   }
-  .map-page[data-section="compare"] > .compare-maps ~ * {
+  .map-page[data-section="compare"] > .cmp-overlay ~ * {
     order: 2;
-  }
-  .compare-maps,
-  .compare-cases-cols {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 24px;
   }
   .map-page > :is(.state-unknown, .state-wait, .watch-line, .stat-rest) {
     grid-column: 2;

@@ -1,6 +1,6 @@
 import type { Case, HistoryCase } from "@hpai/shared/types";
 import { describe, expect, it } from "vitest";
-import { rowsOf } from "./CompareMaps";
+import { rowsOf } from "./CompareOverlay";
 
 const hist = (o: Partial<HistoryCase>): HistoryCase => ({
   season: 2025,

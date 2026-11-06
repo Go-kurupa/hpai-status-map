@@ -87,14 +87,14 @@ function rig(opts: { history?: "now" | "deferred" } = {}): Rig {
   };
 }
 
-function show(r: Rig, o: { store?: RecordStore; section?: MapSection } = {}) {
+function show(r: Rig, o: { store?: RecordStore; section?: MapSection; path?: string } = {}) {
   const page = (
     <SpotProvider>
       <MapPage section={o.section} />
     </SpotProvider>
   );
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[o.path ?? "/"]}>
       <DataSourceProvider value={r.ds}>{o.store ? <RecordStoreProvider value={o.store}>{page}</RecordStoreProvider> : page}</DataSourceProvider>
     </MemoryRouter>,
   );
@@ -406,41 +406,103 @@ describe("MapPage: 自分の町の 1 文", () => {
     }
   });
 
-  // 設計書 2026-11-06-ui-frame 4.4、決定 5
-  it("過去シーズンとの比べは地図が 2 枚。初めは比べる 1 が昨季、比べる 2 が今季。町を押すと 2 つのシーズンの事例が並び、比べる 2 は選び直せる", async () => {
+  // 設計書 2026-11-06-data-explore E8、E10、E14（もとは 2026-11-06-ui-frame 4.4 の 2 枚の地図）
+  it("過去シーズンとの比べは 1 枚の地図に重ねる。初めは比べる 1 が昨季、比べる 2 が今季。町を押すと 2 つのシーズンの事例が上下に並び、選び直せる", async () => {
     seen.length = 0;
     const r = rig();
     show(r, { section: "compare" });
     await screen.findAllByTestId("map");
+    // 今季を読めていない間は塗らない
+    expect(lastProps().overlay ?? null).toBeNull();
+    expect(screen.getByText(/今季の発生をまだ読めていません/)).toBeTruthy();
     r.deliverCases([]);
-    const latestOf = (h: "__hpaiMap" | "__hpaiMap2") => [...seen].reverse().find((p) => (p.mapIndex === 1 ? "__hpaiMap2" : "__hpaiMap") === h)!;
-    await waitFor(() => expect(latestOf("__hpaiMap").view.season).toBe(2025));
-    expect(latestOf("__hpaiMap2").view.season).toBe(2026);
-    // 読み上げで 2 枚を区別できる
-    expect(latestOf("__hpaiMap").ariaLabel).toBe("発生状況の地図（比べる 1: 昨季（2025 年 6 月〜2026 年 5 月））");
-    expect(latestOf("__hpaiMap2").ariaLabel).toBe("発生状況の地図（比べる 2: 今季（2026 年 6 月〜2027 年 5 月））");
+    await waitFor(() => expect(lastProps().overlay).toBeTruthy());
+    expect(screen.getAllByTestId("map")).toHaveLength(1);
+    expect(seen.every((p) => p.mapIndex !== 1)).toBe(true);
+    expect(lastProps().view.season).toBe(2025);
+    expect(lastProps().overlay!.show).toBe("both");
+    // 津山市は 2025 年シーズンに国の事例一覧の記録がある
+    expect(lastProps().overlay!.first).toContain("33203");
+    expect(lastProps().ariaLabel).toBe("発生状況の地図（比べる 1: 昨季（2025 年 6 月〜2026 年 5 月） と、比べる 2: 今季（2026 年 6 月〜2027 年 5 月） の重ね合わせ）");
+    // 今季を選んでいる間は、確認できていない県を灰色で重ねる（確認の状態が届く前は全県）
+    expect(lastProps().overlay!.unwatchedPrefCodes).toHaveLength(47);
+    expect(screen.getByText("今季は疑いを含みます")).toBeTruthy();
 
-    act(() => latestOf("__hpaiMap2").onInspectMuni!("33203"));
+    act(() => lastProps().onInspectMuni!("33203"));
     expect(await screen.findByRole("heading", { level: 2, name: "津山市" })).toBeTruthy();
     const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
     expect(heads).toEqual(["比べる 1（2025 年 6 月〜2026 年 5 月）", "比べる 2（2026 年 6 月〜2027 年 5 月）"]);
-    const cols = [...document.querySelectorAll(".compare-cases-col")];
-    expect(cols[0]!.querySelectorAll("li").length).toBeGreaterThan(0); // 津山市は 2025 年シーズンに国の事例一覧の記録がある
+    const blocks = [...document.querySelectorAll(".cmp-cases-block")];
+    expect(blocks[0]!.querySelectorAll("li").length).toBeGreaterThan(0);
     // 今季に記録がない文は、時点の日付で言う（2026-11-06 作者の決定）
-    expect(cols[1]!.querySelector("p")!.textContent).toMatch(/^(\d{4} 年 \d+ 月 \d+ 日 \d+:\d{2} 時点で、)?発生記録はありません。$/);
+    expect(blocks[1]!.querySelector("p")!.textContent).toMatch(/^(\d{4} 年 \d+ 月 \d+ 日 \d+:\d{2} 時点で、)?発生記録はありません。$/);
 
-    // 比べる 1 を選び直すと 1 枚目と下のシーズンの選びが替わる。開いたときの昨季への切り替えは 1 度だけで、戻されない
+    // 比べる 1 を選び直すと地図と下のシーズンの選びが替わる。開いたときの昨季への切り替えは 1 度だけで、戻されない
     fireEvent.change(screen.getByLabelText("比べる 1"), { target: { value: "2023" } });
-    await waitFor(() => expect(latestOf("__hpaiMap").view.season).toBe(2023));
+    await waitFor(() => expect(lastProps().view.season).toBe(2023));
     expect(screen.getAllByRole("heading", { level: 3 })[0]!.textContent).toBe("比べる 1（2023 年 6 月〜2024 年 5 月）");
     r.deliverCases([]);
-    expect(latestOf("__hpaiMap").view.season).toBe(2023);
+    expect(lastProps().view.season).toBe(2023);
 
+    // 過去 2 シーズンどうしでは、確認できていない県を重ねない
     fireEvent.change(screen.getByLabelText("比べる 2"), { target: { value: "2024" } });
-    await waitFor(() => expect(latestOf("__hpaiMap2").view.season).toBe(2024));
     expect(screen.getAllByRole("heading", { level: 3 })[1]!.textContent).toBe("比べる 2（2024 年 6 月〜2025 年 5 月）");
+    await waitFor(() => expect(lastProps().overlay!.unwatchedPrefCodes).toEqual([]));
+
+    // 見せ方の切り替え
+    fireEvent.click(within(screen.getByRole("group", { name: "地図の見せ方" })).getByRole("button", { name: "1 だけ" }));
+    expect(lastProps().overlay!.show).toBe("one");
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     expect(screen.queryByRole("heading", { level: 2, name: "津山市" })).toBeNull();
+  });
+
+  // 設計書 2026-11-06-data-explore E15
+  const scope = () => screen.getByRole("group", { name: "地図の広さ" });
+  const pressedScope = () => within(scope()).getAllByRole("button").filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.textContent);
+  const inChugoku = (codes: readonly string[]) => codes.length > 0 && codes.every((c) => ["31", "32", "33", "34", "35"].includes(c.slice(0, 2)));
+
+  it("比べの地図は地方のボタンで寄せる。押された印は最後に押した 1 つ", async () => {
+    seen.length = 0;
+    const r = rig();
+    show(r, { section: "compare" });
+    await screen.findAllByTestId("map");
+    expect(pressedScope()).toEqual(["全国"]);
+    fireEvent.click(within(scope()).getByRole("button", { name: "中国" }));
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("muni"));
+    expect(inChugoku(lastProps().focus!.codes)).toBe(true);
+    expect(pressedScope()).toEqual(["中国"]);
+    fireEvent.click(within(scope()).getByRole("button", { name: "全国" }));
+    expect(lastProps().focus?.kind).toBe("japan");
+    expect(pressedScope()).toEqual(["全国"]);
+  });
+
+  it("?region=chugoku で開くと、地域を選んであっても中国に寄せ、選択地域付近へは動かない", async () => {
+    localStorage.setItem(TOWN_KEY, "01100");
+    seen.length = 0;
+    const r = rig();
+    show(r, { section: "compare", path: "/compare?region=chugoku" });
+    await screen.findAllByTestId("map");
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("muni"));
+    expect(inChugoku(lastProps().focus!.codes)).toBe(true);
+    r.deliverCases([]);
+    await act(async () => {});
+    expect(inChugoku(lastProps().focus!.codes)).toBe(true);
+    expect(pressedScope()).toEqual(["中国"]);
+    // 地域を選んでいるので［選択地域付近］もある。押すとそちらへ
+    fireEvent.click(within(scope()).getByRole("button", { name: "選択地域付近" }));
+    expect(pressedScope()).toEqual(["選択地域付近"]);
+    expect(lastProps().focus!.codes).toEqual(["01100"]);
+  });
+
+  it("知らない地方の指定は全国のまま", async () => {
+    seen.length = 0;
+    const r = rig();
+    show(r, { section: "compare", path: "/compare?region=xxx" });
+    await screen.findAllByTestId("map");
+    r.deliverCases([]);
+    await act(async () => {});
+    expect(lastProps().focus?.kind ?? "japan").toBe("japan");
+    expect(pressedScope()).toEqual(["全国"]);
   });
 
   it("別の町を選ぶと、前のくわしい場所を消して、そう伝える", async () => {
