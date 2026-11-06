@@ -10,6 +10,7 @@ export * from "./usage";
 export * from "./notify";
 export * from "./farm";
 export * from "./drafts";
+export * from "./consult";
 export * from "./api";
 export * from "./mcp";
 export * from "./agent";
