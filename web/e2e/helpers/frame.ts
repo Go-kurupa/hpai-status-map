@@ -32,6 +32,7 @@ const VIEWS: Readonly<Record<string, { menu: string; tabs: string; tab: string }
   今季の発生と地図: { menu: "今季の発生", tabs: "今季の発生の見方", tab: "地図" },
   今季の一覧と数: { menu: "今季の発生", tabs: "今季の発生の見方", tab: "一覧と数" },
   過去シーズンとの比べ: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "全国とシーズン" },
+  条件で見る: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "条件で見る" },
   選択地域の過去: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "選択地域のまわり" },
 };
 

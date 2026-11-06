@@ -1,0 +1,165 @@
+/* 条件で見る（設計書 2026-11-06-data-explore）。色は ui/theme.css の値を使う */
+.explore-page {
+  display: grid;
+  gap: 12px;
+  max-width: 64rem;
+  margin-inline: auto;
+}
+.explore-page h1 {
+  margin: 0;
+}
+.explore-lead,
+.explore-note {
+  margin: 0;
+  color: var(--sub);
+}
+.explore-note {
+  font-size: 0.9rem;
+}
+.explore-questions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.explore-questions button {
+  min-height: var(--tap);
+  padding: 4px 16px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.explore-choices {
+  display: grid;
+  gap: 8px;
+}
+.explore-row {
+  display: grid;
+  grid-template-columns: 4em 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.explore-row-label {
+  padding-top: 10px;
+  font-weight: 700;
+}
+.explore-row > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.explore-row button {
+  min-height: var(--tap);
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.explore-row button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+.explore-answer {
+  margin: 4px 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.explore-page caption {
+  padding-bottom: 4px;
+  text-align: left;
+  font-weight: 700;
+}
+.explore-bars {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.explore-bars th,
+.explore-bars td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-weight: 400;
+}
+.explore-bar-count {
+  white-space: nowrap;
+}
+.explore-bar-cell {
+  width: 40%;
+}
+.explore-bar-fill {
+  display: inline-block;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--lv4);
+  vertical-align: middle;
+}
+.explore-bars tr.is-current .explore-bar-fill {
+  background: var(--lv1);
+}
+.explore-cases {
+  max-height: 28rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.explore-cases table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.explore-cases caption {
+  padding: 8px;
+}
+.explore-cases th,
+.explore-cases td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.explore-cases thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+@media (max-width: 36rem) {
+  .explore-row {
+    grid-template-columns: 1fr;
+  }
+  .explore-row-label {
+    padding-top: 0;
+  }
+  .explore-bar-cell {
+    display: none;
+  }
+  /* スマホは表を 1 件ずつのまとまりにする。1 行目に日付、続けて場所・用途・羽数・資料。数と語の途中で折らない */
+  .explore-cases thead {
+    display: none;
+  }
+  .explore-cases tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    padding: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .explore-cases tbody td {
+    padding: 0;
+    border: 0;
+    white-space: nowrap;
+  }
+  .explore-cases tbody td:first-child {
+    flex-basis: 100%;
+    font-weight: 700;
+  }
+  .explore-cases tbody td[colspan] {
+    white-space: normal;
+  }
+}

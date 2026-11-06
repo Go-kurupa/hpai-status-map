@@ -42,6 +42,7 @@ const ALL_PATHS = [
   "/town",
   "/season",
   "/compare",
+  "/explore",
   "/about",
 ];
 

@@ -10,6 +10,7 @@ import { AppShell } from "./ui/AppShell";
 import { RouteError } from "./ui/RouteError";
 
 const MapPage = lazy(() => import("./pages/map/MapPage"));
+const ExplorePage = lazy(() => import("./pages/explore/ExplorePage"));
 const PublicPage = lazy(() => import("./pages/public/PublicPage"));
 const AreaPage = lazy(() => import("./pages/public/AreaPage"));
 const PosterPage = lazy(() => import("./pages/public/PosterPage"));
@@ -74,6 +75,8 @@ export const routes: RouteObject[] = [
       { path: "town", element: <MapPage key="town" section="town" /> },
       { path: "season", element: <MapPage key="season" section="season" /> },
       { path: "compare", element: <MapPage key="compare" section="compare" /> },
+      // 条件で見る過去の発生（設計書 2026-11-06-data-explore E1）
+      { path: "explore", element: <ExplorePage /> },
       { path: "public", element: <PublicPage /> },
       { path: "area/:muniCode", element: <AreaPage /> },
       { path: "poster", element: <PosterPage /> },

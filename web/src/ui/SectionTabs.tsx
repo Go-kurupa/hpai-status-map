@@ -17,6 +17,8 @@ export const SECTION_TABS = {
     label: "過去の発生の見方",
     tabs: [
       { to: "/compare", label: "全国とシーズン", match: (p) => under(p, "/compare") },
+      // 用途・羽数・地方で絞る（設計書 2026-11-06-data-explore E1）
+      { to: "/explore", label: "条件で見る", match: (p) => under(p, "/explore") },
       // 去年の再現は審査員向けの見本なので、ここに並べず「このサイトについて」の審査員の節から開く（決定 16）
       { to: "/town", label: "選択地域のまわり", match: (p) => under(p, "/town") || under(p, "/area") },
     ],

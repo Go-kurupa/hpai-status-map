@@ -511,6 +511,9 @@ describe("機械の検査: css", () => {
     ".season-bar-btn",
     ".map-scope",
     ".map-scope button",
+    // 条件で見るの問いと条件のボタン（設計書 2026-11-06-data-explore E2、E3）
+    ".explore-questions button",
+    ".explore-row button",
     ".case-list-toggle",
     ".record-tabs a",
     ".sample-nav a",
