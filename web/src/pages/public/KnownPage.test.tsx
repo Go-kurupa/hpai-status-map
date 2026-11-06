@@ -228,6 +228,49 @@ describe("KNOWN_FINDINGS（データ）", () => {
   });
 });
 
+describe("KNOWN_FINDINGS（画面のための欄）", () => {
+  const ROUTES = ["/", "/compare", "/trends", "/todo", "/explore", "/public#small_flock"];
+
+  it("図の数は、本文か限界に書かれた数と同じ（新しい数を作らない）", () => {
+    for (const f of KNOWN_FINDINGS) {
+      if (f.figure === null) continue;
+      const all = whole(f);
+      if (f.figure.kind === "share") {
+        expect(all, f.id).toContain(`${f.figure.whole} 事例`);
+        expect(all, f.id).toContain(`${f.figure.part} 事例`);
+      } else {
+        // 別の数の一部（126 の 26 など）に当たらないよう、数の前後が数字でないことを確かめる
+        for (const g of f.figure.groups) for (const b of g.bars) expect(all, `${f.id} ${b.label}`).toMatch(new RegExp(`(?<![\\d,])${b.count}(?![\\d,])`, "u"));
+      }
+    }
+  });
+
+  it("図にするのは、再発・約 6,000 羽・靴の 3 行だけ（差がはっきりしない割合や距離は図にしない）", () => {
+    expect(KNOWN_FINDINGS.filter((f) => f.figure !== null).map((f) => f.id)).toEqual(["recurrence", "small-flock", "changing-shoes"]);
+  });
+
+  it("関係する画面のリンク先は、作品にある画面だけ", () => {
+    for (const f of KNOWN_FINDINGS) for (const r of f.related) expect(ROUTES, `${f.id} ${r.to}`).toContain(r.to);
+  });
+
+  it("限界の要の行の位置は、限界の中にある。基準の対策は『効果がないという意味ではありません』の行", () => {
+    for (const f of KNOWN_FINDINGS) expect(f.limit.split("\n")[f.leadLimit], f.id).toBeTruthy();
+    expect(byId("standard-measures").limit.split("\n")[byId("standard-measures").leadLimit]).toContain("効果がないという意味ではありません");
+  });
+
+  it("評価の対象の語、図の説明、リンクの名前にも、禁止語がない", () => {
+    for (const f of KNOWN_FINDINGS) {
+      const extra = [f.scope, ...f.related.map((r) => r.label)];
+      if (f.figure?.kind === "share") extra.push(f.figure.caption);
+      if (f.figure?.kind === "groups") extra.push(f.figure.caption, ...f.figure.groups.map((g) => g.name));
+      for (const t of extra) {
+        expect(t, f.id).not.toMatch(FORBIDDEN);
+        expect(findForbiddenPhrases(t), f.id).toEqual([]);
+      }
+    }
+  });
+});
+
 describe("KnownPage（画面）", () => {
   it("入力欄がなく、『研究の知見です。決まりではありません』がある", () => {
     const { container } = show();
@@ -348,13 +391,110 @@ describe("KnownPage（画面）", () => {
     expect(rule?.[1]).toMatch(/min-height:\s*var\(--tap\)/u);
   });
 
-  it("限界は、複数の点があるとき箇条書きで出る", () => {
+  it("限界は、複数の点があるとき箇条書きで出る。要の 1 行は畳まず先頭に、残りは畳んだ中に元の順で出る", () => {
     const { container } = show();
     for (const f of KNOWN_FINDINGS) {
       const lines = f.limit.split("\n");
+      const lead = lines[f.leadLimit] as string;
       const li = container.querySelector(`li#${f.id}`) as HTMLElement;
       const items = [...li.querySelectorAll(".known-limit li")].map((x) => x.textContent);
-      expect(items, f.id).toEqual(lines);
+      expect(items, f.id).toEqual([lead, ...lines.filter((_, i) => i !== f.leadLimit)]);
+      const first = li.querySelector(".known-limit li") as HTMLElement;
+      expect(first.closest("details"), f.id).toBeNull();
+      const more = li.querySelector("details.known-more") as HTMLDetailsElement;
+      expect(more.open, f.id).toBe(false);
+      expect(more.querySelector("summary")?.textContent, f.id).toBe(`ほかの限界（${lines.length - 1} 項目）`);
+    }
+  });
+
+  it("出典、確認日、確からしさの補足は畳んだ中に入れない", () => {
+    const { container } = show();
+    for (const el of container.querySelectorAll("[data-role='finding']")) {
+      const more = el.querySelector("details.known-more") as HTMLElement;
+      expect(more.textContent).not.toContain("出典");
+      expect(more.textContent).not.toContain("確認日");
+      expect(el.querySelector(".source-line")?.closest("details")).toBeNull();
+    }
+  });
+
+  it("/known#id で来たときは、その行の畳んだ限界が開いている（ほかの行は閉じたまま）", () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={["/known#neighbor-cases"]}>
+        <KnownPage />
+      </MemoryRouter>,
+    );
+    const open = (id: string) => (container.querySelector(`li#${id} details.known-more`) as HTMLDetailsElement).open;
+    expect(open("neighbor-cases")).toBe(true);
+    expect(open("recurrence")).toBe(false);
+  });
+
+  it("印刷の前に、畳んだ限界がすべて開く", () => {
+    const { container } = show();
+    window.dispatchEvent(new Event("beforeprint"));
+    for (const d of container.querySelectorAll("details.known-more")) expect((d as HTMLDetailsElement).open).toBe(true);
+  });
+
+  it("もくじの表は、確からしさの隣に、何についての評価かを同じ行に出す（「低い＝効かない」と読ませない）", () => {
+    show();
+    const nav = screen.getByRole("navigation", { name: "もくじ" });
+    const rows = within(nav).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(KNOWN_FINDINGS.length);
+    KNOWN_FINDINGS.forEach((f, i) => {
+      const row = rows[i] as HTMLElement;
+      expect(row.textContent, f.id).toContain(f.certainty);
+      expect(row.textContent, f.id).toContain(`評価の対象: ${f.scope}`);
+    });
+  });
+
+  it("読む方ごとの入口は 3 つで、アンカーで知見へ移る（知見を隠さない）", () => {
+    const { container } = show();
+    const groups = [...container.querySelectorAll(".known-audiences li[data-audience]")];
+    expect(groups.map((g) => g.getAttribute("data-audience"))).toEqual(["farm", "small", "neighbor"]);
+    for (const g of groups) {
+      const a = g.getAttribute("data-audience") as string;
+      const hrefs = [...g.querySelectorAll("a")].map((x) => x.getAttribute("href"));
+      expect(hrefs).toEqual(KNOWN_FINDINGS.filter((f) => (f.audiences as readonly string[]).includes(a)).map((f) => `#${f.id}`));
+    }
+    expect(container.querySelectorAll("[data-role='finding']")).toHaveLength(KNOWN_FINDINGS.length);
+  });
+
+  it("国の報告書の一文（PAST_BASIS）を、原文のまま出典と確認日つきで、知見のカードの外に出す", () => {
+    const { container } = show();
+    const box = container.querySelector("[data-role='past-basis']") as HTMLElement;
+    expect(box).not.toBeNull();
+    expect(box.textContent).toContain(`「${PAST_BASIS.text}」`);
+    expect(box.textContent).toContain("研究の知見とは別です");
+    expect(box.textContent).toContain(`確認日 ${toJa(PAST_BASIS.verifiedOn as string)}`);
+    expect(within(box).getByRole("link", { name: PAST_BASIS.sourceTitle }).getAttribute("href")).toBe(PAST_BASIS.sourceUrl);
+    expect(box.closest("[data-role='finding']")).toBeNull();
+    expect(box.querySelector("blockquote")).toBeNull();
+  });
+
+  it("関係する画面のリンクが、各行の中に出る", () => {
+    const { container } = show();
+    for (const f of KNOWN_FINDINGS) {
+      const li = container.querySelector(`li#${f.id}`) as HTMLElement;
+      const hrefs = [...li.querySelectorAll(".known-related a")].map((a) => a.getAttribute("href"));
+      expect(hrefs, f.id).toEqual(f.related.map((r) => r.to));
+    }
+  });
+
+  it("図: ます目は分母の数だけあり、塗ったます目の数と文字の数が合う", () => {
+    const { container } = show();
+    for (const f of KNOWN_FINDINGS) {
+      const fig = container.querySelector(`li#${f.id} .known-figure`);
+      if (f.figure === null) {
+        expect(fig, f.id).toBeNull();
+        continue;
+      }
+      expect(fig, f.id).not.toBeNull();
+      if (f.figure.kind === "share") {
+        expect(fig?.querySelectorAll(".known-share span")).toHaveLength(f.figure.whole);
+        expect(fig?.querySelectorAll(".known-share .on")).toHaveLength(f.figure.part);
+        expect(fig?.textContent).toContain(`${f.figure.part} / ${f.figure.whole} 事例`);
+      } else {
+        for (const g of f.figure.groups) for (const b of g.bars) expect(fig?.textContent).toContain(`${b.label}${b.count}`);
+      }
     }
   });
 

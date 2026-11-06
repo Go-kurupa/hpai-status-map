@@ -29,7 +29,36 @@ export interface KnownFinding {
   sources: Array<{ title: string; url: string }>;
   /** 原本で確かめた日。null の文は画面に出さない */
   verifiedOn: IsoDate | null;
+  /** 確からしさが何についての評価か（一覧表に出す短い語）。「低い＝効かない」と読ませないため、確からしさの隣に必ず出す */
+  scope: string;
+  /** どの読む人の入口に並べるか。表示を隠す絞り込みには使わない（深いリンクを空振りさせない） */
+  audiences: readonly Audience[];
+  /** limit のうち、畳まずに常に出す 1 行の位置（結論の読み違いを防ぐ行） */
+  leadLimit: number;
+  /** 本文の数を図にする（同じ分母の記録と、比べた農場の数だけ。差がはっきりしない割合や距離は図にしない） */
+  figure: KnownFigure | null;
+  /** 作品のほかの画面へのリンク。名前はメニューと同じ */
+  related: ReadonlyArray<{ to: string; label: string }>;
 }
+
+export type Audience = "farm" | "small" | "neighbor";
+
+export const AUDIENCE_LABEL: Record<Audience, string> = {
+  farm: "農場を営む方",
+  small: "数羽〜数百羽を飼う方",
+  neighbor: "近所にお住まいの方",
+};
+
+export type KnownFigure =
+  /** whole 事例のうち part 事例。本文に同じ数が書いてあること（試験で確かめる） */
+  | { kind: "share"; part: number; whole: number; caption: string }
+  /** 比べた農場の数。棒の長さは数に比例する */
+  | { kind: "groups"; caption: string; groups: ReadonlyArray<{ name: string; bars: ReadonlyArray<{ label: string; count: number }> }> };
+
+const TO_COMPARE = { to: "/compare", label: "過去の発生" } as const;
+const TO_TRENDS = { to: "/trends", label: "全国の傾向" } as const;
+const TO_TODO = { to: "/todo", label: "対策項目" } as const;
+const TO_EXPLORE = { to: "/explore", label: "過去の発生を条件で見る" } as const;
 
 const VERIFIED_ON: IsoDate = "2026-11-04";
 
@@ -91,6 +120,16 @@ export const KNOWN_FINDINGS: readonly KnownFinding[] = [
     ].join("\n"),
     sources: [MAFF_REPORT],
     verifiedOn: VERIFIED_ON,
+    scope: "1 シーズンの国の記録",
+    audiences: ["farm", "neighbor"],
+    leadLimit: 0,
+    figure: {
+      kind: "share",
+      part: 8,
+      whole: 24,
+      caption: "2025/26 シーズンに農場で発生した 24 事例のうち、過去にも発生した農場での再発 8 事例",
+    },
+    related: [TO_COMPARE, TO_TRENDS],
   },
   {
     id: "basic-management",
@@ -109,6 +148,11 @@ export const KNOWN_FINDINGS: readonly KnownFinding[] = [
     ].join("\n"),
     sources: [MAFF_REPORT],
     verifiedOn: VERIFIED_ON,
+    scope: "発生した 24 農場の国の調査の記述",
+    audiences: ["farm", "neighbor"],
+    leadLimit: 0,
+    figure: null,
+    related: [TO_TRENDS, TO_TODO],
   },
   {
     id: "water-and-flock-size",
@@ -128,6 +172,11 @@ export const KNOWN_FINDINGS: readonly KnownFinding[] = [
     ].join("\n"),
     sources: [YAMAGUCHI_2025, YAMAGUCHI_2024, KONDO_2025],
     verifiedOn: VERIFIED_ON,
+    scope: "傾向。小さな農場は確かめられていない",
+    audiences: ["farm"],
+    leadLimit: 0,
+    figure: null,
+    related: [TO_EXPLORE],
   },
   {
     id: "small-flock",
@@ -145,6 +194,11 @@ export const KNOWN_FINDINGS: readonly KnownFinding[] = [
     ].join("\n"),
     sources: [MAFF_CASE_LIST, YAMAGUCHI_2025],
     verifiedOn: VERIFIED_ON,
+    scope: "発生した事実。発生しやすさは分からない",
+    audiences: ["small", "farm"],
+    leadLimit: 0,
+    figure: { kind: "share", part: 2, whole: 24, caption: "2025/26 シーズンの 24 事例のうち、約 6,000 羽の農場 2 事例" },
+    related: [{ to: "/public#small_flock", label: "数羽飼っている方へ（国の文）" }, TO_EXPLORE],
   },
   {
     id: "changing-shoes",
@@ -164,6 +218,30 @@ export const KNOWN_FINDINGS: readonly KnownFinding[] = [
     ].join("\n"),
     sources: [KONDO_2025, YOO_2022, EGOV_RULE],
     verifiedOn: VERIFIED_ON,
+    scope: "傾向。効果の大きさは言えない",
+    audiences: ["farm", "small"],
+    leadLimit: 0,
+    figure: {
+      kind: "groups",
+      caption: "比べた農場の数（発生しなかった比較の農場が少ないことも、限界の 1 つです）",
+      groups: [
+        {
+          name: "日本（2022/23 シーズン、採卵鶏）",
+          bars: [
+            { label: "発生した農場", count: 58 },
+            { label: "近くで発生しなかった農場", count: 26 },
+          ],
+        },
+        {
+          name: "韓国（2016/17 シーズン、採卵鶏）",
+          bars: [
+            { label: "発生した農場", count: 114 },
+            { label: "発生しなかった農場", count: 129 },
+          ],
+        },
+      ],
+    },
+    related: [TO_TODO],
   },
   {
     id: "standard-measures",
@@ -184,6 +262,12 @@ export const KNOWN_FINDINGS: readonly KnownFinding[] = [
     ].join("\n"),
     sources: [EGOV_RULE, MAFF_GUIDELINE, MAFF_REPORT, KONDO_2025],
     verifiedOn: VERIFIED_ON,
+    scope: "効果の大きさ。対策の要否ではない",
+    audiences: ["farm", "small"],
+    // 「差がはっきりしないことは、効果がないという意味ではありません」の行を常に出す
+    leadLimit: 3,
+    figure: null,
+    related: [TO_TODO, TO_TRENDS],
   },
   {
     id: "neighbor-cases",
@@ -206,6 +290,11 @@ export const KNOWN_FINDINGS: readonly KnownFinding[] = [
     ].join("\n"),
     sources: [MAFF_REPORT, BOENDER_2007, GUINAT_2025],
     verifiedOn: VERIFIED_ON,
+    scope: "近くで続いた例があること",
+    audiences: ["neighbor", "farm"],
+    leadLimit: 0,
+    figure: null,
+    related: [{ to: "/", label: "今季の発生" }, TO_COMPARE],
   },
 ];
 

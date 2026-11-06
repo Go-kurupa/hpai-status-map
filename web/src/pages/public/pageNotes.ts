@@ -57,3 +57,44 @@ export const STATEMENT_NOTES: readonly StatementNote[] = [
     checkedOn: CHECKED_ON,
   },
 ];
+
+/**
+ * もくじに出す、住民の疑問の形の言い方（設計書 2026-11-06-public-known-redesign §6）。
+ * 答えは書かない（国の文の言い換えを作らない）。答えは節の中の国の文にある。
+ */
+export const TOPIC_QUESTION: Record<GuidanceTopic, string> = {
+  approach: "発生した農場の近くに行ってもよいか",
+  human_infection: "人にうつるのか",
+  food: "卵や鶏肉を食べてよいか",
+  burial: "埋めた場所や地下水はどうなるのか",
+  dead_bird: "死んだ鳥を見つけたら、どうするか",
+  rumor: "うわさや、農場の名前について",
+  small_flock: "鶏を数羽飼っている（通報と相談先）",
+};
+
+/**
+ * 節の見出しの直後に置く、すること 1 行（作品側のまとめ。国の文ではない）。行動を先に読めるようにする。
+ * 国の文と見分けがつく見た目と見出しで出す。説明の節（人への感染、卵や鶏肉、埋却）には置かない。
+ */
+export const SECTION_LEADS: Partial<Record<GuidanceTopic, string>> = {
+  approach: "発生した現場を見に行かないでください。現場での取材も控えるよう、国が呼びかけています。",
+  dead_bird: "死んだ野鳥は素手で触らないでください。同じ場所でたくさん死んでいるときは、都道府県や市町村の役場に連絡してください。",
+  rumor: "根拠のない噂で混乱しないよう、国が協力を呼びかけています。確かめられていない話を、人に伝えないでください。",
+  small_flock:
+    "飼っている鳥が、原因の分からないまま続けて死んだら、素手で触ったり埋めたりせず、早めに獣医師や都道府県、市町村の役場に相談してください。",
+};
+
+/** 節の最後に置く、作品のほかの画面へのリンク。名前はメニューと同じ。「地図」の語は small_flock の既存のリンクと重ねない */
+export const SECTION_RELATED: Partial<Record<GuidanceTopic, ReadonlyArray<{ to: string; label: string }>>> = {
+  approach: [{ to: "/", label: "今季の発生" }],
+  small_flock: [
+    { to: "/known#small-flock", label: "分かっていること（約 6,000 羽の農場でも発生している）" },
+    { to: "/todo", label: "対策項目" },
+  ],
+};
+
+/** 国の文の出典名から、機関の名前を取り出す（もくじの「国の文 N つ: …」に使う） */
+export function agencyOf(sourceTitle: string): string {
+  if (sourceTitle.startsWith("家畜伝染病予防法")) return "法令";
+  return /^(農林水産省|厚生労働省|環境省)/u.exec(sourceTitle)?.[1] ?? "その他";
+}

@@ -170,6 +170,11 @@ export default function AreaPage() {
           ))}
         </ul>
       </nav>
+      {/* 過去の発生を読むときの、研究と国の報告書の知見（設計書 2026-11-06-public-known-redesign §6） */}
+      <p className="area-known" data-role="area-known">
+        過去の発生について、研究や国の報告書で分かっていること:{" "}
+        <Link to="/known#recurrence">再発した農場がある</Link>、<Link to="/known#neighbor-cases">近くの農場で続いた例と、その範囲</Link>
+      </p>
       <p>
         <Link to="/">地図にもどる</Link>
       </p>

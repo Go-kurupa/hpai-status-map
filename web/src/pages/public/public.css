@@ -147,3 +147,297 @@
   margin: 0;
   font-size: 0.9rem;
 }
+
+/* 分かっていること: 確からしさの一覧（目次を兼ねる）。表は罫線だけの平面。確からしさは文字と 3 つのます（形）で示す */
+.known-overview {
+  width: 100%;
+  margin: 0 0 16px;
+  border-collapse: collapse;
+}
+.known-overview caption {
+  margin: 0 0 6px;
+  text-align: left;
+  font-weight: 700;
+}
+.known-overview th,
+.known-overview td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--hair);
+  text-align: left;
+  vertical-align: top;
+}
+.known-overview thead th {
+  border-bottom: 2px solid var(--line);
+  font-size: 0.9rem;
+  color: var(--sub);
+}
+.known-overview tbody th {
+  font-weight: 700;
+}
+.known-overview tbody th a {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+.known-overview td {
+  width: 40%;
+}
+.known-certainty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+.known-certainty-mark {
+  display: inline-flex;
+  gap: 2px;
+}
+.known-certainty-mark span {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--navy);
+}
+.known-certainty-mark .on {
+  background: var(--navy);
+}
+.known-scope {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--sub);
+}
+
+/* 読む方ごとの入口。隠さず、関係する知見へのアンカーを並べる */
+.known-audiences {
+  margin: 0 0 16px;
+}
+.known-audiences h2 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+.known-audiences ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.known-audiences li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--hair);
+}
+.known-audience-label {
+  display: block;
+  font-weight: 700;
+}
+.known-audience-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.known-audience-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
+/* 各知見のカードの中 */
+.known-badge {
+  margin: 0 0 10px;
+}
+.known-meta dt {
+  font-weight: 700;
+}
+.known-meta dd {
+  margin: 0 0 4px;
+}
+.known-more summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--accent);
+}
+.known-more ul {
+  margin: 0 0 10px;
+  padding-left: 1.2em;
+}
+.known-more li {
+  margin: 0 0 6px;
+}
+.known-related {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--hair);
+}
+.known-related-label {
+  font-weight: 700;
+}
+.known-related a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
+/* 図: 同じ分母のます目と、比べた農場の数の棒 */
+.known-figure {
+  margin: 0 0 12px;
+}
+.known-share {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+  max-width: 20rem;
+  margin: 0 0 6px;
+}
+.known-share span {
+  aspect-ratio: 1;
+  border: 1px solid var(--navy);
+}
+.known-share .on {
+  background: var(--navy);
+}
+.known-figure figcaption {
+  margin: 0 0 6px;
+}
+.known-group-name {
+  margin: 6px 0 2px;
+  font-weight: 700;
+}
+.known-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* 名前は 1 行目、棒と数は 2 行目（スマホの幅でも棒の長さを比べられるように） */
+.known-group li {
+  display: grid;
+  grid-template-columns: 1fr 3em;
+  align-items: center;
+  gap: 2px 8px;
+  max-width: 28rem;
+  margin: 0 0 6px;
+}
+.known-bar-label {
+  grid-column: 1 / -1;
+}
+.known-bar-track {
+  height: 14px;
+  background: var(--soft);
+}
+.known-bar {
+  display: block;
+  height: 100%;
+  background: var(--navy);
+}
+.known-bar-count {
+  text-align: right;
+  font-weight: 700;
+}
+
+@media print {
+  .known-more summary {
+    display: none;
+  }
+}
+
+/* 鶏を飼っていない方へ: 疑問の形のもくじ。疑問を太字、その下に国の文の数と機関 */
+.public-toc-head {
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+.public-toc a {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+.public-toc-src {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--sub);
+}
+
+/* いまの発生。罫線の箱だけの平面 */
+.public-now {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.public-now h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+.public-now-count {
+  margin: 0 0 4px;
+}
+.public-now-links,
+.guidance-related {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin: 0;
+}
+.public-now-links a,
+.guidance-related a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+.guidance-related {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hair);
+}
+.guidance-related-label {
+  font-weight: 700;
+}
+
+.public-contacts {
+  margin: 0 0 16px;
+}
+.public-contacts h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+/* 節の見出しの直後の、すること 1 行（作品側のまとめ）。国の文（左の太い線）と違い、上下の太い線と淡い地で示す */
+.guidance-lead {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-top: 3px solid var(--navy);
+  background: var(--soft);
+}
+.guidance-lead h3 {
+  margin: 0 0 2px;
+  font-size: 0.9rem;
+  color: var(--sub);
+}
+.guidance-lead p {
+  margin: 0;
+  font-weight: 700;
+}
+
+/* 国の報告書の一文（PAST_BASIS）。知見のカード（破線）とも、決まりの引用（左の太い線）とも違う、上の太い線の枠 */
+.known-basis {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-top: 3px solid var(--navy);
+  background: var(--surface);
+}
+.known-basis figcaption {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--sub);
+}
+.known-basis-text {
+  margin: 0 0 6px;
+}
+.known-basis .source-line {
+  margin: 0;
+  font-size: 0.9rem;
+}

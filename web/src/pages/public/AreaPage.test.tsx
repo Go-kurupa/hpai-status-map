@@ -232,6 +232,18 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     expect(bodyText()).toContain(FIXED_TEXT.pastDisclaimer);
   });
 
+  it("分かっていること（再発、近くで続いた例）へのリンクが 1 行ある", async () => {
+    const r = rig();
+    const { container } = show(r, "33203");
+    r.deliverCases([]);
+    const line = await waitFor(() => {
+      const el = container.querySelector("[data-role='area-known']");
+      if (!el) throw new Error("not yet");
+      return el as HTMLElement;
+    });
+    expect([...line.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["/known#recurrence", "/known#neighbor-cases"]);
+  });
+
   it("周辺の町の過去の発生: 近い順の表で、中心どうしの距離と分かる。関連農場を除く。畳まない。段階の色の外", async () => {
     const r = rig();
     show(r, "33214");
