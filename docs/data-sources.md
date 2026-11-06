@@ -140,6 +140,45 @@
 
 **判断:** 図は改変せず、出典の題と URL を画面と README に出して載せる。未確認の 3 点は残す。許諾が要ると分かれば、この枠を外す。
 
+## 全国の傾向（data/trends/summary.json、data/trends/insights.json）
+
+画面の「全国の傾向」（`/trends`）の要点、項目の帯と詳しい欄、「発生農場はどう気づいたか」の元データ。国の疫学調査チームが発生農場で行った現地調査の概要を、決めた項目にそろえて数えた集計。発生した農場の記録で、発生していない農場との比べではなく、発生の原因を示すものでもない。設計は [specs/2026-11-06-trends-redesign-design.md](superpowers/specs/2026-11-06-trends-redesign-design.md)。
+
+**出典（表示する文）:** 農林水産省 シーズンごとの鳥インフルエンザの情報（疫学調査の結果）。画面の「数え方と出典」に、次の 6 つのページの URL を出す。報告書の文を引くときは、報告書の題と URL を文の下に出す。
+
+- 現地調査の概要の入口（シーズンごとの国内の発生のページ。`scripts/lib/trends.ts` の `SEASON_PAGES`）:
+  - 2020: https://www.maff.go.jp/j/syouan/douei/tori/r2_hpai_kokunai.html
+  - 2021: https://www.maff.go.jp/j/syouan/douei/tori/r3_hpai_kokunai.html
+  - 2022: https://www.maff.go.jp/j/syouan/douei/tori/220929.html （r4_hpai_kokunai.html は 403 だったため、事例一覧の PDF と同じ番号のページ）
+  - 2023: https://www.maff.go.jp/j/syouan/douei/tori/r5_hpai_kokunai.html
+  - 2024: https://www.maff.go.jp/j/syouan/douei/tori/r6_hpai_kokunai.html
+  - 2025: https://www.maff.go.jp/j/syouan/douei/tori/r7_hpai_kokunai.html
+- 取った原本: 上のページから、題に「現地調査概要」または「現地調査報告概要」を含む事例ごとの PDF。事例は 6 シーズンで 247 件（国の事例一覧の関連農場を除く数）。取れたのは 246 本で、2026-11-04 に取得した。2020 の 1 本は取れず、再試行していない。
+- 引用した報告書（結論の文だけ。`scripts/lib/trends-insights.ts` の `REPORT_QUOTES`。2026-11-06 に原本の PDF を取得し、引用の文が一字一句あることを確かめた。脚注の番号だけ除いた）:
+  - 2025年～2026年シーズン: https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_98/attach/pdf/kakin_98-12.pdf
+  - 2024年～2025年シーズン: https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_94/attach/pdf/kakin_94-10.pdf
+  - 2023年～2024年シーズン: https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r5_hpai_kokunai-157.pdf
+- 利用条件: 上の「国と県の公開文書の利用条件」の農林水産省と同じ。公共データ利用規約（第1.0版）（PDL1.0）。出典の記載と、加工したときはその旨を別に書くことを求め、国が作ったかのように見せてはいけない（確かめた日 2026-11-04、https://www.maff.go.jp/j/use/link.html ）。加工はこの作品の作者が行い、農林水産省が作成したものではない。
+
+**作り方（台本）**
+
+- 取得と抽出: `scripts/build-trends.ts`（3 項目: 外部事業者の専用の衣服や靴、ねずみの痕跡、壁やネットの破損）と `scripts/build-trends-noticing.ts`（5 欄: 最初に気づいた異変、最初は別の病気を疑ったか、1 km 以内の水辺、水辺や周辺の水鳥、従業員の鶏舎ごとの長靴の交換と手指の消毒）。取得は `--fetch` だけで、`functions/src/watch/politeFetch.ts` を通し、農林水産省のホストの外へは出ない。1 本につき 1 回だけ取る。
+- 抽出: Claude（`claude-sonnet-5-5`、Message Batches）が、項目ごとに値と、根拠の 1 文を原文から写す。有料の呼び出しは `--yes` と `--resume` だけで、再試行しない。費用は 3 項目が約 2.2 ドル、5 欄が約 3.5 ドル（実行の記録の値）。
+- 照らし合わせ: 根拠の文が原文の本文にあるか（正規化した文字列の一致）を確かめ、あるものだけを数える。5 欄では、確かめられなかった件数を欄ごとに画面に出す（数には入れない）。全件を人が確かめたものではなく、そのことを画面に書く。
+- 集計: `npx tsx scripts/build-trends.ts --aggregate` が `data/trends/summary.json` を、`npx tsx scripts/build-trends-noticing.ts --aggregate` が `data/private/noticing-summary.json` を、`npx tsx scripts/build-trends-insights.ts` が `data/trends/insights.json` を書く。`npm run build` の `copy-web-data` が `web/public/trends/` に写す。
+- `insights.json` の中身: 6 シーズン合計とシーズンごとの「あった・なかった・触れていない」の件数、根拠の文に出てきた語の数（語の表は 2026-11-06 に 20 件を目で確かめて直した。1 文が複数の語に入る）、ねずみの根拠の文の出どころ（調査のときに見つかった・農場の人の話）、飼い方と用途で分けた件数（`data/history/cases.json` と季節＋例目でつないだ 6 シーズン合計）、報告書の結論の文、5 欄の 6 シーズン合計の件数。
+
+**公開しないもの**
+
+- 事例ごとの PDF と抽出の結果（`data/private/survey/`、`data/private/survey-extract.json`、`data/private/survey-noticing.json`、`data/private/noticing-summary.json`）。`.gitignore` で外してある。
+- 事例の番号、市町村、県、事例ごとの PDF の URL、根拠の文。公開する集計は件数だけで、市町村名、持たないキー、禁句を書き出す前に検査する（`checkTrendSummary`、`checkInsights`）。
+- 小さな数: 飼い方・用途で分けた件数は 6 シーズン合計だけにし、4 件以下は伏せる。伏せたのが列に 1 つだけなら、合計からの引き算で戻せないよう、もう 1 つ伏せる。2026-11-07 の時点で伏せた欄はない。
+
+**未確認**
+
+- 報告書が「半数以上の農場で不備」とする外部事業者の衣服や靴は、現地調査の概要から数えると少なく出る（6 シーズンで 246 件中 62 件）。報告書がどの材料から数えたかは確かめていない。画面にこの食い違いを書いている。
+- 引用した報告書の文の扱い（`insights.json` の `reportQuotes` の `text`）を、公開前の検査の台本がどう見るべきかは、作者の判断待ち（2026-11-07）。
+
 ## 過去の事例（data/history/cases.json）
 
 町の過去の発生と、地図の過去シーズンの表示に使う。
