@@ -250,14 +250,15 @@ describe("shellContextOf", () => {
   });
 });
 
-const MENU_HREFS = ["/", "/town", "/season", "/compare", "/todo", "/record/deaths", "/settings/farm", "/public", "/known", "/trends", "/replay", "/sample", "/poster", "/results", "/privacy"];
+// 11 項目（設計書 2026-11-06-ui-frame 3 章、決定 8〜13）
+const MENU_HREFS = ["/", "/compare", "/trends", "/todo", "/record/deaths", "/settings/farm", "/poster", "/sample", "/known", "/public", "/about"];
 
 describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章）", () => {
-  it("/ は帯なし。メニューは 15 の行き先で、今季の発生と地図が選択中。下のタブはない", () => {
+  it("/ は帯なし。メニューは 11 の行き先で、今季の発生が選択中。下のタブはない", () => {
     const { container } = renderShell("/");
     expect(container.querySelector(".app-context")).toBeNull();
     expect(hrefs()).toEqual(MENU_HREFS);
-    expect(currentLabels()).toEqual(["今季の発生と地図"]);
+    expect(currentLabels()).toEqual(["今季の発生"]);
     expect(screen.queryByRole("navigation", { name: "メイン" })).toBeNull();
   });
   it("/record と /record/self-check で記録が選択中", () => {
@@ -272,8 +273,8 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
     expect(currentLabels()).toEqual(["やること会員"]);
     expect(tabs().filter((a) => a.textContent?.includes("会員")).map((a) => a.getAttribute("href"))).toEqual(["/todo", "/record/deaths", "/settings/farm"]);
   });
-  it("/town /season /compare と /area/xxx は、いまの状況のそれぞれが選択中", () => {
-    for (const [p, label] of [["/town", "自分の町の過去"], ["/area/33203", "自分の町の過去"], ["/season", "今季の一覧と数"], ["/compare", "過去シーズンとの比べ"]] as const) {
+  it("/season は今季の発生、/compare /town /area/xxx /replay は過去の発生、/results /privacy はこのサイトについてが選択中", () => {
+    for (const [p, label] of [["/season", "今季の発生"], ["/compare", "過去の発生"], ["/town", "過去の発生"], ["/area/33203", "過去の発生"], ["/replay", "過去の発生"], ["/results", "このサイトについて"], ["/privacy", "このサイトについて"], ["/about", "このサイトについて"]] as const) {
       renderShell(p);
       expect(currentLabels()).toEqual([label]);
       cleanup();
@@ -320,10 +321,10 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
     expect(currentLabels()).toEqual(["記録会員"]);
     cleanup();
     const { container } = renderShell("/sample");
-    expect(currentLabels()).toEqual(["見本の農場"]);
+    expect(currentLabels()).toEqual(["見本で試す"]);
     expect(container.querySelector(".app-context")).not.toBeNull();
   });
-  it("/replay と /replay/backstage は帯に再現を終わる、行き先は通常、去年の再現が選択中", () => {
+  it("/replay と /replay/backstage は帯に再現を終わる、行き先は通常、過去の発生が選択中", () => {
     for (const p of ["/replay", "/replay/backstage"]) {
       const { container, unmount } = renderShell(p);
       const band = container.querySelector(".app-context")!;
@@ -333,7 +334,7 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
       expect(end.getAttribute("href")).toBe("/");
       expect(end.className).toContain("tap-link");
       expect(hrefs()).toEqual(MENU_HREFS);
-      expect(currentLabels()).toEqual(["去年の再現"]);
+      expect(currentLabels()).toEqual(["過去の発生"]);
       expect(screen.getByRole("link", { name: "設定" })).toBeTruthy();
       unmount();
     }

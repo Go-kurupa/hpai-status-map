@@ -166,7 +166,7 @@ test.describe("地図（入口）", () => {
     expect(text).not.toMatch(/区域の外です|安全|安心/);
   });
 
-  test("メニューの 15 の行き先で各ページに着き、下のタブも地図の下のリンクの列もない（スマホは三本線から）", async ({ page }) => {
+  test("メニューの 11 の行き先で各ページに着き、下のタブも地図の下のリンクの列もない（スマホは三本線から）", async ({ page }) => {
     await open(page);
     // 下のタブ（メイン）は出さない。地図の下には、次の画面へのリンクだけ。ほかのページへのリンクの列（ほかのページ）は / から消えた
     await expect(page.getByRole("navigation", { name: "メイン" })).toHaveCount(0);
@@ -184,11 +184,11 @@ test.describe("地図（入口）", () => {
       await expect(next).toBeVisible();
     }
 
-    expect(MENU_ITEMS).toHaveLength(15);
+    expect(MENU_ITEMS).toHaveLength(11); // 設計書 2026-11-06-ui-frame 3 章（決定 8〜13）
     const burger = menuButton(page);
     expect(await burger.isVisible()).toBe(true); // 390px はスマホ（三本線）
     for (const { name, path } of MENU_ITEMS) {
-      const from = path === "/privacy" ? "/known" : "/privacy"; // どの項目も「今いる所」と違う画面から押す
+      const from = path === "/about" ? "/known" : "/about"; // どの項目も「今いる所」と違う画面から押す
       await page.goto(from);
       await goViaMenu(page, name);
       await expect(page, name).toHaveURL(new RegExp(`${path === "/" ? "/$" : `${path}$`}`));
@@ -198,17 +198,34 @@ test.describe("地図（入口）", () => {
     }
   });
 
-  test("PC（1280px）は左のメニューで 15 の行き先へ 1 回で行ける。今いる項目に aria-current が付く", async ({ page }) => {
+  test("PC（1280px）は左のメニューで 11 の行き先へ 1 回で行ける。今いる項目に aria-current が付く。今季の中の切り替えは題と同じ行", async ({ page }) => {
     await open(page, 1280);
     await expect(menuButton(page)).toBeHidden();
     const nav = menuNav(page);
     await expect(nav).toBeVisible();
     for (const { name, path } of MENU_ITEMS) {
-      await page.goto(path === "/privacy" ? "/known" : "/privacy");
+      await page.goto(path === "/about" ? "/known" : "/about");
       await goViaMenu(page, name);
       await expect(page, name).toHaveURL(new RegExp(`${path === "/" ? "/$" : `${path}$`}`));
       await expect(nav.getByRole("link", { name }).first()).toHaveAttribute("aria-current", "page");
     }
+    // 今季の発生の中の見方（地図／一覧と数）。題と同じ行の右に置き、地図を押し下げない（設計書 2026-11-06-ui-frame 決定 9）
+    await page.goto("/");
+    const tabs = page.getByRole("navigation", { name: "今季の発生の見方" });
+    await expect(tabs.getByRole("link", { name: "地図", exact: true })).toHaveAttribute("aria-current", "page");
+    const h1 = (await page.getByRole("heading", { level: 1 }).boundingBox())!;
+    // 題の文字そのものの右端（h1 の箱は行いっぱいなので、文字の範囲で測る）
+    const textRight = await page.getByRole("heading", { level: 1 }).evaluate((el) => {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      return r.getBoundingClientRect().right;
+    });
+    const t = (await tabs.boundingBox())!;
+    expect(t.y).toBeLessThan(h1.y + h1.height);
+    expect(t.x).toBeGreaterThan(textRight);
+    await tabs.getByRole("link", { name: "一覧と数" }).click();
+    await expect(page).toHaveURL(/\/season$/);
+    await expect(nav.getByRole("link", { name: "今季の発生" })).toHaveAttribute("aria-current", "page");
   });
 
   test("スマホのメニューは、開くと中へフォーカスが移り、Escape で閉じて三本線へ戻る。画面が替わると題へフォーカスが移る", async ({ page }) => {

@@ -38,6 +38,11 @@ const ALL_PATHS = [
   "/results",
   "/trends",
   "/privacy",
+  // 設計書 2026-11-06-ui-frame で足した行き先
+  "/town",
+  "/season",
+  "/compare",
+  "/about",
 ];
 
 describe("経路", () => {
@@ -67,7 +72,7 @@ describe("骨格", () => {
     expect(todo.getAttribute("href")).toBe("/todo");
     expect(todo.getAttribute("aria-current")).toBe("page");
     expect(within(nav).getByRole("link", { name: /^記録/ }).getAttribute("href")).toBe("/record/deaths");
-    expect(within(nav).getByRole("link", { name: /^今季の発生と地図/ }).getAttribute("aria-current")).toBeNull();
+    expect(within(nav).getByRole("link", { name: /^今季の発生/ }).getAttribute("aria-current")).toBeNull();
 
     const settings = within(screen.getByRole("banner")).getByRole("link", { name: "設定" });
     expect(settings.getAttribute("href")).toBe("/settings/farm");
@@ -77,7 +82,9 @@ describe("骨格", () => {
     const router = createMemoryRouter(routes, { initialEntries: ["/privacy"] });
     render(<RouterProvider router={router} />);
     const main = await screen.findByRole("main");
-    expect(await within(main).findByRole("heading", { level: 1, name: "プライバシー" })).toBeTruthy();
+    // /privacy は「このサイトについて」の中の「集める情報と消し方」へ（設計書 2026-11-06-ui-frame 決定 12）
+    expect(await within(main).findByRole("heading", { level: 1, name: "このサイトについて" })).toBeTruthy();
+    expect(within(main).getByRole("heading", { level: 2, name: "集める情報と消し方" })).toBeTruthy();
   });
 });
 

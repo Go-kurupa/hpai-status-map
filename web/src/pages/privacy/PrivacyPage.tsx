@@ -4,7 +4,7 @@ import "./privacy.css";
 import { PRIVACY_NOTICE, PRIVACY_REVIEWED_ON } from "./privacyNotice";
 
 /** 運営者名はビルド時の環境変数だけから読む（ソースに書かない）。空や空白だけは未設定として扱う */
-function operatorName(): string | null {
+export function operatorName(): string | null {
   const raw: unknown = import.meta.env.VITE_OPERATOR_NAME;
   if (typeof raw !== "string") return null;
   const name = raw.trim();
@@ -22,26 +22,34 @@ function ReviewStatus({ reviewedOn }: { reviewedOn: IsoDate | null }) {
   return <p className="privacy-review">確認日 {reviewedOn}</p>;
 }
 
-/** 文面と確認日を並べる。reviewedOn は試験で値を差し替えるために引数にしている */
-export function PrivacyContent({ reviewedOn }: { reviewedOn: IsoDate | null }) {
+/**
+ * 文面と確認日を並べる。reviewedOn は試験で値を差し替えるために引数にしている。
+ * embedded は「このサイトについて」の中に置くとき（設計書 2026-11-06-ui-frame 決定 12）。題を 1 段下げ、
+ * 目次と運営者の節（このサイトについての先頭に出す）と「地図にもどる」を出さない
+ */
+export function PrivacyContent({ reviewedOn, embedded = false }: { reviewedOn: IsoDate | null; embedded?: boolean }) {
   const operator = operatorName();
+  const H = embedded ? "h3" : "h2";
+  const sections = PRIVACY_NOTICE.map((section, i) => ({ section, i })).filter(({ section }) => !embedded || section.heading !== "運営者");
   return (
     <div className="privacy">
-      <h1>プライバシー</h1>
+      {embedded ? null : <h1>プライバシー</h1>}
       <p>この作品が何を集め、どこに保存し、どう消せるかの説明です。</p>
       <ReviewStatus reviewedOn={reviewedOn} />
-      <nav aria-label="もくじ" className="privacy-toc">
-        <ul>
-          {PRIVACY_NOTICE.map((section, i) => (
-            <li key={section.heading}>
-              <a href={`#privacy-${i}`}>{section.heading}</a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      {PRIVACY_NOTICE.map((section, i) => (
+      {embedded ? null : (
+        <nav aria-label="もくじ" className="privacy-toc">
+          <ul>
+            {PRIVACY_NOTICE.map((section, i) => (
+              <li key={section.heading}>
+                <a href={`#privacy-${i}`}>{section.heading}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+      {sections.map(({ section, i }) => (
         <section key={section.heading} id={`privacy-${i}`}>
-          <h2>{section.heading}</h2>
+          <H>{section.heading}</H>
           {section.paragraphs.map((p) => (
             <p key={p}>{p}</p>
           ))}
@@ -62,11 +70,13 @@ export function PrivacyContent({ reviewedOn }: { reviewedOn: IsoDate | null }) {
           ) : null}
         </section>
       ))}
-      <p>
-        <Link to="/" className="tap-link">
-          地図にもどる
-        </Link>
-      </p>
+      {embedded ? null : (
+        <p>
+          <Link to="/" className="tap-link">
+            地図にもどる
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

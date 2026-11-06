@@ -31,9 +31,8 @@ const SampleLayout = lazy(() => import("./pages/sample/SampleLayout"));
 const SamplePage = lazy(() => import("./pages/sample/SamplePage"));
 const SampleTodoPage = lazy(() => import("./pages/sample/SampleTodoPage"));
 const SampleRecordPage = lazy(() => import("./pages/sample/SampleRecordPage"));
-const ResultsPage = lazy(() => import("./pages/results/ResultsPage"));
 const TrendsPage = lazy(() => import("./pages/trends/TrendsPage"));
-const PrivacyPage = lazy(() => import("./pages/privacy/PrivacyPage"));
+const AboutPage = lazy(() => import("./pages/about/AboutPage"));
 
 function Root() {
   // 作っただけでは Firebase を読まない（購読や保存を始めたときに初めて読む）
@@ -105,9 +104,11 @@ export const routes: RouteObject[] = [
           { path: "record/disinfection", element: <SampleRecordPage /> },
         ],
       },
-      { path: "results", element: <ResultsPage /> },
+      // このサイトについて（設計書 2026-11-06-ui-frame 決定 12）。今までの URL は同じ画面の節へ送る
+      { path: "about", element: <AboutPage /> },
+      { path: "results", element: <AboutPage key="results" focus="ai" /> },
       { path: "trends", element: <TrendsPage /> },
-      { path: "privacy", element: <PrivacyPage /> },
+      { path: "privacy", element: <AboutPage key="privacy" focus="privacy" /> },
       { path: "*", element: <NotFound /> },
     ],
   },

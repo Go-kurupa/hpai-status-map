@@ -312,6 +312,53 @@ button:focus-visible {
   }
 }
 
+/* 見方の切り替え（今季の発生／過去の発生の中）。選んでいる見方は下の青い線と紺の文字 */
+.section-tabs {
+  margin: 0 0 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.section-tabs ul {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.section-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 14px;
+  border-bottom: 3px solid transparent;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.section-tabs a:hover {
+  background: var(--soft);
+}
+.section-tabs a[aria-current="page"] {
+  border-bottom-color: var(--accent);
+  color: var(--navy);
+  font-weight: 700;
+}
+
+/* このサイトについて: データの出典の一覧 */
+.about-sources {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.about-sources li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hair);
+  overflow-wrap: anywhere;
+}
+
 /* ── 部品 ── */
 .btn {
   display: inline-flex;

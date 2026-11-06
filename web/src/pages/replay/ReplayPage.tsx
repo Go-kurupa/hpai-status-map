@@ -108,6 +108,8 @@ function ReplayReady({ scenario: casesScenario }: { scenario: ReplayScenario }) 
   const spot = view === "own" && deviceSpot ? deviceSpot : scenario.defaultSpot;
 
   return (
+    // 「過去の発生」の見方の 1 つ（設計書 2026-11-06-ui-frame 決定 8）。中の切り替えは置かない: 最初の画面に地図の全部を
+    // 入れる決まりで高さに余裕がなく、上に「去年の再現を見ています／再現を終わる」の帯がある。メニューは「過去の発生」が選択中
     <ReplayFrame scenario={scenario} dataSource={dataSource} spot={spot}>
       {/* 操作の後ろの部分は、replay.css が地図の下へ動かす（地図の画面を変えずに、地図を最初の画面に入れる） */}
       <div className="replay-stage">

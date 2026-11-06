@@ -1229,6 +1229,17 @@
   .season-charts > :not(section) {
     grid-column: 1 / -1;
   }
+  /* 見方の切り替えは題の行の右上に重ねて置き、地図を押し下げない（設計書 2026-11-06-ui-frame 決定 8・9）。
+     並びの流れから外すので、題の高さは変わらない */
+  .map-page {
+    position: relative;
+  }
+  .map-page > .section-tabs {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin: 0;
+  }
   /* 「自分の町の過去」（/town）は地図がないので、町の文を横いっぱい（読みやすい幅まで）に置く */
   .map-page[data-section="town"] > .town-banner {
     grid-column: 1 / -1;

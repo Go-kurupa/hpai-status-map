@@ -25,31 +25,32 @@ export function shellContextOf(pathname: string): { mode: ShellMode; groups: Men
     item(`${prefix}/record/deaths`, "記録", under(path, `${prefix}/record`), true),
   ];
   if (mode !== "sample") farm.push(item("/settings/farm", "農場と知らせの設定", under(path, "/settings"), true));
+  // 設計書 2026-11-06-ui-frame 3 章（決定 8〜13）。11 項目。今季と過去は中の切り替え（SectionTabs）で見方を選ぶ
   const groups: MenuGroup[] = [
     {
-      label: "いまの状況",
+      label: "発生状況",
       items: [
-        item("/", "今季の発生と地図", path === "/"),
-        item("/town", "自分の町の過去", under(path, "/town") || under(path, "/area")),
-        item("/season", "今季の一覧と数", under(path, "/season")),
-        item("/compare", "過去シーズンとの比べ", under(path, "/compare")),
+        item("/", "今季の発生", path === "/" || under(path, "/season")),
+        item("/compare", "過去の発生", under(path, "/compare") || under(path, "/town") || under(path, "/area") || mode === "replay"),
+        item("/trends", "全国の傾向", under(path, "/trends")),
       ],
     },
-    { label: "自分の農場", items: farm },
+    {
+      label: "自分の農場",
+      items: [
+        ...farm,
+        item("/poster", "掲示用の貼り紙", under(path, "/poster")),
+        item("/sample", "見本で試す", mode === "sample" && !farm.some((f) => f.current)),
+      ],
+    },
     {
       label: "読みもの",
-      items: [item("/public", "鶏を飼っていない方へ", under(path, "/public")), item("/known", "分かっていること", under(path, "/known")), item("/trends", "全国の傾向", under(path, "/trends"))],
+      items: [item("/known", "分かっていること", under(path, "/known")), item("/public", "鶏を飼っていない方へ", under(path, "/public"))],
     },
     {
-      label: "その他",
-      collapsible: true,
-      items: [
-        item("/replay", "去年の再現", mode === "replay"),
-        item("/sample", "見本の農場", mode === "sample" && !farm.some((f) => f.current)),
-        item("/poster", "掲示用の貼り紙", under(path, "/poster")),
-        item("/results", "試験の結果", under(path, "/results")),
-        item("/privacy", "プライバシー", under(path, "/privacy")),
-      ],
+      // 1 項目だけなので見出しを出さない（項目と同じ名前を 2 回並べない）
+      label: "",
+      items: [item("/about", "このサイトについて", under(path, "/about") || under(path, "/results") || under(path, "/privacy"))],
     },
   ];
   const currentLabel = groups.flatMap((g) => g.items).find((i) => i.current)?.label ?? null;
@@ -59,7 +60,7 @@ export function shellContextOf(pathname: string): { mode: ShellMode; groups: Men
 function Menu({ groups, onPick }: { groups: MenuGroup[]; onPick: () => void }) {
   return (
     <>
-      {groups.map((g) => {
+      {groups.map((g, gi) => {
         const links = (
           <ul className="menu-list">
             {g.items.map((i) => (
@@ -73,13 +74,13 @@ function Menu({ groups, onPick }: { groups: MenuGroup[]; onPick: () => void }) {
           </ul>
         );
         return g.collapsible ? (
-          <details key={g.label} className="menu-group menu-more" open={g.items.some((i) => i.current) || undefined}>
+          <details key={gi} className="menu-group menu-more" open={g.items.some((i) => i.current) || undefined}>
             <summary className="menu-group-label">{g.label}</summary>
             {links}
           </details>
         ) : (
-          <div key={g.label} className="menu-group">
-            <p className="menu-group-label">{g.label}</p>
+          <div key={gi} className="menu-group">
+            {g.label ? <p className="menu-group-label">{g.label}</p> : null}
             {links}
           </div>
         );

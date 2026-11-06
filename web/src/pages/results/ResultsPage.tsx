@@ -59,7 +59,8 @@ function formatAt(iso: string): string {
 }
 const n = (v: number): string => v.toLocaleString("en-US");
 
-export default function ResultsPage() {
+/** embedded は「このサイトについて」の中に置くとき（設計書 2026-11-06-ui-frame 決定 12）。題を出さず、節の題を 1 段下げる */
+export default function ResultsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [state, setState] = useState<Load>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -82,7 +83,7 @@ export default function ResultsPage() {
 
   return (
     <div className="backstage">
-      <h1 className="backstage-title">試験の結果と費用</h1>
+      {embedded ? null : <h1 className="backstage-title">試験の結果と費用</h1>}
       <p>
         AI が読んだ結果を、正解と照らして数えた試験の結果と、Claude にかかった費用です。<strong>実測</strong>は測った数、<strong>計算</strong>は測った数や仮定から出した数で、分けて書きます。測っていないものは「未実測」「未計測」と書きます。
       </p>
@@ -94,30 +95,31 @@ export default function ResultsPage() {
         </p>
       )}
 
-      <Section id="eval" title="読み取りの試験（実測）">
+      <Section id="eval" title="読み取りの試験（実測）" embedded={embedded}>
         <EvalSection src={summary} />
       </Section>
 
-      <Section id="usage" title="再現 1 回分の使用量（実測）">
+      <Section id="usage" title="再現 1 回分の使用量（実測）" embedded={embedded}>
         <UsageSection src={usage} usage={usageValue} />
       </Section>
 
-      <Section id="calc" title="1 シーズンの費用（計算）">
+      <Section id="calc" title="1 シーズンの費用（計算）" embedded={embedded}>
         <CalcSection usage={usageValue} summary={summaryValue} />
       </Section>
 
       <p className="replay-hint">
-        <Link to="/" className="tap-link">地図にもどる</Link>　<Link to="/replay/backstage" className="tap-link">去年の再現の舞台裏を見る</Link>　<Link to="/trends" className="tap-link">全国の傾向</Link>
+        {embedded ? null : <><Link to="/" className="tap-link">地図にもどる</Link>　</>}<Link to="/replay/backstage" className="tap-link">去年の再現の舞台裏を見る</Link>　<Link to="/trends" className="tap-link">全国の傾向</Link>
       </p>
     </div>
   );
 }
 
-function Section({ id: key, title, children }: { id: string; title: string; children: ReactNode }) {
+function Section({ id: key, title, children, embedded = false }: { id: string; title: string; children: ReactNode; embedded?: boolean }) {
   const id = `results-${key}`;
+  const H = embedded ? "h3" : "h2";
   return (
     <section aria-labelledby={id} className="backstage-section">
-      <h2 id={id}>{title}</h2>
+      <H id={id}>{title}</H>
       {children}
     </section>
   );

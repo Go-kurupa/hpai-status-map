@@ -46,7 +46,7 @@ test.describe("骨格", () => {
     await expect(menuButton(page)).toBeHidden();
     await expect(menuNav(page)).toBeVisible();
     await expect(page.getByRole("banner").getByRole("link", { name: "設定" })).toBeVisible();
-    await expect(menuNav(page).getByRole("link", { name: "今季の発生と地図" })).toHaveAttribute("aria-current", "page");
+    await expect(menuNav(page).getByRole("link", { name: "今季の発生", exact: true })).toHaveAttribute("aria-current", "page");
   });
 });
 

@@ -14,6 +14,7 @@ import { CaseListSheet } from "./CaseListSheet";
 import { Legend } from "./Legend";
 import { listRows, wildBirdRows } from "./listRows";
 import { MapChunkBoundary } from "./MapChunkBoundary";
+import { SectionTabs } from "../../ui/SectionTabs";
 import { MapLinks, NextLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import { countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
@@ -395,6 +396,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
 
   return (
     <div className="map-page" data-section={section}>
+      {section === "now" || section === "season" ? <SectionTabs group="now" /> : null}
+      {section === "compare" || section === "town" ? <SectionTabs group="past" /> : null}
       <h1 ref={h1Ref}>{section === "now" || section === "all" ? `${view.label}の発生状況` : SECTION_TITLE[section]}</h1>
       {section === "town" ? null : view.isCurrent ? (
         <WatchAsOf loaded={d.watchLoaded} line={d.watch} />
