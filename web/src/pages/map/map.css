@@ -1462,4 +1462,8 @@
     align-items: stretch;
     max-width: none;
   }
+  /* 格子のための align-self: start が縦並びの中にも効くと、地図の箱が中身の幅（枠線の 2px）まで縮む（2026-11-06 作者の報告） */
+  .map-page:has(> .spot-picker[data-active="true"]) > .map-box {
+    align-self: stretch;
+  }
 }

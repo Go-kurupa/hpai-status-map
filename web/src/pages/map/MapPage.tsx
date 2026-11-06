@@ -23,7 +23,7 @@ import { buildSeasonView } from "./seasonView";
 import { MapLinks, NextLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import { casesNearCenter, countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
-import type { PickTarget } from "./pickSpot";
+import { SPOT_MIN_ZOOM, type PickTarget } from "./pickSpot";
 import { countText, SeasonBar, type SeasonBarItem } from "./SeasonBar";
 import { SeasonCharts } from "./SeasonCharts";
 import { SeasonCompare } from "./SeasonCompare";
@@ -172,6 +172,9 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   // 選ぶ画面を開いた時の、町の欄の置き場（地図の後ろか）。開いている間に置き場が変わると選ぶ画面が作り直され、入力が消えるので固定する
   const [pickSlot, setPickSlot] = useState<boolean | null>(null);
   const [aiming, setAiming] = useState(false);
+  // 場所合わせ中は、町の形などが後から届いても選択地域付近へ寄せ直さない（決められる拡大まで寄せた結果が消える）
+  const aimingRef = useRef(false);
+  aimingRef.current = aiming;
   const [notice, setNotice] = useState<string | null>(null);
   const [mapless, setMapless] = useState(false); // 地図が描けない端末（代わりの地図を出している）
   const mapRef = useRef<PickTarget | null>(null);
@@ -180,9 +183,9 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const nonce = useRef(0);
   // 会員の農場が後から届いたら、端末内の町や場所を変える画面は閉じる（変えても見える形が変わらない）
   const canEdit = !spotState.readOnly;
-  const moveTo = useCallback((kind: "japan" | "muni" | "rings", codes: MuniCode[]) => {
+  const moveTo = useCallback((kind: "japan" | "muni" | "rings", codes: MuniCode[], minZoom?: number) => {
     nonce.current += 1;
-    setFocus({ kind, codes, nonce: nonce.current });
+    setFocus(minZoom === undefined ? { kind, codes, nonce: nonce.current } : { kind, codes, nonce: nonce.current, minZoom });
   }, []);
   const choose = useCallback(
     (code: MuniCode) => {
@@ -200,7 +203,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       setAiming(on);
       if (on) {
         setPicking(false);
-        if (town) moveTo("muni", [town]); // 十字を合わせやすいよう、自分の町へ寄せる
+        // 十字を合わせやすいよう、自分の町へ寄せる。大きな町でも、そのまま「ここに決める」を押せる拡大まで寄せる
+        if (town) moveTo("muni", [town], SPOT_MIN_ZOOM);
       }
     },
     [town, moveTo],
@@ -229,7 +233,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   // 押された印と地図の寄せ先がずれないように）
   const userScoped = useRef(regionParam !== null);
   useEffect(() => {
-    if (startNear && !geoPending && !userScoped.current) showNear();
+    if (startNear && !geoPending && !userScoped.current && !aimingRef.current) showNear();
   }, [startNear, geoPending, showNear]);
   // 比べの広さのボタン（1 段。押された印は最後に押した 1 つ）。地方へ寄せるには町の形が要るので、届く前に押されたら届いてから寄せる
   const [cmpScope, setCmpScope] = useState<Scope>(() => regionParam ?? (town !== null && startNear ? "near" : "japan"));

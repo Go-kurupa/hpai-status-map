@@ -16,6 +16,7 @@ import { SPOT_KEY, TOWN_KEY } from "../../data/spot";
 import { SpotProvider } from "../../data/spotContext";
 import type { DataSource, RecordStore } from "../../data/types";
 import type { MapViewProps } from "./MapView";
+import { SPOT_MIN_ZOOM } from "./pickSpot";
 import { TEXT } from "./texts";
 
 // 市町村の形の読み込みは fetch を使うので、jsdom では実データを fs から読む偽に替える
@@ -1131,6 +1132,26 @@ describe("MapPage: 並びと出典", () => {
     scrollMock().mockClear();
     fireEvent.click(screen.getByRole("button", { name: /昨季/ }));
     expect(scrollMock()).toHaveBeenCalled();
+  });
+
+  it("町を選んだ人が『地図で場所を合わせる』を押すと、その町へ、そのまま決められる拡大（SPOT_MIN_ZOOM）まで寄せる指定を地図に渡す", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    fireEvent.click(await screen.findByRole("button", { name: "地図で場所を合わせる" }));
+    await waitFor(() => expect(lastProps().focus?.minZoom).toBe(SPOT_MIN_ZOOM));
+    expect(lastProps().focus?.kind).toBe("muni");
+    expect(lastProps().focus?.codes).toEqual(["33214"]);
+    // ほかの寄せ方（選択地域付近、全国など）には付けない
+    fireEvent.click(screen.getByRole("button", { name: TEXT.cancel }));
+    fireEvent.click(screen.getByRole("button", { name: "選択地域付近" }));
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("rings"));
+    expect(lastProps().focus?.minZoom).toBeUndefined();
+    fireEvent.click(screen.getByRole("button", { name: "全国" }));
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("japan"));
+    expect(lastProps().focus?.minZoom).toBeUndefined();
   });
 
   it("地図の部品が読み込めなければ mapLoadFailed を出し、守る文は残る", async () => {

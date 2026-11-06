@@ -3,6 +3,7 @@ import type { MeshCode, MuniCode, PrefCode, WildBird } from "@hpai/shared/types"
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { feature, mesh } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
+import { interiorPoint } from "../../geo/interiorPoint";
 import { distanceRingsAt, distanceRingsOf, pxPerKmAtZoom, ringLabel, ringTop, visibleRingKms } from "../../geo/distanceRings";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { Marker, MlMap } from "../../geo/maplibre";
@@ -23,7 +24,11 @@ export interface MapViewProps {
   /** 地点がないときの距離の輪の中心（町の中心、[経度, 緯度]）。地点があればそちらを使う（設計書 2026-11-06-ui-frame 決定 6） */
   ringCenter?: [number, number] | null;
   /** rings は距離の輪の全体が入る広さ（輪がなければ codes の町）。代わりの地図は codes の町の県を出す */
-  focus: { kind: "japan" | "muni" | "rings"; codes: MuniCode[]; nonce: number } | null;
+  /**
+   * minZoom は場所合わせ（くわしい場所を決める）のときだけ渡す。codes の町へ寄せ、拡大がこれに届かなければ最初の町の中心でこの拡大まで寄せる。
+   * 場所合わせを始めると地図の箱の幅が変わるので、寄せる前に地図の大きさを測り直す
+   */
+  focus: { kind: "japan" | "muni" | "rings"; codes: MuniCode[]; nonce: number; minZoom?: number } | null;
   pickMode?: boolean;
   onSelectMuni?: (code: MuniCode) => void;
   /** 場所を選んでいないときに町を押したら、その町の事例を見る（設計書 2026-11-06-ui-frame 決定 4）。onSelectMuni が優先 */
@@ -60,6 +65,8 @@ export default function MapView(props: MapViewProps) {
   latest.current = props;
   const [ready, setReady] = useState(false);
   const [geo, setGeo] = useState<{ store: Geo; anchors: Anchors } | null>(null);
+  /** 町のコード → 町の形（場所合わせで十字を町の中に置くのに使う） */
+  const shapesRef = useRef(new Map<MuniCode, GeoJSON.Polygon | GeoJSON.MultiPolygon>());
   const [failed, setFailed] = useState(false);
   const [unsupported, setUnsupported] = useState(false); // WebGL2 が使えない、または地図の初期化に失敗
   const [unplaced, setUnplaced] = useState(0);
@@ -101,6 +108,12 @@ export default function MapView(props: MapViewProps) {
         if (cancelled) return;
         const obj = topo.objects["muni"] as GeometryCollection<{ p?: string }>;
         const munis = feature(topo as Topology, obj);
+        shapesRef.current = new Map(
+          munis.features.flatMap((m) => {
+            const c = (m.properties as { c?: string } | null)?.c;
+            return c && (m.geometry.type === "Polygon" || m.geometry.type === "MultiPolygon") ? [[c, m.geometry] as const] : [];
+          }),
+        );
         // 県境 = 県が違う市町村の境と、外側の海岸
         const prefOf = (g: { properties?: unknown }) => (g.properties as { p?: string } | null | undefined)?.p;
         const prefBorders = mesh(topo as Topology, obj, (a, b) => a === b || prefOf(a) !== prefOf(b));
@@ -289,13 +302,28 @@ export default function MapView(props: MapViewProps) {
     }
     const boxes = f.codes.map((c) => geo.store.index[c]?.bbox).filter((b): b is Bounds => !!b);
     if (boxes.length === 0) return;
-    map.fitBounds(
-      [
-        [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1]))],
-        [Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))],
-      ],
-      { padding: 40, maxZoom: 11 },
-    );
+    const bounds: [[number, number], [number, number]] = [
+      [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1]))],
+      [Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))],
+    ];
+    const fit = { padding: 40, maxZoom: 11 };
+    if (f.minZoom !== undefined) {
+      // 場所合わせ: 地図の箱の幅が変わった直後なので、古い幅で寄せ先を決めない（PC で十字が隣の町に来ていた。2026-11-06）
+      map.resize();
+      const code = f.codes[0]!;
+      const entry = geo.store.index[code];
+      const cam = map.cameraForBounds(bounds, fit);
+      const fits = !!cam && cam.zoom !== undefined && cam.zoom >= f.minZoom;
+      // 町の全体が入る広さで決められればその中心、大きな町は最大の面の中心で、決められる拡大まで寄せる
+      const c = cam?.center as { lng: number; lat: number } | undefined;
+      const want: [number, number] | undefined = fits && c ? [c.lng, c.lat] : entry?.center;
+      if (!want) return;
+      // 十字（地図の真ん中）は町の形の中に置く。コの字の町や島のある町では、中心が隣の町に出る
+      const shape = shapesRef.current.get(code);
+      map.jumpTo({ center: shape ? interiorPoint(shape, want) : want, zoom: fits ? cam!.zoom! : f.minZoom });
+      return;
+    }
+    map.fitBounds(bounds, fit);
   }, [ready, geo, nonce]);
 
   useEffect(() => {
