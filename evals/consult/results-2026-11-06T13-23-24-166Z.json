@@ -1,0 +1,206 @@
+{
+  "model": "claude-opus-5-5",
+  "kind": "in_scope",
+  "at": "2026-11-06T13:24:14.051Z",
+  "results": [
+    {
+      "id": "in-boots-clothes",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "papers-C03",
+        "papers-C04a",
+        "maff-M06a",
+        "maff-M07a",
+        "maff-M05"
+      ],
+      "answerChars": 334,
+      "passed": true,
+      "ms": 4610,
+      "usage": {
+        "input_tokens": 12496,
+        "output_tokens": 387,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.057724,
+      "answer": "まず見直したいのは、鶏舎の入口だけでなく、ふん出し・死体搬出用の裏口でも長靴を履き替え、手指を洗浄・消毒しているかです。国内の採卵鶏農場の研究では、鶏舎入口での専用靴への履き替えに関連が見られた一方、衛生管理区域の入口での履き替えには差がなく、効いたとされたのは鶏舎入口と裏口でした。鶏舎入口で履き替えていても裏口では履き替えていない農場があったと報告されています。裏口を使わない運用も選択肢です。\n次に、着替え・履き替えの前後で動線を分け、すのこや分離板で保管場所を離して一方通行にしているかを確認してください。これは基準上の義務です。\nまた、外部事業者にも更衣と手指消毒を徹底させ、衣服・長靴は農場側で用意する（持参なら農場専用か確認する）ことが勧められています。"
+    },
+    {
+      "id": "in-net-house",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [
+        "too_long"
+      ],
+      "cardIds": [],
+      "answerChars": 0,
+      "passed": false,
+      "ms": 4925,
+      "usage": {
+        "input_tokens": 12501,
+        "output_tokens": 466,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.059324,
+      "reasons": [
+        "expected_answer_got_fixed",
+        "too_few_cards"
+      ]
+    },
+    {
+      "id": "in-pests",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M02a",
+        "maff-M03",
+        "maff-M08b",
+        "maff-M09a",
+        "okayama-OK1"
+      ],
+      "answerChars": 339,
+      "passed": true,
+      "ms": 5510,
+      "usage": {
+        "input_tokens": 12503,
+        "output_tokens": 422,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.058452,
+      "answer": "ネズミ・ネコ・ハエの侵入を防ぐには、次の順で見直すとよいでしょう。\n\n1. 家きん舎・堆肥舎の隙間をなくす：防鳥ネット、除糞・集卵設備の開口部、壁の破損を点検し、破損を放置しないことが基本です。発生農場では、こうした破損や隙間が多く確認されています。\n2. ネズミ：定期的かつ継続的に駆除して数を減らします。あわせて、敷地の整理整頓・除草・不要資材の処分で隠れ場所をなくします。\n3. ネコ：衛生管理区域内で飼わない、住み着かせないことが求められています。\n4. ハエ：秋から冬の寒くなり始めたころ、入気口やベルトコンベアなどに隙間がある鶏舎では、網目5mm以下の防虫ネットと殺虫剤で侵入を防ぎます。\n\nなお、ネズミ対策そのものが発生を減らすかは、研究ではまだ分かっていません。"
+    },
+    {
+      "id": "in-water-birds",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M01",
+        "maff-M02a",
+        "maff-M13a",
+        "papers-C17",
+        "maff-M12b"
+      ],
+      "answerChars": 384,
+      "passed": true,
+      "ms": 5671,
+      "usage": {
+        "input_tokens": 12504,
+        "output_tokens": 458,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.059176,
+      "answer": "水辺と野鳥への備えでは、次の順に見直すのがおすすめです。\n1. 鶏舎まわりの防鳥ネット（網目2cm以下）を張り、破れがないか定期的に確認して直すこと。基準で求められている対策で、敷地内の調整池などの水場も対象です。\n2. 鶏舎・堆肥舎のネットの破れ、除糞・集卵設備の開口部、壁の破損を点検し、野鳥が入れる隙間をなくすこと。発生農場で多く確認された状況です。\n3. 鶏舎から100m以内〜1km程度にため池・水路・水田などがある場合は、水抜き、テグスや忌避テープ、水田の耕起、雑草や不要な樹木の除去を行うこと。\n4. 近くの池などを防鳥ネットで覆い、水鳥が寄れないようにすること。これは研究者の提案で、効果を測った結果ではありません。\n5. 敷地の除草と整理整頓で、野鳥の隠れ場所をなくすこと。\n農場の様子（水辺までの距離など）が分かれば、どれを優先するか絞り込めます。"
+    },
+    {
+      "id": "in-visitors-vehicles",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M04a",
+        "maff-M05",
+        "maff-M07a",
+        "maff-M06a",
+        "overseas-U7"
+      ],
+      "answerChars": 353,
+      "passed": true,
+      "ms": 5328,
+      "usage": {
+        "input_tokens": 12492,
+        "output_tokens": 402,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.058008,
+      "answer": "人の出入りでは、まず外部事業者（出荷・糞の搬出・飼料・工事・獣医師など）の更衣と手指消毒が徹底されているかを見直すのがおすすめです。衣服・長靴は農場側で用意したものを着せ、持参させる場合は農場専用かを確認します。次に、更衣室・出入口での着替え・履き替えの前後の動線が分かれているか（すのこ・分離板で保管場所を離し、一方通行になっているか）を点検してください。糞や死体の搬出用の裏口がある鶏舎では、裏口から出入りするときも手指の洗浄・消毒と長靴の交換を行っているかを確認しましょう。車については、飼料車・集卵車などが出入りする農場で車両の洗浄・消毒を行う対策がありますが、これは米国の商業採卵鶏農場向けの推奨です。農場の規模や飼い方が書かれていないため、どれが最も合うかは農場の状況に合わせて選んでください。"
+    },
+    {
+      "id": "in-dead-birds-compost",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M10",
+        "maff-M02b",
+        "maff-M11a",
+        "maff-M06a",
+        "maff-M30"
+      ],
+      "answerChars": 379,
+      "passed": true,
+      "ms": 5539,
+      "usage": {
+        "input_tokens": 12498,
+        "output_tokens": 481,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.059612,
+      "answer": "死んだ鶏や堆肥の扱いでは、まず次の点を見直すとよいでしょう。\n\n1. 堆肥舎で破卵や死体を処理していないか：堆肥舎には防鳥ネットを使い、破卵・死体は焼却等で適切に処理して、鳥を呼ばないようにします。\n2. 堆肥舎の破損や隙間：防鳥ネット、除糞設備の開口部、壁の破損を点検し、野鳥・野生動物が入れる隙間をなくします。\n3. 鶏糞の搬出口と死体・破卵の処理：搬出口に覆いを付け、鳥・小動物の侵入口と誘引を減らします。\n4. 除糞・死体搬出用の裏口の出入り：裏口から鶏舎に出入りするときも、手指の洗浄・消毒と長靴の交換を行います。\n5. 共同施設の利用：死亡鶏保管施設や共同堆肥場を他の農場と共同で使っている場合は、そこへ行く際も更衣・手指消毒をします。\n\n農場の様子が書かれていないため、堆肥舎や裏口、共同施設の有無に応じて、当てはまる項目から確認してください。"
+    },
+    {
+      "id": "in-daily-check",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M21a",
+        "overseas-K3",
+        "maff-M22b",
+        "maff-M23a",
+        "maff-M24a"
+      ],
+      "answerChars": 350,
+      "passed": true,
+      "ms": 5368,
+      "usage": {
+        "input_tokens": 12502,
+        "output_tokens": 408,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.058168,
+      "answer": "まず見直したいのは、毎日の健康観察を確実に行い、通常と少しでも違えば躊躇せず家畜保健衛生所へ通報することです。通報が遅れた事例では、他の病気と見て経過観察した、死体の回収漏れが疑われた、管理者が不在だった、といった原因が挙げられています。\n観察では死亡数だけでなく、産卵・採食・飲水の変化もつかみましょう（海外の目安では、産卵が3日で5%以上落ちたら獣医へ）。\n次に、管理者が不在でも従事者が許可を待たずに通報できる体制をつくり、全員に周知してください。\n誘導換羽を行う採卵鶏の農場では、換羽中も観察を注意深く続けます。あひる・うずらを飼う場合は、死亡の増加だけに頼らず、産卵率の低下・神経症状・ケージ単位の変化でも通報します。\n農場の飼い方が分からないため、該当するものを選んで取り入れてください。"
+    },
+    {
+      "id": "in-farm-sentence",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M13a",
+        "papers-C17",
+        "maff-M01",
+        "maff-M34",
+        "maff-M21a"
+      ],
+      "answerChars": 344,
+      "passed": true,
+      "ms": 4915,
+      "usage": {
+        "input_tokens": 12506,
+        "output_tokens": 401,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.058044,
+      "answer": "裏の田んぼに冬に水が張られている状況は、近くに水田がある農場向けの対策に当てはまります。水抜きや耕起ができるか、テグス・忌避テープを張れるか、雑草や不要な樹木を除けるかを、田んぼの持ち主や地域と相談してみてください。近くの水辺から水鳥が寄りにくくする工夫も考えられますが、これは効果を測った結果ではなく提案です。\n鶏舎側では、防鳥ネット（網目2cm以下）の破れや壁・開口部の隙間を点検し、見つけたらすぐ直してください。小規模農家向けの例として、毎週決めた曜日に防鳥ネットの破損と野生動物の侵入を確かめる方法があります。\nあわせて、毎日の健康観察を確実に行い、いつもと少しでも違えば迷わず家畜保健衛生所へ通報してください。\nなお、平飼い300羽の規模に絞った調査結果はカードにはありません。"
+    }
+  ]
+}
