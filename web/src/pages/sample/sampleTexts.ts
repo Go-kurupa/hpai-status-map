@@ -11,8 +11,8 @@ export const SAMPLE_TEXT = {
   retry: "もう一度読む",
   navLabel: "見本の画面",
   navEntry: "見本の入口",
-  navTodo: "やること",
-  navRecord: "記録",
+  navTodo: "対策項目",
+  navRecord: "死亡・消毒の記録",
   /** 帯に出す短い断り。全文は notSent（「くわしく」の中） */
   notSaved: "入れた記録は保存されません",
   /** 入力と保存について。サーバーにも端末の保存にも書かない */
@@ -21,9 +21,9 @@ export const SAMPLE_TEXT = {
   entryLead: "会員だったら、こう見えます。去年 12 月の再現の中の、津山市の近くにある、作り物の農場です",
   entryPlace: "場所は、再現の仮の地点（津山市の範囲から 5km 以内に、説明のために置いた地点）です。特定の農場を指すものではありません",
   entryHouses: "鶏舎",
-  entryTodo: "やること",
+  entryTodo: "対策項目",
   entryTodoNote: "近くの発生に合わせた確認と、解除の見込み、働く人への声かけ文",
-  entryRecord: "記録",
+  entryRecord: "死亡・消毒の記録",
   entryRecordNote: "鶏舎ごとの死亡数と基準の計算、週と自己点検の報告文、消毒の記録",
   entryExamples: "死亡数の例: 鶏舎Aは基準に当たる例、鶏舎Bは当たらない例、鶏舎Cは記録が 21 日に満たない例です",
   entryReplay: "去年の再現へ",

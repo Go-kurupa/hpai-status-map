@@ -21,8 +21,9 @@ export function shellContextOf(pathname: string): { mode: ShellMode; groups: Men
   const prefix = mode === "sample" ? "/sample" : "";
   const item = (to: string, label: string, current: boolean, member = false): MenuItem => (member ? { to, label, current, member } : { to, label, current });
   const farm: MenuItem[] = [
-    item(`${prefix}/todo`, "やること", under(path, `${prefix}/todo`), true),
-    item(`${prefix}/record/deaths`, "記録", under(path, `${prefix}/record`), true),
+    // 対策項目は会員でなくても使える（地図で選んだ町や地点を使う）ので、会員の印を付けない（2026-11-06 作者の決定）
+    item(`${prefix}/todo`, "対策項目", under(path, `${prefix}/todo`)),
+    item(`${prefix}/record/deaths`, "死亡・消毒の記録", under(path, `${prefix}/record`), true),
   ];
   if (mode !== "sample") farm.push(item("/settings/farm", "農場と通知の設定", under(path, "/settings"), true));
   // 設計書 2026-11-06-ui-frame 3 章（決定 8〜14）。10 項目。今季と過去は中の切り替え（SectionTabs）で見方を選ぶ
@@ -36,11 +37,11 @@ export function shellContextOf(pathname: string): { mode: ShellMode; groups: Men
       ],
     },
     {
-      label: "自分の農場",
+      label: "養鶏事業者の方",
       items: [
         ...farm,
         // 掲示用の貼り紙は入口だけ外した（画面と /poster は残す。2026-11-06 作者の決定: 入口の注意の紙は各自で作れる）
-        item("/sample", "記録の画面を試す", mode === "sample" && !farm.some((f) => f.current)),
+        item("/sample", "記録を試す", mode === "sample" && !farm.some((f) => f.current)),
       ],
     },
     {

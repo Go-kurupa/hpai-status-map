@@ -144,7 +144,7 @@ test.describe("デモの筋", () => {
     expect(urls.filter((u) => u.includes("firestore") || u.includes("api.anthropic.com"))).toEqual([]);
   });
 
-  test("場面 4: 12 月の 4 事例と見本の農場で、① のやること、声かけ文のコピー、解除の見込みが見える", async ({ page }) => {
+  test("場面 4: 12 月の 4 事例と見本の農場で、① の対策項目、声かけ文のコピー、解除の見込みが見える", async ({ page }) => {
     test.setTimeout(90_000);
     // 12 月の 4 事例（既定）。もし区域の近くの農場なら、という仮の地点で ① になる
     await openReplay(page);

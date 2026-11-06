@@ -530,7 +530,7 @@ describe("農場と記録（やった）", () => {
   it("/todo は会員の判断で包まない（未ログインでも開ける）", async () => {
     authState.value = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
-    expect(await screen.findByRole("heading", { name: "やること" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "対策項目" })).toBeTruthy();
     expect(await screen.findByText("今月の自己点検を確かめましょう")).toBeTruthy();
   });
 });

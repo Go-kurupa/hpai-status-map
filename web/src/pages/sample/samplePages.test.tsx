@@ -121,7 +121,7 @@ describe("/sample（入口）", () => {
   it("/sample/todo と /sample/record/deaths へのリンクがある", async () => {
     mount("/sample");
     await screen.findByRole("heading", { level: 1, name: "見本の農場" });
-    expect(screen.getByRole("link", { name: /^やること$/ }).getAttribute("href")).toBe("/sample/todo");
+    expect(screen.getByRole("link", { name: /^対策項目$/ }).getAttribute("href")).toBe("/sample/todo");
     expect(screen.getByRole("link", { name: /記録/ }).getAttribute("href")).toBe("/sample/record/deaths");
   });
 
@@ -367,7 +367,7 @@ describe("/sample/record", () => {
     fireEvent.click(within(screen.getByRole("navigation", { name: SAMPLE_TEXT.navLabel })).getByRole("link", { name: SAMPLE_TEXT.navEntry }));
     await screen.findByRole("heading", { level: 1, name: SAMPLE_TEXT.title });
     expect(screen.queryByRole("navigation", { name: SAMPLE_TEXT.navLabel })).toBeNull(); // 入口では行き来の帯を出さない
-    fireEvent.click(screen.getByRole("link", { name: /^記録/ }));
+    fireEvent.click(screen.getByRole("link", { name: /^死亡・消毒の記録/ }));
     await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.deathsTitle });
     fireEvent.click(within(screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel })).getByRole("link", { name: RECORD_TEXT.tabDisinfection }));
     await screen.findByRole("heading", { level: 1, name: TODO_TEXT.panelTitle });

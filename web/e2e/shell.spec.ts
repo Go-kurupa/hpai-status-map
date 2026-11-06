@@ -32,9 +32,9 @@ test.describe("骨格", () => {
       if (!(await link.isVisible())) continue;
       expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(48);
     }
-    await nav.getByRole("link", { name: "やること" }).click();
+    await nav.getByRole("link", { name: "対策項目" }).click();
     await expect(page).toHaveURL(/\/todo$/);
-    await expect(page.getByRole("heading", { name: "やること" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "対策項目" })).toBeVisible();
     await expect(menuNav(page)).toBeHidden();
   });
 
@@ -143,7 +143,7 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     const navBox = (await nav.boundingBox())!;
     expect(navBox.y + navBox.height).toBeLessThan(370);
     expect(navBox.height).toBeGreaterThanOrEqual(44);
-    const h1 = page.getByRole("heading", { level: 1, name: "やること" });
+    const h1 = page.getByRole("heading", { level: 1, name: "対策項目" });
     await bottomAboveNav(page, h1);
     expect((await h1.boundingBox())!.y).toBeLessThan(370);
     expect(await page.evaluate(() => window.scrollY)).toBe(0);

@@ -246,7 +246,7 @@ describe("shellContextOf", () => {
   it("/recordx は記録に当たらない", () => {
     const items = (p: string) => shellContextOf(p).groups.flatMap((g) => g.items);
     expect(items("/recordx").some((t) => t.current)).toBe(false);
-    expect(items("/record").find((t) => t.label === "記録")!.current).toBe(true);
+    expect(items("/record").find((t) => t.label === "死亡・消毒の記録")!.current).toBe(true);
   });
 });
 
@@ -263,15 +263,15 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
   });
   it("/record と /record/self-check で記録が選択中", () => {
     renderShell("/record");
-    expect(currentLabels()).toEqual(["記録会員"]);
+    expect(currentLabels()).toEqual(["死亡・消毒の記録会員"]);
     cleanup();
     renderShell("/record/self-check");
-    expect(currentLabels()).toEqual(["記録会員"]);
+    expect(currentLabels()).toEqual(["死亡・消毒の記録会員"]);
   });
-  it("/todo でやることが選択中。会員の画面には会員の印", () => {
+  it("/todo で対策項目が選択中。会員の印は会員だけが使える記録と設定に付く（対策項目は会員でなくても使える）", () => {
     renderShell("/todo");
-    expect(currentLabels()).toEqual(["やること会員"]);
-    expect(tabs().filter((a) => a.textContent?.includes("会員")).map((a) => a.getAttribute("href"))).toEqual(["/todo", "/record/deaths", "/settings/farm"]);
+    expect(currentLabels()).toEqual(["対策項目"]);
+    expect(tabs().filter((a) => a.textContent?.includes("会員")).map((a) => a.getAttribute("href"))).toEqual(["/record/deaths", "/settings/farm"]);
   });
   it("/season は今季の発生、/compare /town /area/xxx /replay は過去の発生、/results /privacy はこのサイトについてが選択中", () => {
     for (const [p, label] of [["/season", "今季の発生"], ["/compare", "過去の発生"], ["/town", "過去の発生"], ["/area/33203", "過去の発生"], ["/replay", "過去の発生"], ["/results", "このサイトについて"], ["/privacy", "このサイトについて"], ["/about", "このサイトについて"]] as const) {
@@ -308,7 +308,7 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
   it("/sample/todo は見本の行き先、帯に見本を終わる、設定なし", () => {
     const { container } = renderShell("/sample/todo");
     expect(hrefs()).toEqual(MENU_HREFS.flatMap((h) => (h === "/todo" ? ["/sample/todo"] : h === "/record/deaths" ? ["/sample/record/deaths"] : h === "/settings/farm" ? [] : [h])));
-    expect(currentLabels()).toEqual(["やること会員"]);
+    expect(currentLabels()).toEqual(["対策項目"]);
     const band = container.querySelector(".app-context")!;
     expect(band.textContent).toContain("見本の農場を見ています");
     const end = within(band as HTMLElement).getByRole("link", { name: "見本を終わる" });
@@ -318,10 +318,10 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
   });
   it("/sample/record/deaths と /sample の選択中", () => {
     renderShell("/sample/record/deaths");
-    expect(currentLabels()).toEqual(["記録会員"]);
+    expect(currentLabels()).toEqual(["死亡・消毒の記録会員"]);
     cleanup();
     const { container } = renderShell("/sample");
-    expect(currentLabels()).toEqual(["記録の画面を試す"]);
+    expect(currentLabels()).toEqual(["記録を試す"]);
     expect(container.querySelector(".app-context")).not.toBeNull();
   });
   it("/replay と /replay/backstage は帯に再現を終わる、行き先は通常、過去の発生が選択中", () => {
