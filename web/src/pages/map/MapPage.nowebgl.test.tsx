@@ -64,6 +64,9 @@ beforeAll(async () => {
   await Promise.all([import("./MapView"), import("./SvgMap")]);
 });
 
+// 代わりの地図は、市町村の形を読んでから描く。全部の試験を同時に流す負荷の高いときは 1 秒（既定）を超えることがある
+const SLOW = { timeout: 5000 };
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -85,7 +88,7 @@ describe("WebGL2 が使えない端末", () => {
   it("画面が落ちず、境の線だけの代わりの地図と 1 行の注記が出て、地図以外の内容も見える", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mount();
-    const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    const map = await screen.findByRole("group", { name: TEXT.svgMapAria }, SLOW);
     expect(within(map).getAllByRole("button")).toHaveLength(47);
     expect(screen.getByText(TEXT.svgMapNote, { exact: false })).toBeTruthy();
     // 地図以外（シーズンの棒、見回りの確認、固定のリンク）が残っている
@@ -102,7 +105,7 @@ describe("WebGL2 が使えない端末", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
     mount();
-    const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    const map = await screen.findByRole("group", { name: TEXT.svgMapAria }, SLOW);
     expect(map.querySelectorAll(".svg-ring")).toHaveLength(3);
     expect(screen.getByText(TEXT.ringNote)).toBeTruthy();
   });
@@ -110,7 +113,7 @@ describe("WebGL2 が使えない端末", () => {
   it("「町を選ぶ」の後、県を押して市町村を押すと、その町が自分の町になる", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mount();
-    const japan = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    const japan = await screen.findByRole("group", { name: TEXT.svgMapAria }, SLOW);
     fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     fireEvent.click(within(japan).getByRole("button", { name: /^岡山県/ }));
     const muni = await screen.findByRole("group", { name: /岡山県の市町村/ });
@@ -121,7 +124,7 @@ describe("WebGL2 が使えない端末", () => {
   it("代わりの地図では上の文を出さない（代わりの地図の中に案内がある）", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mount();
-    await screen.findByRole("group", { name: TEXT.svgMapAria });
+    await screen.findByRole("group", { name: TEXT.svgMapAria }, SLOW);
     fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     expect(screen.queryByText(TEXT.pickingBar)).toBeNull();
     expect(screen.getAllByText(TEXT.mapTapHint).length).toBeGreaterThan(0);
@@ -130,7 +133,7 @@ describe("WebGL2 が使えない端末", () => {
   it("「くわしい場所を決める」は、十字ではなく町の中心あたりのマス目を使うボタンになり、この端末に保存する", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { container } = mount();
-    const japan = await screen.findByRole("group", { name: TEXT.svgMapAria });
+    const japan = await screen.findByRole("group", { name: TEXT.svgMapAria }, SLOW);
     const spot = screen.getByRole("region", { name: TEXT.spotTitle });
     expect(within(spot).queryByRole("button", { name: TEXT.spotStart })).toBeNull();
     expect(within(spot).getByText(TEXT.spotNoMap)).toBeTruthy();
