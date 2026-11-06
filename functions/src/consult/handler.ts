@@ -76,8 +76,9 @@ function authorize(caller: ConsultCaller | null, data: unknown): Who {
 
 /** question と topicId はどちらか一方だけ。話題は決まった聞く文に置き換える。エラーの文に入力を入れない。 */
 function parseAsk(data: unknown): string {
-  const question = isRecord(data) ? data["question"] : undefined;
-  const topicId = isRecord(data) ? data["topicId"] : undefined;
+  // null は項目がないのと同じに扱う
+  const question = isRecord(data) ? (data["question"] ?? undefined) : undefined;
+  const topicId = isRecord(data) ? (data["topicId"] ?? undefined) : undefined;
   if (question !== undefined && topicId !== undefined) throw new HttpsError("invalid-argument", "文か話題のどちらか一方にしてください");
   if (topicId !== undefined) {
     const topic = typeof topicId === "string" ? findTopic(topicId) : undefined;
@@ -164,8 +165,8 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
   const attempt = await callAsk(deps.client(), buildAskRequest(allowed, question));
   await recordUsage(deps, attempt, now, g.settings);
 
-  // 第 3 引数のカードは数字の検査に使う（渡さないと、数字を含む答えが全部落ちる）。5 枚を超えたら先頭の 5 枚だけ使う
-  const result = validateFollowup(attempt.ok ? attempt.value : null, allowed.map((c) => c.id), allowed, CONSULT_MAX_CARDS);
+  // 第 3 引数のカードと第 5 引数の相談の文は数字の検査に使う（渡さないと、数字を含む答えが全部落ちる）。5 枚を超えたら先頭の 5 枚だけ使う
+  const result = validateFollowup(attempt.ok ? attempt.value : null, allowed.map((c) => c.id), allowed, CONSULT_MAX_CARDS, question);
   const byId = new Map(allowed.map((c) => [c.id, c]));
   logger.info("対策の相談(ask)", {
     outOfScope: result.outOfScope,

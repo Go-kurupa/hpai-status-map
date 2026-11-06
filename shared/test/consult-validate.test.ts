@@ -80,6 +80,16 @@ describe("validateFollowup", () => {
     expect(validateFollowup({ answer: "答え", cardIds: ids }, ids, many).cardIds).toEqual(ids);
   });
 
+  it("extraText（相談の文）に書かれた数字は通る。ない数字、別の数字は落ちる", () => {
+    expect(validateFollowup({ answer: "300 羽の平飼いなら見直します", cardIds: ["a"] }, ["a"], cards, 5, "300 羽の平飼いです").answer).toBe("300 羽の平飼いなら見直します");
+    // 全角の数字も同じ数字、漢数字の数量も同じ
+    expect(validateFollowup({ answer: "300 羽なら見直します", cardIds: ["a"] }, ["a"], cards, 5, "３００羽です").answer).toBe("300 羽なら見直します");
+    expect(validateFollowup({ answer: "二十羽なら見直します", cardIds: ["a"] }, ["a"], cards, 5, "20 羽です").answer).toBe("二十羽なら見直します");
+    expect(validateFollowup({ answer: "500 羽なら見直します", cardIds: ["a"] }, ["a"], cards, 5, "300 羽の平飼いです").answer).toBe(OUT_OF_SCOPE_TEXT);
+    // 渡さなければ今までどおり落ちる
+    expect(validateFollowup({ answer: "300 羽なら見直します", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+  });
+
   it("数字の検査は、使う maxCards 枚のカードだけで行う（外れた 6 枚目の数字は通らない）", () => {
     const six = [1, 2, 3, 4, 5].map((n) => makeCard({ id: `c${n}` }));
     const sixth = makeCard({ id: "c6", action: "7 日ごとに見直す" });

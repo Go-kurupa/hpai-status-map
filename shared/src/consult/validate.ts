@@ -59,9 +59,9 @@ function numbersOf(s: string): string[] {
   return [...(n.match(/\d+/gu) ?? []), ...kanji];
 }
 
-// 引いたカードに書いてよい数字: quote、appliesTo、action にある数字。
-function allowedNumbers(cards: ConsultCard[]): Set<string> {
-  const set = new Set<string>();
+// 書いてよい数字: 引いたカードの quote、appliesTo、action にある数字と、相談の文（extraText）に書かれた数字。
+function allowedNumbers(cards: ConsultCard[], extraText: string): Set<string> {
+  const set = new Set<string>(numbersOf(extraText));
   for (const card of cards) {
     for (const text of [card.quote, card.appliesTo, card.action]) {
       for (const n of numbersOf(text)) set.add(n);
@@ -82,7 +82,14 @@ const FOLLOWUP_FALLBACK: FollowupResult = { answer: OUT_OF_SCOPE_TEXT, cardIds: 
 
 // cards は数字の検査に使う。渡さないときは数字を確かめられないので、数字を含む答えは通さない。
 // maxCards は使うカードの上限。許された id に絞り、重なりを除いた後の先頭の maxCards 枚だけを使う（数字の検査もその分だけ）。
-export function validateFollowup(raw: unknown, allowedIds: string[], cards: ConsultCard[] = [], maxCards: number = Infinity): FollowupResult {
+// extraText は相談の文。相談者が書いた数字（「300 羽の平飼い」の 300）は、答えにそのまま書いてよい。
+export function validateFollowup(
+  raw: unknown,
+  allowedIds: string[],
+  cards: ConsultCard[] = [],
+  maxCards: number = Infinity,
+  extraText: string = "",
+): FollowupResult {
   const fallback = (): FollowupResult => ({ ...FOLLOWUP_FALLBACK, cardIds: [] });
   if (!isRecord(raw) || typeof raw.answer !== "string" || !Array.isArray(raw.cardIds)) return fallback();
   if (raw.outOfScope === true) return fallback();
@@ -95,7 +102,7 @@ export function validateFollowup(raw: unknown, allowedIds: string[], cards: Cons
 
   if (lengthAndUrlFailures(raw.answer, ANSWER_MAX_CHARS).length > 0) return fallback();
   const cited = cards.filter((c) => cardIds.includes(c.id));
-  if (unknownNumbers(raw.answer, allowedNumbers(cited)).length > 0) return fallback();
+  if (unknownNumbers(raw.answer, allowedNumbers(cited, extraText)).length > 0) return fallback();
   if (raw.answer.trim() === "") return fallback();
 
   return { answer: raw.answer, cardIds, outOfScope: false };

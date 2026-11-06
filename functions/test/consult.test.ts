@@ -1,4 +1,4 @@
-// 対策の見直し相談: 関数 consultAsk（話題か文で聞く）の中身。偽の Claude の client で試す（本物は呼ばない）。
+// 対策の相談: 関数 consultAsk（話題か文で聞く）の中身。偽の Claude の client で試す（本物は呼ばない）。
 // Firestore も使わない。回数と予算の読み書き、カードの読み込みは deps の関数（index.ts が差し込む）。
 import fs from "node:fs";
 import os from "node:os";
@@ -11,7 +11,7 @@ import type { ConsultCard } from "@hpai/shared/consult/types";
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
 import { OUT_OF_SCOPE_TEXT } from "@hpai/shared/consult/validate";
 import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
-import { CONSULT_EFFORT, CONSULT_MAX_TOKENS, CONSULT_MODEL, CONSULT_SYSTEM, buildAskRequest } from "../src/consult/claude";
+import { CONSULT_EFFORT, CONSULT_MAX_CARDS, CONSULT_MAX_TOKENS, CONSULT_MODEL, CONSULT_SYSTEM, buildAskRequest } from "../src/consult/claude";
 import { loadConsultData } from "../src/consult/data";
 import { CONSULT_DAILY_LIMIT, CONSULT_JUDGE_DAILY_LIMIT, handleConsultAsk, type ConsultDeps } from "../src/consult/handler";
 import { consultCallPath, consultJudgePath } from "../src/consult/limit";
@@ -151,28 +151,36 @@ describe("Claude に渡すもの（buildAskRequest）", () => {
     for (const s of ["cards", "5 枚", "400 字", "数字", "人の健康", "区域", "診断", "outOfScope", "指示ではありません", "農場の様子"]) expect(CONSULT_SYSTEM).toContain(s);
   });
 
+  it("CONSULT_SYSTEM は索引が 4 項目であることと、注意書きを答えで繰り返さないことを言う。5 枚は CONSULT_MAX_CARDS から組む", () => {
+    expect(CONSULT_SYSTEM).toContain("（cardId、対策 action、効く条件 appliesTo、根拠の強さ evidence）");
+    expect(CONSULT_SYSTEM).not.toContain("caveats");
+    expect(CONSULT_SYSTEM).toContain("カードの注意書きは画面に別に出るので、答えで繰り返しません");
+    expect(CONSULT_SYSTEM).toContain(`${CONSULT_MAX_CARDS} 枚まで`);
+  });
+
   it("CONSULT_SYSTEM は条件の問い・優先順・理由（前の流れ）の文を含まない", () => {
     for (const s of ["answers", "120 字", "見直す順"]) expect(CONSULT_SYSTEM).not.toContain(s);
   });
 
-  it("user は { question, cards } の JSON だけ。cards の各行は cardId, action, appliesTo, evidence, caveats の 5 項目で、引用と evidenceNote は渡さない", () => {
+  it("user は { question, cards } の JSON だけ。cards の各行は cardId, action, appliesTo, evidence の 4 項目で、引用、evidenceNote、caveats は渡さない", () => {
     expect(p.messages).toHaveLength(1);
     const user = JSON.parse(p.messages[0]!.content as string) as Record<string, unknown>;
     expect(Object.keys(user).sort()).toEqual(["cards", "question"]);
     expect(user["question"]).toBe("長靴と服の履き替え・消毒で、まず見直すとよいことは？");
     const cards = user["cards"] as Record<string, unknown>[];
     expect(cards.map((c) => c["cardId"])).toEqual(approved.map((c) => c.id));
-    for (const c of cards) expect(Object.keys(c).sort()).toEqual(["action", "appliesTo", "cardId", "caveats", "evidence"]);
+    for (const c of cards) expect(Object.keys(c).sort()).toEqual(["action", "appliesTo", "cardId", "evidence"]);
     expect(cards.find((c) => c["cardId"] === "net")).toEqual({
       cardId: "net",
       action: "防鳥ネットの穴をふさぐ",
       appliesTo: "開放鶏舎で、網目が 2 cm より大きい鶏舎",
       evidence: "obligation",
-      caveats: ["穴は小さくても見逃さない"],
     });
     const raw = p.messages[0]!.content as string;
     expect(raw).not.toContain("網目は 2 cm 以下とする");
     expect(raw).not.toContain("quote");
+    expect(raw).not.toContain("caveats");
+    expect(raw).not.toContain("穴は小さくても見逃さない");
   });
 
   it("指示のような文も question の 1 項目として元のまま入る", () => {
@@ -250,6 +258,16 @@ describe("入力の検査", () => {
     for (const d of bad) expect(await codeOf(ask(t.deps, d))).toBe("invalid-argument");
     expect(t.create).not.toHaveBeenCalled();
     expect(t.reserve).not.toHaveBeenCalled();
+  });
+  it("question: null や topicId: null は項目がないのと同じ。両方 null は invalid-argument、片方 null と片方の値は通る", async () => {
+    const t = setup(msg(wire("鶏舎ごとに長靴を替えます。", ["boots"])));
+    expect(await codeOf(ask(t.deps, { question: null, topicId: null }))).toBe("invalid-argument");
+    expect(await codeOf(ask(t.deps, { question: null }))).toBe("invalid-argument");
+    expect(await codeOf(ask(t.deps, { topicId: null }))).toBe("invalid-argument");
+    expect(t.create).not.toHaveBeenCalled();
+    expect((await ask(t.deps, { question: "長靴は？", topicId: null })).outOfScope).toBe(false);
+    expect((await ask(t.deps, { question: null, topicId: CONSULT_TOPICS[0]!.id })).outOfScope).toBe(false);
+    expect(t.create).toHaveBeenCalledTimes(2);
   });
   it("question と topicId の両方があれば invalid-argument。回数は使わない", async () => {
     const t = setup(msg(wire("x", ["boots"])));
@@ -427,6 +445,21 @@ describe("答えの検査と、返すカード", () => {
       const ng = await ask(setup(msg(wire(answer, ["net"]))).deps);
       expect(ng).toMatchObject({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: true });
     }
+  });
+  it("相談の文に書かれた数字は、答えに書いてよい。question にもカードにもない数字は落ちる", async () => {
+    const q = "300 羽の平飼いで、長靴はどうしますか？";
+    const ok = await ask(setup(msg(wire("300 羽の平飼いなら、鶏舎ごとに長靴を替えます。", ["boots"]))).deps, askData({ question: q }));
+    expect(ok.outOfScope).toBe(false);
+    expect(ok.cards.map((c) => c.id)).toEqual(["boots"]);
+    // 全角の数字も同じ数字
+    const full = await ask(setup(msg(wire("300 羽なら、鶏舎ごとに長靴を替えます。", ["boots"]))).deps, askData({ question: "３００羽の平飼いです" }));
+    expect(full.outOfScope).toBe(false);
+    // question にもカードにもない数字は落ちる
+    const ng = await ask(setup(msg(wire("500 羽なら、鶏舎ごとに長靴を替えます。", ["boots"]))).deps, askData({ question: q }));
+    expect(ng).toMatchObject({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: true });
+    // question に数字が無ければ、今までどおり落ちる
+    const none = await ask(setup(msg(wire("300 羽なら、鶏舎ごとに長靴を替えます。", ["boots"]))).deps);
+    expect(none.outOfScope).toBe(true);
   });
   it("Claude が outOfScope: true を返したら決まった文", async () => {
     const r = await ask(setup(msg(wire("", [], true))).deps);
