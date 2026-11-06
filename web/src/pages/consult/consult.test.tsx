@@ -174,6 +174,44 @@ describe("対策の相談の画面", () => {
     expect(cards[1]!.textContent).toContain("USDA APHIS");
   });
 
+  it("海外のカードの注意書きに「海外:」があれば、一般の「日本と飼い方が違う可能性があります。」の行は出さない（二重にしない）", async () => {
+    const us = ans({ ...CARD_US, caveats: ["海外: 日本と飼い方が違う可能性があります（米国の採卵農場の研究）"] });
+    box.ask.mockResolvedValue(reply({ cards: [us] }));
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    const card = screen.getByTestId("consult-card");
+    expect(within(card).getByText(us.caveats[0]!)).toBeTruthy();
+    expect(within(card).queryByText(CONSULT_TEXT.foreign)).toBeNull();
+    // 「海外:」で始まらない注意書きでは、今までどおり出る
+    cleanup();
+    const us2 = ans({ ...CARD_US, caveats: ["対照が少ない"] });
+    box.ask.mockResolvedValue(reply({ cards: [us2] }));
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    expect(within(screen.getByTestId("consult-card")).getByText(CONSULT_TEXT.foreign)).toBeTruthy();
+  });
+
+  it("返事のカードに source がなくても落ちず、資料の行と帰属の文は出さず、カードの本体は出す", async () => {
+    const { source: _omit, ...bare } = ans(CARD_JP);
+    box.ask.mockResolvedValue(reply({ cards: [bare as ConsultAnswerCard] }));
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    const card = within(screen.getByTestId("consult-card"));
+    expect(card.getByText(CARD_JP.action)).toBeTruthy();
+    expect(card.getByText("義務")).toBeTruthy();
+    expect(card.getByText(CARD_JP.quote)).toBeTruthy();
+    for (const c of CARD_JP.caveats) expect(card.getByText(c)).toBeTruthy();
+    expect(card.queryByTestId("consult-attribution")).toBeNull();
+    expect(card.queryByRole("link")).toBeNull();
+    expect(card.queryByText(/資料:/)).toBeNull();
+  });
+
   it("前の相談が残り、新しい相談は下に足される（新しい相談の位置へ動く）", async () => {
     box.ask.mockResolvedValueOnce(reply({ answer: "一つ目の答え" })).mockResolvedValueOnce(reply({ answer: "二つ目の答え", cards: [ans(CARD_US)] }));
     renderPage();
@@ -449,10 +487,15 @@ describe("対策の相談の画面", () => {
     it("PDL1.0: 出典: 〈発行者〉『〈題〉』を加工して作成", async () => {
       expect(await attribution(withLicense("PDL1.0"))).toBe("出典: 農林水産省『飼養衛生管理基準遵守指導の手引き』を加工して作成");
     });
-    it("CC BY 4.0: 〈題〉（CC BY 4.0、URL ）。要約と抜き出しは当サイト", async () => {
-      expect(await attribution(withLicense("CC BY 4.0"))).toBe(
-        "飼養衛生管理基準遵守指導の手引き（CC BY 4.0、https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト",
-      );
+    it("CC BY 4.0: 帰属の文に題を入れない（資料の行にある）", async () => {
+      const text = await attribution(withLicense("CC BY 4.0"));
+      expect(text).toBe("CC BY 4.0（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト");
+      expect(text).not.toContain("飼養衛生管理基準遵守指導の手引き");
+    });
+    it("CC BY（版なし）も同じ形で、題を入れない", async () => {
+      const text = await attribution(withLicense("CC BY"));
+      expect(text).toBe("CC BY（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト");
+      expect(text).not.toContain("飼養衛生管理基準遵守指導の手引き");
     });
     it("OGL v3.0: Contains public sector information licensed under the Open Government Licence v3.0.", async () => {
       expect(await attribution(withLicense("OGL v3.0"))).toBe("Contains public sector information licensed under the Open Government Licence v3.0.");

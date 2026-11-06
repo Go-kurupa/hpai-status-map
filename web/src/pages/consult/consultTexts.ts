@@ -40,9 +40,10 @@ export function attributionText(source: ConsultSourceInfo): string {
     case "PDL1.0":
       return `出典: ${source.publisher}『${source.title}』を加工して作成`;
     case "CC BY 4.0":
-      return `${source.title}（CC BY 4.0、https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト`;
+      // 題は上の「資料:」の行にあるので、ここには入れない
+      return "CC BY 4.0（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト";
     case "CC BY":
-      return `${source.title}（CC BY）。要約と抜き出しは当サイト`;
+      return "CC BY（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト";
     case "OGL v3.0":
       return "Contains public sector information licensed under the Open Government Licence v3.0.";
     case "US Gov":

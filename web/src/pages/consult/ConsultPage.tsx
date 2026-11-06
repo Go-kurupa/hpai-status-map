@@ -49,7 +49,8 @@ function ConsultCardView({
   failed: boolean;
   onAdd: (cardId: string) => void;
 }) {
-  const { source } = card;
+  // 古い関数の返事には source がない。そのときは資料の行と帰属の文を出さず、カードの本体だけ出す
+  const source = (card as { source?: ConsultAnswerCard["source"] }).source;
   return (
     <li className="consult-card" data-testid="consult-card">
       <p className="consult-card-action">{card.action}</p>
@@ -57,21 +58,26 @@ function ConsultCardView({
         <span className="consult-evidence">{EVIDENCE_LABEL[card.evidence]}</span>
       </p>
       <blockquote className="consult-quote">{card.quote}</blockquote>
-      <p className="consult-source">
-        資料:{" "}
-        {isWebUrl(source.url) ? (
-          <a href={source.url} target="_blank" rel="noopener noreferrer">
-            {source.title}
-          </a>
-        ) : (
-          source.title
-        )}
-        （{source.publisher}）
-      </p>
-      <p className="consult-attribution" data-testid="consult-attribution">
-        {attributionText(source)}
-      </p>
-      {!source.domestic ? <p className="consult-foreign">{CONSULT_TEXT.foreign}</p> : null}
+      {source ? (
+        <>
+        <p className="consult-source">
+          資料:{" "}
+          {isWebUrl(source.url) ? (
+            <a href={source.url} target="_blank" rel="noopener noreferrer">
+              {source.title}
+            </a>
+          ) : (
+            source.title
+          )}
+          （{source.publisher}）
+        </p>
+        <p className="consult-attribution" data-testid="consult-attribution">
+          {attributionText(source)}
+        </p>
+        {/* 注意書きに「海外:」があれば、そちらが具体的なので、一般の注意は重ねない */}
+        {!source.domestic && !card.caveats.some((c) => c.startsWith("海外:")) ? <p className="consult-foreign">{CONSULT_TEXT.foreign}</p> : null}
+        </>
+      ) : null}
       {card.caveats.length > 0 ? (
         <ul className="consult-caveats">
           {card.caveats.map((c) => (
