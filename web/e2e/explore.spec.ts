@@ -38,3 +38,19 @@ test("月の行を押すとその月の事例に絞れ、もう一度押すと�
   await dec.click();
   await expect(page.locator(".explore-answer")).toContainText("247 件");
 });
+
+// 本番を出し直した後、前から開いていた画面が古い部品のファイルを読みに行って失敗しても、1 回だけ読み込み直して開ける（作者 11/7「条件で見るでクラッシュ」）
+test("条件で見るの部品の読み込みに 1 回失敗しても、読み込み直して開ける", async ({ page }) => {
+  await installFixture(page, { now: "2026-11-10T09:00:00+09:00", cases: [], wildBirds: [], watch: WATCH_OK });
+  let failed = false;
+  await page.route(/\/assets\/ExplorePage-[^/]*\.js$/, (r) => {
+    if (failed) return r.continue();
+    failed = true;
+    return r.fulfill({ status: 404, body: "not found" });
+  });
+  await page.goto("/compare");
+  await page.getByRole("navigation", { name: "過去の発生の見方" }).getByRole("link", { name: "条件で見る" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("条件で見る過去の発生", { timeout: 20_000 });
+  expect(failed).toBe(true);
+});
+
