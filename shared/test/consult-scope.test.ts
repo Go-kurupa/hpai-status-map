@@ -15,6 +15,8 @@ describe("範囲外の問いの見分け", () => {
     expect(isOutOfScopeQuestion("人の健康への影響は？")).toBe(true);
     expect(isOutOfScopeQuestion("病院に行くべきですか")).toBe(true);
     expect(isOutOfScopeQuestion("卵を食べても大丈夫？")).toBe(true);
+    expect(isOutOfScopeQuestion("卵は大丈夫ですか")).toBe(true);
+    expect(isOutOfScopeQuestion("鶏肉は大丈夫ですか")).toBe(true);
     expect(isOutOfScopeQuestion("鶏肉を食べても平気？")).toBe(true);
   });
 
