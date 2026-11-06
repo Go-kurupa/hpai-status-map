@@ -1,5 +1,5 @@
 // 会員の画面から呼ぶ Cloud Functions（onCall）。lazy の chunk だけが import する。
-import type { ConsultCard } from "@hpai/shared/consult/types";
+import type { ConsultAskResponse } from "@hpai/shared/consult/types";
 import type { NeighborAudience, NeighborDraftResult } from "@hpai/shared/drafts";
 import { httpsCallable } from "firebase/functions";
 import { getFirebase } from "../../firebase";
@@ -37,15 +37,6 @@ export async function draftNeighborExplainerCall(measures: string, audience: Nei
     { timeout: 130_000 },
   )({ measures, audience });
   return res.data;
-}
-
-/** 対策の相談の返事（functions/src/consult/handler.ts の ConsultAskResponse と同じ形） */
-export interface ConsultAskResponse {
-  answer: string;
-  cards: ConsultCard[];
-  outOfScope: boolean;
-  /** Claude を呼ばなかった理由。呼んだときと、範囲外の問いは null */
-  notice: null | "daily_limit" | "budget_stop";
 }
 
 /**

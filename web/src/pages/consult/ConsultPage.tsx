@@ -2,11 +2,10 @@
 // おすすめの文は Claude の下書き。引用・資料・根拠の札・注意書きは、カードのデータをそのまま出す（Claude は書き換えない）。
 // 前の相談は画面に残し、ページを離れたら消える（保存しない）。会員だけの画面だが、?judge=1 の審査員の入口は会員の確認を通さない。
 import { CONSULT_TOPICS, type ConsultTopic } from "@hpai/shared/consult/topics";
-import { EVIDENCE_LABEL, type ConsultCard, type ConsultSource } from "@hpai/shared/consult/types";
+import { EVIDENCE_LABEL, type ConsultAskResponse, type ConsultCard, type ConsultSource } from "@hpai/shared/consult/types";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { Button } from "../../ui/Button";
-import type { ConsultAskResponse } from "../auth/callables";
 import { RequireMember } from "../auth/RequireMember";
 import { loadConsultCatalog, type ConsultCatalog } from "./cardsData";
 import { CONSULT_TEXT } from "./consultTexts";
@@ -24,11 +23,15 @@ interface Entry {
 
 function isWebUrl(url: string): boolean {
   try {
-    const p = new URL(url).protocol;
-    return p === "https:" || p === "http:";
+    return new URL(url).protocol === "https:";
   } catch {
     return false;
   }
+}
+
+function isPermissionDenied(e: unknown): boolean {
+  const code = (e as { code?: unknown } | null)?.code;
+  return typeof code === "string" && code.endsWith("permission-denied");
 }
 
 function ConsultCardView({
@@ -36,6 +39,7 @@ function ConsultCardView({
   source,
   canAdd,
   added,
+  adding,
   failed,
   onAdd,
 }: {
@@ -43,6 +47,7 @@ function ConsultCardView({
   source: ConsultSource | undefined;
   canAdd: boolean;
   added: boolean;
+  adding: boolean;
   failed: boolean;
   onAdd: (cardId: string) => void;
 }) {
@@ -78,6 +83,8 @@ function ConsultCardView({
         <p>
           {added ? (
             <Button disabled>{CONSULT_TEXT.added}</Button>
+          ) : adding ? (
+            <Button disabled>{CONSULT_TEXT.adding}</Button>
           ) : (
             <Button onClick={() => onAdd(card.id)}>{CONSULT_TEXT.add}</Button>
           )}
@@ -103,6 +110,7 @@ function EntryView({
   catalog,
   reviews,
   failedIds,
+  addingIds,
   onAdd,
   last,
 }: {
@@ -111,6 +119,7 @@ function EntryView({
   catalog: ConsultCatalog | null;
   reviews: ReadonlySet<string>;
   failedIds: ReadonlySet<string>;
+  addingIds: ReadonlySet<string>;
   onAdd: (cardId: string) => void;
   last: React.Ref<HTMLElement>;
 }) {
@@ -136,6 +145,7 @@ function EntryView({
               source={catalog?.sources.get(card.sourceId)}
               canAdd={!judge}
               added={reviews.has(card.id)}
+              adding={addingIds.has(card.id)}
               failed={failedIds.has(card.id)}
               onAdd={onAdd}
             />
@@ -163,6 +173,8 @@ function ConsultBody({ judge }: { judge: boolean }) {
   const [reviews, setReviews] = useState<ReadonlySet<string>>(new Set());
   const [reviewsFailed, setReviewsFailed] = useState(false);
   const [addFailed, setAddFailed] = useState<ReadonlySet<string>>(new Set());
+  const [adding, setAdding] = useState<ReadonlySet<string>>(new Set());
+  const addingRef = useRef(new Set<string>()); // 二度押しを同期で止める（state は次の描き直しまで古い）
   const lastEntry = useRef<HTMLElement>(null);
   const counter = useRef(0);
 
@@ -223,6 +235,9 @@ function ConsultBody({ judge }: { judge: boolean }) {
   };
 
   const add = async (cardId: string) => {
+    if (addingRef.current.has(cardId) || reviews.has(cardId)) return;
+    addingRef.current.add(cardId);
+    setAdding(new Set(addingRef.current));
     setAddFailed((prev) => {
       const next = new Set(prev);
       next.delete(cardId);
@@ -231,9 +246,22 @@ function ConsultBody({ judge }: { judge: boolean }) {
     try {
       await store.addReview(cardId);
       setReviews((prev) => new Set(prev).add(cardId));
-    } catch {
-      setAddFailed((prev) => new Set(prev).add(cardId));
+    } catch (e) {
+      // 足し済みのカードへの書き込みは上書きになり、規則が拒む。一覧を読めていなかっただけなら、読み直して足し済みにする
+      let already = false;
+      if (isPermissionDenied(e)) {
+        try {
+          const ids = await store.listReviews();
+          setReviews(new Set(ids));
+          already = ids.includes(cardId);
+        } catch {
+          already = false;
+        }
+      }
+      if (!already) setAddFailed((prev) => new Set(prev).add(cardId));
     }
+    addingRef.current.delete(cardId);
+    setAdding(new Set(addingRef.current));
   };
 
   return (
@@ -282,6 +310,7 @@ function ConsultBody({ judge }: { judge: boolean }) {
             catalog={catalog}
             reviews={reviews}
             failedIds={addFailed}
+            addingIds={adding}
             onAdd={(cardId) => void add(cardId)}
             last={i === entries.length - 1 ? lastEntry : null}
           />

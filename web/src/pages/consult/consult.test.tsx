@@ -8,7 +8,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecordStoreProvider } from "../../data/context";
 import type { RecordStore } from "../../data/types";
-import type { ConsultAskResponse } from "../auth/callables";
+import type { ConsultAskResponse } from "@hpai/shared/consult/types";
 import { CONSULT_TEXT } from "./consultTexts";
 
 const box = vi.hoisted(() => ({
@@ -274,6 +274,70 @@ describe("対策の相談の画面", () => {
     const us = within(screen.getAllByTestId("consult-card")[1]!);
     await waitFor(() => expect((us.getByRole("button", { name: "対策項目に足しました" }) as HTMLButtonElement).disabled).toBe(true));
     expect(box.reviews.addReview).not.toHaveBeenCalled();
+  });
+
+  it("保存中は「足しています…」で押せず、二度押しでも addReview は 1 回だけ", async () => {
+    let done: () => void = () => {};
+    box.reviews.addReview.mockReturnValue(new Promise<void>((r) => (done = r)));
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    const first = within(screen.getAllByTestId("consult-card")[0]!);
+    const btn = first.getByRole("button", { name: CONSULT_TEXT.add });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    const busy = await first.findByRole("button", { name: "足しています…" });
+    expect((busy as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(busy);
+    done();
+    await waitFor(() => expect(first.getByRole("button", { name: "対策項目に足しました" })).toBeTruthy());
+    expect(box.reviews.addReview).toHaveBeenCalledTimes(1);
+    expect(first.queryByRole("alert")).toBeNull();
+  });
+
+  it("一覧を読めずに足し済みを知らなかったとき、permission-denied で失敗したら読み直し、足し済みなら「足しました」にする", async () => {
+    box.reviews.listReviews.mockRejectedValueOnce(new Error("x")).mockResolvedValueOnce(["maff-M07"]);
+    box.reviews.addReview.mockRejectedValue(Object.assign(new Error("denied"), { code: "permission-denied" }));
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    const first = within(screen.getAllByTestId("consult-card")[0]!);
+    fireEvent.click(first.getByRole("button", { name: CONSULT_TEXT.add }));
+    await waitFor(() => expect(first.getByRole("button", { name: "対策項目に足しました" })).toBeTruthy());
+    expect(first.queryByRole("alert")).toBeNull();
+  });
+
+  it("permission-denied でも、読み直して足し済みでなければ（読み直しに失敗しても）失敗の文のまま", async () => {
+    box.reviews.addReview.mockRejectedValue(Object.assign(new Error("denied"), { code: "permission-denied" }));
+    box.reviews.listReviews.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockRejectedValueOnce(new Error("x"));
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    const first = within(screen.getAllByTestId("consult-card")[0]!);
+    fireEvent.click(first.getByRole("button", { name: CONSULT_TEXT.add }));
+    expect((await first.findByRole("alert")).textContent).toBe(CONSULT_TEXT.addFailed);
+    fireEvent.click(first.getByRole("button", { name: CONSULT_TEXT.add }));
+    await waitFor(() => expect(box.reviews.listReviews).toHaveBeenCalledTimes(3));
+    expect((await first.findByRole("alert")).textContent).toBe(CONSULT_TEXT.addFailed);
+  });
+
+  it("資料のリンクは https だけ（http はリンクにしない）", async () => {
+    const http = { ...SOURCES[0]!, url: "http://www.maff.go.jp/example.pdf" };
+    box.catalog = { cards: new Map(), sources: new Map([[http.id, http], [SOURCES[1]!.id, SOURCES[1]!]]) };
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    const cards = screen.getAllByTestId("consult-card");
+    await waitFor(() => expect(within(cards[1]!).getByRole("link")).toBeTruthy());
+    expect(within(cards[0]!).queryByRole("link")).toBeNull();
   });
 
   it("足すのに失敗したら、そのカードにだけ失敗の文が出て、ボタンはそのまま", async () => {

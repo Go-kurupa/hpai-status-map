@@ -19,6 +19,7 @@ export const CONSULT_TEXT = {
   failed: "相談を送れませんでした。もう一度お試しください。",
   foreign: "日本と飼い方が違う可能性があります。",
   add: "＋ 対策項目に足す",
+  adding: "足しています…",
   added: "対策項目に足しました",
   addFailed: "対策項目に足せませんでした。もう一度お試しください。",
   reviewsLoadFailed: "足した項目を読めませんでした。足し済みの印が出ないことがあります。",

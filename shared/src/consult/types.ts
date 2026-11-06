@@ -68,3 +68,14 @@ export interface ConsultCardsFile {
   sources: ConsultSource[];
   cards: ConsultCard[];
 }
+
+// 相談の関数（consultAsk）の返事。関数と画面が同じ型を使う。
+export type ConsultNotice = null | "daily_limit" | "budget_stop";
+
+export interface ConsultAskResponse {
+  answer: string;
+  cards: ConsultCard[];
+  outOfScope: boolean;
+  /** Claude を呼ばなかった理由（予算の停止、1 日の回数）。呼んだときと、範囲外の問いは null */
+  notice: ConsultNotice;
+}

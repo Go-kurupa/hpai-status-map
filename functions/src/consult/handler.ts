@@ -11,7 +11,7 @@ import { isDraftBudgetStopped } from "@hpai/shared/budget";
 import type { TokenUsage, UsageMonth } from "@hpai/shared/budget";
 import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { findTopic } from "@hpai/shared/consult/topics";
-import type { ConsultCard } from "@hpai/shared/consult/types";
+import type { ConsultAskResponse, ConsultCard, ConsultNotice } from "@hpai/shared/consult/types";
 import { OUT_OF_SCOPE_TEXT, validateFollowup } from "@hpai/shared/consult/validate";
 import type { RuntimeSettings } from "@hpai/shared/types";
 import type { ReadAttempt } from "../read/claude";
@@ -25,15 +25,7 @@ export const CONSULT_JUDGE_DAILY_LIMIT = 30;
 /** 聞く文の長さの上限（文字の数）。 */
 export const CONSULT_MAX_QUESTION = 300;
 
-export type ConsultNotice = null | "daily_limit" | "budget_stop";
-
-export interface ConsultAskResponse {
-  answer: string;
-  cards: ConsultCard[];
-  outOfScope: boolean;
-  /** Claude を呼ばなかった理由（予算の停止、1 日の回数）。呼んだときと、範囲外の問いは null */
-  notice: ConsultNotice;
-}
+export type { ConsultAskResponse, ConsultNotice };
 
 export interface ConsultCaller {
   uid: string;
