@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router";
 import { KnownFigureView } from "./KnownFigure";
+import { Illust, ILLUST_NAMES, type IllustName } from "./Illust";
 import { AUDIENCE_LABEL, KNOWN_FINDINGS, PAST_BASIS, type Audience, type KnownFinding } from "./knownFindings";
 import "./public.css";
 
@@ -166,7 +167,10 @@ function FindingItem({ f }: { f: KnownFinding }) {
   const rest = limits.filter((_, i) => i !== at);
   return (
     <li id={f.id} data-role="finding" data-id={f.id} className="guidance-notes known-finding">
-      <h2 className="known-heading">{f.heading}</h2>
+      <h2 className="known-heading illust-heading">
+        {(ILLUST_NAMES as readonly string[]).includes(f.id) ? <Illust name={f.id as IllustName} /> : null}
+        <span>{f.heading}</span>
+      </h2>
       <p className="known-badge">
         <span className="known-certainty">
           <CertaintyMark certainty={f.certainty} />

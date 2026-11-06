@@ -441,3 +441,44 @@
   margin: 0;
   font-size: 0.9rem;
 }
+
+/* 見出しに添える線画（Illust.tsx）。作品の中で描いた絵で、色はここの --ill-* だけから取る。
+   紺の線と淡い面。赤は禁止の印と鶏のとさかだけ。見出しの文字の左に置き、読み上げでは飛ばす */
+.public-page {
+  --ill-bg: #e8f1fe;
+  --ill-bg-strong: #c5d7fb;
+  --ill-paper: #ffffff;
+  --ill-line: var(--navy);
+  --ill-water: var(--accent);
+  --ill-red: var(--lv1);
+  --ill-warm: #e0a100;
+  --ill-warm-pale: #fff4cc;
+  --ill-green: #197a4b;
+  --ill-ground: #e5d4b8;
+  --ill-bar: #b9b9c4;
+}
+.illust-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.illust-heading > span {
+  min-width: 0;
+}
+.illust {
+  flex: none;
+  width: 64px;
+  height: 64px;
+}
+@media (max-width: 480px) {
+  .illust {
+    width: 52px;
+    height: 52px;
+  }
+}
+@media print {
+  .illust {
+    width: 40px;
+    height: 40px;
+  }
+}

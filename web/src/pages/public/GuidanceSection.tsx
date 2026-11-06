@@ -2,6 +2,7 @@ import type { OfficialGuidance } from "@hpai/shared/guidance/official";
 import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import { SourceLine } from "../../ui/SourceLine";
+import { Illust } from "./Illust";
 import type { StatementNote } from "./pageNotes";
 
 export const NOTES_HEADING = "このページからのお願い";
@@ -34,7 +35,10 @@ export function GuidanceSection({
   const headingId = `${topic}-heading`;
   return (
     <section id={topic} data-topic={topic} className="guidance" aria-labelledby={headingId}>
-      <h2 id={headingId}>{heading}</h2>
+      <h2 id={headingId} className="illust-heading">
+        <Illust name={topic} />
+        <span>{heading}</span>
+      </h2>
       {lead ? (
         <aside data-role="section-lead" className="guidance-lead" aria-label={`${heading}の要点（国の文ではない、作品側のまとめ）`}>
           <h3>{LEAD_HEADING}</h3>
