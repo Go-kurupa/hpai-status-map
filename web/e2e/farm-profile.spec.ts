@@ -49,7 +49,8 @@ async function joinAsMember(page: Page, link: string) {
   await page.goto(link);
   await page.getByLabel("ログインに使うメールアドレス").fill(EMAIL);
   await page.getByRole("button", { name: "つづける" }).click();
-  await expect(page).toHaveURL(/\/settings\/farm/);
+  // 招待の受け取り（redeemInvite）は、模擬環境で最初に呼ぶと立ち上がりに 5 秒を超えることがある（2026-11-07、この試験だけを流すと落ちた）
+  await expect(page).toHaveURL(/\/settings\/farm/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "農場の設定", level: 1 })).toBeVisible();
 }
 

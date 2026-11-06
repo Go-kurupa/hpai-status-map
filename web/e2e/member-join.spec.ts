@@ -59,7 +59,8 @@ test("招待リンクを別の文脈で開き、会員になって、地点を�
   await page.goto(link);
   await page.getByLabel("ログインに使うメールアドレス").fill(EMAIL);
   await page.getByRole("button", { name: "つづける" }).click();
-  await expect(page).toHaveURL(/\/settings\/farm/);
+  // 招待の受け取り（redeemInvite）は、模擬環境で最初に呼ぶと立ち上がりに 5 秒を超えることがある（farm-profile.spec.ts と同じ）
+  await expect(page).toHaveURL(/\/settings\/farm/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "農場の設定" })).toBeVisible();
 
   // 会員と確かめられたので、メニューに記録と設定が出て、会員のログインは消える（決定 15。読み直しなし）
