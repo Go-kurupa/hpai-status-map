@@ -122,3 +122,55 @@ describe("validateFollowup", () => {
     expect(validateFollowup({ answer: "7 日ごとに見直します", cardIds: ids }, ids, all, 5).answer).toBe(OUT_OF_SCOPE_TEXT);
   });
 });
+
+describe("validateFollowup: 箇条書きの番号と項目の数は事実の数字として数えない（Ruling 20）", () => {
+  const ids = ["maff-M06a", "papers-C04a", "papers-C03", "maff-M07a", "maff-M05"];
+  const many = ids.map((id) => makeCard({ id, action: "履き替える", appliesTo: "鶏舎に入る農場", quote: "長靴を交換する" }));
+  // 本物の返事（2026-11-07 の実測）。数字は箇条書きの番号と「3点」だけ。
+  const REAL_ANSWER = [
+    "まず見直したいのは、次の3点です。",
+    "1. 裏口での履き替え：除糞や死体搬出に使う裏口から鶏舎に出入りするときも、手指の洗浄・消毒と長靴の交換をしているか確認します。鶏舎入口で履き替えていても、裏口では履き替えていない例が多く見られました。裏口を使わない方法もあります。",
+    "2. 鶏舎入口での専用靴への履き替え：国内の採卵鶏農場の調査では、衛生管理区域の入口での履き替えには差がなく、関連が見られたのは鶏舎入口と裏口でした。",
+    "3. 動線の区分：着替え・履き替えの前と後で、すのこや分離板を使って保管場所を分け、一方通行にします。",
+    "あわせて、外部事業者には農場で用意した服と長靴を使ってもらうこと、複数の衛生管理区域がある場合は区域ごとに更衣することも確認しましょう。",
+  ].join("\n");
+  const check = (answer: string, extra = "") => validateFollowup({ answer, cardIds: ids }, ids, many, 5, extra);
+
+  it("本物の答え（番号 1. 2. 3. と「3点」）は通る", () => {
+    const r = check(REAL_ANSWER);
+    expect(r.failures).toEqual([]);
+    expect(r.outOfScope).toBe(false);
+    expect(r.cardIds).toEqual(ids);
+    expect(r.answer).toBe(REAL_ANSWER);
+  });
+
+  it("行頭の番号の書き方いろいろ（1. ／全角の１．／1、／1)／（1）／丸数字）は数えない", () => {
+    for (const bullet of ["1. ", "１．", "1、", "1) ", "1）", "（1）", "(1) ", "①", "  2. ", "　３． "]) {
+      expect(check(`次を確認します。\n${bullet}長靴を替える\n${bullet}服を替える`).failures).toEqual([]);
+    }
+  });
+
+  it("「N点」「Nつ」「N項目」「N個」（N が 5 以下。全角も）は数えない", () => {
+    for (const w of ["3点", "２つ", "5 項目", "4個", "三点"]) expect(check(`見直すのは${w}です`).failures).toEqual([]);
+  });
+
+  it("5 を超える「6点」、「3倍」、「2cm」、「100m」、行の途中の 1. や 1.5 は今までどおり落ちる", () => {
+    expect(check("次の6点です").failures).toEqual(["unknown_number:6"]);
+    expect(check("3倍に増える").failures).toEqual(["unknown_number:3"]);
+    expect(check("網目は2cm以下").failures).toEqual(["unknown_number:2"]);
+    expect(check("100m離す").failures).toEqual(["unknown_number:100"]);
+    expect(check("長靴を替える。1. 服も替える").failures).toEqual(["unknown_number:1"]);
+    expect(check("1.5 倍になります").failures).toEqual(expect.arrayContaining(["unknown_number:5"]));
+    expect(check("長さは1.5メートル").failures.length).toBeGreaterThan(0);
+  });
+
+  it("番号を取り除いても、同じ行の本文の数字は検査する", () => {
+    expect(check("1. 3倍に増える").failures).toEqual(["unknown_number:3"]);
+    expect(check("1. 網目は2cm以下").failures).toEqual(["unknown_number:2"]);
+  });
+
+  it("maxCards が 5 より小さいときは、それを超える「N点」は数える", () => {
+    expect(validateFollowup({ answer: "4点です", cardIds: ids }, ids, many, 3).failures).toEqual(["unknown_number:4"]);
+    expect(validateFollowup({ answer: "3点です", cardIds: ids }, ids, many, 3).failures).toEqual([]);
+  });
+});

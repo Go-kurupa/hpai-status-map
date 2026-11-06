@@ -72,8 +72,26 @@ function allowedNumbers(cards: ConsultCard[], extraText: string): Set<string> {
   return set;
 }
 
-function unknownNumbers(text: string, allowed: Set<string>): string[] {
-  return numbersOf(text).filter((n) => !allowed.has(n));
+// 答えの文の、事実としては数えない数字を取り除く（箇条書きの番号と、項目の数）。
+//  - 行頭（前に空白可）の番号: 「1.」「1．」「1、」「1)」「1）」「（1）」「①」。「1.5」の 1. は番号ではない。
+//  - 「N点」「Nつ」「N項目」「N個」のうち、N が limit（1 回に選ぶカードの上限）以下のもの。
+// それ以外（「3倍」「2cm」「100m」「6点」）は、そのまま検査する。行頭の判定が要るので、空白や改行を除く正規化の前に行う。
+const LEADING_CIRCLED = /^[\s\u3000]*[①-⑩]/u;
+const LEADING_NUMBER = /^\s*(?:\d+\s*(?:[.、)](?!\d))|\(\d+\))/u;
+const COUNT_WORD = /(\d+)(\s*(?:点|つ|項目|個))/gu;
+const DEFAULT_COUNT_LIMIT = 5;
+
+function withoutListNumbers(text: string, maxCards: number): string {
+  const limit = Number.isFinite(maxCards) ? maxCards : DEFAULT_COUNT_LIMIT;
+  return text
+    .split(/\r?\n/u)
+    .map((line) => line.replace(LEADING_CIRCLED, "").normalize("NFKC").replace(LEADING_NUMBER, ""))
+    .join("\n")
+    .replace(COUNT_WORD, (m: string, n: string, unit: string) => (Number(n) <= limit ? unit : m));
+}
+
+function unknownNumbers(text: string, allowed: Set<string>, maxCards: number): string[] {
+  return numbersOf(withoutListNumbers(text, maxCards)).filter((n) => !allowed.has(n));
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -106,7 +124,7 @@ export function validateFollowup(
   // 答えの落ちる理由は、見つかった分を全部残す（調べのため）
   const failures = lengthAndUrlFailures(raw.answer, ANSWER_MAX_CHARS);
   const cited = cards.filter((c) => cardIds.includes(c.id));
-  for (const n of new Set(unknownNumbers(raw.answer, allowedNumbers(cited, extraText)))) failures.push(`unknown_number:${n}`);
+  for (const n of new Set(unknownNumbers(raw.answer, allowedNumbers(cited, extraText), maxCards))) failures.push(`unknown_number:${n}`);
   if (raw.answer.trim() === "") failures.push("empty");
   if (failures.length > 0) return fallbackOf(failures);
 
