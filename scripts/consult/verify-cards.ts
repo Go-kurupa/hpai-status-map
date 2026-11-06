@@ -50,7 +50,7 @@ export interface VerifySourceEntry {
   sha256: string | null;
   /** この資料を取りに行った日時。 */
   checkedAt?: string;
-  /** ok か、失敗の理由（robots_denied、not_allowed、http_error、network_error、unsupported_type、extract_error、empty_text）。 */
+  /** ok か、失敗の理由（robots_denied、not_allowed、http_error、network_error、unexpected_status、kind_mismatch、unsupported_type、extract_error、empty_text、internal_error）。 */
   status: string;
   detail?: string;
   /** 取得した全部（ページと、辿った添付）。 */
@@ -60,6 +60,8 @@ export interface VerifySourceEntry {
 export interface VerifyCardEntry {
   id: string;
   verified: boolean;
+  /** normalizeForMatch した引用の SHA-256。あとで引用を書き換えたことを、照合の結果と突き合わせて見つけるため。 */
+  quoteSha256: string;
   method?: VerifyMethod;
 }
 
@@ -108,7 +110,7 @@ export function normalizeDraft(raw: unknown): unknown {
 // ── 照合 ──
 
 /** 引用が資料の本文にあるか。本文は資料ごとに 1 回だけ正規化する。本文のない資料のカードは false。 */
-export function verifyQuotes(cards: readonly ConsultCard[], texts: ReadonlyMap<string, string>): VerifyCardEntry[] {
+export function verifyQuotes(cards: readonly ConsultCard[], texts: ReadonlyMap<string, string>): Array<{ id: string; verified: boolean }> {
   const normalized = new Map<string, string>();
   return cards.map((card) => {
     const text = texts.get(card.sourceId);
@@ -120,6 +122,11 @@ export function verifyQuotes(cards: readonly ConsultCard[], texts: ReadonlyMap<s
     }
     return { id: card.id, verified: quoteInNormalized(card.quote, doc) };
   });
+}
+
+/** 引用の SHA-256（normalizeForMatch の後）。 */
+export function quoteSha256(quote: string): string {
+  return createHash("sha256").update(normalizeForMatch(quote)).digest("hex");
 }
 
 // ── 本文の取り出し ──
@@ -222,19 +229,41 @@ const sha256 = (body: Buffer): string => createHash("sha256").update(body).diges
 
 // ── 1 資料の処理 ──
 
+const GOV_UK_PAGE_HOST = "www.gov.uk";
+const GOV_UK_ASSET_HOST = "assets.publishing.service.gov.uk";
+/** 本文として使う最低の文字数。Cookie の確認ページや空のページを本文にしないため。 */
+export const MIN_TEXT_CHARS = 300;
+
 function allowedHosts(fetchUrl: string): Set<string> {
   const host = new URL(fetchUrl).hostname;
   const hosts = new Set([host]);
-  if (host === "www.gov.uk") hosts.add("assets.publishing.service.gov.uk"); // gov.uk の添付はこちらに置かれ、転送もここへ
+  if (host === GOV_UK_PAGE_HOST) hosts.add(GOV_UK_ASSET_HOST); // gov.uk の添付はこちらに置かれ、転送もここへ
   return hosts;
 }
+
+/** 取れた応答が本文として使えるか。200 以外（203 の Cookie 確認ページなど）と、URL の拡張子に合わない中身は使わない。 */
+function usable(outcome: Extract<FetchOutcome, { kind: "ok" }>, kind: TextKind | null): { status: string; detail: string } | null {
+  if (outcome.status !== 200) return { status: "unexpected_status", detail: `http_${outcome.status}` };
+  if (kind === null) return { status: "unsupported_type", detail: "unknown_content" };
+  const ext = /\.(pdf|docx)$/iu.exec(new URL(outcome.finalUrl).pathname)?.[1]?.toLowerCase();
+  if (ext && ext !== kind) return { status: "kind_mismatch", detail: `expected_${ext}_got_${kind}` };
+  return null;
+}
+
+/** 取り出しの失敗の理由。Error.message は入れない（定型の語と終了コードだけ）。 */
+export class ExtractError extends Error {
+  constructor(readonly tag: string) {
+    super(tag);
+  }
+}
+const tagOf = (e: unknown): string => (e instanceof ExtractError ? e.tag : "extract_failed");
 
 function failure(outcome: Exclude<FetchOutcome, { kind: "ok" }>): { status: string; detail?: string } {
   switch (outcome.kind) {
     case "http_error":
       return { status: "http_error", detail: outcome.code ? `${outcome.status} ${outcome.code}` : String(outcome.status) };
     case "network_error":
-      return { status: "network_error", detail: `${outcome.code ?? "-"}: ${outcome.message}` };
+      return { status: "network_error", detail: outcome.code ?? "no_code" }; // message は入れない
     case "not_allowed":
       return { status: "not_allowed", detail: outcome.url };
     case "robots_denied":
@@ -242,6 +271,12 @@ function failure(outcome: Exclude<FetchOutcome, { kind: "ok" }>): { status: stri
     case "not_modified":
       return { status: "http_error", detail: "304" };
   }
+}
+
+/** 1 資料の中でのカードごとの結果。quoteSha256 は最後に足す。 */
+interface CardResult {
+  verified: boolean;
+  method?: VerifyMethod;
 }
 
 interface ExtractedPart {
@@ -283,11 +318,11 @@ async function processSource(
   source: ConsultSource,
   cards: ConsultCard[],
   deps: VerifyDeps,
-): Promise<{ entry: VerifySourceEntry; results: Map<string, VerifyCardEntry> }> {
-  const results = new Map<string, VerifyCardEntry>(cards.map((c) => [c.id, { id: c.id, verified: false }]));
+): Promise<{ entry: VerifySourceEntry; results: Map<string, CardResult> }> {
+  const results = new Map<string, CardResult>(cards.map((c) => [c.id, { verified: false }]));
   const fetchUrl = europePmcUrl(source.url) ?? europePmcAbstractUrl(source.url) ?? source.url;
   const hosts = allowedHosts(fetchUrl);
-  const fail = (status: string, detail?: string): { entry: VerifySourceEntry; results: Map<string, VerifyCardEntry> } => ({
+  const fail = (status: string, detail?: string): { entry: VerifySourceEntry; results: Map<string, CardResult> } => ({
     entry: { id: source.id, effectiveUrl: fetchUrl, sha256: null, status, ...(detail === undefined ? {} : { detail }) },
     results,
   });
@@ -298,13 +333,14 @@ async function processSource(
     return fail(f.status, f.detail);
   }
   const kind = detectKind(outcome);
-  if (kind === null) return fail("unsupported_type", outcome.contentType);
+  const bad = usable(outcome, kind);
+  if (bad) return fail(bad.status, bad.detail);
 
   let main: ExtractedPart;
   try {
-    main = await extractPart(outcome, kind, deps);
+    main = await extractPart(outcome, kind!, deps);
   } catch (e) {
-    return fail("extract_error", (e as Error).message);
+    return fail("extract_error", tagOf(e));
   }
   const parts: VerifyPart[] = [main.part];
   let effective: VerifyPart = main.part;
@@ -315,7 +351,7 @@ async function processSource(
     let any = false;
     for (const r of verifyQuotes(pending, new Map([[source.id, text]]))) {
       if (r.verified) {
-        results.set(r.id, { id: r.id, verified: true, method });
+        results.set(r.id, { verified: true, method });
         any = true;
       }
     }
@@ -323,28 +359,44 @@ async function processSource(
   };
   const pendingCount = (): number => cards.filter((c) => !results.get(c.id)!.verified).length;
 
-  if (main.text !== null) recheck(main.text, main.method);
+  // 本文が短い（取り出せていない）PDF は、先に pdftotext の本文を見る
+  let text = main.text;
+  let method = main.method;
+  let pdftotextText: string | null = null;
+  if (main.pdfBody && (text === null || text.length < MIN_TEXT_CHARS)) {
+    try {
+      pdftotextText = await deps.pdftotext(main.pdfBody);
+      if (pdftotextText.length > (text?.length ?? 0)) {
+        text = pdftotextText;
+        method = "pdf-pdftotext";
+      }
+    } catch (e) {
+      if (text === null) return fail("extract_error", tagOf(e));
+    }
+  }
+  if (text === null) return fail("extract_error", "no_text");
+  if (text.length < MIN_TEXT_CHARS) return fail("empty_text", `chars_${text.length}`);
+
+  recheck(text, method);
 
   // PDF: unpdf で落ちたカードだけ、pdftotext で取り直した本文で見直す
-  if (main.pdfBody && pendingCount() > 0) {
+  if (main.pdfBody && method === "pdf-unpdf" && pendingCount() > 0) {
     try {
-      recheck(await deps.pdftotext(main.pdfBody), "pdf-pdftotext");
-    } catch (e) {
-      if (main.text === null) return fail("extract_error", (e as Error).message);
+      recheck(pdftotextText ?? (await deps.pdftotext(main.pdfBody)), "pdf-pdftotext");
+    } catch {
+      // pdftotext で読めなくても unpdf の結果は残す
     }
-  } else if (main.text === null) {
-    return fail("extract_error", "本文を取り出せません");
   }
 
   // gov.uk: ページに引用がなければ、ページの添付（docx、pdf）の本文で見直す
-  if (main.html !== undefined && pendingCount() > 0 && new URL(fetchUrl).hostname.endsWith("gov.uk")) {
+  if (main.html !== undefined && pendingCount() > 0 && new URL(fetchUrl).hostname === GOV_UK_PAGE_HOST) {
     let firstWithHit: VerifyPart | null = null;
     for (const link of findAttachmentLinks(main.html, outcome.finalUrl).slice(0, MAX_ATTACHMENTS)) {
       if (pendingCount() === 0) break;
       const { outcome: att } = await getPart(link, hosts, deps);
       if (att.kind !== "ok") continue;
       const attKind = detectKind(att);
-      if (attKind !== "docx" && attKind !== "pdf") continue;
+      if (usable(att, attKind) || (attKind !== "docx" && attKind !== "pdf")) continue;
       let ex: ExtractedPart;
       try {
         ex = await extractPart(att, attKind, deps);
@@ -377,7 +429,7 @@ export async function verifyAll(file: ConsultCardsFile, deps: VerifyDeps): Promi
   for (const c of file.cards) cardsBySource.set(c.sourceId, [...(cardsBySource.get(c.sourceId) ?? []), c]);
 
   const sources: VerifySourceEntry[] = [];
-  const byCard = new Map<string, VerifyCardEntry>();
+  const byCard = new Map<string, CardResult>();
   for (const source of file.sources) {
     const cards = cardsBySource.get(source.id);
     if (!cards) continue; // 使うカードのない資料は取りに行かない
@@ -387,7 +439,7 @@ export async function verifyAll(file: ConsultCardsFile, deps: VerifyDeps): Promi
     } catch (e) {
       // 想定外の失敗でも他の資料の結果は残す（取り直しで同じ資料に何度も要求しないため）
       done = {
-        entry: { id: source.id, effectiveUrl: source.url, sha256: null, status: "internal_error", detail: (e as Error).message },
+        entry: { id: source.id, effectiveUrl: source.url, sha256: null, status: "internal_error", detail: e instanceof ExtractError ? e.tag : "internal_error" },
         results: new Map(),
       };
     }
@@ -398,8 +450,9 @@ export async function verifyAll(file: ConsultCardsFile, deps: VerifyDeps): Promi
     checkedAt: toJstIso(deps.now()),
     sources,
     cards: file.cards.map((c) => {
-      const r = byCard.get(c.id) ?? { id: c.id, verified: false };
-      return r.verified ? { id: c.id, verified: true, method: r.method } : { id: c.id, verified: false };
+      const verified = byCard.get(c.id);
+      const quoteHash = quoteSha256(c.quote);
+      return verified?.verified ? { id: c.id, verified: true, quoteSha256: quoteHash, method: verified.method } : { id: c.id, verified: false, quoteSha256: quoteHash };
     }),
   };
 }
@@ -416,7 +469,7 @@ export function mergeVerify(prev: VerifyFile, next: VerifyFile, file: ConsultCar
       const e = nextSources.get(s.id) ?? prevSources.get(s.id);
       return e ? [e] : [];
     }),
-    cards: file.cards.map((c) => nextCards.get(c.id) ?? prevCards.get(c.id) ?? { id: c.id, verified: false }),
+    cards: file.cards.map((c) => nextCards.get(c.id) ?? prevCards.get(c.id) ?? { id: c.id, verified: false, quoteSha256: quoteSha256(c.quote) }),
   };
 }
 
@@ -430,6 +483,16 @@ async function withTempFile<T>(body: Buffer, name: string, run: (file: string) =
     return await run(file);
   } finally {
     await fs.promises.rm(dir, { recursive: true, force: true });
+  }
+}
+
+/** 外のコマンドを流して標準出力を返す。失敗は定型の語（pdftotext_failed_exit_1 など）にする。 */
+async function runTool(command: "pdftotext" | "unzip", args: string[]): Promise<string> {
+  try {
+    return (await execFileAsync(command, args, { encoding: "utf8", maxBuffer: EXEC_MAX_BUFFER })).stdout;
+  } catch (e) {
+    const code = (e as { code?: unknown }).code;
+    throw new ExtractError(`${command === "unzip" ? "unzip" : "pdftotext"}_failed_${typeof code === "number" || typeof code === "string" ? `exit_${code}` : "no_code"}`);
   }
 }
 
@@ -451,11 +514,8 @@ export function defaultDeps(): VerifyDeps {
       return (await extractText(pdf, { mergePages: true })).text;
     },
     pdftotext: (body) =>
-      withTempFile(body, "in.pdf", async (file) => (await execFileAsync("pdftotext", [file, "-"], { encoding: "utf8", maxBuffer: EXEC_MAX_BUFFER })).stdout),
-    docxText: (body) =>
-      withTempFile(body, "in.docx", async (file) =>
-        xmlToText((await execFileAsync("unzip", ["-p", file, "word/document.xml"], { encoding: "utf8", maxBuffer: EXEC_MAX_BUFFER })).stdout),
-      ),
+      withTempFile(body, "in.pdf", async (file) => runTool("pdftotext", [file, "-"])),
+    docxText: (body) => withTempFile(body, "in.docx", async (file) => xmlToText(await runTool("unzip", ["-p", file, "word/document.xml"]))),
     now: () => new Date(),
   };
 }

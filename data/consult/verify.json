@@ -1,8 +1,7 @@
 {
-  "checkedAt": "2026-11-06T18:49:12+09:00",
+  "checkedAt": "2026-11-06T19:01:04+09:00",
   "sources": [
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "maff-s1",
       "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-239.pdf",
       "sha256": "27ff0bb00ed9cc814087fae41e01234d640bc8887ce247acd06b9ce28d6dc7d7",
@@ -14,10 +13,10 @@
           "kind": "pdf",
           "bytes": 2603352
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:57:54+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "maff-s3",
       "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-284.pdf",
       "sha256": "623ff1d9dd0f40a8b5053107f0cf37717c2636ac878608921ecb82d82b990df3",
@@ -29,10 +28,10 @@
           "kind": "pdf",
           "bytes": 816714
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:57:58+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "maff-s4",
       "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-4.pdf",
       "sha256": "fdede492750d1864206d2299e77592311fcf8e3b066720eeb75019d6af1cd2b3",
@@ -44,10 +43,10 @@
           "kind": "pdf",
           "bytes": 1512008
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:58:02+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "maff-s5",
       "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-1.pdf",
       "sha256": "2ce4449ba54ee944db1e7f63954b5122a7b6932959ce567d7cf5bcfc3976b39f",
@@ -59,10 +58,10 @@
           "kind": "pdf",
           "bytes": 384525
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:58:06+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "maff-s7",
       "effectiveUrl": "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_94/attach/pdf/kakin_94-10.pdf",
       "sha256": "7af19b86a101e527b1c2e3f9cbe845cbe63f255512c32ad7d28a0d85e6dd729c",
@@ -74,10 +73,10 @@
           "kind": "pdf",
           "bytes": 3758547
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:58:11+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "maff-s11",
       "effectiveUrl": "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-177.pdf",
       "sha256": "c51c9ed2239ce4cb9c4ac7753256d294bcb3a381e0a31382cd91928acda4ec30",
@@ -89,10 +88,10 @@
           "kind": "pdf",
           "bytes": 438144
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:58:15+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "okayama-fly",
       "effectiveUrl": "https://www.pref.okayama.jp/uploaded/life/1030753_9970502_misc.pdf",
       "sha256": "e005eea3d79bd15a1cfb9f16ea7ff63d2ec802e484d6c61d53d773744f273825",
@@ -104,10 +103,10 @@
           "kind": "pdf",
           "bytes": 733930
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:58:16+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "okayama-lime",
       "effectiveUrl": "https://www.pref.okayama.jp/uploaded/life/1030753_9970487_misc.pdf",
       "sha256": "1ddc9109bad32353adb5adf8a4c54975f35e786f447067a8dd3e30a3620d665f",
@@ -119,10 +118,10 @@
           "kind": "pdf",
           "bytes": 383146
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:58:21+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "paper-pmc12629688",
       "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12629688/fullTextXML",
       "sha256": "bb3bfbe189a0f89d7958aeff6e36f629a2f994d1f763e4bb60d9a77d0fea989e",
@@ -134,10 +133,10 @@
           "kind": "xml",
           "bytes": 110201
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:58:40+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "paper-pmc5818671",
       "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC5818671/fullTextXML",
       "sha256": "aef3d804ad6170b5a341c915348c11c567b986ab917ace4f12cdc9e53548ac21",
@@ -149,10 +148,10 @@
           "kind": "xml",
           "bytes": 40405
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:58:53+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "paper-pmc11434905",
       "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11434905/fullTextXML",
       "sha256": "81de7edbff3e4427a628aaf02b4a2cb6f9149b8651c4239ec1a9eedd992067b2",
@@ -164,10 +163,10 @@
           "kind": "xml",
           "bytes": 102158
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:59:11+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "paper-pmc10408129",
       "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC10408129/fullTextXML",
       "sha256": "9c17189470edba416247e8a072c340ebe2b4acf5e5900fecb8b6ab7f0b588d71",
@@ -179,10 +178,10 @@
           "kind": "xml",
           "bytes": 161536
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:59:23+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "paper-pmc10498466",
       "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC10498466/fullTextXML",
       "sha256": "903d8010023527d2f3f8508664115c58ca692089957a05b8d569ca993600a65a",
@@ -194,10 +193,10 @@
           "kind": "xml",
           "bytes": 125050
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:59:35+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "paper-pmc13423691",
       "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC13423691/fullTextXML",
       "sha256": "05aeb3d6b3f858b51c6702e8c3adaa4fae1cc104fa90d20fedd2193fc75f40eb",
@@ -209,10 +208,10 @@
           "kind": "xml",
           "bytes": 98510
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T18:59:48+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "paper-pmc12389693",
       "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12389693/fullTextXML",
       "sha256": "a4d25693d93cf466d8743cf36d4d5352150a3f7b11f0ebd33c7c1407ce3111ed",
@@ -224,10 +223,10 @@
           "kind": "xml",
           "bytes": 144320
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T19:00:02+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "paper-pmc6006767",
       "effectiveUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6006767/fullTextXML",
       "sha256": "014872556ab277c34be92d7da0087d3f0d28c1a1a85286fb95b0ac873e7dab4b",
@@ -239,7 +238,8 @@
           "kind": "xml",
           "bytes": 93049
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T19:00:14+09:00"
     },
     {
       "id": "paper-pmid39808886",
@@ -254,7 +254,7 @@
           "bytes": 11035
         }
       ],
-      "checkedAt": "2026-11-06T18:49:01+09:00"
+      "checkedAt": "2026-11-06T19:00:25+09:00"
     },
     {
       "id": "paper-pmid42869858",
@@ -269,10 +269,9 @@
           "bytes": 9175
         }
       ],
-      "checkedAt": "2026-11-06T18:49:12+09:00"
+      "checkedAt": "2026-11-06T19:00:36+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "aphis-s1",
       "effectiveUrl": "https://www.aphis.usda.gov/sites/default/files/hpai-table-egg-layers-case-control-study-updated-findings.pdf",
       "sha256": "7378c47af33716beb44db9584cd5413dc2b494b415af88e1a34a17359bafd60a",
@@ -284,10 +283,10 @@
           "kind": "pdf",
           "bytes": 225224
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T19:00:42+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "aphis-s2",
       "effectiveUrl": "https://www.aphis.usda.gov/sites/default/files/hpai-turkey-case-control-study-updated-findings.pdf",
       "sha256": "46d3f502f891aa981a2c67872403f313f9a17341a634abe6e41d06fbf2498191",
@@ -299,10 +298,10 @@
           "kind": "pdf",
           "bytes": 241059
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T19:00:47+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "aphis-s5",
       "effectiveUrl": "https://www.aphis.usda.gov/sites/default/files/epi-analyses-avian-flu-poultry-7th-interim-rpt.pdf",
       "sha256": "e65e8bbd39ffb882aa27067484d71a7f8f28f1f7ac061711befcf7f0cb0ceec3",
@@ -314,10 +313,10 @@
           "kind": "pdf",
           "bytes": 2482836
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T19:00:57+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "defra-s12",
       "effectiveUrl": "https://assets.publishing.service.gov.uk/media/6773db806c34906cc84c942c/AIPZ_checklist_for_poultry_and_captive_bird_keepers_-_with_housing_measures_word_-_Copy.docx",
       "sha256": "4b46ca548c3e9791cdbcdb0133e784d523c029c546d5bc9bf0970e5be6b90860",
@@ -325,7 +324,7 @@
       "parts": [
         {
           "url": "https://www.gov.uk/government/publications/avian-influenza-prevention-zone-aipz-checklist-for-poultry-and-captive-bird-keepers",
-          "sha256": "8a350be14f6e4ecd45873bac3f61b2e0b6253e70f584fbcaea8ca21e663ffa76",
+          "sha256": "b070070f2d5329784d88a4daa894d3c6b70621a9c1252887789ca48cd55324a5",
           "kind": "html",
           "bytes": 76040
         },
@@ -335,548 +334,654 @@
           "kind": "docx",
           "bytes": 50257
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T19:01:01+09:00"
     },
     {
-      "checkedAt": "2026-11-06T18:46:21+09:00",
       "id": "defra-s13",
       "effectiveUrl": "https://www.gov.uk/government/publications/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions",
-      "sha256": "7184b46723bc0f05f7232b78f41eeaffde0f1e5db5a4583166d600b4ef305f7d",
+      "sha256": "adc8c3dcac9990f389ca5f274953b560a401df826e23e8f32206422df048f087",
       "status": "ok",
       "parts": [
         {
           "url": "https://www.gov.uk/government/publications/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions",
-          "sha256": "7184b46723bc0f05f7232b78f41eeaffde0f1e5db5a4583166d600b4ef305f7d",
+          "sha256": "adc8c3dcac9990f389ca5f274953b560a401df826e23e8f32206422df048f087",
           "kind": "html",
           "bytes": 489415
         }
-      ]
+      ],
+      "checkedAt": "2026-11-06T19:01:04+09:00"
     }
   ],
   "cards": [
     {
       "id": "maff-M01",
       "verified": true,
+      "quoteSha256": "40e0deb5e2ee90ee1a722c039f36c568d5fc9557f9e72c7ce68923994c649ad1",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M02a",
       "verified": true,
+      "quoteSha256": "2808d547a26379407c3e4516ee3340f15cf4d4506757c81536f754c822bdf148",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M02b",
       "verified": true,
+      "quoteSha256": "ddce98d1411ec0a45e302b265513192e40a43c1f2323aa0579c5faa625f368d7",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M03",
       "verified": true,
+      "quoteSha256": "d94070c13a431cc4b13ad43119897c4e82d41bfd5de41b8f3203378fbc1a2282",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M04a",
       "verified": true,
+      "quoteSha256": "21b9fa845181c5e382b51f91013c75c744d4e4629b1bc4c8b0a51b3e173c4e42",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M04b",
       "verified": true,
+      "quoteSha256": "2fec25af807e2e4bb2c18d80b35e27806b0468fc00f6fb5514532f8b2928bc2d",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M04c",
       "verified": true,
+      "quoteSha256": "4d5157e6389cd0d8a554e3e4915ec3a93a95ed7222627c3a21137b1e843acd03",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M05",
       "verified": true,
+      "quoteSha256": "0020098830268f9f105837bfb6a37cc4f08570308ee204d20d67ca9e67d05a09",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M06a",
       "verified": true,
+      "quoteSha256": "6e66a9171e8d7f84a3297521735a7eee434d60852891d35dc685e562b261addb",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M06b",
       "verified": true,
+      "quoteSha256": "cfd0349c9752330a26ab24ca30c93a6001eff2e973d07438702f43596e1a6cb3",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M07a",
       "verified": true,
+      "quoteSha256": "83319d5c414519aa1ef1ab4869f65c48d205c190796c724ecea33531c776f1ff",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M07b",
       "verified": true,
+      "quoteSha256": "f90407e940994f67829e9cc0cfc28a000ce4c10e781f29958b5ffce621e1f573",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M08a",
       "verified": true,
+      "quoteSha256": "311be9bcca83798ca90a65479c0e87be7933fcae4ed74ab59589b554acfdebff",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M08b",
       "verified": true,
+      "quoteSha256": "9ed8cd4b8fadf9efc5774997aa4d1977ef2fe70f4ad9fbf2c186c5eedf348d4d",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M09a",
       "verified": true,
+      "quoteSha256": "d47650faaa0cb343a00f13058a5b0c89d9a9c0bef8a0fe175adf43e1d3036e74",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M09b",
       "verified": true,
+      "quoteSha256": "9132eec704aee00fad69b7d0d9425c0a7e73825f84eb7496630cb52c586590e3",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M10",
       "verified": true,
+      "quoteSha256": "ca159e1f1a4813387ed560fc55d4658e37344841bd16106cec76dd57068b16af",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M11a",
       "verified": true,
+      "quoteSha256": "fcab7ba3ed98fafa5dd55b9273878e47afb6fb982da9b02b350c8c3705d64192",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M11b",
       "verified": true,
+      "quoteSha256": "70f992d3d424d4d0a047623739493985a14d4ca7e523cc51cf06037d92de4d22",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M12a",
       "verified": true,
+      "quoteSha256": "50f93aa8bda66912cc476558f4c5c57f9e7989eeef5400ac82d11877a9c50703",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M12b",
       "verified": true,
+      "quoteSha256": "f2be08a60a46e543457020b3974bddf5994b169b8b32c238fede4730878f2f00",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M13a",
       "verified": true,
+      "quoteSha256": "8e1662964f8a7d1230cc53f85ae27d5aa7eca38dadee2005601046b2a927c53c",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M13b",
       "verified": true,
+      "quoteSha256": "d30f09a7e56615037f133a6a358ec94dfa1cc13bbb51452c9df7971dc8d89975",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M14a",
       "verified": true,
+      "quoteSha256": "f81840ec1b5e5dcfaf3b8e8697cd886699887e9f9b307905902de20921150cfe",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M14b",
       "verified": true,
+      "quoteSha256": "af0de9d8bd4a765176324071decb358cd4d57b0dccf7a024461df1edd7ec3402",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M15",
       "verified": true,
+      "quoteSha256": "516649aa9e2e32a56d5d6ac9cde17a91cd0a18fd3bd29f1c1134a17bce70759b",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M16",
       "verified": true,
+      "quoteSha256": "d68fcc66a600d79f4f9062a45314b92047c950593eb2737a8a90bc08fb00276d",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M17",
       "verified": true,
+      "quoteSha256": "eb1b58f9c38427334cf3dc80facbabf526c31b4e805876e018ca2ab539867bfe",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M18",
       "verified": true,
+      "quoteSha256": "7421a8c0a047c03bba35d8a9351d4b07dc0dade1fa32a82640c6d8661c813b27",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M19a",
       "verified": true,
+      "quoteSha256": "895af9fde99c9381c86e87de5cab15b71b354f541717cc159be75b6314dc0212",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M19b",
       "verified": true,
+      "quoteSha256": "5c350a125bf7aebeaaf4e7d0a3fc8a324bfb51165616c407353c9748691a9c38",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M20a",
       "verified": true,
+      "quoteSha256": "c54586fae5b1ac251c14e99188747bb8c0b5fa8ecaa7076907734c57745f5a28",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M20b",
       "verified": true,
+      "quoteSha256": "f7b1b9c7a778e36064a5cc33617f219cb14c2b728266384d6467e422de42b1e6",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M21a",
       "verified": true,
+      "quoteSha256": "fc1cfffd9bf278f47c4dfe79e1c2e0c5e6eeb6b7f7e063c6c68f94a0a6817426",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M21b",
       "verified": true,
+      "quoteSha256": "e3514d4162ed56983ff385aedeaf28c46d4e6310c1e05ce81588247910555386",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M22a",
       "verified": true,
+      "quoteSha256": "a998a3ee7de188ae44fca2f44b4e10f6fdc73e963c5679348a24a0a4896dfdb3",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M22b",
       "verified": true,
+      "quoteSha256": "5b315830cbd6ce261bdde9ab8b257990f78ef23fdbe6752d9bba9f7ba052cc84",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M23a",
       "verified": true,
+      "quoteSha256": "38427b09b15e5b145118839621af9fa2b0182d305d3e2190cad666468e088ea1",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M23b",
       "verified": true,
+      "quoteSha256": "3308788ed09a053a7a41896eb06c4a03593a5848a84800013a360281b72d2cfd",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M24a",
       "verified": true,
+      "quoteSha256": "761d105d971f2594b732061d9bf4ba75d8ea2eb1170f4461e740be20be1aa2d0",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M24b",
       "verified": true,
+      "quoteSha256": "a97852fb616969189265c15fe007ae28bd38c6e1aaf98aa89e54ad5805f0b577",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M25a",
       "verified": true,
+      "quoteSha256": "12c4dd4510af333b10bbe9a02ab591bc2e478cb569a9c533f12235991f306030",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M25b",
       "verified": true,
+      "quoteSha256": "23305972485c5531a54bd4b7d4f63a09eac2a88e8474eeeecc21111a730fca60",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M26",
       "verified": true,
+      "quoteSha256": "27f537fc63266607da2f48d06546a7c129a67675a6a3a48cd1f4149078d5160b",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M27",
       "verified": true,
+      "quoteSha256": "0b5f2e8a0dd0dbce74fb15d0b16e30772c221b75b7900a769ea267cacf535f6a",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M28a",
       "verified": true,
+      "quoteSha256": "433828cc88a5182f4c4667fc9f462ef84bd965739086bf0cd75efaa6811c9a3b",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M28b",
       "verified": true,
+      "quoteSha256": "d3a6cdf95861fa9da1d025e05c66a42244d403dc566ab05ab0d5567e7721545b",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M29",
       "verified": true,
+      "quoteSha256": "22a696b24eaa7072481148de9bf7d1d3967bef857833c3d998e2eaf35559097a",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M30",
       "verified": true,
+      "quoteSha256": "ccaf9c9e6dd0c236f43a4e42be8ea526932d15aabf3b0dda3127cf5ca5aa9ed8",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M31",
       "verified": true,
+      "quoteSha256": "9185f32def641c84518fd2a6365730361a3c4f86bba065d1439ec5ee1248d2ca",
       "method": "pdf-unpdf"
     },
     {
       "id": "maff-M34",
       "verified": true,
+      "quoteSha256": "0005a9d5f7ff8b8967819369ee092e9d0cc026be8a6555c1f5d685422703115c",
       "method": "pdf-unpdf"
     },
     {
       "id": "papers-C01",
       "verified": true,
+      "quoteSha256": "334388895c702863d4b167b7d6431bde83b96ea1cb9bdae969989c141481c5cd",
       "method": "xml"
     },
     {
       "id": "papers-C02",
       "verified": true,
+      "quoteSha256": "dbb1213873de5225609cbd4ccd16c44403c9b4904b544a786bdb1ec1bafcf4e6",
       "method": "xml"
     },
     {
       "id": "papers-C03",
       "verified": true,
+      "quoteSha256": "bbc325d7a31053fcfd50fb9ad8c6540caa62360c182a44c4583069881880fdce",
       "method": "xml"
     },
     {
       "id": "papers-C04a",
       "verified": true,
+      "quoteSha256": "d6bce28e9cd7f158a144e4939e04ff61a8dab98cabf80d7dd067162e9a13c386",
       "method": "xml"
     },
     {
       "id": "papers-C04b",
       "verified": true,
+      "quoteSha256": "f3fdc7ea1908410043aefd3c63004b9b65fa90ea6452c84f60dcdd9b2e1d62af",
       "method": "xml"
     },
     {
       "id": "papers-C05",
       "verified": true,
+      "quoteSha256": "b4eda43b2ca867265e92bb7c4d30b8b96615bb17b689072df5c391b4b305fb69",
       "method": "xml"
     },
     {
       "id": "papers-C06",
       "verified": true,
+      "quoteSha256": "4f2f729934e66612758c9ddfab581b2360b293af63b0a3484fafb1722fb4b105",
       "method": "xml"
     },
     {
       "id": "papers-C07",
       "verified": true,
+      "quoteSha256": "b4f01933c1e17b6bb8405c90b2e4dac9b252b270d6fcbcd44ab15fb49313905a",
       "method": "xml"
     },
     {
       "id": "papers-C08",
       "verified": true,
+      "quoteSha256": "3b7ff513e2671a2c2c34c74acd7b92dfbaf6c78241356e16ed3d1c60ad4ca987",
       "method": "xml"
     },
     {
       "id": "papers-C15",
       "verified": true,
+      "quoteSha256": "0e5ab6a4db9e3425c00d970bbbca8c7f870f714b10c467fc990358234fb52294",
       "method": "xml"
     },
     {
       "id": "papers-C16",
       "verified": true,
+      "quoteSha256": "c6498d38b08d567b28ad259ddad2b891bfb88a85e4a1dfa7e4ccef1874c43a84",
       "method": "xml"
     },
     {
       "id": "papers-C17",
       "verified": true,
+      "quoteSha256": "5fadfef2d192cba59b2759d34028e5412aa105b1f674f4ba189efc9969b2f611",
       "method": "xml"
     },
     {
       "id": "papers-C20a",
       "verified": true,
+      "quoteSha256": "03b0f12d997b8ecfe5fb8bcb9d7841128f812d1745764fd946dc6d9ac5447c10",
       "method": "xml"
     },
     {
       "id": "papers-C20b",
       "verified": true,
+      "quoteSha256": "6ad7b188eae0ac58bf6435cdc3cbc25c4c2c4aa9a7fa8ebb98bf6eea3ec57ec9",
       "method": "xml"
     },
     {
       "id": "papers-C22a",
       "verified": true,
+      "quoteSha256": "432948404e8d993d50ebfc640ff54c3a0b7cbd399f13a767f8e79f6574de464a",
       "method": "xml"
     },
     {
       "id": "papers-C22b",
       "verified": true,
+      "quoteSha256": "80d5bf3a094f81f32c895dd6d63a4c0dbe153badf40cb34eb019da3412f361fb",
       "method": "xml"
     },
     {
       "id": "papers-C22c",
       "verified": true,
+      "quoteSha256": "029408b9c7d3d4a232d6af9d19e37127542d1945ad0c3beb3b48a8026ab49d23",
       "method": "xml"
     },
     {
       "id": "papers-C22d",
       "verified": true,
+      "quoteSha256": "37bb4cba7a4384540d279b34b3be29886de21a9938b8b110b8ce9c2fa5d9b63f",
       "method": "xml"
     },
     {
       "id": "papers-C23",
       "verified": true,
+      "quoteSha256": "e12303f0cdeebeccc339d36ba2658df9b11ce88ff643c2f18527814311d205bd",
       "method": "xml"
     },
     {
       "id": "papers-C24",
       "verified": true,
+      "quoteSha256": "13d659d63cfb9e4b7459ec082093de5ac235ca201c288c061fabe02f30d9c32d",
       "method": "xml"
     },
     {
       "id": "papers-C25",
       "verified": true,
+      "quoteSha256": "f34157578ac908a930b393529d57e8e6d4db719651499f118022ee3e6e86b721",
       "method": "xml"
     },
     {
       "id": "papers-C26",
       "verified": true,
+      "quoteSha256": "279b5a6ac04c53e844d4f1aaac7d7d345d227271aa289556d7ad7bb493a6e29c",
       "method": "xml"
     },
     {
       "id": "papers-C27a",
       "verified": true,
+      "quoteSha256": "804034fe48afec1a8603dde8eaae0d67436d628deabf5608d66cb64f899652a8",
       "method": "xml"
     },
     {
       "id": "papers-C27b",
       "verified": true,
+      "quoteSha256": "64041044205d0884d4ddbe5c663c82db983ead688b49cf008949fdad9210fc16",
       "method": "xml"
     },
     {
       "id": "papers-C28a",
       "verified": true,
+      "quoteSha256": "b80681660c142d114b4b54bc8ab4c5f651c19f828d1a4a46440b147bb5ecbac6",
       "method": "xml"
     },
     {
       "id": "papers-C28b",
       "verified": true,
+      "quoteSha256": "d6b90229dbfec0e0c3a2ff9b6a8ebcea7713b4ca8af98186b2f16b8c2447e500",
       "method": "xml"
     },
     {
       "id": "papers-C30",
       "verified": true,
+      "quoteSha256": "91d1f4b07aa5c75a6e2185064cea3392e3f48a85fd5e73cf5815584134e32e09",
       "method": "xml"
     },
     {
       "id": "papers-C33",
       "verified": true,
+      "quoteSha256": "9d07a13598c95bc54acc5b4d0278b8547d3ad98531fb8d601b8eb4f26bbf6f15",
       "method": "xml"
     },
     {
       "id": "papers-C34",
       "verified": true,
+      "quoteSha256": "5499f5ae478de0e111522d040af7078083db840181c73d5c9d2e201dd85cc65e",
       "method": "xml"
     },
     {
       "id": "okayama-OK1",
       "verified": true,
+      "quoteSha256": "fb378ad7fc1321a878dc3c91f9d0de217e7013a5efd22879b8d99e28b18e62e7",
       "method": "pdf-unpdf"
     },
     {
       "id": "okayama-OK2",
       "verified": true,
+      "quoteSha256": "e2e962afa5579c85a97a404681513b87b6e9d2165e801a2c55fdfbf2c1e5bdf1",
       "method": "pdf-unpdf"
     },
     {
       "id": "okayama-OK3",
       "verified": true,
+      "quoteSha256": "766a387ac2f5041329a03f74c6e6b24b22703ff23d0faa6a59c312938c165079",
       "method": "pdf-unpdf"
     },
     {
       "id": "okayama-OK4",
       "verified": true,
+      "quoteSha256": "172d2faf5129e2757633af6d1115ca87ba1e097f6a31ebd58ae3f313c3e77ddb",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-U1a",
       "verified": true,
+      "quoteSha256": "abb37d4d4dde1425a8fe5d70655015a525dd691a584562531dc004bd30cb380a",
       "method": "xml"
     },
     {
       "id": "overseas-U1b",
       "verified": true,
+      "quoteSha256": "e56d08866ec37061c1bcd8bc759078c9349fefb23b41d7b90cf9c7cc9cad7fd7",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-U2a",
       "verified": true,
+      "quoteSha256": "bd1a47e8d101e0b967032633c74ab6b7801c4f6624ee07c4632a6f14efa939b9",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-U2b",
       "verified": true,
+      "quoteSha256": "af757463ea45b513d0c21360981c2415996ff388195ea7a2c0a1b816aa1b2446",
       "method": "xml"
     },
     {
       "id": "overseas-U3",
       "verified": true,
+      "quoteSha256": "748f5b791476e53ff751d88adf4f045e528f5f4aac796280b13158c13b745ede",
       "method": "xml"
     },
     {
       "id": "overseas-U4a",
       "verified": true,
+      "quoteSha256": "76d6cf677ff232d0a55a4d545ac56d3d0d24a30a5e62794e0d9eb040e536b62c",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-U4b",
       "verified": true,
+      "quoteSha256": "408033e6487fae86483b3024995d3ba21bd986b2a199217181a3269cd9a65628",
       "method": "xml"
     },
     {
       "id": "overseas-U5",
       "verified": true,
+      "quoteSha256": "e3401fc5612900090b0541e959661a914e562513b03e40fdecb10038327b558f",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-U6",
       "verified": true,
+      "quoteSha256": "1a2a55dc1fda2b20b42911cb8f43292ce9b149abcabb1a585ce869a0fac4212b",
       "method": "xml"
     },
     {
       "id": "overseas-U7",
       "verified": true,
+      "quoteSha256": "eff90fba555529ecc663b169a06ba151a7bc3f9f41a75bb58b30438788d91036",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-U8",
       "verified": true,
+      "quoteSha256": "03eaa3175ac4931e5f8e8aae105129ff264f3b2303a80bfa6b926dce526b51c8",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-U9a",
       "verified": true,
+      "quoteSha256": "60e3afbd8ab608cdcb7a1359a281d4324bcbf569ab06a1bfe4302328a3944c83",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-U9b",
       "verified": true,
+      "quoteSha256": "087a638657e9ee7084ace1ba47e8a15d2d92f03f87edf83bac319ea0a1df8274",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-U10",
       "verified": true,
+      "quoteSha256": "7094957a15b8ef82daa513c6dcc52b3202c7336d04a1226ec254ec3e63b8f82d",
       "method": "xml"
     },
     {
       "id": "overseas-U11",
       "verified": true,
+      "quoteSha256": "0c142b82954c3f7005635fed79fbf147720c2b5d544b11cb92a788ea22e58fc2",
       "method": "pdf-unpdf"
     },
     {
       "id": "overseas-K1a",
       "verified": true,
+      "quoteSha256": "695b124708fe491d14485f27fccce398946b22630b75385c816be9ddedcf0189",
       "method": "docx"
     },
     {
       "id": "overseas-K1b",
       "verified": true,
+      "quoteSha256": "6f0baaf757950656ec877922a379ce16efaaa9e43fd5de1292141586c7776f81",
       "method": "docx"
     },
     {
       "id": "overseas-K2",
       "verified": true,
+      "quoteSha256": "9946bb6890abe6686a718fd59dfa2d3366171d2d75884c12a0d8375a27ab575d",
       "method": "docx"
     },
     {
       "id": "overseas-K3",
       "verified": true,
+      "quoteSha256": "5707259a8a4d478bacb23cb9d5bb7df1cfcf27f5d5eec0c1c96a8ac618e451f3",
       "method": "docx"
     },
     {
       "id": "overseas-K4a",
       "verified": true,
+      "quoteSha256": "c81bf8977146ac50d70b522c8f411be0f9fcb918de59b1468ad4d45ed233bfae",
       "method": "html"
     },
     {
       "id": "overseas-K4b",
       "verified": true,
+      "quoteSha256": "53853864a1f5cc6023a43edcdbafa6788fbb87cbf3c05bbf8e00c978c55fc835",
       "method": "html"
     }
   ]
