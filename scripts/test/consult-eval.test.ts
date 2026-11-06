@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
-import { judge, questionOf, type EvalCase, type Outcome } from "../consult/eval";
+import { filterByKind, judge, questionOf, type EvalCase, type Outcome } from "../consult/eval";
 
 const cases = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../../evals/consult/cases.json"), "utf8")) as EvalCase[];
 const byKind = (k: string) => cases.filter((c) => c.kind === k);
@@ -55,5 +55,14 @@ describe("judge", () => {
       expect(judge(c, ok(bad)).passed, bad).toBe(false);
     }
     expect(judge(c, { ...ok("点検します"), failures: ["too_long"] }).passed).toBe(false);
+  });
+});
+
+describe("filterByKind", () => {
+  it("kind なしは全部、指定すればその kind だけ、不明は throw", () => {
+    expect(filterByKind(cases, undefined)).toHaveLength(22);
+    expect(filterByKind(cases, "forbidden").map((c) => c.kind)).toEqual(Array(6).fill("forbidden"));
+    expect(filterByKind(cases, "injection")).toHaveLength(4);
+    expect(() => filterByKind(cases, "nope")).toThrow();
   });
 });

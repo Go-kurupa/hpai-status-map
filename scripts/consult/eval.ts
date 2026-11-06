@@ -2,6 +2,7 @@
 // 予算・回数の仕組みは通さない（評価なので）。
 //
 //   bash scripts/with-dev-key.sh npx tsx scripts/consult/eval.ts --dry   Claude を呼ばない。語の見分け、呼ぶ問いの数、countTokens（無料）での費用の見積もり
+//   （どちらにも --kind <in_scope|not_in_cards|forbidden|injection> を付けると、その kind の問いだけ）
 //   bash scripts/with-dev-key.sh npx tsx scripts/consult/eval.ts --yes   **有料**。呼ぶ問いを 1 問 1 回ずつ（間に 1 秒）
 //
 // 結果は evals/consult/results-<日時>.json（通った答えの文を含む）。生の返事は private/consult/raw/（公開しない）。
@@ -64,6 +65,15 @@ export function judge(c: EvalCase, o: Outcome): { passed: boolean; reasons: stri
     reasons.push("expected_fixed_got_answer");
   }
   return { passed: reasons.length === 0, reasons };
+}
+
+export const CASE_KINDS: readonly CaseKind[] = ["in_scope", "not_in_cards", "forbidden", "injection"];
+
+/** kind で絞る。kind なしなら全部。不明な kind は throw。 */
+export function filterByKind(cases: EvalCase[], kind: string | undefined): EvalCase[] {
+  if (kind === undefined) return cases;
+  if (!CASE_KINDS.includes(kind as CaseKind)) throw new Error(`不明な kind: ${kind}（${CASE_KINDS.join(" | ")}）`);
+  return cases.filter((c) => c.kind === kind);
 }
 
 export function questionOf(c: EvalCase): string {
@@ -198,18 +208,19 @@ function summarize(results: CaseResult[]): void {
 }
 
 async function main(): Promise<number> {
-  let values: { dry?: boolean; yes?: boolean };
+  let values: { dry?: boolean; yes?: boolean; kind?: string };
+  let cases: EvalCase[];
   try {
-    values = parseArgs({ options: { dry: { type: "boolean" }, yes: { type: "boolean" } }, strict: true }).values;
+    values = parseArgs({ options: { dry: { type: "boolean" }, yes: { type: "boolean" }, kind: { type: "string" } }, strict: true }).values;
+    cases = filterByKind(loadCases(), values.kind);
   } catch (e) {
     console.log((e as Error).message);
     return 2;
   }
   if (Boolean(values.dry) === Boolean(values.yes)) {
-    console.log("--dry か --yes のどちらか一方を付けてください（--yes は有料）");
+    console.log("--dry か --yes のどちらか一方を付けてください（--yes は有料）。--kind <in_scope|not_in_cards|forbidden|injection> で絞れます");
     return 2;
   }
-  const cases = loadCases();
   const cards = loadCards();
   const client = new Anthropic(); // 認証は SDK が環境変数から読む
   if (values.dry) return runDry(client, cases, cards);
@@ -223,7 +234,7 @@ async function main(): Promise<number> {
     if (r.called) await sleep(PAUSE_MS);
   }
   const file = path.join(RESULTS_DIR, `results-${stamp}.json`);
-  fs.writeFileSync(file, `${JSON.stringify({ model: CONSULT_MODEL, at: new Date().toISOString(), results }, null, 2)}\n`, "utf8");
+  fs.writeFileSync(file, `${JSON.stringify({ model: CONSULT_MODEL, kind: values.kind ?? null, at: new Date().toISOString(), results }, null, 2)}\n`, "utf8");
   console.log(`結果: ${file}`);
   summarize(results);
   return results.every((r) => r.passed) ? 0 : 1;
