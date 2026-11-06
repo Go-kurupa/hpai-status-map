@@ -81,13 +81,13 @@ const [, RISK_SENTENCE, RISK_SOURCE, RISK_URL] = RISK_PARTS;
  * replayStats は再現の全国の流れだけが渡す。件数の札を再現の時計で出す（野鳥の札は、再現が野鳥を持たないので出さない）。
  */
 /**
- * 見せるまとまり（設計書 2026-11-06-ui-frame 4 章）。now は「今季の発生と地図」（/）、town は「自分の町の過去」、
+ * 見せるまとまり（設計書 2026-11-06-ui-frame 4 章）。now は「今季の発生と地図」（/）、town は「選択地域の過去」、
  * season は「今季の一覧と数」、compare は「過去シーズンとの比べ」。all は再現と見本の中（今の並びのまま全部）。
  */
 export type MapSection = "now" | "town" | "season" | "compare" | "all";
 
 const SECTION_TITLE: Record<Exclude<MapSection, "now" | "all">, string> = {
-  town: "自分の町の過去",
+  town: "選択地域の過去",
   season: "今季の一覧と数",
   compare: "過去シーズンとの比べ",
 };
@@ -207,8 +207,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     setPicking(open);
     if (open) setAiming(false);
   }, []);
-  // 地点があれば距離の輪の全体、町だけならその町が「自分の近く」
-  // 地点がなく町だけ選んだ人は、町の中心から距離の輪を描く（設計書 2026-11-06-ui-frame 決定 6）。「自分の近く」は輪の全体が入る広さ
+  // 地点があれば距離の輪の全体、町だけならその町が「選択地域付近」
+  // 地点がなく町だけ選んだ人は、町の中心から距離の輪を描く（設計書 2026-11-06-ui-frame 決定 6）。「選択地域付近」は輪の全体が入る広さ
   const ringCenter = farmMeshCode === null && town !== null && geo ? (geo.index[town]?.center ?? null) : null;
   const nearKind = farmMeshCode !== null || ringCenter !== null ? "rings" : "muni";
   // 地図で押した町（設計書 2026-11-06-ui-frame 決定 4）。今季の発生の地図だけ
@@ -418,7 +418,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const recentText = countText({ count: recentCount, ...watchFlags });
   // 最初は全国の広さ（focus なし）。動かした先で押された状態を決める
   const showingNear = focus !== null && focus.kind !== "japan";
-  // 「自分の近く」の広さでは県のバッジも町の塗りも出ない発表（確認中の県、町の分からない発表）。
+  // 「選択地域付近」の広さでは県のバッジも町の塗りも出ない発表（確認中の県、町の分からない発表）。
   // スマホは地図の下の端に 1 行で出す（2026-11-06 作者の決定。PC は対象外）
   const unplacedByPref = new Map<string, number>();
   for (const c of view.cases) if (c.muniCode === null) unplacedByPref.set(c.prefCode, (unplacedByPref.get(c.prefCode) ?? 0) + 1);

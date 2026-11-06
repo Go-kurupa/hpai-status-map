@@ -98,23 +98,23 @@ async function aimAtStation(page: Page) {
 }
 
 async function chooseTown(page: Page, pref: string, muni: string) {
-  await page.getByRole("button", { name: "自分の町を選ぶ", exact: true }).click();
+  await page.getByRole("button", { name: "地域を選択", exact: true }).click();
   await page.getByLabel("都道府県").selectOption(pref);
   await page.getByLabel("市町村").selectOption(muni);
-  await page.getByRole("button", { name: "自分の町にする" }).click();
+  await page.getByRole("button", { name: "この地域にする" }).click();
 }
 
 test.describe("自分の町の 1 文", () => {
   test("真庭市（33214）を選ぶと、隣の津山市の事例で『隣町で発生しました』。過去は『昨季に隣町で発生しました（記録）』。地図に自分の町と隣の縁", async ({ page }) => {
     await open(page);
-    await expect(page.getByText("町を選ぶと、近くの発生が見られます。")).toBeVisible();
+    await expect(page.getByText("地域を選択すると、近くの発生が見られます。")).toBeVisible();
     await chooseTown(page, "33", "33214");
     await expect(page.getByText("隣町で発生しました", { exact: true })).toBeVisible();
     await expect(page.getByText("昨季に隣町で発生しました（記録）")).toBeVisible();
     await filterHas(page, "my-town", "33214");
     await filterHas(page, "near-line", "33203");
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv2");
-    // 最初の画面の自分の町の欄は「自分の町の過去を見る」の 1 本。案内ページは自分の町の過去の画面から（設計書 2026-11-06-town-picker D8）
+    // 最初の画面の自分の町の欄は「選択地域の過去を見る」の 1 本。案内ページは選択地域の過去の画面から（設計書 2026-11-06-town-picker D8）
     await expect(page.getByRole("link", { name: /この町の案内ページ/ })).toHaveCount(0);
     await page.goto("/town");
     await expect(page.getByRole("link", { name: "この町の案内ページ（登録なしで開ける・共有用）" })).toHaveAttribute("href", "/area/33214");
@@ -122,12 +122,12 @@ test.describe("自分の町の 1 文", () => {
 
   test("町の名前を入力して探し、候補を押すとすぐ自分の町になる。変えるボタンは町の名前の横にある", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: "自分の町を選ぶ", exact: true }).click();
+    await page.getByRole("button", { name: "地域を選択", exact: true }).click();
     await page.getByLabel("町の名前を入力").fill("西粟倉");
     await page.getByRole("button", { name: "岡山県 西粟倉村" }).click();
     await expect(page.locator(".town-name strong")).toHaveText("西粟倉村");
     await filterHas(page, "my-town", "33643");
-    await expect(page.locator(".town-name-row").getByRole("button", { name: "自分の町を変える" })).toBeVisible();
+    await expect(page.locator(".town-name-row").getByRole("button", { name: "地域を選択" })).toBeVisible();
   });
 
   test("地点を指定すると『区域に入っている可能性があります』（①）。/compare でシーズンを変えても色は lv1 のまま", async ({ page }) => {
@@ -151,8 +151,8 @@ test.describe("自分の町の 1 文", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");
     await expect(page.getByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeVisible();
-    // 自分の町の過去（/town）にも、同じ色の文が出る
-    await goViaMenu(page, "自分の町の過去");
+    // 選択地域の過去（/town）にも、同じ色の文が出る
+    await goViaMenu(page, "選択地域の過去");
     await expect(page).toHaveURL(/\/town$/);
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");
   });

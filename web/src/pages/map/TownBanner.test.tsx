@@ -120,13 +120,13 @@ describe("TownBanner", () => {
     expect(screen.getByRole("link", { name: "この町の案内ページ（登録なしで開ける・共有用）" }).getAttribute("href")).toBe("/area/33214");
   });
 
-  it("最初の画面では案内ページへのリンクを出さない（自分の町の過去を見るの 1 本。設計書 2026-11-06-town-picker D8）", () => {
+  it("最初の画面では案内ページへのリンクを出さない（選択地域の過去を見るの 1 本。設計書 2026-11-06-town-picker D8）", () => {
     show(props({ pastBrief: true }));
     expect(screen.queryByRole("link", { name: TEXT.areaLink })).toBeNull();
     expect(screen.getByRole("link", { name: TEXT.townPastLink })).toBeTruthy();
   });
 
-  it("名前の横に差し込める（自分の町を変えるボタンの置き場。設計書 2026-11-06-town-picker D1）", () => {
+  it("名前の横に差し込める（地域を選択ボタンの置き場。設計書 2026-11-06-town-picker D1）", () => {
     show(props({ nameAction: <button type="button">x</button> }));
     const row = document.querySelector(".town-name-row")!;
     const btn = screen.getByRole("button", { name: "x" });

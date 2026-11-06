@@ -106,7 +106,7 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     await firstScreen(page);
     await expect(page.getByRole("group", { name: "地図の見る場所" })).toHaveCount(0);
     const text = (await page.locator(".town-prompt-text").boundingBox())!;
-    const btn = page.getByRole("button", { name: "自分の町を選ぶ" });
+    const btn = page.getByRole("button", { name: "地域を選択" });
     const box = (await btn.boundingBox())!;
     await bottomAboveNav(page, btn);
     expect(box.y).toBeLessThan(text.y + text.height);
@@ -121,7 +121,7 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     await page.goto("/");
     await firstScreen(page);
     await bottomAboveNav(page, page.locator(".map-ring-note"));
-    const near = page.getByRole("button", { name: "自分の近く" });
+    const near = page.getByRole("button", { name: "選択地域付近" });
     await bottomAboveNav(page, near);
     await expect(near).toHaveAttribute("aria-pressed", "true");
     expect((await near.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -301,7 +301,7 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
     [360, 740],
     [360, 640],
   ] as const) {
-    test(`${width}x${height} の全国の流れ: 自分の近くは 60 km の輪が入る広さで町を塗り、全国の広さは県のバッジのまま`, async ({ page }) => {
+    test(`${width}x${height} の全国の流れ: 選択地域付近は 60 km の輪が入る広さで町を塗り、全国の広さは県のバッジのまま`, async ({ page }) => {
       await openReplay(page, width, height);
       await goNational(page);
       for (let i = 1; i <= 8; i++) await page.getByRole("button", { name: "次へ" }).click();
@@ -514,8 +514,8 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
       const above = await textBeforeMap(page);
       expect(above).not.toContain("https://");
       expect(above).not.toMatch(/過去 \d+ シーズン/);
-      // 自分の町の欄の文は地図の下。町を選ぶ前のボタン「自分の町を選ぶ」だけは地図の上に置く（設計書 2026-11-06-town-picker 3 章）
-      expect(above.replace("自分の町を選ぶ", "")).not.toContain("自分の町");
+      // 選択地域の欄の文は地図の下。町を選ぶ前のボタン「地域を選択」と、切り替えの「選択地域付近」だけは地図の上に置く
+      expect(above.replace("地域を選択", "").replaceAll("選択地域付近", "")).not.toContain("選択地域");
       expect(above).not.toContain("47 都道府県のうち");
       // 地図の断りは地図のすぐ下
       await expect(page.locator(".map-box + .map-disclaimer")).toBeVisible();
@@ -749,7 +749,7 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
         expect(scope.y + scope.height).toBeLessThanOrEqual(map.y);
         expect(scope.x).toBeLessThanOrEqual(map.x + 1);
         expect(scope.width).toBeGreaterThan(map.width);
-        const near = (await page.getByRole("button", { name: "自分の近く" }).boundingBox())!;
+        const near = (await page.getByRole("button", { name: "選択地域付近" }).boundingBox())!;
         expect(near.height).toBeGreaterThanOrEqual(44);
       }
     });

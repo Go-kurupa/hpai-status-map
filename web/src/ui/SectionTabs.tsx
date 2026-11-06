@@ -18,7 +18,7 @@ export const SECTION_TABS = {
     tabs: [
       { to: "/compare", label: "全国とシーズン", match: (p) => under(p, "/compare") },
       // 去年の再現は審査員向けの見本なので、ここに並べず「このサイトについて」の審査員の節から開く（決定 16）
-      { to: "/town", label: "自分の町のまわり", match: (p) => under(p, "/town") || under(p, "/area") },
+      { to: "/town", label: "選択地域のまわり", match: (p) => under(p, "/town") || under(p, "/area") },
     ],
   },
 } satisfies Record<string, { label: string; tabs: Tab[] }>;

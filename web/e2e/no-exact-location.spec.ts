@@ -143,10 +143,10 @@ test("公開: 町と地点を指定しても、全要求に緯度経度がなく
   await page.waitForFunction(() => !!(window as unknown as W).__hpaiMap, undefined, { timeout: 20_000 });
 
   // 町を選ぶ
-  await page.getByRole("button", { name: "自分の町を選ぶ", exact: true }).click();
+  await page.getByRole("button", { name: "地域を選択", exact: true }).click();
   await page.getByLabel("都道府県").selectOption("33");
   await page.getByLabel("市町村").selectOption("33203");
-  await page.getByRole("button", { name: "自分の町にする" }).click();
+  await page.getByRole("button", { name: "この地域にする" }).click();
 
   // 地点を指定する。十字を津山駅の近くへ合わせ（動きが終わるまで寄せ直す）、決める
   await page.getByRole("button", { name: "地図で場所を合わせる" }).click();

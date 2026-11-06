@@ -386,8 +386,8 @@ describe("読み込みと失敗（④にしない）", () => {
   it("地点がなければ町を選ぶ案内と、ふだんの確認。区域の話は出さない", async () => {
     farm = null;
     mount(<TodoPage />, { spot: null, ds: makeDs({ cases: [inTsuyama()] }) });
-    await screen.findByText(/町を選ぶと、近くの発生に合わせた確認を出せます/);
-    expect(screen.getByRole("link", { name: "地図で町を選ぶ" }).getAttribute("href")).toBe("/");
+    await screen.findByText(/地域を選択すると、近くの発生に合わせた確認を出せます/);
+    expect(screen.getByRole("link", { name: "地図で地域を選択" }).getAttribute("href")).toBe("/");
     expect(screen.getByText(FIXED_TEXT.riskAnywhere)).toBeTruthy();
     expect(screen.queryByRole("region", { name: "解除の見込み" })).toBeNull();
     expect(screen.queryByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeNull();

@@ -43,7 +43,7 @@ export function PublicView({ reviewedOn }: { reviewedOn: IsoDate | null }) {
         <GuidanceSection key={g.topic} guidance={g} notes={PAGE_NOTES[g.topic]} statementNotes={STATEMENT_NOTES.filter((n) => n.topic === g.topic)}>
           {g.topic === "small_flock" ? (
             <p className="guidance-map-link">
-              <Link to="/">地図を見る（自分の町の状況）</Link>
+              <Link to="/">地図を見る（地域の状況）</Link>
             </p>
           ) : null}
         </GuidanceSection>

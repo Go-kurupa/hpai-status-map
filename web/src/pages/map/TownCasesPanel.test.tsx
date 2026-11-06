@@ -155,7 +155,7 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
       screen.getByRole("button", { name: "津山市" }).focus();
       rerender(view("33203", () => rerender(view(null))));
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2 }));
-      fireEvent.click(screen.getByRole("button", { name: "自分の町に戻る" }));
+      fireEvent.click(screen.getByRole("button", { name: "選択地域に戻る" }));
       act(() => vi.runAllTimers());
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "津山市" }));
     } finally {
@@ -164,7 +164,7 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
     cleanup();
     render(<TownCasesPanel {...base} hasTown={false} muniCode="33203" muniName="津山市" currentCases={[]} history={[]} />);
     expect(screen.getByRole("button", { name: "閉じる" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "自分の町に戻る" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "選択地域に戻る" })).toBeNull();
   });
 });
 

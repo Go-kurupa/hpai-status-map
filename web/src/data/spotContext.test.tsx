@@ -118,7 +118,7 @@ describe("SpotProvider", () => {
     expect(localStorage.getItem(TOWN_KEY)).toBeNull();
   });
 
-  it("fixed を外す（再現の『自分の町で見る』）と、端末内の地点が使える。fixed のあいだは書かない", async () => {
+  it("fixed を外す（再現の『選択地域で見る』）と、端末内の地点が使える。fixed のあいだは書かない", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
     const tree = (fixed: FarmPoint | null) => (
       <SpotProvider fixed={fixed}>

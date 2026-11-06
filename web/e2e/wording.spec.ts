@@ -113,7 +113,7 @@ const LEVELS: readonly Level[] = [
   },
   {
     name: "町を選んでいない",
-    sentence: "町を選ぶと、近くの発生が見られます。",
+    sentence: "地域を選択すると、近くの発生が見られます。",
     setup: async () => {},
   },
 ];
@@ -168,12 +168,12 @@ test.describe("地図の入口: シーズンの切り替え（/compare）", () =
         await check(`${level.name} / ${label} / /compare`, true);
       }
       // ほかの画面は行き先ごとに作り直し、いつも今季を出す（選んだシーズンを持ち越さない）。各画面を 1 度ずつ開いて調べる
-      // （自分の町の過去は、時点の行を持たない画面）
+      // （選択地域の過去は、時点の行を持たない画面）
       await goViaMenu(page, "今季の一覧と数");
       await expect(page.getByRole("heading", { level: 1, name: "今季の一覧と数" })).toBeVisible();
       await check(`${level.name} / /season`, true);
-      await goViaMenu(page, "自分の町の過去");
-      await expect(page.getByRole("heading", { level: 1, name: "自分の町の過去" })).toBeVisible();
+      await goViaMenu(page, "選択地域の過去");
+      await expect(page.getByRole("heading", { level: 1, name: "選択地域の過去" })).toBeVisible();
       await check(`${level.name} / /town`, false);
       await goViaMenu(page, "今季の発生と地図");
       await expect(page.getByRole("heading", { level: 1 }).first()).toHaveText("今季の発生状況");

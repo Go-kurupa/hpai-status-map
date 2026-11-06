@@ -45,20 +45,20 @@ describe("TownPicker", () => {
     cleanup();
     setup({ town: "33214" });
     expect(screen.queryByRole("button", { name: "全国" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "自分の町" })).toBeNull();
+    expect(screen.queryByRole("button", { name: TEXT.myTown })).toBeNull();
     cleanup();
     setup({ readOnly: true, town: "33214" });
     expect(screen.queryByRole("button", { name: "全国" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "自分の町" })).toBeNull();
+    expect(screen.queryByRole("button", { name: TEXT.myTown })).toBeNull();
   });
 
-  it("町が未選択なら『自分の町を選ぶ』で選ぶ画面を開く", () => {
+  it("町が未選択なら『地域を選択』で選ぶ画面を開く", () => {
     const a = setup();
     fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     expect(a.onPickingChange).toHaveBeenCalledWith(true);
   });
 
-  it("県を選ぶと市町村が出る。選ぶまで『自分の町にする』は押せない", () => {
+  it("県を選ぶと市町村が出る。選ぶまで『この地域にする』は押せない", () => {
     const p = setup({ picking: true });
     const muni = screen.getByLabelText("市町村") as HTMLSelectElement;
     const decide = screen.getByRole("button", { name: TEXT.decideTown }) as HTMLButtonElement;
@@ -101,7 +101,7 @@ describe("TownPicker", () => {
     expect(p.onPickingChange).toHaveBeenCalledWith(false);
   });
 
-  it("町を選んである間は『自分の町を変える』を出す", () => {
+  it("町を選んである間は『地域を選択』を出す", () => {
     const p = setup({ town: "33214" });
     fireEvent.click(screen.getByRole("button", { name: TEXT.changeTown }));
     expect(p.onPickingChange).toHaveBeenCalledWith(true);
@@ -123,7 +123,7 @@ describe("TownPicker", () => {
     expect(screen.getByRole("alert").textContent).toContain("読めませんでした");
   });
 
-  it("未選択では『自分の町を選ぶ』が btn-primary", () => {
+  it("未選択では『地域を選択』が btn-primary", () => {
     setup();
     expect(screen.getByRole("button", { name: TEXT.pickTown }).className).toContain("btn-primary");
   });
@@ -143,11 +143,11 @@ describe("TownPicker", () => {
     expect(decide.disabled).toBe(false);
   });
 
-  it("新しい文言（自分の町を決めることだけに『自分の町』を使う）", () => {
-    expect(TEXT.pickTown).toBe("自分の町を選ぶ");
-    expect(TEXT.changeTown).toBe("自分の町を変える");
-    expect(TEXT.decideTown).toBe("自分の町にする");
-    expect(TEXT.mapTapHint).toBe("地図の町を押しても、自分の町にできます");
+  it("新しい文言（選ぶ操作は『地域を選択』、選んだ町は『選択地域』）", () => {
+    expect(TEXT.pickTown).toBe("地域を選択");
+    expect(TEXT.changeTown).toBe("地域を選択");
+    expect(TEXT.decideTown).toBe("この地域にする");
+    expect(TEXT.mapTapHint).toBe("地図の町を押しても選べます");
   });
 
   it("入力で探して候補を押すとすぐ決まる", () => {

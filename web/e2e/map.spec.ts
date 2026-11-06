@@ -179,9 +179,9 @@ test.describe("地図（入口）", () => {
     await expect(page.getByRole("navigation", { name: "メイン" })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "ほかのページ" })).toHaveCount(0);
     const next = page.getByRole("navigation", { name: "次の画面" });
-    await expect(next.getByRole("link")).toHaveText(["自分の町の過去を見る", "今季の一覧と数を見る", "過去シーズンと比べる"]);
+    await expect(next.getByRole("link")).toHaveText(["選択地域の過去を見る", "今季の一覧と数を見る", "過去シーズンと比べる"]);
     for (const [name, path] of [
-      ["自分の町の過去を見る", "/town"],
+      ["選択地域の過去を見る", "/town"],
       ["今季の一覧と数を見る", "/season"],
       ["過去シーズンと比べる", "/compare"],
     ] as const) {
@@ -430,7 +430,7 @@ test.describe("地図（入口）", () => {
     });
 
     // 設計書 2026-11-06-ui-frame 決定 6: 地点がなく町だけ選んだ人も、町の中心から輪を描く
-    test("町だけ選んだ人は、町の中心から輪が描かれ、自分の近くは約 60 km の輪の全体が入る。断りは町の中心の文", async ({ page }) => {
+    test("町だけ選んだ人は、町の中心から輪が描かれ、選択地域付近は約 60 km の輪の全体が入る。断りは町の中心の文", async ({ page }) => {
       await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
       await open(page, 1280);
       await expect(page.getByText("輪は町の中心からの距離の目安で、発表の区域ではありません。")).toBeVisible();
@@ -452,7 +452,7 @@ test.describe("地図（入口）", () => {
     await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("case-confirmed") && !!window.__hpaiMap2?.getLayer("case-confirmed"), undefined, { timeout: 20_000 });
     await expect(page.getByLabel("比べる 1", { exact: true })).toHaveValue("2025");
     await expect(page.getByLabel("比べる 2", { exact: true })).toHaveValue("2026");
-    // 右上の見方の切り替えは、「自分の近く／全国」の枠に重ならない（11/6 本番で重なっていた）
+    // 右上の見方の切り替えは、「選択地域付近／全国」の枠に重ならない（11/6 本番で重なっていた）
     const tabs = (await page.locator(".map-page > .section-tabs").boundingBox())!;
     const scope = (await page.locator(".map-page > .map-scope").boundingBox())!;
     expect(tabs.y + tabs.height).toBeLessThanOrEqual(scope.y);
@@ -538,14 +538,14 @@ test.describe("地図（入口）", () => {
       const box = (await panel.boundingBox())!;
       expect(box.x).toBeGreaterThan(canvas.x + canvas.width);
       expect(Math.abs(box.y - canvas.y)).toBeLessThanOrEqual(2);
-      await panel.getByRole("button", { name: "自分の町に戻る" }).click();
+      await panel.getByRole("button", { name: "選択地域に戻る" }).click();
       await panel.getByRole("button", { name: "美作市" }).click();
       await expect(panel.getByRole("heading", { level: 2, name: "美作市" })).toBeFocused();
       await expect(panel.getByText("2020 年 12 月 11 日")).toBeVisible();
       await expect(panel.getByRole("link", { name: "資料を開く" }).first()).toHaveAttribute("rel", /noopener/);
     });
 
-    test("欄は今季の発生の地図だけ。過去の発生（/compare）と自分の町のまわり（/town）には出ない", async ({ page }) => {
+    test("欄は今季の発生の地図だけ。過去の発生（/compare）と選択地域のまわり（/town）には出ない", async ({ page }) => {
       await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
       for (const path of ["/compare", "/town"]) {
         await open(page, 1280, path);

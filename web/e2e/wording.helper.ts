@@ -130,10 +130,10 @@ export async function prepare(page: Page, o: { cases?: Case[]; storage?: Record<
 
 /** 地図の入口で町を選ぶ（town.spec.ts と同じ操作） */
 export async function chooseTown(page: Page, pref: string, muni: string): Promise<void> {
-  await page.getByRole("button", { name: "自分の町を選ぶ", exact: true }).click();
+  await page.getByRole("button", { name: "地域を選択", exact: true }).click();
   await page.getByLabel("都道府県").selectOption(pref);
   await page.getByLabel("市町村").selectOption(muni);
-  await page.getByRole("button", { name: "自分の町にする" }).click();
+  await page.getByRole("button", { name: "この地域にする" }).click();
 }
 
 /** シーズンの切り替えのボタン（今季、昨季、2 年前…）の題を、画面の並びのまま返す */

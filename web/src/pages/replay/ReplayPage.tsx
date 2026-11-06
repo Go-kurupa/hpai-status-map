@@ -102,7 +102,7 @@ function ReplayReady({ scenario: casesScenario }: { scenario: ReplayScenario }) 
     setWanted(f);
   };
 
-  // 端末内の地点は読むだけ（hpai.spot.v1 には書かない）。なければ『自分の町で見る』は押せない
+  // 端末内の地点は読むだけ（hpai.spot.v1 には書かない）。なければ『選択地域で見る』は押せない
   const [deviceSpot] = useState<FarmPoint | null>(() => loadSpot());
   const [view, setView] = useState<View>("zone");
   const spot = view === "own" && deviceSpot ? deviceSpot : scenario.defaultSpot;
@@ -228,7 +228,7 @@ function ReplayControls({
           </section>
         ) : null}
         {!isNational && view === "zone" && current && !preview ? <p className="replay-hint">この出来事では、この地点にメールは届きません。</p> : null}
-        {!isNational && view === "own" ? <p className="replay-hint">自分の町では、メールの下書きは出しません。</p> : null}
+        {!isNational && view === "own" ? <p className="replay-hint">選択地域では、メールの下書きは出しません。</p> : null}
         {current ? (
           <p className="replay-source">
             {formatMonthDay(current.date)}の出来事の出典:{" "}
@@ -261,10 +261,10 @@ function ReplayControls({
             {isNational ? "作者の村から見る" : "もし区域の近くの農場なら"}
           </button>
           <button type="button" className="btn" aria-pressed={view === "own"} disabled={!canOwn} onClick={() => onView("own")}>
-            自分の町で見る
+            選択地域で見る
           </button>
         </div>
-        {!canOwn ? <p className="replay-hint">自分の町で見るには、<Link to="/">地図</Link>で自分の場所を決めてください（この端末の中にだけ保存されます）。</p> : null}
+        {!canOwn ? <p className="replay-hint">選択地域で見るには、<Link to="/">地図</Link>で自分の場所を決めてください（この端末の中にだけ保存されます）。</p> : null}
         <p className="replay-hint">
           <Link to="/replay/backstage">舞台裏（AI が読んだ結果と、プログラムの検査）を見る</Link>
           {" / "}

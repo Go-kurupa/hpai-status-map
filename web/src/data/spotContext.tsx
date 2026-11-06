@@ -39,7 +39,7 @@ function toPoint(farm: { meshCode: string; muniCode: string; frequentMuniCodes: 
 
 export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | null; children: ReactNode }) {
   const store = useOptionalRecordStore();
-  // 端末内の値は、fixed があっても読んでおく（読むだけ。再現が「自分の町で見る」に切り替えられる）。書くのは fixed がないときだけ
+  // 端末内の値は、fixed があっても読んでおく（読むだけ。再現が「選択地域で見る」に切り替えられる）。書くのは fixed がないときだけ
   const readsDevice = fixed === null;
   const [device, setDevice] = useState<FarmPoint | null>(() => loadSpot());
   const [storedTown, setStoredTown] = useState<MuniCode | null>(() => loadTown());

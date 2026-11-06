@@ -21,10 +21,10 @@ describe("SectionTabs（今季の発生／過去の発生の中の見方）", ()
     expect(within(screen.getByRole("navigation", { name: "今季の発生の見方" })).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/", "/season"]);
     expect(current()).toEqual(["一覧と数"]);
   });
-  it("過去: 全国とシーズン、自分の町のまわりの 2 つ。/area/xxx は自分の町のまわりが選択中。去年の再現は並べない（決定 16）", () => {
+  it("過去: 全国とシーズン、選択地域のまわりの 2 つ。/area/xxx は選択地域のまわりが選択中。去年の再現は並べない（決定 16）", () => {
     render(<MemoryRouter initialEntries={["/area/33203"]}><SectionTabs group="past" /></MemoryRouter>);
     expect(within(screen.getByRole("navigation", { name: "過去の発生の見方" })).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/compare", "/town"]);
-    expect(current()).toEqual(["自分の町のまわり"]);
+    expect(current()).toEqual(["選択地域のまわり"]);
   });
 });
 

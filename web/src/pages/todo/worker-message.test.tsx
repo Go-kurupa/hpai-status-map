@@ -296,7 +296,7 @@ describe("やること画面への置き方", () => {
     expect(screen.queryByRole("region", { name: WORKER_MESSAGE_TEXT.heading })).toBeNull();
     cleanup();
     mount(<TodoPage />, none.store, makeDs("live", [caseT1()]), null);
-    await screen.findByText(/町を選ぶと/);
+    await screen.findByText(/地域を選択すると/);
     expect(screen.queryByRole("region", { name: WORKER_MESSAGE_TEXT.heading })).toBeNull();
   });
 

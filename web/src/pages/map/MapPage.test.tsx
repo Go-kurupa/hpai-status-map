@@ -387,7 +387,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "津山市" })).toBeTruthy();
     // 町を押している間は、自分の町の 1 文を欄に替える（CSS で隠す。DOM には残る）
     expect(document.querySelector(".map-page > .town-cases h2")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "自分の町に戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "選択地域に戻る" }));
     expect(screen.queryByRole("heading", { level: 2, name: "津山市" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: TEXT.changeTown }));
     expect(lastProps().onSelectMuni).toBeTypeOf("function");
@@ -532,7 +532,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(before(scope, box)).toBe(true);
     expect(screen.getAllByRole("button", { name: "全国" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: TEXT.myTown })).toBeNull();
-    // 自分の町を変えるボタンは、自分の町の欄の名前の行に 1 つだけ（設計書 2026-11-06-town-picker D1）
+    // 地域を選択ボタンは、自分の町の欄の名前の行に 1 つだけ（設計書 2026-11-06-town-picker D1）
     const changes = screen.getAllByRole("button", { name: TEXT.changeTown });
     expect(changes).toHaveLength(1);
     expect(document.querySelector(".town-banner .town-name-row")!.contains(changes[0]!)).toBe(true);
@@ -598,7 +598,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(scroll).not.toHaveBeenCalled();
   });
 
-  it("切り替えは最初『自分の近く』で、押すと地図が動き、押された状態が移る", async () => {
+  it("切り替えは最初『選択地域付近』で、押すと地図が動き、押された状態が移る", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
@@ -632,7 +632,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(aims).toEqual(["rings"]);
   });
 
-  it("地点があれば、最初も『自分の近く』も輪の全体が入る広さ", async () => {
+  it("地点があれば、最初も『選択地域付近』も輪の全体が入る広さ", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
     const r = rig();
     show(r);
@@ -1846,7 +1846,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(before(document.querySelector(".map-box")!, screen.getByTestId("watch-line"))).toBe(true);
   });
 
-  it("自分の近く: 確認中の県と町の分からない発表を、地図の下の端の 1 行に出す。『全国で見る』で全国へ。全国の広さでは出さない", async () => {
+  it("選択地域付近: 確認中の県と町の分からない発表を、地図の下の端の 1 行に出す。『全国で見る』で全国へ。全国の広さでは出さない", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
@@ -1867,7 +1867,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(document.querySelector(".near-unmarked")).toBeNull();
   });
 
-  it("自分の近く: 印のない発表がなければ、1 行を出さない", async () => {
+  it("選択地域付近: 印のない発表がなければ、1 行を出さない", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
@@ -2144,7 +2144,7 @@ describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章�
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     await waitFor(() => expect(has(".town-banner")).toBe(true));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("自分の町の過去");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("選択地域の過去");
     expect(has(".map-box")).toBe(false);
     expect(has(".stat-row")).toBe(false);
     expect(has(".town-area-link")).toBe(true);

@@ -31,7 +31,7 @@ export interface CompareMapsProps {
   onRetryHistory: () => void;
   /** 今季の記録の時点。今季に記録がないとき「〇時点で、発生記録はありません。」と書く（2026-11-06 作者の決定） */
   asOf: IsoDateTime | null;
-  /** 「自分の近く／全国」の広さの指定。2 枚に同じものを当てる */
+  /** 「選択地域付近／全国」の広さの指定。2 枚に同じものを当てる */
   focus: Focus;
   muniName: (code: MuniCode) => string | null;
   /** 地図ごとの時点と凡例（今季と過去で色が違う） */
