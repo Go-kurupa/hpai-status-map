@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ALLOWED_LICENSES, parseCardsFile } from "@hpai/shared/consult/schema";
+import { findWordingViolations } from "@hpai/shared/wording";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const raw = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "consult", "cards.json"), "utf8")) as { cards: Array<Record<string, unknown>> };
@@ -39,5 +40,15 @@ describe("data/consult/cards.json（実物）", () => {
     const sorted = <T extends { id: string }>(xs: T[]) => [...xs].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).map((x) => x.id);
     expect(file.sources.map((s) => s.id)).toEqual(sorted(file.sources));
     expect(file.cards.map((c) => c.id)).toEqual(sorted(file.cards));
+  });
+
+  it("caveats（画面に出る注意書き）に、カードの id の形の語と「メモ」が入っていない", () => {
+    const bad = file.cards.flatMap((c) => c.caveats.filter((t) => /(maff|papers|overseas|okayama|aphis|paper|defra)-/.test(t) || t.includes("メモ")).map((t) => `${c.id}: ${t}`));
+    expect(bad).toEqual([]);
+  });
+
+  it("caveats に禁句がない", () => {
+    const bad = file.cards.flatMap((c) => c.caveats.filter((t) => findWordingViolations(t).length > 0).map((t) => `${c.id}: ${t}`));
+    expect(bad).toEqual([]);
   });
 });
