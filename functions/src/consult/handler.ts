@@ -124,6 +124,11 @@ async function gate(deps: ConsultDeps, who: Who, now: Date): Promise<Gate> {
   return { ok: true, settings };
 }
 
+/** ログに残す理由の種類。unknown_number:<数字> は数字を落として種類だけにする。 */
+function failureKind(f: string): string {
+  return f.replace(/^unknown_number:.*$/u, "unknown_number");
+}
+
 /** 拒否や途中で切れた呼び出しも課金されるので、usage があれば積む。積めなくても結果は返す。 */
 async function recordUsage<T>(deps: ConsultDeps, attempt: ReadAttempt<T>, now: Date, settings: RuntimeSettings): Promise<void> {
   if (attempt.usage === undefined) return;
@@ -172,7 +177,8 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
     outOfScope: result.outOfScope,
     notice: null,
     judge: who.judge,
-    failureKinds: attempt.ok ? [] : [`claude:${attempt.reason}`],
+    // 落ちた理由の符号だけ（数字は落とす。答えの文と相談の文は入れない）
+    failureKinds: [...new Set([...(attempt.ok ? [] : [`claude:${attempt.reason}`]), ...result.failures.map(failureKind)])],
   });
   return {
     answer: result.answer,

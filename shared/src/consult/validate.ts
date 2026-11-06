@@ -14,6 +14,8 @@ export interface FollowupResult {
   answer: string;
   cardIds: string[];
   outOfScope: boolean;
+  /** 決まった文に倒れた理由の符号（通ったときは空）。答えの文は入らない */
+  failures: string[];
 }
 
 // 長さと URL の判定。functions の lengthAndUrlFailures と同じ判定を、shared に小さく持つ。
@@ -78,11 +80,13 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-const FOLLOWUP_FALLBACK: FollowupResult = { answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true };
+// 落ちたときの結果。failures は理由の符号だけ（答えの文、相談者の文は入れない）。
+const fallbackOf = (failures: string[]): FollowupResult => ({ answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true, failures });
 
 // cards は数字の検査に使う。渡さないときは数字を確かめられないので、数字を含む答えは通さない。
 // maxCards は使うカードの上限。許された id に絞り、重なりを除いた後の先頭の maxCards 枚だけを使う（数字の検査もその分だけ）。
 // extraText は相談の文。相談者が書いた数字（「300 羽の平飼い」の 300）は、答えにそのまま書いてよい。
+// 落ちたときの failures の符号: shape / claude_out_of_scope / no_valid_id / too_long / url / unknown_number:<数字> / empty。通ったときは空。
 export function validateFollowup(
   raw: unknown,
   allowedIds: string[],
@@ -90,20 +94,21 @@ export function validateFollowup(
   maxCards: number = Infinity,
   extraText: string = "",
 ): FollowupResult {
-  const fallback = (): FollowupResult => ({ ...FOLLOWUP_FALLBACK, cardIds: [] });
-  if (!isRecord(raw) || typeof raw.answer !== "string" || !Array.isArray(raw.cardIds)) return fallback();
-  if (raw.outOfScope === true) return fallback();
+  if (!isRecord(raw) || typeof raw.answer !== "string" || !Array.isArray(raw.cardIds)) return fallbackOf(["shape"]);
+  if (raw.outOfScope === true) return fallbackOf(["claude_out_of_scope"]);
 
   const allowed = new Set(allowedIds);
   const cardIds = [
     ...new Set(raw.cardIds.filter((id): id is string => typeof id === "string" && allowed.has(id))),
   ].slice(0, maxCards);
-  if (cardIds.length === 0) return fallback();
+  if (cardIds.length === 0) return fallbackOf(["no_valid_id"]);
 
-  if (lengthAndUrlFailures(raw.answer, ANSWER_MAX_CHARS).length > 0) return fallback();
+  // 答えの落ちる理由は、見つかった分を全部残す（調べのため）
+  const failures = lengthAndUrlFailures(raw.answer, ANSWER_MAX_CHARS);
   const cited = cards.filter((c) => cardIds.includes(c.id));
-  if (unknownNumbers(raw.answer, allowedNumbers(cited, extraText)).length > 0) return fallback();
-  if (raw.answer.trim() === "") return fallback();
+  for (const n of new Set(unknownNumbers(raw.answer, allowedNumbers(cited, extraText)))) failures.push(`unknown_number:${n}`);
+  if (raw.answer.trim() === "") failures.push("empty");
+  if (failures.length > 0) return fallbackOf(failures);
 
-  return { answer: raw.answer, cardIds, outOfScope: false };
+  return { answer: raw.answer, cardIds, outOfScope: false, failures: [] };
 }

@@ -28,12 +28,12 @@ describe("validateFollowup", () => {
   const ok = { answer: "網目は 2 cm 以下とされています。", cardIds: ["a"], outOfScope: false };
 
   it("検査を通った答えはそのまま返す", () => {
-    expect(validateFollowup(ok, ["a", "b"], cards)).toEqual({ answer: ok.answer, cardIds: ["a"], outOfScope: false });
+    expect(validateFollowup(ok, ["a", "b"], cards)).toEqual({ answer: ok.answer, cardIds: ["a"], outOfScope: false, failures: [] });
   });
 
   it("outOfScope: true のとき、決まった文を返す", () => {
     const r = validateFollowup({ answer: "何か", cardIds: ["a"], outOfScope: true }, ["a"], cards);
-    expect(r).toEqual({ answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true });
+    expect(r).toEqual({ answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true, failures: ["claude_out_of_scope"] });
   });
 
   it("形が違う、cardIds が空、許された id がないときは、決まった文を返す", () => {
@@ -68,6 +68,30 @@ describe("validateFollowup", () => {
   it("カードの一覧を渡さないときは、数字を確かめられないので数字を含む答えを通さない", () => {
     expect(validateFollowup(ok, ["a"]).answer).toBe(OUT_OF_SCOPE_TEXT);
     expect(validateFollowup({ answer: "網目は細かいほどよい", cardIds: ["a"] }, ["a"]).answer).toBe("網目は細かいほどよい");
+  });
+
+  it("落ちた道筋ごとの failures の符号。通ったときは空", () => {
+    const f = (raw: unknown, extra = "") => validateFollowup(raw, ["a", "b"], cards, 5, extra).failures;
+    expect(f(ok)).toEqual([]);
+    // 形が違う
+    for (const raw of [null, "x", {}, { answer: 1, cardIds: ["a"] }, { answer: "答え", cardIds: "a" }]) expect(f(raw)).toEqual(["shape"]);
+    // Claude が outOfScope: true
+    expect(f({ answer: "", cardIds: [], outOfScope: true })).toEqual(["claude_out_of_scope"]);
+    // 許された id がない
+    expect(f({ answer: "答え", cardIds: [] })).toEqual(["no_valid_id"]);
+    expect(f({ answer: "答え", cardIds: ["zzz", 3] })).toEqual(["no_valid_id"]);
+    // 長さ、URL
+    expect(f({ answer: "あ".repeat(401), cardIds: ["a"] })).toEqual(["too_long"]);
+    expect(f({ answer: "https://evil.example を見て", cardIds: ["a"] })).toEqual(["url"]);
+    // カードにない数字（数字そのものは入る。同じ数字は 1 つ。相談の文の数字は通る）
+    expect(f({ answer: "3 倍と 3 倍と 7 日", cardIds: ["a"] })).toEqual(["unknown_number:3", "unknown_number:7"]);
+    expect(f({ answer: "3 倍です", cardIds: ["a"] }, "3 羽")).toEqual([]);
+    // 空
+    expect(f({ answer: "   ", cardIds: ["a"] })).toEqual(["empty"]);
+    // 重なったら全部残す
+    expect(f({ answer: "https://x.example で 9 倍", cardIds: ["a"] })).toEqual(["url", "unknown_number:9"]);
+    // 答えの文は failures に入らない
+    expect(JSON.stringify(f({ answer: "合言葉ZZQ 3 倍", cardIds: ["a"] }))).not.toContain("合言葉ZZQ");
   });
 
   it("maxCards を渡すと、絞った後の先頭の maxCards 枚だけを使う（同じ id と許されない id は数えない）", () => {

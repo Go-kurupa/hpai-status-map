@@ -6,7 +6,10 @@
 // 入力は private/consult/cards-draft.json。ファイルは書き換えず、メモリの中だけで全カードを approved: true にする。
 // 質問は話題「長靴・服」の文（MEASURE_QUESTION）。カードは索引（cardId, action, appliesTo, evidence, caveats）だけを渡す。
 // 鍵は SDK が環境変数 ANTHROPIC_API_KEY から読む。ここでは読まず、表示もしない。
-// 返事の中身は出さない。出すのは、秒数、usage、stop_reason、費用、validateFollowup の結果（outOfScope、カード数）と、失敗の符号だけ。
+// 返事の中身は画面に出さない。出すのは、秒数、usage、stop_reason、費用、validateFollowup の結果（outOfScope、カード数、failures の符号）と、
+// 生の返事の数（outOfScope、cardIds の数、一覧にない id の数、答えの字数）だけ。
+// 生の返事（message 全体）は、公開しない場所（RAW_DIR、日時つきの JSON）に保存する。もう 1 回払わずに後から読めるように。
+// 下書きから外す 2 枚（EXCLUDED_IDS）は、R2 で cards.json ができるまでの間、本番と同じ 103 枚にそろえるため。
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -21,6 +24,10 @@ import { normalizeDraft } from "./verify-cards";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const DRAFT_PATH = path.join(ROOT, "private", "consult", "cards-draft.json");
+// 生の返事の保存先（リポジトリの外。公開しない）。
+const RAW_DIR = "/tmp/claude-1000/-mnt-nas-home-git-built-with-claude-japan-2026/1a7e7b65-9e2b-4dfa-a980-363f0b3b9f05/scratchpad/consult-raw";
+// 本番の cards.json に入れないカード（付け間違いと、図の中の文）。
+const EXCLUDED_IDS = new Set(["maff-M19b", "okayama-OK3"]);
 
 // Opus 5.5 の料金（ドル／100 万トークン）。
 const USD_INPUT = 4;
@@ -41,7 +48,7 @@ const fmt = (n: number): string => n.toLocaleString("en-US");
 /** 下書きを読み、メモリの中だけで全カードを approved: true にして検査に通す。 */
 function loadCards(): ConsultCard[] {
   const raw = normalizeDraft(JSON.parse(fs.readFileSync(DRAFT_PATH, "utf8"))) as { cards: Record<string, unknown>[] };
-  const approved = { ...raw, cards: raw.cards.map((c) => ({ ...c, approved: true })) };
+  const approved = { ...raw, cards: raw.cards.filter((c) => !EXCLUDED_IDS.has(String(c["id"]))).map((c) => ({ ...c, approved: true })) };
   return parseCardsFile(approved).cards;
 }
 
@@ -83,6 +90,14 @@ async function runCount(client: Anthropic, params: Anthropic.MessageCreateParams
   return 0;
 }
 
+/** 生の返事（message 全体）を日時つきの JSON で保存する。保存先は公開しない場所。保存したファイルの path を返す。 */
+function saveRaw(message: Anthropic.Message): string {
+  fs.mkdirSync(RAW_DIR, { recursive: true });
+  const file = path.join(RAW_DIR, `consult-raw-${new Date().toISOString().replace(/[:.]/gu, "-")}.json`);
+  fs.writeFileSync(file, `${JSON.stringify({ question: MEASURE_QUESTION, message }, null, 2)}\n`, "utf8");
+  return file;
+}
+
 async function runYes(client: Anthropic, params: Anthropic.MessageCreateParamsNonStreaming, cards: ConsultCard[]): Promise<number> {
   console.log(`messages.create を 1 回だけ呼びます（${CONSULT_MODEL}、effort ${CONSULT_EFFORT}、max_tokens ${fmt(CONSULT_MAX_TOKENS)}）`);
   const started = Date.now();
@@ -107,14 +122,27 @@ async function runYes(client: Anthropic, params: Anthropic.MessageCreateParamsNo
   console.log(`出力は max_tokens の ${((u.output_tokens / CONSULT_MAX_TOKENS) * 100).toFixed(1)}%`);
   console.log(`費用: ${money(cost)}`);
 
-  // 返事の中身は出さない。復号と検査の結果の符号だけ。
+  // 生の返事は先に保存する（復号に失敗しても読めるように）。
+  const rawPath = saveRaw(message);
+  console.log(`生の返事の保存先: ${rawPath}`);
+
+  // 返事の中身は画面に出さない。復号と検査の結果の符号と数だけ。
   const attempt = decodeMessage(message, z.unknown());
   if (!attempt.ok) {
     console.log(`復号の失敗: ${attempt.reason}（${attempt.detail}）`);
     return 1;
   }
-  const result = validateFollowup(attempt.value, cards.map((c) => c.id), cards, CONSULT_MAX_CARDS);
+  const ids = cards.map((c) => c.id);
+  const result = validateFollowup(attempt.value, ids, cards, CONSULT_MAX_CARDS, MEASURE_QUESTION);
   console.log(`validateFollowup: outOfScope=${result.outOfScope} カード数=${result.cardIds.length} 答えの字数=${Array.from(result.answer).length}`);
+  console.log(`failures: ${result.failures.length === 0 ? "なし" : result.failures.join(",")}`);
+  const rawValue = attempt.value as { outOfScope?: unknown; cardIds?: unknown; answer?: unknown } | null;
+  const rawIds = Array.isArray(rawValue?.cardIds) ? (rawValue.cardIds as unknown[]) : [];
+  const known = new Set(ids);
+  const unknownIds = rawIds.filter((id) => typeof id !== "string" || !known.has(id)).length;
+  console.log(
+    `生の返事: outOfScope=${String(rawValue?.outOfScope)} cardIds=${rawIds.length} 件（一覧にない id ${unknownIds} 件） 答えの字数=${typeof rawValue?.answer === "string" ? Array.from(rawValue.answer).length : "なし"}`,
+  );
   return 0;
 }
 

@@ -516,11 +516,26 @@ describe("入力をログに出さない", () => {
     const all = JSON.stringify([...spies, ...consoleSpies].flatMap((s) => s.mock.calls));
     expect(all).not.toContain(MARK);
   });
-  it("検査に落ちたときは、理由の種類だけをログに残す（答えの文は出さない）", async () => {
-    const info = vi.spyOn(logger, "info").mockImplementation(() => {});
-    await ask(setup(msg(wire("長靴を 9 足そろえます。", ["boots"]))).deps);
-    expect(info).toHaveBeenCalledTimes(1);
-    expect(JSON.stringify(info.mock.calls)).not.toContain("9 足");
+  it("検査に落ちたときは、理由の種類だけを failureKinds に残す（数字も、答えの文も、相談の文も出さない）", async () => {
+    const kinds = async (reply: Anthropic.Message | Error, question = "長靴は？"): Promise<unknown> => {
+      const info = vi.spyOn(logger, "info").mockImplementation(() => {});
+      await ask(setup(reply).deps, askData({ question }));
+      expect(info).toHaveBeenCalledTimes(1);
+      const calls = JSON.stringify(info.mock.calls);
+      expect(calls).not.toContain("9 足");
+      expect(calls).not.toContain("unknown_number:");
+      const kinds = (info.mock.calls[0]![1] as { failureKinds: string[] }).failureKinds;
+      info.mockRestore();
+      return kinds;
+    };
+    expect(await kinds(msg(wire("長靴を 9 足そろえます。", ["boots"])))).toEqual(["unknown_number"]);
+    expect(await kinds(msg(wire("", [], true)))).toEqual(["claude_out_of_scope"]);
+    expect(await kinds(msg(wire("答え", ["ghost"])))).toEqual(["no_valid_id"]);
+    expect(await kinds(msg(wire("あ".repeat(401), ["boots"])))).toEqual(["too_long"]);
+    expect(await kinds(msg(wire("https://example.test", ["boots"])))).toEqual(["url"]);
+    expect(await kinds(msg(wire("  ", ["boots"])))).toEqual(["empty"]);
+    expect(await kinds(msg("すみません"))).toEqual(["claude:format_error", "shape"]);
+    expect(await kinds(msg(wire("鶏舎ごとに長靴を替えます。", ["boots"])))).toEqual([]);
   });
 });
 
