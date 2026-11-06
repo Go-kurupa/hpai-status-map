@@ -142,6 +142,8 @@ export default function ExplorePage() {
         <>
           <p className="explore-answer" aria-live="polite">
             {T.answer(cond, result.hits.length, withCurrent)}
+            {/* 件数を「それで全部」と読ませない。今季の棒と表の下の断りと同じ数え方（選んだ地方の中だけ） */}
+            {withCurrent && unchecked > 0 ? (allUnchecked ? T.answerAllUnchecked : T.answerUnchecked(unchecked)) : null}
           </p>
           {/* 件数が少ないことを「発生しない」と読ませない（E6） */}
           {result.hits.length <= 3 ? <p className="map-notice">{FIXED_TEXT.riskAnywhere}</p> : null}

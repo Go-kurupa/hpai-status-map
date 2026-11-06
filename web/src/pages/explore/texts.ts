@@ -17,6 +17,9 @@ export const EXPLORE_TEXT = {
   japan: "全国",
   /** 1 文。cond は「中国・採卵鶏」など、条件がなければ「全国」 */
   answer: (cond: string, n: number, withCurrent: boolean): string => `${cond}の過去 6 シーズン${withCurrent ? "と今季" : ""}: ${n} 件`,
+  /** 1 文の後ろに付ける断り（作者 11/6 夜）。今季に確認できていない県があるときだけ。選んだ地方の中の県だけを数える */
+  answerUnchecked: (n: number): string => `（今季は ${n} 県を確認できていません）`,
+  answerAllUnchecked: "（今季はまだ確認できていません）",
   noDenominator: "件数は農場の数で割っていません。羽数帯や地方どうしの多い・少ないを表すものではありません。",
   missingUse: (n: number): string => `用途の記載がない今季の事例 ${n} 件は、この条件に入れていません`,
   missingBand: (n: number): string => `羽数の記載がない今季の事例 ${n} 件は、この条件に入れていません`,

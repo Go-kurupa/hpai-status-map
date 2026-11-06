@@ -147,6 +147,18 @@ describe("ExplorePage", () => {
     expect(nowRow.textContent).toContain("確認できた範囲では 0 件（2 県は確認できていません）");
   });
 
+  it("1 文にも、確認できていない県の断りを付ける。選んだ地方の外の県は数えない。なければ付けない（作者 11/6 夜）", async () => {
+    rig({ failed: ["01", "02"] });
+    await screen.findByText(/過去 6 シーズンと今季/);
+    expect(answer()).toContain("（今季は 2 県を確認できていません）");
+    press(EXPLORE_TEXT.regionLabel, "中国");
+    expect(answer()).not.toContain("確認できていません");
+    cleanup();
+    rig();
+    await screen.findByText(/過去 6 シーズンと今季/);
+    expect(answer()).not.toContain("確認できていません");
+  });
+
   it("地方を選ぶと地図への口が出る", async () => {
     rig();
     await screen.findByText(/過去 6 シーズンと今季/);
