@@ -42,6 +42,7 @@ const copies = [
   ["geo", "geo"],
   [path.join("history", "cases.json"), path.join("history", "cases.json")],
   ["sources.json", "sources.json"],
+  [path.join("consult", "cards.json"), path.join("consult", "cards.json")],
 ];
 for (const [from, to] of copies) {
   const src = path.join(dataRoot, from);

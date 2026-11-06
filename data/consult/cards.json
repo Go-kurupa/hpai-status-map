@@ -1,0 +1,2319 @@
+{
+  "sources": [
+    {
+      "id": "aphis-s1",
+      "title": "Table Egg Layers Case-Control Study Updated Findings（ファクトシート）",
+      "publisher": "USDA APHIS（米国農務省 動植物検疫局）",
+      "url": "https://www.aphis.usda.gov/sites/default/files/hpai-table-egg-layers-case-control-study-updated-findings.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "report",
+      "license": "US Gov",
+      "licenseVerified": false,
+      "studyDesign": null
+    },
+    {
+      "id": "aphis-s2",
+      "title": "Turkey Case-Control Study Updated Findings（ファクトシート）",
+      "publisher": "USDA APHIS（米国農務省 動植物検疫局）",
+      "url": "https://www.aphis.usda.gov/sites/default/files/hpai-turkey-case-control-study-updated-findings.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "report",
+      "license": "US Gov",
+      "licenseVerified": false,
+      "studyDesign": null
+    },
+    {
+      "id": "aphis-s5",
+      "title": "Status and Epidemiologic Analyses of HPAI-affected Poultry Flocks, December 31, 2025 Interim Report",
+      "publisher": "USDA APHIS Center for Epidemiology and Animal Health",
+      "url": "https://www.aphis.usda.gov/sites/default/files/epi-analyses-avian-flu-poultry-7th-interim-rpt.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "report",
+      "license": "US Gov",
+      "licenseVerified": false,
+      "studyDesign": null
+    },
+    {
+      "id": "defra-s12",
+      "title": "Avian influenza prevention zone (AIPZ): checklist for poultry and captive bird keepers",
+      "publisher": "Defra（英国環境・食糧・農村地域省）",
+      "url": "https://www.gov.uk/government/publications/avian-influenza-prevention-zone-aipz-checklist-for-poultry-and-captive-bird-keepers",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "guide",
+      "license": "OGL v3.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "defra-s13",
+      "title": "Highly pathogenic avian influenza in Great Britain: evaluation and future actions",
+      "publisher": "Defra Science Advisory Council, HPAI Group（英国）",
+      "url": "https://www.gov.uk/government/publications/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "report",
+      "license": "OGL v3.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "maff-s1",
+      "title": "2025年～2026年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書",
+      "publisher": "農林水産省",
+      "url": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-239.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "report",
+      "license": "PDL1.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "maff-s11",
+      "title": "飼養衛生管理マニュアル（例：小規模農家向け）",
+      "publisher": "農林水産省",
+      "url": "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-177.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "guide",
+      "license": "PDL1.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "maff-s3",
+      "title": "飼養衛生管理基準遵守指導の手引き（鶏、あひる、うずら、きじ、エミュー、だちょう、ほろほろ鳥及び七面鳥の場合）",
+      "publisher": "農林水産省",
+      "url": "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-284.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "guideline",
+      "license": "PDL1.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "maff-s4",
+      "title": "高病原性鳥インフルエンザの防疫対策の徹底について（8消安第3622号、令和8年9月16日）",
+      "publisher": "農林水産省 消費・安全局長（都道府県知事あての通知）",
+      "url": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-4.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "guideline",
+      "license": "PDL1.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "maff-s5",
+      "title": "対策のポイント（高病原性鳥インフルエンザ。令和8年度）",
+      "publisher": "農林水産省",
+      "url": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-1.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "pamphlet",
+      "license": "PDL1.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "maff-s7",
+      "title": "2024年～2025年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書",
+      "publisher": "農林水産省",
+      "url": "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_94/attach/pdf/kakin_94-10.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "report",
+      "license": "PDL1.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "okayama-fly",
+      "title": "秋から冬もハエ対策をしましょう！～ハエがHPAI発生の原因かも?!～",
+      "publisher": "岡山県",
+      "url": "https://www.pref.okayama.jp/uploaded/life/1030753_9970502_misc.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "pamphlet",
+      "license": "PDL1.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "okayama-lime",
+      "title": "消石灰による消毒",
+      "publisher": "岡山県",
+      "url": "https://www.pref.okayama.jp/uploaded/life/1030753_9970487_misc.pdf",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "pamphlet",
+      "license": "PDL1.0",
+      "licenseVerified": true,
+      "studyDesign": null
+    },
+    {
+      "id": "paper-pmc10408129",
+      "title": "Investigation of risk factors for introduction of highly pathogenic avian influenza H5N1 virus onto table egg farms in the United States, 2022: a case–control study",
+      "publisher": "（著者に APHIS 職員を含む）Frontiers in Veterinary Science, 10, 1229008, 2023 (DOI 10.3389/fvets.2023.1229008)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10408129/",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "paper",
+      "license": "CC BY",
+      "licenseVerified": true,
+      "studyDesign": "症例対照 18 戸対 22 戸（米国の採卵鶏・育成鶏・種鶏）"
+    },
+    {
+      "id": "paper-pmc10498466",
+      "title": "Investigation of risk factors for introduction of highly pathogenic avian influenza H5N1 infection among commercial turkey operations in the United States, 2022: a case-control study",
+      "publisher": "（著者に APHIS 職員を含む）Frontiers in Veterinary Science, 10, 1229071, 2023 (DOI 10.3389/fvets.2023.1229071)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10498466/",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "paper",
+      "license": "CC BY 4.0",
+      "licenseVerified": true,
+      "studyDesign": "症例対照 66 戸対 59 戸（米国の商業の七面鳥）"
+    },
+    {
+      "id": "paper-pmc11434905",
+      "title": "Susceptibility of Synanthropic Rodents (Mus musculus, Rattus norvegicus and Rattus rattus) to H5N1 Subtype High Pathogenicity Avian Influenza Viruses",
+      "publisher": "Pathogens, 13(9), 764, 2024 (DOI 10.3390/pathogens13090764)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11434905/",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "paper",
+      "license": "CC BY 4.0",
+      "licenseVerified": true,
+      "studyDesign": "動物実験（野生のネズミ類、1 群 3〜5 匹ほど）"
+    },
+    {
+      "id": "paper-pmc12389693",
+      "title": "Identification and Characterization of Biosecurity Breaches on Poultry Farms with a Recent History of Highly Pathogenic Avian Influenza Virus Infection Determined by Video Camera Monitoring in the Netherlands",
+      "publisher": "Pathogens, 14(8), 751, 2025 (DOI 10.3390/pathogens14080751)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12389693/",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "paper",
+      "license": "CC BY 4.0",
+      "licenseVerified": true,
+      "studyDesign": "観察研究（24 時間の動画監視、オランダの 7 農場）"
+    },
+    {
+      "id": "paper-pmc12629688",
+      "title": "Risk Factors for Introduction of H5N1 Highly Pathogenic Avian Influenza Virus in Japanese Commercial Layer Farms During the 2022–2023 Epidemic: A Case–Control Study",
+      "publisher": "Transboundary and Emerging Diseases, 2025, 2658633 (DOI 10.1155/tbed/2658633)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12629688/",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "paper",
+      "license": "CC BY",
+      "licenseVerified": true,
+      "studyDesign": "症例対照 58 戸対 26 戸（採卵鶏、2022/23 シーズン）"
+    },
+    {
+      "id": "paper-pmc13423691",
+      "title": "Biosecurity deficiencies in HPAI-affected poultry farms in Korea, 2020/2021–2024/2025 seasons",
+      "publisher": "Frontiers in Veterinary Science, 13, 1863522, 2026 (DOI 10.3389/fvets.2026.1863522)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13423691/",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "paper",
+      "license": "CC BY",
+      "licenseVerified": true,
+      "studyDesign": "記述的分析（韓国の発生農場 311 戸の不備の記録。発生しなかった農場との比較なし）"
+    },
+    {
+      "id": "paper-pmc5818671",
+      "title": "Matched case-control study of the influence of inland waters surrounding poultry farms on avian influenza outbreaks in Japan",
+      "publisher": "Scientific Reports, 8, 3306, 2018 (DOI 10.1038/s41598-018-21695-1)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5818671/",
+      "fetchedAt": "2026-11-06",
+      "domestic": true,
+      "kind": "paper",
+      "license": "CC BY 4.0",
+      "licenseVerified": true,
+      "studyDesign": "対応症例対照 2016/17: 10 戸対 34 戸、2010/11: 23 戸対 89 戸"
+    },
+    {
+      "id": "paper-pmc6006767",
+      "title": "Avian influenza A (H5N1) outbreaks in different poultry farm types in Egypt: the effect of vaccination, closing status and farm size",
+      "publisher": "BMC Veterinary Research, 14, 187, 2018 (DOI 10.1186/s12917-018-1519-8)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6006767/",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "paper",
+      "license": "CC BY 4.0",
+      "licenseVerified": true,
+      "studyDesign": "受動的サーベイランスのデータの統計解析（エジプト。農場数は未確認）"
+    },
+    {
+      "id": "paper-pmid39808886",
+      "title": "Risk factors for the incursion of highly pathogenic avian influenza virus into poultry and other captive bird holdings in Denmark from 2020 to 2023: A case-control study",
+      "publisher": "Preventive Veterinary Medicine, 236, 106419, 2025 (DOI 10.1016/j.prevetmed.2025.106419)",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/39808886/",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "paper",
+      "license": "CC BY 4.0",
+      "licenseVerified": false,
+      "studyDesign": "症例対照 18 戸対 34 戸（デンマークの家きんとその他の飼育鳥の施設）"
+    },
+    {
+      "id": "paper-pmid42869858",
+      "title": "Biosecurity risk factors associated with outbreaks of high pathogenicity avian influenza (HPAI) on poultry farms in Lower Saxony (Germany) - A case-control-study",
+      "publisher": "Preventive Veterinary Medicine, 257, 107049, 2026 (DOI 10.1016/j.prevetmed.2026.107049)",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/42869858/",
+      "fetchedAt": "2026-11-06",
+      "domestic": false,
+      "kind": "paper",
+      "license": "CC BY 4.0",
+      "licenseVerified": false,
+      "studyDesign": "症例対照 15 戸対 26 戸（ドイツ、2 回以上発生した農場）"
+    }
+  ],
+  "cards": [
+    {
+      "id": "maff-M01",
+      "origin": "M01",
+      "action": "防鳥ネット（網目2cm以下）の設置と、定期的な破損の確認・修繕",
+      "appliesTo": "家きん舎・飼料保管庫・堆肥舎・死体保管庫・農場敷地内の水場（調整池等）がある農場すべて（基準に書かれた対象）",
+      "evidence": "obligation",
+      "evidenceNote": "飼養衛生管理基準（項25）の条文を、国の遵守指導の手引きから引用",
+      "quote": "野鳥等の野生動物の家きん舎、飼料保管庫、堆肥舎、死体保管庫、調整池等の農場敷地内の水場等への侵入を防止することができる防鳥ネット（網目の大きさが二センチメートル以下のもの又はこれと同等の効果を有すると認められるものに限る。）",
+      "sourceId": "maff-s3",
+      "locator": "印刷頁 65（PDF 71頁）",
+      "caveats": [
+        "完熟堆肥のみの保管など野生動物を誘引しない場合はネット不要との記載が手引きにある"
+      ],
+      "conditionTags": [
+        "net-damage"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M02a",
+      "origin": "M02",
+      "action": "家きん舎・堆肥舎の防鳥ネット、除糞・集卵設備の開口部、壁の破損を点検し、野鳥・野生動物が入れる隙間をなくす",
+      "appliesTo": "家きん舎・堆肥舎等に破損や隙間がある農場（発生農場で多く確認されたと書かれた状況）",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 発生農場で破損の修繕が不十分だった（件数は書かれていない。比べなし）",
+      "quote": "今シーズンの発生農場については、鶏舎の破損部が十分に修繕されておらず、野鳥・野生動物が侵入可能である農場や、",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 50（PDF 57頁）",
+      "caveats": [
+        "引用は文の途中で終わる",
+        "何件の農場かは書かれていない"
+      ],
+      "conditionTags": [
+        "net-damage"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M02b",
+      "origin": "M02",
+      "action": "家きん舎・堆肥舎の防鳥ネット、除糞・集卵設備の開口部、壁の破損を点検し、野鳥・野生動物が入れる隙間をなくす",
+      "appliesTo": "家きん舎・堆肥舎等に破損や隙間がある農場（発生農場で多く確認されたと書かれた状況）",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言",
+      "quote": "家きん舎・堆肥舎等に設置されている防鳥ネット、除糞設備や集卵設備の開口部等の施設全体の破損状況等を確認し、野鳥・野生動物等が侵入できる隙間をなくすとともに",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 51（PDF 58頁）",
+      "caveats": [
+        "壁・ネットの破損の修繕そのものは基準項25の義務（maff-M01）"
+      ],
+      "conditionTags": [
+        "net-damage"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M03",
+      "origin": "M03",
+      "action": "家きん舎の破損を放置しない（野生動物の侵入・食害を防ぐ）",
+      "appliesTo": "壁面や防鳥ネットが破損している農場／イタチ・野鳥などの侵入や食害を経験した農場",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 破損のある農場で野生動物の侵入・食害の経験（複数確認。比べなし）",
+      "quote": "家きん舎に破損が確認された農場では、家きん舎への野生動物の侵入や食害を経験しており、",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 16（PDF 23頁）",
+      "caveats": [
+        "原文は「複数確認された」で件数なし"
+      ],
+      "conditionTags": [
+        "net-damage",
+        "wildlife-traces"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M04a",
+      "origin": "M04",
+      "action": "外部事業者（出荷・糞の搬出・飼料・工事・獣医師など）の更衣と手指消毒の徹底",
+      "appliesTo": "外部事業者が衛生管理区域に入る農場すべて",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 外部事業者の不備が「半数以上の農場」（件数は書かれていない）",
+      "quote": "半数以上の農場で、外部事業者における",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 15（PDF 22頁）",
+      "caveats": [
+        "文の前半。続きは maff-M04b",
+        "報告書の「半数以上」と、現地調査概要から数えた6/24件が食い違う（メモの注記。未解決）"
+      ],
+      "conditionTags": [
+        "outside-workers",
+        "zone-boundary"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M04b",
+      "origin": "M04",
+      "action": "外部事業者（出荷・糞の搬出・飼料・工事・獣医師など）の更衣と手指消毒の徹底",
+      "appliesTo": "外部事業者が衛生管理区域に入る農場すべて",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 外部事業者の専用衣服・靴の不備（上の文の続き）",
+      "quote": "衛生管理区域立入り時の専用衣服又は靴の使用について不備が確認された。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 16（PDF 23頁）",
+      "caveats": [
+        "文の後半。前半は maff-M04a",
+        "報告書の「半数以上」と、現地調査概要から数えた6/24件が食い違う（メモの注記。未解決）"
+      ],
+      "conditionTags": [
+        "outside-workers",
+        "zone-boundary"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M04c",
+      "origin": "M04",
+      "action": "外部事業者（出荷・糞の搬出・飼料・工事・獣医師など）の更衣と手指消毒の徹底",
+      "appliesTo": "外部事業者が衛生管理区域に入る農場すべて",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言",
+      "quote": "外部事業者を含め、衛生管理区域に入場する者は例外なく手指の洗浄・消毒や衣服・長靴の交換を行うとともに、確実に実施できる動線設計を行う",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 51（PDF 58頁）",
+      "caveats": [],
+      "conditionTags": [
+        "outside-workers",
+        "zone-boundary"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M05",
+      "origin": "M05",
+      "action": "外部事業者には農場側で用意した衣服・長靴を着せる（持参させる場合は農場専用か確認）",
+      "appliesTo": "外部事業者が出入りする農場",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言",
+      "quote": "外部事業者に対しても可能な限り農場側で用意した衣服・長靴を着用させ、外部事業者が自ら持参する衣服・長靴を着用させる場合は、当該農場専用のものを持参していることを確認すること",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 51（PDF 58頁）",
+      "caveats": [
+        "基準18項にも専用の衣服・靴を持参する場合の記載がある"
+      ],
+      "conditionTags": [
+        "outside-workers"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M06a",
+      "origin": "M06",
+      "action": "裏口（除糞・死体搬出用）から家きん舎に出入りするときも、手指の洗浄・消毒と長靴の交換を行う",
+      "appliesTo": "家きんの糞・死体の搬出用の裏口がある家きん舎",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言",
+      "quote": "家きんの糞や家きんの死体等の搬出作業等のために裏口から家きん舎に出入りする場合であっても、手指の洗浄・消毒を行い、長靴の交換を行うこと",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 51（PDF 58頁）",
+      "caveats": [],
+      "conditionTags": [
+        "back-door",
+        "shoe-change"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M06b",
+      "origin": "M06",
+      "action": "裏口（除糞・死体搬出用）から家きん舎に出入りするときも、手指の洗浄・消毒と長靴の交換を行う",
+      "appliesTo": "家きんの糞・死体の搬出用の裏口がある家きん舎",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 裏口で家きん舎外の靴のまま立ち入っていた事例（件数なし）",
+      "quote": "従事者においても、除糞作業等で使用する裏口において、家きん舎外で使用した靴のまま家きん舎に立ち入っていた事例",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 16（PDF 23頁）",
+      "caveats": [
+        "件数は書かれていない"
+      ],
+      "conditionTags": [
+        "back-door",
+        "shoe-change"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M07a",
+      "origin": "M07",
+      "action": "着替え・履き替えの前後の動線を分ける（すのこ・分離板で保管場所を離し、一方通行にする）",
+      "appliesTo": "衛生管理区域に更衣室・出入口がある農場すべて",
+      "evidence": "obligation",
+      "evidenceNote": "飼養衛生管理基準（項18）の条文を、国の遵守指導の手引きから引用",
+      "quote": "更衣による病原体の衛生管理区域への侵入を防ぐため、着脱前後の衣服及び靴をすのこ、分離板等で場所を離して保管し、かつ、更衣の前後に利用する経路を一方通行とすることその他の必要な措置を講ずること。",
+      "sourceId": "maff-s3",
+      "locator": "印刷頁 48（PDF 54頁）",
+      "caveats": [],
+      "conditionTags": [
+        "zone-boundary",
+        "shoe-change"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M07b",
+      "origin": "M07",
+      "action": "着替え・履き替えの前後の動線を分ける（すのこ・分離板で保管場所を離し、一方通行にする）",
+      "appliesTo": "衛生管理区域に更衣室・出入口がある農場すべて",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 専用靴への交換前後の交差汚染防止を実施していない事例（件数なし）",
+      "quote": "専用靴への交換前後における交差汚染防止対策を実施していない事例等も確認された。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 16（PDF 23頁）",
+      "caveats": [
+        "件数は書かれていない"
+      ],
+      "conditionTags": [
+        "zone-boundary",
+        "shoe-change"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M08a",
+      "origin": "M08",
+      "action": "ねずみを定期的かつ継続的に駆除して数を減らす",
+      "appliesTo": "ねずみの痕跡・糞・死体がある農場、家きん舎や堆肥舎に隙間がある農場",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言（駆除は基準27の義務）",
+      "quote": "ネズミの体表や気管、肺、直腸からHPAIVが確認されており、ネズミ等は、ウイルスの拡散に関与する可能性があるほか、ネコや他の野生動物の誘引要因ともなり得るため、定期的かつ継続的に駆除を実施し、その数を減らすこと",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 51（PDF 58頁）",
+      "caveats": [],
+      "conditionTags": [
+        "rodent-signs"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M08b",
+      "origin": "M08",
+      "action": "ねずみを定期的かつ継続的に駆除して数を減らす",
+      "appliesTo": "ねずみの痕跡・糞・死体がある農場、家きん舎や堆肥舎に隙間がある農場",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: ネズミの死体や痕跡が「半数以上の農場」（発生しなかった農場との比べなし）",
+      "quote": "ネズミについても、半数以上の農場で死体や痕跡が確認されている。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 16（PDF 23頁）",
+      "caveats": [
+        "不備そのものではなく状況の記述"
+      ],
+      "conditionTags": [
+        "rodent-signs"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M09a",
+      "origin": "M09",
+      "action": "衛生管理区域内でネコ等を飼わない・住み着かせない",
+      "appliesTo": "農場内にネコが住み着いている、または猫等の愛玩動物を飼っている農場",
+      "evidence": "obligation",
+      "evidenceNote": "飼養衛生管理基準の条文を、国の遵守指導の手引きから引用",
+      "quote": "猫等の愛玩動物について、衛生管理区域内への持込み及び衛生管理区域内での飼育をしないこと",
+      "sourceId": "maff-s3",
+      "locator": "印刷頁 33（PDF 39頁）",
+      "caveats": [
+        "観光牧場等で飼育場所を限定する場合は除くとの但し書きが基準にある"
+      ],
+      "conditionTags": [
+        "cats-on-site"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M09b",
+      "origin": "M09",
+      "action": "衛生管理区域内でネコ等を飼わない・住み着かせない",
+      "appliesTo": "農場内にネコが住み着いている、または猫等の愛玩動物を飼っている農場",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: ネコが住み着いている事例が複数（件数なし）",
+      "quote": "さらに、農場内にネコが住み着いている事例や、家きん舎の壁面及び防鳥ネットの破損が認められた事例も複数確認された。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 16（PDF 23頁）",
+      "caveats": [
+        "件数は書かれていない"
+      ],
+      "conditionTags": [
+        "cats-on-site",
+        "net-damage"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M10",
+      "origin": "M10",
+      "action": "堆肥舎の防鳥ネットを使用し、破卵・死体は焼却等で適切に処理する（堆肥舎で処理して鳥を呼ばない）",
+      "appliesTo": "堆肥舎・堆肥置き場を持ち、破卵や死体をそこで処理している農場",
+      "evidence": "recommendation",
+      "evidenceNote": "前シーズンの疫学調査報告書の提言部分の説明（発生農場で事例あり、件数不明）",
+      "quote": "堆肥舎には家きんが食べこぼした飼料等があるため、もともと野鳥や野生動物を誘引しやすい施設であるが、堆肥舎における破卵・家きんの死体の不適切な処理は野鳥や野生動物のさらなる誘引につながる。",
+      "sourceId": "maff-s7",
+      "locator": "印刷頁 48（PDF 53頁）",
+      "caveats": [
+        "2024/25シーズンの報告書"
+      ],
+      "conditionTags": [
+        "compost-shed"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M11a",
+      "origin": "M11",
+      "action": "集卵ベルトのシャッター、鶏卵・鶏糞の搬出口の覆い、餌置場の清掃、死体・破卵の処理で、鳥・小動物の侵入口と誘引を減らす",
+      "appliesTo": "集卵ベルト・除糞設備が屋外に開口している農場、餌置場がある農場",
+      "evidence": "recommendation",
+      "evidenceNote": "国の通知の指導事項",
+      "quote": "施設全体の破損状況等を確認し、野鳥・野生動物が侵入できる隙間をなくすとともに、家きん舎や堆肥舎、農場内の水場等での防鳥ネットや忌避テープの適切な使用、餌タンク・餌置場の清掃、集卵ベルトへのシャッターの設置とあわせて、家きんの死体や破卵の適切な処理、",
+      "sourceId": "maff-s4",
+      "locator": "PDF 3頁",
+      "caveats": [
+        "国から都道府県への通知の指導事項。農場の義務の条文ではない"
+      ],
+      "conditionTags": [
+        "net-damage",
+        "compost-shed",
+        "feed-exposed"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M11b",
+      "origin": "M11",
+      "action": "集卵ベルトのシャッター、鶏卵・鶏糞の搬出口の覆い、餌置場の清掃、死体・破卵の処理で、鳥・小動物の侵入口と誘引を減らす",
+      "appliesTo": "集卵ベルト・除糞設備が屋外に開口している農場、餌置場がある農場",
+      "evidence": "recommendation",
+      "evidenceNote": "国のパンフレット（対策のポイント）",
+      "quote": "鶏卵・鶏糞の搬出口に覆いを設置。",
+      "sourceId": "maff-s5",
+      "locator": "PDF 1頁",
+      "caveats": [
+        "パンフの文字層は部首用の文字。照合は正規化（NFKC）が要る"
+      ],
+      "conditionTags": [
+        "net-damage"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M12a",
+      "origin": "M12",
+      "action": "敷地の整理整頓・除草・不要資材の処分で、ねずみや野鳥の隠れ場所をなくす",
+      "appliesTo": "資材が放置されている、草木が茂っている、空き鶏舎がある農場",
+      "evidence": "recommendation",
+      "evidenceNote": "前シーズンの疫学調査報告書の提言部分の説明",
+      "quote": "農場敷地内の乱雑な環境は、農場内に野鳥や野生動物の隠れ処、すみかを作ることになり、これらを誘引することにつながる。",
+      "sourceId": "maff-s7",
+      "locator": "印刷頁 48（PDF 53頁）",
+      "caveats": [
+        "2024/25シーズンの報告書"
+      ],
+      "conditionTags": [
+        "site-tidiness"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M12b",
+      "origin": "M12",
+      "action": "敷地の整理整頓・除草・不要資材の処分で、ねずみや野鳥の隠れ場所をなくす",
+      "appliesTo": "資材が放置されている、草木が茂っている、空き鶏舎がある農場",
+      "evidence": "obligation",
+      "evidenceNote": "飼養衛生管理基準（項28）の条文を、国の遵守指導の手引きから引用",
+      "quote": "衛生管理区域内は、ねずみ等の野生動物の隠れられる場所をなくすとともに、",
+      "sourceId": "maff-s3",
+      "locator": "印刷頁 70（PDF 76頁）",
+      "caveats": [],
+      "conditionTags": [
+        "site-tidiness"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M13a",
+      "origin": "M13",
+      "action": "農場近くのため池・水路・水田への対策（水抜き、テグス・忌避テープ、水田の耕起、雑草や不要な樹木の除去）",
+      "appliesTo": "農場の近く（家きん舎から100m以内〜1km程度）にため池・水路・河川・水田・干潟がある農場",
+      "evidence": "recommendation",
+      "evidenceNote": "国の通知の指導事項",
+      "quote": "農場近隣の水田の耕起、雑草や不要な樹木の除去、ため池等の水場の水抜き、防鳥ネットや忌避テープの設置",
+      "sourceId": "maff-s4",
+      "locator": "PDF 5頁",
+      "caveats": [
+        "国から都道府県への通知の指導事項。農場の義務の条文ではない",
+        "農場の敷地外は所有者の管理外のため、地域一体で行う（メモの注記）"
+      ],
+      "conditionTags": [
+        "water-near"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M13b",
+      "origin": "M13",
+      "action": "農場近くのため池・水路・水田への対策（水抜き、テグス・忌避テープ、水田の耕起、雑草や不要な樹木の除去）",
+      "appliesTo": "農場の近く（家きん舎から100m以内〜1km程度）にため池・水路・河川・水田・干潟がある農場",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 15事例中9農場で100m以内に水域（発生しなかった農場との比べなし）",
+      "quote": "本章で対象とした15事例の発生農場のうち、9農場では家きん舎から100m以内にため池や水路等の水域が位置していた",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 26（PDF 33頁）",
+      "caveats": [
+        "この報告書自体が関係を示したのではない。過去の解析を引用する文が別にある",
+        "母数は野鳥調査をした15事例"
+      ],
+      "conditionTags": [
+        "water-near"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M14a",
+      "origin": "M14",
+      "action": "カラスのねぐら（雑木林）や集まる場所をなくす・減らす（農場周辺の確認とテグス等）",
+      "appliesTo": "農場周辺にカラスのねぐらになる雑木林がある、カラスが多く来る農場",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: カラスのねぐらの雑木林があり多くのカラスを確認した事例",
+      "quote": "さらに、農場周辺にカラス等のねぐらとなる雑木林があり、現地調査時、農場周辺で多くのカラスが確認された事例もあった。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 42（PDF 49頁）",
+      "caveats": [
+        "カラスがいない農場との比べはない"
+      ],
+      "conditionTags": [
+        "crow-roost"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M14b",
+      "origin": "M14",
+      "action": "カラスのねぐら（雑木林）や集まる場所をなくす・減らす（農場周辺の確認とテグス等）",
+      "appliesTo": "農場周辺にカラスのねぐらになる雑木林がある、カラスが多く来る農場",
+      "evidence": "expert-estimate",
+      "evidenceNote": "疫学調査報告書の推定（「考えられる」）。実測の数字ではない",
+      "quote": "野鳥は本病を農場内へ持ち込む主因の一つであるとともに、カラス類はその生態等から地域内でウイルスを拡散するリスクの高い鳥種と考えられる。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 52（PDF 59頁）",
+      "caveats": [],
+      "conditionTags": [
+        "crow-roost"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M15",
+      "origin": "M15",
+      "action": "野鳥への安易な餌やりをやめる",
+      "appliesTo": "農場周辺で野鳥に餌を与える行為がある地域",
+      "evidence": "recommendation",
+      "evidenceNote": "国の通知の指導事項",
+      "quote": "農場周辺における野鳥等への安易な餌やりやそれに類する行為の中止",
+      "sourceId": "maff-s4",
+      "locator": "PDF 5頁",
+      "caveats": [
+        "国から都道府県への通知の指導事項。農場の義務の条文ではない"
+      ],
+      "conditionTags": [
+        "bird-feeding"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M16",
+      "origin": "M16",
+      "action": "近隣の他畜種の堆肥施設など、野鳥を呼ぶ施設の管理（地域で取り組む）",
+      "appliesTo": "農場の近くに他畜種の堆肥を扱う施設などがある地域",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言",
+      "quote": "家きん農場以外の野鳥の誘引要因となり得る他畜種の堆肥を扱う施設等における誘引防止対策等を実施し、",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 52（PDF 59頁）",
+      "caveats": [
+        "個々の農場では行えないため、地域で検討する事項"
+      ],
+      "conditionTags": [
+        "compost-shed"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M17",
+      "origin": "M17",
+      "action": "農場周辺の野鳥の生息状況を把握し、誘引防止対策と地域で行う対策を検討する",
+      "appliesTo": "大臣指定地域に所在する農場（令和8年1月1日施行の基準項21）",
+      "evidence": "obligation",
+      "evidenceNote": "飼養衛生管理基準の条文（令和8年1月1日施行、大臣指定地域のみ）",
+      "quote": "大臣指定地域に所在する農場においては、農場周辺の野鳥の生息等の状況を把握し、農場内における野鳥誘引防止対策を実施するとともに、大臣指定地域内で講ずるべき野鳥誘引防止対策を検討すること。",
+      "sourceId": "maff-s3",
+      "locator": "印刷頁 56（PDF 62頁）",
+      "caveats": [
+        "大臣指定地域に所在する農場だけの義務",
+        "該当するかは、この機能では判定しない"
+      ],
+      "conditionTags": [
+        "designated-zone"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M18",
+      "origin": "M18",
+      "action": "消毒薬の備蓄など、地域内での発生に備えた消毒の準備",
+      "appliesTo": "大臣指定地域にある農場（令和8年1月1日施行の基準項10）",
+      "evidence": "obligation",
+      "evidenceNote": "飼養衛生管理基準の条文（令和8年1月1日施行、大臣指定地域のみ）",
+      "quote": "大臣指定地域にあっては、法第三十条の規定に基づく消毒方法等を実施する場合に備え、消毒薬の備蓄その他の必要な準備措置を講ずること。",
+      "sourceId": "maff-s3",
+      "locator": "印刷頁 29（PDF 35頁）",
+      "caveats": [
+        "大臣指定地域にある農場だけの義務",
+        "該当するかは、この機能では判定しない"
+      ],
+      "conditionTags": [
+        "designated-zone"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M19a",
+      "origin": "M19",
+      "action": "入気口の塵埃対策（フィルター・不織布、細霧装置、入気口の閉鎖など）",
+      "appliesTo": "ウインドウレス鶏舎を持つ大規模所有者のうち都道府県知事が認める者（令和8年10月1日施行）。それ以外の農場では推奨",
+      "evidence": "obligation",
+      "evidenceNote": "飼養衛生管理基準の条文（令和8年10月1日施行、大規模所有者のうち知事が認める者のみ）",
+      "quote": "家畜保健衛生所から提供される情報に基づき、適切な時期に、ウインドウレス鶏舎やその周辺において粉じん、羽毛等を介した病原体の家きん舎への侵入を抑制する措置を講ずること。",
+      "sourceId": "maff-s3",
+      "locator": "印刷頁 14（PDF 20頁）",
+      "caveats": [
+        "対象は大規模所有者のうち都道府県知事が認める者だけ。それ以外の農場では推奨",
+        "報告書は塵埃経路を「検証する必要がある」段階としており、確定した経路とはしていない"
+      ],
+      "conditionTags": [
+        "windowless-house",
+        "large-flock"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M20a",
+      "origin": "M20",
+      "action": "農場の分割管理（衛生管理区域と動線を分ける）の導入を検討する",
+      "appliesTo": "飼養規模が大きい農場（報告書は20万羽以上等と書く。基準は『特に羽数が多いと都道府県知事が認める大規模所有者』）",
+      "evidence": "obligation",
+      "evidenceNote": "飼養衛生管理基準の条文（大規模所有者のうち知事が認める者に、分割管理の導入の検討を求める）",
+      "quote": "衛生管理区域及び人、車両、物等の動線の見直しにより、農場を分割して管理すること（以下この項において「分割管理」という。）の導入について検討すること。",
+      "sourceId": "maff-s3",
+      "locator": "印刷頁 14（PDF 20頁）",
+      "caveats": [
+        "対象の線引きは資料で違う（基準=知事が認める者、報告書=20万羽以上等）。基準の文言を優先"
+      ],
+      "conditionTags": [
+        "large-flock"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M20b",
+      "origin": "M20",
+      "action": "農場の分割管理（衛生管理区域と動線を分ける）の導入を検討する",
+      "appliesTo": "飼養規模が大きい農場（報告書は20万羽以上等と書く。基準は『特に羽数が多いと都道府県知事が認める大規模所有者』）",
+      "evidence": "expert-estimate",
+      "evidenceNote": "疫学調査報告書の評価（「リスク要因の一つ」）。この引用に根拠の数字はない",
+      "quote": "飼養規模が大きいことは本病発生のリスク要因の一つであるとともに、",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 52（PDF 59頁）",
+      "caveats": [
+        "対象の線引きは資料で違う（基準=知事が認める者、報告書=20万羽以上等）"
+      ],
+      "conditionTags": [
+        "large-flock"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M21a",
+      "origin": "M21",
+      "action": "毎日の健康観察を確実に行い、通常と少しでも違えば躊躇せず家畜保健衛生所へ通報する",
+      "appliesTo": "家きんを飼養する農場すべて（特に通報が遅れた事例の原因：他の病気と見て経過観察・死体の回収漏れの疑い・管理者不在）",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 死亡が2倍以上でも発見・通報が遅れた事例（件数なし）",
+      "quote": "今シーズンの発生事例においても、過去のシーズン同様に、他の疾病を疑い様子を見る、毎日の健康観察が不十分、飼養衛生管理者が不在等の理由により、1日の死亡羽数が直近3週間の平均死亡羽数の2倍以上となっているにもかかわらず、発見・通報が遅れた事例があった。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 50（PDF 57頁）",
+      "caveats": [
+        "件数は書かれていない",
+        "通報の遅れは少数の事例で、多数ではない（報告書は「速やかに通報が行われた事例が多数」とも書く）"
+      ],
+      "conditionTags": [
+        "daily-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M21b",
+      "origin": "M21",
+      "action": "毎日の健康観察を確実に行い、通常と少しでも違えば躊躇せず家畜保健衛生所へ通報する",
+      "appliesTo": "家きんを飼養する農場すべて（特に通報が遅れた事例の原因：他の病気と見て経過観察・死体の回収漏れの疑い・管理者不在）",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 通報が遅れた事例の原因（件数なし）",
+      "quote": "通報が遅れた事例においては、家きんの死亡増加の原因を大腸菌症やクロストリジウム感染症と判断し経過観察した事例、前日の死亡鶏の回収漏れを疑っていた事例",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 15（PDF 22頁）",
+      "caveats": [
+        "件数は書かれていない",
+        "通報の遅れは少数の事例で、多数ではない"
+      ],
+      "conditionTags": [
+        "daily-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M22a",
+      "origin": "M22",
+      "action": "管理者が不在でも、従事者が許可を待たずに通報できる体制と周知",
+      "appliesTo": "大規模所有者（基準項5の義務）／管理者が不在になることのある農場",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言（基準項5の大規模所有者の義務に対応）",
+      "quote": "大規模所有者においては、従事者が特定症状を呈する家きんを発見した際、所有者の許可や獣医師の確認を待つことなく迅速に家畜保健衛生所へ通報できる体制を整備し、全従事者へ周知徹底することが必要である。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 50（PDF 57頁）",
+      "caveats": [
+        "大規模所有者（鶏・うずら10万羽以上）の義務"
+      ],
+      "conditionTags": [
+        "daily-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M22b",
+      "origin": "M22",
+      "action": "管理者が不在でも、従事者が許可を待たずに通報できる体制と周知",
+      "appliesTo": "大規模所有者（基準項5の義務）／管理者が不在になることのある農場",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 管理者が不在で他の従事者が通報の義務を知らなかった事例",
+      "quote": "飼養衛生管理者が不在で他の従事者が通報の義務を把握していなかった事例があった。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 15（PDF 22頁）",
+      "caveats": [
+        "件数は書かれていない"
+      ],
+      "conditionTags": [
+        "daily-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M23a",
+      "origin": "M23",
+      "action": "誘導換羽中も毎日の健康観察を注意深く行い、制限区域内に入ったら誘導換羽を見合わせる",
+      "appliesTo": "誘導換羽（強制換羽）を行う採卵鶏の農場",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "前シーズンの疫学調査報告書: 誘導換羽の影響と考えて発見・通報が遅れた事例",
+      "quote": "これを誘導換羽の影響や前日の健康観察の際の数え残しと考えたために、発見や通報が遅れており、",
+      "sourceId": "maff-s7",
+      "locator": "印刷頁 17（PDF 22頁）",
+      "caveats": [
+        "2024/25シーズンの報告書",
+        "引用は文の途中まで"
+      ],
+      "conditionTags": [
+        "molting",
+        "daily-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M23b",
+      "origin": "M23",
+      "action": "誘導換羽中も毎日の健康観察を注意深く行い、制限区域内に入ったら誘導換羽を見合わせる",
+      "appliesTo": "誘導換羽（強制換羽）を行う採卵鶏の農場",
+      "evidence": "recommendation",
+      "evidenceNote": "前シーズンの疫学調査報告書の提言（「望ましい」）",
+      "quote": "制限区域内に入った場合には、制限区域が解除されるまでの間は、誘導換羽の実施を見合わせることが望ましい。",
+      "sourceId": "maff-s7",
+      "locator": "印刷頁 48（PDF 53頁）",
+      "caveats": [
+        "2024/25シーズンの報告書"
+      ],
+      "conditionTags": [
+        "molting"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M24a",
+      "origin": "M24",
+      "action": "あひる・うずらでは、死亡の増加だけに頼らず、産卵率の低下・神経症状・ケージ単位の変化でも通報する",
+      "appliesTo": "あひる（あいがも）またはうずらを飼う農場",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言",
+      "quote": "あひる（あいがも）農場においては、死亡羽数の増加のみに依存することなく、産卵率の低下や神経症状等の変化を含め、日常の飼養管理における異状の早期把握に努める",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 53（PDF 60頁）",
+      "caveats": [
+        "25/26シーズンの発生はあひる1例・うずら1例"
+      ],
+      "conditionTags": [
+        "duck-quail",
+        "daily-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M24b",
+      "origin": "M24",
+      "action": "あひる・うずらでは、死亡の増加だけに頼らず、産卵率の低下・神経症状・ケージ単位の変化でも通報する",
+      "appliesTo": "あひる（あいがも）またはうずらを飼う農場",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言",
+      "quote": "うずら舎全体で死亡羽数の増加が認められない場合であっても、ケージ単位での死亡羽数の増加等、通常と異なる兆候が認められた際には、速やかに家畜保健衛生所へ通報することが重要である。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 53（PDF 60頁）",
+      "caveats": [
+        "25/26シーズンの発生はあひる1例・うずら1例"
+      ],
+      "conditionTags": [
+        "duck-quail",
+        "daily-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M25a",
+      "origin": "M25",
+      "action": "過去に発生した農場は、前回指摘された問題の改善を継続し、再開時とシーズン前に点検・指導を受ける",
+      "appliesTo": "過去に高病原性鳥インフルエンザが発生した農場（再開した農場）",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 再発農場で前回の問題の改善が不十分・継続できていない状況",
+      "quote": "一部の再発農場では、前回の発生で確認された衛生対策上の問題の改善が不十分であったり、改善が継続できていなかったりする状況が確認されており、",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 49（PDF 56頁）",
+      "caveats": [
+        "報告書は「現状では共通の再発要因を見いだすことは困難」とも述べる",
+        "再発農場が改善を怠っていたとは限らない"
+      ],
+      "conditionTags": [
+        "past-outbreak"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M25b",
+      "origin": "M25",
+      "action": "過去に発生した農場は、前回指摘された問題の改善を継続し、再開時とシーズン前に点検・指導を受ける",
+      "appliesTo": "過去に高病原性鳥インフルエンザが発生した農場（再開した農場）",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "疫学調査報告書: 24事例中8事例が再発農場（発生しなかった農場との比べなし）",
+      "quote": "全24事例中8事例が再発農場であり、そのうち2事例は同一農場で3回目の発生となる事例であった。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 49（PDF 56頁）",
+      "caveats": [
+        "報告書は「現状では共通の再発要因を見いだすことは困難」とも述べる"
+      ],
+      "conditionTags": [
+        "past-outbreak"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M26",
+      "origin": "M26",
+      "action": "第三者（家畜保健衛生所・かかりつけ獣医師）を入れて、全項目を偏りなく継続的に点検し、指導を受ける",
+      "appliesTo": "家きんを飼養する農場すべて",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言",
+      "quote": "家きんを飼養する農場においては、第三者の目も入れつつ、飼養衛生管理基準の全項目が特定の項目に偏ることなく遵守されているかを継続的に点検し、指導を受けることが重要である。",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 51（PDF 58頁）",
+      "caveats": [],
+      "conditionTags": [
+        "self-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M27",
+      "origin": "M27",
+      "action": "定期的な勉強会で、全従事者と外部事業者に衛生管理のルールを定着させる",
+      "appliesTo": "従事者・外部事業者が出入りする農場すべて（規則が整備されていても周知・励行が不明な例が複数）",
+      "evidence": "recommendation",
+      "evidenceNote": "疫学調査報告書の提言",
+      "quote": "場内での防疫対策に関する規則が適切に整備されていても、それが十分に周知・励行されているか明らかでない例が複数確認されていることを踏まえ、定期的な勉強会等を実施し、全ての従事者及び外部事業者への飼養衛生管理の定着を図る",
+      "sourceId": "maff-s1",
+      "locator": "印刷頁 51（PDF 58頁）",
+      "caveats": [],
+      "conditionTags": [
+        "self-check",
+        "outside-workers"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M28a",
+      "origin": "M28",
+      "action": "家保へ出した定期報告の内容と、実際の農場の状況が合っているかを見直す",
+      "appliesTo": "定期報告（毎年6月15日まで）を出している農場すべて",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "前シーズンの疫学調査報告書: 定期報告と実際の状況の齟齬の事例（件数なし）",
+      "quote": "現地調査時に、管轄の家畜保健衛生所に提出している飼養衛生管理",
+      "sourceId": "maff-s7",
+      "locator": "印刷頁 16（PDF 21頁）",
+      "caveats": [
+        "文の前半。続きは maff-M28b",
+        "2024/25シーズンの報告書"
+      ],
+      "conditionTags": [
+        "self-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M28b",
+      "origin": "M28",
+      "action": "家保へ出した定期報告の内容と、実際の農場の状況が合っているかを見直す",
+      "appliesTo": "定期報告（毎年6月15日まで）を出している農場すべて",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "前シーズンの疫学調査報告書: 定期報告と実際の状況に齟齬がある事例（件数なし）",
+      "quote": "基準の定期報告と実際の状況に齟齬がある事例もあった。",
+      "sourceId": "maff-s7",
+      "locator": "印刷頁 17（PDF 22頁）",
+      "caveats": [
+        "文の後半。前半は maff-M28a",
+        "2024/25シーズンの報告書"
+      ],
+      "conditionTags": [
+        "self-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M29",
+      "origin": "M29",
+      "action": "複数の衛生管理区域がある農場で、区域ごとの更衣・手指消毒を確認する",
+      "appliesTo": "農場が複数の衛生管理区域から構成される農場",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "前シーズンの疫学調査報告書: 複数の衛生管理区域がある農場で不備が「多かった」（件数なし）",
+      "quote": "特に、農場が複数の衛生管理区域から構成される農場において、これらの不備が認められる場合が多かった。",
+      "sourceId": "maff-s7",
+      "locator": "印刷頁 49（PDF 54頁）",
+      "caveats": [
+        "2024/25シーズンの報告書",
+        "「これらの不備」は直前の文の更衣・手指消毒の不備を指す"
+      ],
+      "conditionTags": [
+        "shared-facilities",
+        "zone-boundary"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M30",
+      "origin": "M30",
+      "action": "死亡鶏保管施設・共同堆肥場など他農場と共同で使う施設に行く際も更衣・手指消毒をする",
+      "appliesTo": "死亡鶏保管施設や堆肥場を他農場と共同利用している農場",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "前シーズンの疫学調査報告書: 共同利用の死亡鶏保管施設で更衣・消毒をしていない事例（件数なし）",
+      "quote": "地域で死亡鶏保管施設を他農場と共同利用しており、農場敷地内から死亡鶏保管施設に行く際に作業着及び長靴の交換、手指消毒をしていない事例が確認された。",
+      "sourceId": "maff-s7",
+      "locator": "印刷頁 49（PDF 54頁）",
+      "caveats": [
+        "2024/25シーズンの報告書"
+      ],
+      "conditionTags": [
+        "shared-facilities"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M31",
+      "origin": "M31",
+      "action": "飼料・給水設備にねずみや野鳥の排せつ物が入らないようにし、ため池・沢水を飲み水に使うなら消毒する",
+      "appliesTo": "水源がため池・沢水・開放的な貯水の農場／飼料タンク・餌置場が屋外にある農場",
+      "evidence": "obligation",
+      "evidenceNote": "国の遵守指導の手引きの「不遵守の判断基準」（基準項26に関する）",
+      "quote": "ため池や沢水を水源として利用していたり、給与前に開放的な環境で貯水されていたりする等、野生動物の排せつ物等が混入し家きんの伝染性疾病の病原体に汚染される可能性がある場合は、消毒の必要があると判断します。",
+      "sourceId": "maff-s3",
+      "locator": "印刷頁 68（PDF 74頁）",
+      "caveats": [
+        "手引きの判断基準で、法的な義務の条文そのものではない"
+      ],
+      "conditionTags": [
+        "surface-water-source",
+        "feed-exposed"
+      ],
+      "approved": true
+    },
+    {
+      "id": "maff-M34",
+      "origin": "M34",
+      "action": "毎週決めた曜日に、防護柵・防鳥ネットの破損と野生動物の侵入を確認する（小規模農家向けマニュアル例）",
+      "appliesTo": "小規模農家（飼養衛生管理マニュアルの作成例）",
+      "evidence": "recommendation",
+      "evidenceNote": "国の飼養衛生管理マニュアルの例（雛形）",
+      "quote": "○毎週○曜日、防護柵・防鳥ネットの破損が ないか、さらに野生動物の侵入がないか 確認する。",
+      "sourceId": "maff-s11",
+      "locator": "PDF 1頁",
+      "caveats": [
+        "雛形のため曜日は空欄（○）",
+        "小規模農家向けのマニュアル例"
+      ],
+      "conditionTags": [
+        "net-damage",
+        "wildlife-traces"
+      ],
+      "approved": true
+    },
+    {
+      "id": "okayama-OK1",
+      "origin": "OK-1",
+      "action": "防虫ネット（網目5mm以下）と殺虫剤でハエの侵入を防ぐ",
+      "appliesTo": "秋から冬（寒くなり始めたころ）に、入気口やベルトコンベアなどに隙間のある鶏舎。資料は「オオクロバエ」を挙げる",
+      "evidence": "recommendation",
+      "evidenceNote": "岡山県のパンフレットの推奨（九州大学の資料を引用。基準の項目ではない）",
+      "quote": "網目５mm以下が望ましく、殺虫剤を鶏舎の壁（ハエが留まるところ）にも散布すると効果が上がります！",
+      "sourceId": "okayama-fly",
+      "locator": "PDF 1頁",
+      "caveats": [
+        "図の中の文ではなく本文かは、PDFを目で見て確かめる必要がある（メモは抽出テキストとの照合のみ）",
+        "因果は示されていない（パンフの表題は「ハエがHPAI発生の原因かも?!」）"
+      ],
+      "conditionTags": [
+        "flies"
+      ],
+      "approved": true
+    },
+    {
+      "id": "okayama-OK2",
+      "origin": "OK-2",
+      "action": "殺虫剤はピレスロイド系を選ぶ（IGR剤は成虫に効かない）",
+      "appliesTo": "鶏舎外で発生するオオクロバエ類の成虫を抑えたい農場",
+      "evidence": "recommendation",
+      "evidenceNote": "岡山県のパンフレットの推奨（九州大学の資料を引用）",
+      "quote": "IGR剤は蛆対策のため、鶏舎外で発生するオオクロバエ類の成虫には効果がありません。",
+      "sourceId": "okayama-fly",
+      "locator": "PDF 1頁",
+      "caveats": [
+        "図の中の文ではなく本文かは、PDFを目で見て確かめる必要がある"
+      ],
+      "conditionTags": [
+        "flies"
+      ],
+      "approved": true
+    },
+    {
+      "id": "okayama-OK4",
+      "origin": "OK-4",
+      "action": "河川等の水源に隣接する農場では、消石灰の散布方法を家保に相談する",
+      "appliesTo": "農場が河川等の水源に隣接していて、環境への影響が心配な場合",
+      "evidence": "recommendation",
+      "evidenceNote": "岡山県のパンフレットの注意書き（2頁の本文）",
+      "quote": "河川等の水源に隣接していて環境への影響が心配される場合等、散布方法に疑問がある場合は、家畜保健衛生所へご相談下さい。",
+      "sourceId": "okayama-lime",
+      "locator": "PDF 2頁",
+      "caveats": [
+        "1頁目の本文は図の中でテキスト層に出ないため、カードにしていない"
+      ],
+      "conditionTags": [
+        "river-adjacent"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-K1a",
+      "origin": "K1",
+      "action": "開口部の網（目の大きさ 25 mm 以下）と、壁・屋根の破れの点検",
+      "appliesTo": "家きんを建物で飼うすべての農場（英国の防疫予防区域の義務）。",
+      "evidence": "recommendation",
+      "evidenceNote": "英国政府（Defra）の自己点検表（規制上の要件）。効果を測った研究ではない",
+      "quote": "Are any openings in the building where you house your birds covered with mesh or netting suitable to prevent entry by wild birds (maximum hole size 25mm x 25mm)?",
+      "sourceId": "defra-s12",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 英国。日本と飼い方が違う可能性",
+        "英国の規制上の要件（AIPZ）",
+        "網目は25mm以下。日本の基準は2cm以下。どちらが正しいかは書かない"
+      ],
+      "conditionTags": [
+        "net-damage"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-K1b",
+      "origin": "K1",
+      "action": "開口部の網（目の大きさ 25 mm 以下）と、壁・屋根の破れの点検",
+      "appliesTo": "家きんを建物で飼うすべての農場（英国の防疫予防区域の義務）。",
+      "evidence": "recommendation",
+      "evidenceNote": "英国政府（Defra）の自己点検表（規制上の要件）。効果を測った研究ではない",
+      "quote": "How often do you check the building where birds are kept for defects that would allow wild birds, water or other contaminants to get in?",
+      "sourceId": "defra-s12",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 英国。日本と飼い方が違う可能性",
+        "英国の規制上の要件（AIPZ）"
+      ],
+      "conditionTags": [
+        "net-damage"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-K2",
+      "origin": "K2",
+      "action": "敷地を「鶏の区域」「私的な区域」「立入制限の区域」に分ける（500 羽以上）",
+      "appliesTo": "家きんを 500 羽以上飼う農場（英国の自己点検表の第 2 部）。",
+      "evidence": "recommendation",
+      "evidenceNote": "英国政府（Defra）の自己点検表（500羽以上の農場の要件）",
+      "quote": "Is your premises divided into a poultry (live bird) part, a private (ancillary use) part and a restricted access (bio-secure barrier) part?",
+      "sourceId": "defra-s12",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 英国。日本と飼い方が違う可能性",
+        "英国の規制上の要件。500羽以上を飼う農場の第2部",
+        "日本の衛生管理区域とは区域の分け方と数が違うかもしれない"
+      ],
+      "conditionTags": [
+        "zone-boundary"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-K3",
+      "origin": "K3",
+      "action": "毎日の観察で、産卵・採食・飲水の変化をつかむ（産卵が 3 日で 5% 以上落ちたら獣医へ）",
+      "appliesTo": "家きんを飼うすべての農場。早期発見の目安。",
+      "evidence": "recommendation",
+      "evidenceNote": "英国政府（Defra）の自己点検表。数値の根拠は表に載っていない",
+      "quote": "drops in egg production of 5% or more over a 3-day period",
+      "sourceId": "defra-s12",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 英国。日本と飼い方が違う可能性",
+        "英国の規制上の自己点検表",
+        "早期発見の目安で、平時の見直しとは少し違う"
+      ],
+      "conditionTags": [
+        "daily-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-K4a",
+      "origin": "K4",
+      "action": "高い防疫水準を保つ（ただし、どの農場が緩むかは事前に分かりにくい）",
+      "appliesTo": "一般論。英国の専門家グループの報告。",
+      "evidence": "expert-estimate",
+      "evidenceNote": "英国 Defra の専門家グループの評価の文。比較調査ではない",
+      "quote": "Where high levels of biosecurity can be maintained, the risk of HPAI virus exposure is likely to be low.",
+      "sourceId": "defra-s13",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 英国。日本と飼い方が違う可能性",
+        "評価の文で、数値の根拠はない"
+      ],
+      "conditionTags": [
+        "self-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-K4b",
+      "origin": "K4",
+      "action": "高い防疫水準を保つ（ただし、どの農場が緩むかは事前に分かりにくい）",
+      "appliesTo": "一般論。英国の専門家グループの報告。",
+      "evidence": "expert-estimate",
+      "evidenceNote": "英国 Defra の専門家グループの評価の文。事前に緩い農場を見つけるのは難しいという限界の記述",
+      "quote": "However, pre-emptively identifying premises that are more likely to experience biosecurity lapses may be difficult.",
+      "sourceId": "defra-s13",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 英国。日本と飼い方が違う可能性",
+        "この機能の限界を正直に述べた文として使える（メモ）"
+      ],
+      "conditionTags": [
+        "self-check"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U10",
+      "origin": "U10",
+      "action": "農場の近くの水辺（350 ヤード＝約 320 m 以内）に水鳥が来ること",
+      "appliesTo": "肉用七面鳥の商業農場（米国）。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 66戸対59戸（米国の七面鳥）。320m以内の水辺で水鳥を見た割合が発生農場35%、対照15%",
+      "quote": "wild waterfowl or shorebirds on water bodies found within 320 meters (350 yards) of the farm (35% vs. 15%; p = 0.01)",
+      "sourceId": "paper-pmc10498466",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 七面鳥の農場の研究。鶏に当てはまるかは言えない",
+        "思い出しの偏りがある（聞き取りは発生から平均約7か月後）",
+        "思い出しの偏り（調査は発生から平均7か月後）",
+        "「目撃」の聞き取りで、日本の地図上の距離とは測り方が違う"
+      ],
+      "conditionTags": [
+        "waterfowl-seen",
+        "water-near"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U11",
+      "origin": "U11",
+      "action": "近くの農場で発生が続いている（農場間・共通源の伝播）",
+      "appliesTo": "発生農場が近く、会社や地域のつながりを共有している農場の群れ（米国インディアナ州の例）。",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "APHIS の中間報告（記述疫学）。近くの発生農場が会社や地域のつながりを共有していた",
+      "quote": "Impacted premises were in close spatial proximity and frequently shared company and community affiliations.",
+      "sourceId": "aphis-s5",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 米国の記述疫学。日本と飼い方・流行の型が違う可能性",
+        "米国政府の資料。APHIS 固有の利用方針は未確認（USDA 省全体の方針による）",
+        "インディアナ州の例で、酪農場由来のB3.13型など日本にない要因が混ざる",
+        "対策の効果を測ったものではない"
+      ],
+      "conditionTags": [
+        "near-outbreak"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U1a",
+      "origin": "U1",
+      "action": "隣の畑などに水鳥・渉禽類が来る",
+      "appliesTo": "米国の商業の採卵鶏・育成鶏・種鶏の農場（2022 年、8 州）。発生農場の羽数の中央値は 90 万羽（最小 7.2 万羽）。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。隣の畑で水鳥を見た割合が発生農場44%、対照10%（単変量 OR 7.6）",
+      "quote": "Wild waterfowl or shorebirds were seen in the closest field during the 14-day reference period on 44% of case farms compared to 10% of control farms (OR = 7.6, p = 0.03).",
+      "sourceId": "paper-pmc10408129",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある",
+        "最終の多変量モデルでは有意でない（OR 5.8、0.7〜79.4）",
+        "距離の基準は資料にない"
+      ],
+      "conditionTags": [
+        "waterfowl-seen"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U1b",
+      "origin": "U1",
+      "action": "野鳥の管理計画を専門家とつくる",
+      "appliesTo": "米国の商業の採卵鶏・育成鶏・種鶏の農場（2022 年、8 州）。発生農場の羽数の中央値は 90 万羽（最小 7.2 万羽）。",
+      "evidence": "recommendation",
+      "evidenceNote": "米国の公的機関（APHIS）ファクトシートの推奨",
+      "quote": "Work with a specialist to develop a wild bird management plan",
+      "sourceId": "aphis-s1",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏が中心。発生農場の羽数の中央値は90万羽）",
+        "米国政府の資料。APHIS 固有の利用方針は未確認（USDA 省全体の方針による）",
+        "ファクトシートの言い方は、元の論文より強い（メモの注意）"
+      ],
+      "conditionTags": [
+        "waterfowl-seen"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U2a",
+      "origin": "U2",
+      "action": "作業員を鶏舎ごとに決める。難しければ、鶏舎を移る前に着替える",
+      "appliesTo": "複数の鶏舎がある商業の採卵鶏農場（米国）。",
+      "evidence": "recommendation",
+      "evidenceNote": "APHIS ファクトシートの推奨",
+      "quote": "Assign farm workers to specific barns. If this is not possible, require personnel to change clothing before moving to a different barn.",
+      "sourceId": "aphis-s1",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏が中心。発生農場の羽数の中央値は90万羽）",
+        "米国政府の資料。APHIS 固有の利用方針は未確認（USDA 省全体の方針による）",
+        "鶏舎が1棟の小規模農場には当てはまらない"
+      ],
+      "conditionTags": [
+        "multi-houses",
+        "zone-boundary"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U2b",
+      "origin": "U2",
+      "action": "鶏舎ごとの担当者を決める、農場入口の門、鶏舎に入る人の更衣",
+      "appliesTo": "複数の鶏舎がある商業の採卵鶏農場（米国）。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。担当者の固定・門・更衣が列挙される（向きを示す語は別の文）",
+      "quote": "having designated personnel assigned to specific barns, having a farm entrance gate, and requiring a change of clothing for workers entering poultry barns",
+      "sourceId": "paper-pmc10408129",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある",
+        "最終モデルで有意でない",
+        "この引用だけでは防御側か危険側か読めない"
+      ],
+      "conditionTags": [
+        "multi-houses",
+        "farm-gate",
+        "zone-boundary"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U3",
+      "origin": "U3",
+      "action": "近くで発生があり、管理区域の中にある",
+      "appliesTo": "近くで発生があり、その周りに管理区域（米国では発生場所から 10 km）が設定された農場。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。管理区域内の農場が発生農場44%、対照9%（単変量 OR 8.0）",
+      "quote": "During the 14-day reference period, more case farms were located within an existing control zone compared to control farms (44% vs. 9%, OR = 8.0, p = 0.02).",
+      "sourceId": "paper-pmc10408129",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある",
+        "多変量では有意でない（OR 10.3、0.8〜377.0）。七面鳥の研究では多変量でも有意",
+        "農場が変えられる対策ではなく「条件」",
+        "日本の移動制限区域とは定義が違う"
+      ],
+      "conditionTags": [
+        "near-outbreak"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U4a",
+      "origin": "U4",
+      "action": "死んだ鶏の処理を農場内で（堆肥化・焼却など）完結する",
+      "appliesTo": "毎日の死亡鶏を農場外の業者（レンダリング）・堆肥化・埋却・埋立に出している農場。",
+      "evidence": "study-association",
+      "evidenceNote": "APHIS ファクトシートが挙げる危険因子（元は米国の採卵鶏の症例対照）",
+      "quote": "Lack of on-site disposal methods, such as composting or incineration.",
+      "sourceId": "aphis-s1",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏が中心。発生農場の羽数の中央値は90万羽）",
+        "米国政府の資料。APHIS 固有の利用方針は未確認（USDA 省全体の方針による）",
+        "ファクトシートの言い方は、元の論文より強い（メモの注意）",
+        "日本の死亡鶏の扱い（焼却・埋却・家保への連絡）との比較は未確認"
+      ],
+      "conditionTags": [
+        "carcass-disposal"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U4b",
+      "origin": "U4",
+      "action": "死んだ鶏の処理を農場外へ出さない",
+      "appliesTo": "毎日の死亡鶏を農場外の業者（レンダリング）・堆肥化・埋却・埋立に出している農場。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。毎日の死亡鶏の農場外処理が関連した因子として列挙",
+      "quote": "having an off-site method of daily mortality disposal (off-site composting or burial, rendering, or landfill)",
+      "sourceId": "paper-pmc10408129",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある",
+        "最終モデルは有意なし",
+        "日本の死亡鶏の扱い（焼却・埋却・家保への連絡）との比較は未確認"
+      ],
+      "conditionTags": [
+        "carcass-disposal"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U5",
+      "origin": "U5",
+      "action": "飼料を野鳥・野生動物・ネズミから守り、こぼれ飼料をすぐ片づける",
+      "appliesTo": "飼料・原料が屋外・開口部のある場所に置かれる農場。",
+      "evidence": "recommendation",
+      "evidenceNote": "APHIS ファクトシートの推奨",
+      "quote": "Protect feed from wild birds, wildlife, and rodents. Clean up spills immediately.",
+      "sourceId": "aphis-s1",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏が中心。発生農場の羽数の中央値は90万羽）",
+        "米国政府の資料。APHIS 固有の利用方針は未確認（USDA 省全体の方針による）",
+        "元の論文では、飼料への野鳥の接近は最終モデルで有意でない"
+      ],
+      "conditionTags": [
+        "feed-exposed",
+        "rodent-signs"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U6",
+      "origin": "U6",
+      "action": "敷地内の草・植生を頻繁に刈る（月 4 回以上）",
+      "appliesTo": "敷地内に草地・植生がある採卵鶏農場。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。草刈りが月4回未満が関連した因子として列挙（弱い根拠）",
+      "quote": "mowing or bush hogging vegetation less than 4 times a month",
+      "sourceId": "paper-pmc10408129",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある",
+        "単変量で有意でなく（OR 2.6、0.7〜9.8）、最終モデルにも残らなかった",
+        "米国の広い敷地を前提にした項目"
+      ],
+      "conditionTags": [
+        "site-tidiness"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U7",
+      "origin": "U7",
+      "action": "農場に出入りする車両を洗って消毒する（洗浄設備の整備）",
+      "appliesTo": "飼料車・集卵車・会社の車が出入りする商業の採卵鶏農場。",
+      "evidence": "recommendation",
+      "evidenceNote": "APHIS ファクトシートの推奨",
+      "quote": "Thoroughly clean and disinfect vehicles entering and exiting your farm.",
+      "sourceId": "aphis-s1",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏が中心。発生農場の羽数の中央値は90万羽）",
+        "米国政府の資料。APHIS 固有の利用方針は未確認（USDA 省全体の方針による）",
+        "日本の症例対照では消毒ゲートの有無に差がなかった"
+      ],
+      "conditionTags": [
+        "vehicle-traffic"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U8",
+      "origin": "U8",
+      "action": "農場の入口に門を設け、不要な出入りを減らす",
+      "appliesTo": "入口が開放されている商業の採卵鶏農場。",
+      "evidence": "recommendation",
+      "evidenceNote": "APHIS ファクトシートの推奨",
+      "quote": "Improve traffic control by installing a farm entrance gate and limit unnecessary movement on and off your farm.",
+      "sourceId": "aphis-s1",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏が中心。発生農場の羽数の中央値は90万羽）",
+        "米国政府の資料。APHIS 固有の利用方針は未確認（USDA 省全体の方針による）"
+      ],
+      "conditionTags": [
+        "farm-gate",
+        "outside-workers"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U9a",
+      "origin": "U9",
+      "action": "作業員がシャワーを使える／鶏舎に来る作業班用のトイレを用意する（七面鳥）",
+      "appliesTo": "肉用七面鳥の商業農場（米国、1 農場の羽数の中央値は発生 37,356 羽、対照 39,350 羽）。",
+      "evidence": "recommendation",
+      "evidenceNote": "米国の公的機関（APHIS）の七面鳥ファクトシートの推奨",
+      "quote": "Provide access to and require workers to shower before entering the barn.",
+      "sourceId": "aphis-s2",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "米国政府の資料。APHIS 固有の利用方針は未確認（USDA 省全体の方針による）",
+        "七面鳥の研究。鶏には当てはまるか資料から言えない",
+        "日本でシャワーは一般的でない場合が多いと推測されるが未確認（メモ）"
+      ],
+      "conditionTags": [
+        "crew-facilities"
+      ],
+      "approved": true
+    },
+    {
+      "id": "overseas-U9b",
+      "origin": "U9",
+      "action": "作業員がシャワーを使える／鶏舎に来る作業班用のトイレを用意する（七面鳥）",
+      "appliesTo": "肉用七面鳥の商業農場（米国、1 農場の羽数の中央値は発生 37,356 羽、対照 39,350 羽）。",
+      "evidence": "recommendation",
+      "evidenceNote": "米国の公的機関（APHIS）の七面鳥ファクトシートの推奨",
+      "quote": "Provide a restroom facility (including portable) to crews visiting the farm.",
+      "sourceId": "aphis-s2",
+      "locator": "記載なし（本文で照合）",
+      "caveats": [
+        "米国政府の資料。APHIS 固有の利用方針は未確認（USDA 省全体の方針による）",
+        "七面鳥の研究。鶏には当てはまるか資料から言えない"
+      ],
+      "conditionTags": [
+        "crew-facilities"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C01",
+      "origin": "C01",
+      "action": "飼養羽数が多い（10 万羽以上）",
+      "appliesTo": "日本の商業的な採卵鶏の農場（2022/23 の H5N1）。小規模の農場には、この論文からは言えない。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 58戸対26戸。10万羽以上は発生農場55.2%、対照26.9%（オッズ比3.29、1.11〜10.78）",
+      "quote": "The analysis identified a large number of laying hens on the farm (≥100,000 birds) as a potential risk factor.",
+      "sourceId": "paper-pmc12629688",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "小規模な農場には、この論文からは言えない",
+        "対照が26戸と少ない。表の信頼区間は「鶏舎を1,000回選び直したときのばらつき」で通常の信頼区間ではない",
+        "対照の聞き取りは発生後数か月たってから、立ち入りなしで行われた"
+      ],
+      "conditionTags": [
+        "large-flock",
+        "layer-farm"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C02",
+      "origin": "C02",
+      "action": "閉鎖型の鶏舎（開放型との比較）",
+      "appliesTo": "商業的な採卵鶏農場。閉鎖型は、ケージ段数や換気方式などと一体で、分けて評価できない（原文の表 3）。",
+      "evidence": "study-no-difference",
+      "evidenceNote": "症例対照 58戸対26戸。羽数を入れると、閉鎖型の鶏舎に有意な差は残らなかった",
+      "quote": "The results indicated that closed-type housing did not significantly increase the risk of HPAI outbreaks, whereas the number of birds on farms was significantly associated with HPAI outbreaks.",
+      "sourceId": "paper-pmc12629688",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "小規模な農場には、この論文からは言えない",
+        "対照が26戸と少ない。表の信頼区間は「鶏舎を1,000回選び直したときのばらつき」で通常の信頼区間ではない",
+        "対照の聞き取りは発生後数か月たってから、立ち入りなしで行われた",
+        "閉鎖型はケージ段数や換気方式などと一体で、分けて評価できない"
+      ],
+      "conditionTags": [
+        "windowless-house",
+        "layer-farm"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C03",
+      "origin": "C03",
+      "action": "鶏舎の入口で専用の靴に履き替える",
+      "appliesTo": "日本の商業的な採卵鶏農場（鶏舎単位の変数）。衛生管理区域の入口での履き替えは差がなかった（表 1: 発生農場 82.8%、対照 84.6%、オッズ比 0.87）。効いたとされたのは鶏舎入口と裏口。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 58戸対26戸。鶏舎入口での履き替えは防御側の可能性（単純比較は不確か、多変量は有意）",
+      "quote": "In contrast, changing shoes at the barn entrance and changing shoes or avoiding the use of the back door were identified as potential protective factors.",
+      "sourceId": "paper-pmc12629688",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "小規模な農場には、この論文からは言えない",
+        "対照が26戸と少ない。表の信頼区間は「鶏舎を1,000回選び直したときのばらつき」で通常の信頼区間ではない",
+        "対照の聞き取りは発生後数か月たってから、立ち入りなしで行われた",
+        "衛生管理区域の入口での履き替えには差がなかった（メモ）"
+      ],
+      "conditionTags": [
+        "shoe-change",
+        "zone-boundary",
+        "layer-farm"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C04a",
+      "origin": "C04",
+      "action": "裏口（ふん出し用など）でも履き替える、または裏口を使わない",
+      "appliesTo": "裏口があり、ふん出しなどに人が出入りする採卵鶏の鶏舎。本文では、鶏舎入口で履き替える 68 農場のうち 27 農場（39.7%）が裏口では履き替えていなかった。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 58戸対26戸。裏口で履き替える・裏口を使わない農場に発生が少ない傾向",
+      "quote": "Changing shoes at the back door or avoiding the use of the back door was also identified as a protective factor.",
+      "sourceId": "paper-pmc12629688",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "小規模な農場には、この論文からは言えない",
+        "対照が26戸と少ない。表の信頼区間は「鶏舎を1,000回選び直したときのばらつき」で通常の信頼区間ではない",
+        "対照の聞き取りは発生後数か月たってから、立ち入りなしで行われた"
+      ],
+      "conditionTags": [
+        "back-door",
+        "shoe-change",
+        "layer-farm"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C04b",
+      "origin": "C04",
+      "action": "裏口（ふん出し用など）でも履き替える、または裏口を使わない",
+      "appliesTo": "裏口があり、ふん出しなどに人が出入りする採卵鶏の鶏舎。本文では、鶏舎入口で履き替える 68 農場のうち 27 農場（39.7%）が裏口では履き替えていなかった。",
+      "evidence": "study-association",
+      "evidenceNote": "補助の引用: 裏口を使わない農場の様子の記述（効果の測定ではない）",
+      "quote": "In contrast, several farms with strong biosecurity awareness completely prohibited the use of the back door and maintained a strict separation between internal and external personnel",
+      "sourceId": "paper-pmc12629688",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "小規模な農場には、この論文からは言えない",
+        "対照が26戸と少ない。表の信頼区間は「鶏舎を1,000回選び直したときのばらつき」で通常の信頼区間ではない",
+        "対照の聞き取りは発生後数か月たってから、立ち入りなしで行われた"
+      ],
+      "conditionTags": [
+        "back-door",
+        "layer-farm"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C05",
+      "origin": "C05",
+      "action": "飼料・育成雛・廃鶏の搬送などの車と人の出入りの多さ",
+      "appliesTo": "大規模農場。著者の考察であり、この調査で出入りの量を測ったわけではない。",
+      "evidence": "expert-estimate",
+      "evidenceNote": "著者の考察（推測）。出入りの量を測ってはいない",
+      "quote": "large-scale farms may experience more traffic from vehicles and personnel, including those involved in transporting feed, pullets, and spent hens.",
+      "sourceId": "paper-pmc12629688",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "小規模な農場には、この論文からは言えない",
+        "対照が26戸と少ない。表の信頼区間は「鶏舎を1,000回選び直したときのばらつき」で通常の信頼区間ではない",
+        "対照の聞き取りは発生後数か月たってから、立ち入りなしで行われた"
+      ],
+      "conditionTags": [
+        "large-flock",
+        "vehicle-traffic",
+        "layer-farm"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C06",
+      "origin": "C06",
+      "action": "ネズミ対策の実施、2 cm 未満の金網、車両の消毒ゲート、鶏舎内外での野鳥・野生動物の目撃",
+      "appliesTo": "商業的な採卵鶏農場。ほぼ全農場が実施している対策は、比べようがない。",
+      "evidence": "study-no-difference",
+      "evidenceNote": "症例対照 58戸対26戸。ネズミ対策・金網・消毒ゲート・野鳥の目撃は差が出なかった（比べられなかった）",
+      "quote": "variables not retained in the final model or not found to be statistically significant in this study should not be interpreted as lacking relevance",
+      "sourceId": "paper-pmc12629688",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "小規模な農場には、この論文からは言えない",
+        "対照が26戸と少ない。表の信頼区間は「鶏舎を1,000回選び直したときのばらつき」で通常の信頼区間ではない",
+        "対照の聞き取りは発生後数か月たってから、立ち入りなしで行われた",
+        "差がないことは「効果がない」ことを意味しないと著者が書く",
+        "ほぼ全農場が実施している対策は比べようがない"
+      ],
+      "conditionTags": [
+        "rodent-signs",
+        "net-damage",
+        "vehicle-traffic",
+        "waterfowl-seen",
+        "layer-farm"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C07",
+      "origin": "C07",
+      "action": "鶏舎の壁・天井の破損を直す",
+      "appliesTo": "商業的な採卵鶏農場。対照は立ち入りなしの聞き取りのため、対照のほうが「直っている」と答えやすい偏りがあると著者が書く。",
+      "evidence": "study-no-difference",
+      "evidenceNote": "症例対照 58戸対26戸。壁・天井の修繕は有意な差なし（オッズ比0.50、0.17〜1.41）",
+      "quote": "the evaluation of certain items, such as the proper repair of damaged barn walls and ceilings or the presence of wild animal traces, may have been more optimistic for the control farms",
+      "sourceId": "paper-pmc12629688",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "小規模な農場には、この論文からは言えない",
+        "対照が26戸と少ない。表の信頼区間は「鶏舎を1,000回選び直したときのばらつき」で通常の信頼区間ではない",
+        "対照の聞き取りは発生後数か月たってから、立ち入りなしで行われた",
+        "対照のほうが「直っている」と答えやすい偏りがあると著者が書く"
+      ],
+      "conditionTags": [
+        "net-damage",
+        "wildlife-traces",
+        "layer-farm"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C08",
+      "origin": "C08",
+      "action": "鶏舎から 150 m 以内に水域がある",
+      "appliesTo": "商業的な採卵鶏農場。",
+      "evidence": "study-no-difference",
+      "evidenceNote": "症例対照 58戸対26戸。150m以内の水域は発生農場に多い向きだが有意でない（p=0.103）",
+      "quote": "only 26 control farms were included in the study. This limited sample size may have reduced the statistical power of the analysis",
+      "sourceId": "paper-pmc12629688",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "小規模な農場には、この論文からは言えない",
+        "対照が26戸と少ない。表の信頼区間は「鶏舎を1,000回選び直したときのばらつき」で通常の信頼区間ではない",
+        "対照の聞き取りは発生後数か月たってから、立ち入りなしで行われた",
+        "この引用は標本が小さいことの注記で、水域の結果そのものを述べる文ではない（結果の根拠は表の数値）"
+      ],
+      "conditionTags": [
+        "water-near",
+        "layer-farm"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C15",
+      "origin": "C15",
+      "action": "鶏舎の近く（25〜105 m 以内）に川・水路・池・湖がある",
+      "appliesTo": "日本の飼養 5,000 羽以上の商業農場（採卵・肉用）。2016/17 シーズンのみ有意。",
+      "evidence": "study-association",
+      "evidenceNote": "対応症例対照 10戸対34戸（2016/17）。近くの内水面のある農場が発生農場に多い",
+      "quote": "the number of farms with neighbouring inland waters was significantly high among the affected farms during the 2016–2017 outbreak period.",
+      "sourceId": "paper-pmc5818671",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "2016/17シーズンのみ有意（2010/11は差なし）",
+        "対象は飼養5,000羽以上の商業農場",
+        "水域の種類（川・水路・池・湖）を区別していない"
+      ],
+      "conditionTags": [
+        "water-near"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C16",
+      "origin": "C16",
+      "action": "同上（水辺の近さ）",
+      "appliesTo": "2010/11 のデータ。著者は、2016/17 は防疫基準が強化されて農場の備えが上がり、残った環境要因（水辺）が目立った可能性、と考察する。",
+      "evidence": "study-no-difference",
+      "evidenceNote": "対応症例対照 23戸対89戸（2010/11）。すべての距離で有意な差なし",
+      "quote": "none of the results from the 2010–2011 outbreak period showed significant differences in the distance from inland waters between case and control farms.",
+      "sourceId": "paper-pmc5818671",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "年によって結果が違う",
+        "対象は飼養5,000羽以上の商業農場"
+      ],
+      "conditionTags": [
+        "water-near"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C17",
+      "origin": "C17",
+      "action": "近くの池などを防鳥ネットで覆うなど、水鳥が水辺に寄れないようにする",
+      "appliesTo": "近くに内水面がある農場。著者の提案であり、この措置の効果を測った結果ではない。",
+      "evidence": "expert-estimate",
+      "evidenceNote": "著者の提案。この措置の効果を測った結果ではない",
+      "quote": "restrict access of waterfowl to nearby inland waters (e.g., by covering ponds with bird-control netting)",
+      "sourceId": "paper-pmc5818671",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "効果は測られていない"
+      ],
+      "conditionTags": [
+        "water-near"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C20a",
+      "origin": "C20",
+      "action": "鶏舎・敷地のネズミ類（ハツカネズミ、ドブネズミ、クマネズミ）",
+      "appliesTo": "ネズミ類がいる農場。農場でネズミ対策が発生を減らすかは、この論文では分からない。",
+      "evidence": "study-association",
+      "evidenceNote": "動物実験（1群3〜5匹ほど）。野生のネズミ類が鳥由来のH5N1に感染しうることが示された（発生との関係ではない）",
+      "quote": "These results strongly suggest that synanthropic wild rodents are susceptible to infection of avian-origin H5N1 subtype HPAIVs and contribute to the virus ecosystem as replication-competent hosts.",
+      "sourceId": "paper-pmc11434905",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "実験室の研究で、農場の感染ではない",
+        "使ったウイルスは2007年と2010年の日本のH5N1で、現在流行している型ではない",
+        "農場でネズミ対策が発生を減らすかは、この論文からは分からない"
+      ],
+      "conditionTags": [
+        "rodent-signs"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C20b",
+      "origin": "C20",
+      "action": "鶏舎・敷地のネズミ類（ハツカネズミ、ドブネズミ、クマネズミ）",
+      "appliesTo": "ネズミ類がいる農場。農場でネズミ対策が発生を減らすかは、この論文では分からない。",
+      "evidence": "study-association",
+      "evidenceNote": "動物実験。口の拭き取りからウイルスが分離され、ふんからはほとんど出なかった",
+      "quote": "Viruses were isolated from oral swabs for several days after inoculation, while little or no virus was detected in their feces or rectal swabs.",
+      "sourceId": "paper-pmc11434905",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "実験室の研究で、農場の感染ではない",
+        "使ったウイルスは2007年と2010年の日本のH5N1で、現在流行している型ではない",
+        "農場でネズミ対策が発生を減らすかは、この論文からは分からない"
+      ],
+      "conditionTags": [
+        "rodent-signs"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C22a",
+      "origin": "C22",
+      "action": "農場に入るトラックなどの車両を十分に洗う",
+      "appliesTo": "米国の商業の採卵鶏・育成鶏・種鶏農場。本文では、羽数の区切り 50 万羽が調査対象の羽数の中央値の少し下とされており、大規模な農場が中心。日本の小規模農場とは規模が違う。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。車両を十分に洗うことが防御側として挙げられた（抄録）",
+      "quote": "Protective factors included a high level of vehicle washing for trucks and trailers entering the farm",
+      "sourceId": "paper-pmc10408129",
+      "locator": "抄録",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある"
+      ],
+      "conditionTags": [
+        "vehicle-traffic",
+        "multi-houses"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C22b",
+      "origin": "C22",
+      "action": "農場の入口に門を設ける",
+      "appliesTo": "米国の商業の採卵鶏・育成鶏・種鶏農場。本文では、羽数の区切り 50 万羽が調査対象の羽数の中央値の少し下とされており、大規模な農場が中心。日本の小規模農場とは規模が違う。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。農場の門は防御側",
+      "quote": "The presence of a farm gate was found to be protective.",
+      "sourceId": "paper-pmc10408129",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある"
+      ],
+      "conditionTags": [
+        "farm-gate"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C22c",
+      "origin": "C22",
+      "action": "鶏舎ごとの担当者を決める、農場入口の門、鶏舎に入る人の更衣",
+      "appliesTo": "米国の商業の採卵鶏・育成鶏・種鶏農場。本文では、羽数の区切り 50 万羽が調査対象の羽数の中央値の少し下とされており、大規模な農場が中心。日本の小規模農場とは規模が違う。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。担当者の固定・門・更衣が列挙される（向きを示す語は別の文）",
+      "quote": "having designated personnel assigned to specific barns, having a farm entrance gate, and requiring a change of clothing for workers entering poultry barns.",
+      "sourceId": "paper-pmc10408129",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある",
+        "この引用だけでは防御側か危険側か読めない（向きを示す語は抄録の別の文にある）",
+        "列挙の後半の文で、向きを示す語を含まない"
+      ],
+      "conditionTags": [
+        "multi-houses",
+        "farm-gate",
+        "zone-boundary"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C22d",
+      "origin": "C22",
+      "action": "（注記）最終モデルでは、どの変数も統計的に有意でなかった",
+      "appliesTo": "米国の商業の採卵鶏・育成鶏・種鶏農場。本文では、羽数の区切り 50 万羽が調査対象の羽数の中央値の少し下とされており、大規模な農場が中心。日本の小規模農場とは規模が違う。",
+      "evidence": "study-no-difference",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。最終モデルではどの変数も有意でなかった",
+      "quote": "None of the predictor variables were statistically significant at the 0.05 significance level",
+      "sourceId": "paper-pmc10408129",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある",
+        "この注記は上のカード（papers-C22a〜c）すべてに当てはまる"
+      ],
+      "conditionTags": [
+        "vehicle-traffic",
+        "farm-gate",
+        "multi-houses"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C23",
+      "origin": "C23",
+      "action": "近くの畑の水鳥の目撃、草刈りが月4回未満（米国の採卵鶏農場で関連した因子）",
+      "appliesTo": "米国の商業採卵鶏農場。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。すでに管理区域内にあること・水鳥の目撃・草刈りが月4回未満が、関連した因子として列挙された",
+      "quote": "Factors associated with increased risk of infection included being in an existing control zone, sightings of wild waterfowl, mowing or bush hogging vegetation less than 4 times a month",
+      "sourceId": "paper-pmc10408129",
+      "locator": "抄録",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある",
+        "最終モデルは有意なし。抄録の「関連した因子」の列挙",
+        "死体の農場外処理は同じ抄録の列挙の次の項目で、この引用には入っていない（メモ）"
+      ],
+      "conditionTags": [
+        "near-outbreak",
+        "waterfowl-seen",
+        "site-tidiness"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C24",
+      "origin": "C24",
+      "action": "野鳥が飼料や飼料原料に近づける",
+      "appliesTo": "米国の商業採卵鶏農場。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対22戸（米国）。野鳥が飼料に近づけないことが低リスクと関連（野鳥由来の侵入11戸の部分系列、単変量 p=0.03）",
+      "quote": "not having a rodent problem was associated with decreased risk (p = 0.14), as was lack of wild bird access to feed or feed ingredients (p = 0.03)",
+      "sourceId": "paper-pmc10408129",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "海外: 日本と飼い方が違う可能性（米国の大規模な採卵鶏。発生農場の羽数の中央値は90万羽）",
+        "最終の多変量モデルでは、どの変数も有意でない",
+        "対照の回答率は推定約20%、思い出しの偏りがある",
+        "ネズミの問題がないことは p=0.14 で有意でない",
+        "野鳥の部分系列（11戸）の単変量の記述"
+      ],
+      "conditionTags": [
+        "feed-exposed",
+        "rodent-signs"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C25",
+      "origin": "C25",
+      "action": "来訪者用トイレ（簡易でも可）、鶏舎に入るときのシャワーの使用",
+      "appliesTo": "米国の商業の七面鳥農場。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 66戸対59戸（米国の七面鳥）。来訪者用トイレ・シャワーの使用が防御側",
+      "quote": "Protective factors included having a restroom facility, including portable, available to crews that visit the farm and workers having access and using a shower at least some of the time",
+      "sourceId": "paper-pmc10498466",
+      "locator": "抄録",
+      "caveats": [
+        "海外: 七面鳥の農場の研究。鶏に当てはまるかは言えない",
+        "思い出しの偏りがある（聞き取りは発生から平均約7か月後）"
+      ],
+      "conditionTags": [
+        "crew-facilities"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C26",
+      "origin": "C26",
+      "action": "近くの畑の水鳥・渉禽類の目撃、死体の処理にレンダリング業者を使う",
+      "appliesTo": "米国の商業の七面鳥農場。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 66戸対59戸（米国の七面鳥）。管理区域内・水鳥の目撃などが危険側として列挙",
+      "quote": "Factors associated with increased risk of infection included being in an existing control zone, having both brooders and growers, having toms, seeing wild waterfowl or shorebirds in the closest field",
+      "sourceId": "paper-pmc10498466",
+      "locator": "抄録",
+      "caveats": [
+        "海外: 七面鳥の農場の研究。鶏に当てはまるかは言えない",
+        "思い出しの偏りがある（聞き取りは発生から平均約7か月後）",
+        "レンダリングの利用は同じ抄録の列挙の最後の項目で、この引用には入っていない（メモ）"
+      ],
+      "conditionTags": [
+        "near-outbreak",
+        "waterfowl-seen"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C27a",
+      "origin": "C27",
+      "action": "野生動物対策（フェンス、放し飼いの回避、防鳥ネット、ネズミ対策、整理整頓、飼料タンク周りの衛生）の不備",
+      "appliesTo": "韓国の発生農場（鶏とアヒル）。比較対象（発生しなかった農場）がなく、不備が発生の原因とは言えない。",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "記述的分析（韓国の発生農場311戸）。野生動物対策の不備が最も多く、85.9%に記録",
+      "quote": "Wildlife control was the most frequent deficiency (85.9%), followed by operational management (65.9%) and deficiencies related to anteroom biosecurity measures in barns (56.3%).",
+      "sourceId": "paper-pmc13423691",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "海外: 韓国（鶏とアヒルの混在）。日本と飼い方が違う可能性",
+        "比較対象（発生しなかった農場）がなく、不備が発生の原因とは言えない"
+      ],
+      "conditionTags": [
+        "net-damage",
+        "wildlife-traces",
+        "rodent-signs",
+        "site-tidiness",
+        "feed-exposed"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C27b",
+      "origin": "C27",
+      "action": "野生動物対策（フェンス、放し飼いの回避、防鳥ネット、ネズミ対策、整理整頓、飼料タンク周りの衛生）の不備",
+      "appliesTo": "韓国の発生農場（鶏とアヒル）。比較対象（発生しなかった農場）がなく、不備が発生の原因とは言えない。",
+      "evidence": "study-no-difference",
+      "evidenceNote": "記述的分析。発生農場だけが対象で、因果は示せないと著者が書く（比べられなかった）",
+      "quote": "This study is limited to farms with confirmed HPAI outbreaks, and the identified patterns do not establish direct causality.",
+      "sourceId": "paper-pmc13423691",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "海外: 韓国（鶏とアヒルの混在）。日本と飼い方が違う可能性",
+        "この注記は papers-C27a と同じ研究の限界の記述"
+      ],
+      "conditionTags": [
+        "net-damage",
+        "wildlife-traces",
+        "rodent-signs",
+        "site-tidiness",
+        "feed-exposed"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C28a",
+      "origin": "C28",
+      "action": "前室の出入りでの手洗い、履物の交換と消毒、卵の搬出入業者の車輪・履物の消毒",
+      "appliesTo": "オランダの屋内飼いの農場（採卵、肉用、種鶏、アヒル）。",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "観察研究（オランダ7農場の動画）。前室の出入りでの手洗いはまれにしか行われていなかった",
+      "quote": "Hand washing with soap and water and/or using disinfectant lotion was rarely observed at entry to the anteroom and was almost absent at exit.",
+      "sourceId": "paper-pmc12389693",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "海外: オランダ。日本と飼い方が違う可能性",
+        "発生との関係は測っていない。実際の守られ方の事例",
+        "屋内飼いの農場で、放牧場のある農場は除外している"
+      ],
+      "conditionTags": [
+        "zone-boundary",
+        "shoe-change"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C28b",
+      "origin": "C28",
+      "action": "前室の出入りでの手洗い、履物の交換と消毒、卵の搬出入業者の車輪・履物の消毒",
+      "appliesTo": "オランダの屋内飼いの農場（採卵、肉用、種鶏、アヒル）。",
+      "evidence": "outbreak-finding",
+      "evidenceNote": "観察研究。卵の搬出入業者が車輪や履物を消毒していなかった",
+      "quote": "Egg transporters did not disinfect fork-lift wheels when entering the egg-storage room nor change or properly disinfect footwear.",
+      "sourceId": "paper-pmc12389693",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "海外: オランダ。日本と飼い方が違う可能性",
+        "発生との関係は測っていない。実際の守られ方の事例",
+        "屋内飼いの農場で、放牧場のある農場は除外している"
+      ],
+      "conditionTags": [
+        "outside-workers",
+        "vehicle-traffic",
+        "shoe-change"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C30",
+      "origin": "C30",
+      "action": "窓・開口部がない農場、ワクチン接種、1 サイクルの羽数が多いこと",
+      "appliesTo": "エジプトの農場。国と飼育環境が違えば、閉鎖型や規模の向きが逆になる例として使う。",
+      "evidence": "study-association",
+      "evidenceNote": "統計解析（エジプト）。窓・開口部のない農場が防御側（日本とは国と飼い方が違う）",
+      "quote": "Vaccination status, absence of windows/openings in the farm and the number of birds per cycle of production were found to be protective factors",
+      "sourceId": "paper-pmc6006767",
+      "locator": "全文（節の記載なし）",
+      "caveats": [
+        "海外: エジプト。日本と飼い方・環境が大きく違う",
+        "国と飼育環境が違えば、閉鎖型や規模の向きが逆になる例として使う",
+        "農場数はメモで未確認"
+      ],
+      "conditionTags": [
+        "windowless-house"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C33",
+      "origin": "C33",
+      "action": "農場から 500 m 以内で、屋根や建物の周りに野生の水鳥・カモメが見られる",
+      "appliesTo": "デンマークの家きんと飼育鳥の施設。区間が非常に広い（3.1〜148）。回答を断った割合が発生側 38%、対照側 45%。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 18戸対34戸（デンマーク）。500m以内の水鳥・カモメの目撃でオッズ比18.7",
+      "quote": "observing wild waterfowl or gulls on the roof or around farm buildings compared to observing none within 500 m of the holding was higher for case holdings (OR: 18.7, 95 % CI: 3.1-148, p: 0.022)",
+      "sourceId": "paper-pmid39808886",
+      "locator": "抄録",
+      "caveats": [
+        "海外: デンマーク（家きんとその他の飼育鳥の施設）。日本と飼い方が違う可能性",
+        "抄録のみで照合（本文は読んでいない）",
+        "ライセンスは出版社の登録情報（Crossref）だけで確認。論文のページは未確認",
+        "信用区間が非常に広い（3.1〜148）",
+        "回答を断った割合が発生側38%、対照側45%"
+      ],
+      "conditionTags": [
+        "waterfowl-seen"
+      ],
+      "approved": true
+    },
+    {
+      "id": "papers-C34",
+      "origin": "C34",
+      "action": "鶏舎周りの草を短く刈る、死んだ鶏を鶏舎から出す専用の設備",
+      "appliesTo": "ドイツの家きん農場（家きんの種類は抄録に書かれていない）。",
+      "evidence": "study-association",
+      "evidenceNote": "症例対照 15戸対26戸（ドイツ、複数回発生した農場）。草が短く刈られていない、死体の専用搬出設備がない",
+      "quote": "only the variables not short-cut grass areas and no dedicated facilities for removing carcasses from the stables were identified as factors having a significant association",
+      "sourceId": "paper-pmid42869858",
+      "locator": "抄録",
+      "caveats": [
+        "海外: ドイツ。日本と飼い方が違う可能性",
+        "抄録のみで照合（本文は読んでいない）",
+        "ライセンスは出版社の登録情報（Crossref）だけで確認。論文のページは未確認",
+        "オッズ比は抄録にない",
+        "家きんの種類は抄録に書かれていない"
+      ],
+      "conditionTags": [
+        "site-tidiness",
+        "carcass-disposal"
+      ],
+      "approved": true
+    }
+  ]
+}

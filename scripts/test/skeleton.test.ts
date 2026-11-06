@@ -339,6 +339,14 @@ describe("copyWebData", () => {
     expect(fs.existsSync(path.join(tmp, "web/public/migration/other.json"))).toBe(false);
   });
 
+  it("対策の相談のカード（data/consult/cards.json だけ）を web/public/consult/ へコピーする", () => {
+    write("data/consult/cards.json", '{"c":1}');
+    write("data/consult/verify.json", '{"v":1}');
+    copyWebData(tmp);
+    expect(fs.readFileSync(path.join(tmp, "web/public/consult/cards.json"), "utf8")).toBe('{"c":1}');
+    expect(fs.existsSync(path.join(tmp, "web/public/consult/verify.json"))).toBe(false);
+  });
+
   it("渡りの経路図（data/migration/routes/）を web/public/migration/routes/ へ、中身を変えずにコピーする", () => {
     const bytes = Buffer.from([0xff, 0xd8, 0x00, 0x0a, 0xff, 0xd9]);
     fs.mkdirSync(path.join(tmp, "data/migration/routes"), { recursive: true });

@@ -149,6 +149,82 @@
 - 載せるもの: 事例ごとの日付、市町村、羽数などの事実だけ。国の文章は写さない。農場の名称は国も出していない。
 - 関連農場の行のうち、原本に個別の発生日がないものは、本体の事例の日付を借りている。画面では、その日付を関連農場の発生日として見せない。
 
+## 対策の相談の知見のカード（data/consult/cards.json）
+
+「対策の相談」が根拠にする、公的な資料と論文の知見のカード 103 枚（資料 23 件）。画面の「対策の見直し」と相談の答えは、このカードだけを根拠にする。許可された利用条件（PDL1.0、CC BY、CC BY 4.0、OGL v3.0、米国政府の著作物）の資料だけを使う（`shared/src/consult/schema.ts` の `ALLOWED_LICENSES`。ほかの綴りは読み込みで弾く）。作る道具は `npx tsx scripts/consult/build-cards.ts`（毎回同じ出力になる）。
+
+**加工の表示。** カードの `quote`（引用）は資料の原文の抜き出しで、改変しない。カードの `action`（対策）、`appliesTo`（効く条件）、`evidenceNote`、`caveats` の文は、資料を要約したこの作品の加工であり、資料の発行者が作成したものではない。国や県が作成したように見せない。
+
+**照合の方法。** 2026-11-06 に、全資料の原本を、この作品の名乗り（`hpai-status-map/0.1`）で、同じホストへ間隔をあけて取り直した（`scripts/consult/verify-cards.ts`）。本文を取り出し、各カードの引用が本文にあるかを `quoteExists` と同じ正規化（空白や字形の違いを無視）で見た。結果は 105 枚中 105 枚が一致し、うち 103 枚を使う。残る 2 枚は使わない（引用が対策の文でないもの、図の中の文で PDL1.0 の外にあるもの）。公開する `data/consult/verify.json` に、資料ごとの取得先 URL、sha256、取得の状態と、カードごとの照合の結果と引用の sha256 を残す（本文は保存しない）。引用を書き換えると `scripts/test/consult-verify.test.ts` が落ちる。
+
+**利用条件を資料の頁で確かめていないもの（5 件）。** `licenseVerified: false` で残している。
+
+- `aphis-s1`、`aphis-s2`、`aphis-s5`: 米国政府の著作物として使うが、APHIS 固有の利用方針の頁は確かめていない。
+- `paper-pmid39808886`、`paper-pmid42869858`: 出版社の登録情報（Crossref）だけで CC BY とされたもの。論文の頁での確認はしていない。抄録だけで引用を照合し、本文は読んでいない（カードの `caveats` にも書いた）。公開前に頁で確かめるか、確かめられなければ外す。
+
+**資料と帰属の文。** 資料の id はカードの `sourceId`。使うカードの数は 103 枚の内訳。
+
+**農林水産省。** 発行者は農林水産省。利用条件は PDL1.0（公共データ利用規約 第1.0版。上の「国と県の公開文書の利用条件」の表で、特記がなければ PDL1.0 と確かめた）。
+
+- `maff-s1` 2025年～2026年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書（https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-239.pdf、使うカード 28 枚）
+  - 出典の文: 出典: 農林水産省「2025年～2026年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書」（https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r7_hpai_kokunai-239.pdf）を加工して作成
+- `maff-s11` 飼養衛生管理マニュアル（例：小規模農家向け）（https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-177.pdf、使うカード 1 枚）
+  - 出典の文: 出典: 農林水産省「飼養衛生管理マニュアル（例：小規模農家向け）」（https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-177.pdf）を加工して作成
+- `maff-s3` 飼養衛生管理基準遵守指導の手引き（鶏、あひる、うずら、きじ、エミュー、だちょう、ほろほろ鳥及び七面鳥の場合）（https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-284.pdf、使うカード 9 枚）
+  - 出典の文: 出典: 農林水産省「飼養衛生管理基準遵守指導の手引き（鶏、あひる、うずら、きじ、エミュー、だちょう、ほろほろ鳥及び七面鳥の場合）」（https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_shiyou/attach/pdf/index-284.pdf）を加工して作成
+- `maff-s4` 高病原性鳥インフルエンザの防疫対策の徹底について（8消安第3622号、令和8年9月16日）（https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-4.pdf、使うカード 3 枚）
+  - 出典の文: 出典: 農林水産省「高病原性鳥インフルエンザの防疫対策の徹底について（8消安第3622号、令和8年9月16日）」（https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-4.pdf）を加工して作成
+- `maff-s5` 対策のポイント（高病原性鳥インフルエンザ。令和8年度）（https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-1.pdf、使うカード 1 枚）
+  - 出典の文: 出典: 農林水産省「対策のポイント（高病原性鳥インフルエンザ。令和8年度）」（https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r8_hpai_kokunai-1.pdf）を加工して作成
+- `maff-s7` 2024年～2025年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書（https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_94/attach/pdf/kakin_94-10.pdf、使うカード 8 枚）
+  - 出典の文: 出典: 農林水産省「2024年～2025年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書」（https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_94/attach/pdf/kakin_94-10.pdf）を加工して作成
+
+**岡山県。** 発行者は岡山県。利用条件は PDL1.0（サイトポリシーで確かめた。上の表）。図画、写真は掲載元の承認が要るので、図の中の文は使わず、本文の文だけを引く。
+
+- `okayama-fly` 秋から冬もハエ対策をしましょう！～ハエがHPAI発生の原因かも?!～（https://www.pref.okayama.jp/uploaded/life/1030753_9970502_misc.pdf、使うカード 2 枚）
+  - 出典の文: 出典: 岡山県「秋から冬もハエ対策をしましょう！～ハエがHPAI発生の原因かも?!～」（https://www.pref.okayama.jp/uploaded/life/1030753_9970502_misc.pdf）を加工して作成
+- `okayama-lime` 消石灰による消毒（https://www.pref.okayama.jp/uploaded/life/1030753_9970487_misc.pdf、使うカード 1 枚）
+  - 出典の文: 出典: 岡山県「消石灰による消毒」（https://www.pref.okayama.jp/uploaded/life/1030753_9970487_misc.pdf）を加工して作成
+
+**論文（10 本）。** 利用条件は CC BY（`CC BY 4.0` と書いたものは 4.0）。ライセンス: https://creativecommons.org/licenses/by/4.0/ 。帰属の文は「著者. 題. 掲載誌. DOI. ライセンス」と、要約と原文の抜き出しをした旨。著者名は Europe PMC の登録（2026-11-06 に確かめた）から写した。同じ登録で、ドイツの 1 本（`paper-pmid42869858`）を除く 9 本は許可証が cc by と表示されていた。
+
+- `paper-pmc10408129` Green AL, Branan M, Fields VL, Patyk K, Kolar SK, Beam A, Marshall K, McGuigan R, Vuolo M, Freifeld A, Torchetti MK, Lantz K, Delgado AH. Investigation of risk factors for introduction of highly pathogenic avian influenza H5N1 virus onto table egg farms in the United States, 2022: a case–control study. Frontiers in Veterinary Science, 10, 1229008, 2023 (DOI 10.3389/fvets.2023.1229008). https://doi.org/10.3389/fvets.2023.1229008 。CC BY。https://pmc.ncbi.nlm.nih.gov/articles/PMC10408129/ （使うカード 11 枚）
+  - 帰属の文: Green AL, Branan M, Fields VL, Patyk K, Kolar SK, Beam A, Marshall K, McGuigan R, Vuolo M, Freifeld A, Torchetti MK, Lantz K, Delgado AH. Investigation of risk factors for introduction of highly pathogenic avian influenza H5N1 virus onto table egg farms in the United States, 2022: a case–control study. Frontiers in Veterinary Science, 10, 1229008, 2023 (DOI 10.3389/fvets.2023.1229008). https://doi.org/10.3389/fvets.2023.1229008 （CC BY）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+- `paper-pmc10498466` Patyk KA, Fields VL, Beam AL, Branan MA, McGuigan RE, Green A, Torchetti MK, Lantz K, Freifeld A, Marshall K, Delgado AH. Investigation of risk factors for introduction of highly pathogenic avian influenza H5N1 infection among commercial turkey operations in the United States, 2022: a case-control study. Frontiers in Veterinary Science, 10, 1229071, 2023 (DOI 10.3389/fvets.2023.1229071). https://doi.org/10.3389/fvets.2023.1229071 。CC BY 4.0。https://pmc.ncbi.nlm.nih.gov/articles/PMC10498466/ （使うカード 3 枚）
+  - 帰属の文: Patyk KA, Fields VL, Beam AL, Branan MA, McGuigan RE, Green A, Torchetti MK, Lantz K, Freifeld A, Marshall K, Delgado AH. Investigation of risk factors for introduction of highly pathogenic avian influenza H5N1 infection among commercial turkey operations in the United States, 2022: a case-control study. Frontiers in Veterinary Science, 10, 1229071, 2023 (DOI 10.3389/fvets.2023.1229071). https://doi.org/10.3389/fvets.2023.1229071 （CC BY 4.0）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+- `paper-pmc11434905` Usui T, Uno Y, Tanaka K, Tanikawa T, Yamaguchi T. Susceptibility of Synanthropic Rodents (Mus musculus, Rattus norvegicus and Rattus rattus) to H5N1 Subtype High Pathogenicity Avian Influenza Viruses. Pathogens, 13(9), 764, 2024 (DOI 10.3390/pathogens13090764). https://doi.org/10.3390/pathogens13090764 。CC BY 4.0。https://pmc.ncbi.nlm.nih.gov/articles/PMC11434905/ （使うカード 2 枚）
+  - 帰属の文: Usui T, Uno Y, Tanaka K, Tanikawa T, Yamaguchi T. Susceptibility of Synanthropic Rodents (Mus musculus, Rattus norvegicus and Rattus rattus) to H5N1 Subtype High Pathogenicity Avian Influenza Viruses. Pathogens, 13(9), 764, 2024 (DOI 10.3390/pathogens13090764). https://doi.org/10.3390/pathogens13090764 （CC BY 4.0）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+- `paper-pmc12389693` Elbers ARW, Gonzales JL. Identification and Characterization of Biosecurity Breaches on Poultry Farms with a Recent History of Highly Pathogenic Avian Influenza Virus Infection Determined by Video Camera Monitoring in the Netherlands. Pathogens, 14(8), 751, 2025 (DOI 10.3390/pathogens14080751). https://doi.org/10.3390/pathogens14080751 。CC BY 4.0。https://pmc.ncbi.nlm.nih.gov/articles/PMC12389693/ （使うカード 2 枚）
+  - 帰属の文: Elbers ARW, Gonzales JL. Identification and Characterization of Biosecurity Breaches on Poultry Farms with a Recent History of Highly Pathogenic Avian Influenza Virus Infection Determined by Video Camera Monitoring in the Netherlands. Pathogens, 14(8), 751, 2025 (DOI 10.3390/pathogens14080751). https://doi.org/10.3390/pathogens14080751 （CC BY 4.0）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+- `paper-pmc12629688` Kondo S, Yamaguchi E, Hayama Y, Yamamoto T. Risk Factors for Introduction of H5N1 Highly Pathogenic Avian Influenza Virus in Japanese Commercial Layer Farms During the 2022–2023 Epidemic: A Case–Control Study. Transboundary and Emerging Diseases, 2025, 2658633 (DOI 10.1155/tbed/2658633). https://doi.org/10.1155/tbed/2658633 。CC BY。https://pmc.ncbi.nlm.nih.gov/articles/PMC12629688/ （使うカード 9 枚）
+  - 帰属の文: Kondo S, Yamaguchi E, Hayama Y, Yamamoto T. Risk Factors for Introduction of H5N1 Highly Pathogenic Avian Influenza Virus in Japanese Commercial Layer Farms During the 2022–2023 Epidemic: A Case–Control Study. Transboundary and Emerging Diseases, 2025, 2658633 (DOI 10.1155/tbed/2658633). https://doi.org/10.1155/tbed/2658633 （CC BY）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+- `paper-pmc13423691` Yoon H, Kim K, Hong K. Biosecurity deficiencies in HPAI-affected poultry farms in Korea, 2020/2021–2024/2025 seasons. Frontiers in Veterinary Science, 13, 1863522, 2026 (DOI 10.3389/fvets.2026.1863522). https://doi.org/10.3389/fvets.2026.1863522 。CC BY。https://pmc.ncbi.nlm.nih.gov/articles/PMC13423691/ （使うカード 2 枚）
+  - 帰属の文: Yoon H, Kim K, Hong K. Biosecurity deficiencies in HPAI-affected poultry farms in Korea, 2020/2021–2024/2025 seasons. Frontiers in Veterinary Science, 13, 1863522, 2026 (DOI 10.3389/fvets.2026.1863522). https://doi.org/10.3389/fvets.2026.1863522 （CC BY）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+- `paper-pmc5818671` Shimizu Y, Hayama Y, Yamamoto T, Murai K, Tsutsui T. Matched case-control study of the influence of inland waters surrounding poultry farms on avian influenza outbreaks in Japan. Scientific Reports, 8, 3306, 2018 (DOI 10.1038/s41598-018-21695-1). https://doi.org/10.1038/s41598-018-21695-1 。CC BY 4.0。https://pmc.ncbi.nlm.nih.gov/articles/PMC5818671/ （使うカード 3 枚）
+  - 帰属の文: Shimizu Y, Hayama Y, Yamamoto T, Murai K, Tsutsui T. Matched case-control study of the influence of inland waters surrounding poultry farms on avian influenza outbreaks in Japan. Scientific Reports, 8, 3306, 2018 (DOI 10.1038/s41598-018-21695-1). https://doi.org/10.1038/s41598-018-21695-1 （CC BY 4.0）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+- `paper-pmc6006767` Artois J, Ippoliti C, Conte A, Dhingra MS, Alfonso P, Tahawy AE, Elbestawy A, Ellakany HF, Gilbert M. Avian influenza A (H5N1) outbreaks in different poultry farm types in Egypt: the effect of vaccination, closing status and farm size. BMC Veterinary Research, 14, 187, 2018 (DOI 10.1186/s12917-018-1519-8). https://doi.org/10.1186/s12917-018-1519-8 。CC BY 4.0。https://pmc.ncbi.nlm.nih.gov/articles/PMC6006767/ （使うカード 1 枚）
+  - 帰属の文: Artois J, Ippoliti C, Conte A, Dhingra MS, Alfonso P, Tahawy AE, Elbestawy A, Ellakany HF, Gilbert M. Avian influenza A (H5N1) outbreaks in different poultry farm types in Egypt: the effect of vaccination, closing status and farm size. BMC Veterinary Research, 14, 187, 2018 (DOI 10.1186/s12917-018-1519-8). https://doi.org/10.1186/s12917-018-1519-8 （CC BY 4.0）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+- `paper-pmid39808886` Jensen HA, Nielsen SS, Kirkeby CT, Denwood M, Kjær LJ, Liang Y, Hjulsager CK, Boklund AE. Risk factors for the incursion of highly pathogenic avian influenza virus into poultry and other captive bird holdings in Denmark from 2020 to 2023: A case-control study. Preventive Veterinary Medicine, 236, 106419, 2025 (DOI 10.1016/j.prevetmed.2025.106419). https://doi.org/10.1016/j.prevetmed.2025.106419 。CC BY 4.0。https://pubmed.ncbi.nlm.nih.gov/39808886/ （使うカード 1 枚）
+  - 帰属の文: Jensen HA, Nielsen SS, Kirkeby CT, Denwood M, Kjær LJ, Liang Y, Hjulsager CK, Boklund AE. Risk factors for the incursion of highly pathogenic avian influenza virus into poultry and other captive bird holdings in Denmark from 2020 to 2023: A case-control study. Preventive Veterinary Medicine, 236, 106419, 2025 (DOI 10.1016/j.prevetmed.2025.106419). https://doi.org/10.1016/j.prevetmed.2025.106419 （CC BY 4.0）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+- `paper-pmid42869858` Held J, Sauter-Louis C, Gerdes U, Schulz J, Schulz K. Biosecurity risk factors associated with outbreaks of high pathogenicity avian influenza (HPAI) on poultry farms in Lower Saxony (Germany) - A case-control-study. Preventive Veterinary Medicine, 257, 107049, 2026 (DOI 10.1016/j.prevetmed.2026.107049). https://doi.org/10.1016/j.prevetmed.2026.107049 。CC BY 4.0。https://pubmed.ncbi.nlm.nih.gov/42869858/ （使うカード 1 枚）
+  - 帰属の文: Held J, Sauter-Louis C, Gerdes U, Schulz J, Schulz K. Biosecurity risk factors associated with outbreaks of high pathogenicity avian influenza (HPAI) on poultry farms in Lower Saxony (Germany) - A case-control-study. Preventive Veterinary Medicine, 257, 107049, 2026 (DOI 10.1016/j.prevetmed.2026.107049). https://doi.org/10.1016/j.prevetmed.2026.107049 （CC BY 4.0）。この作品は論文から原文を短く抜き出し、対策と効く条件の文に要約した。要約・抜き出しは作品が行った。
+
+**米国農務省 動植物検疫局（APHIS）。** 発行者は USDA APHIS。米国政府の著作物として使う（米国の連邦政府職員が職務で作った著作物は米国の著作権法の保護を受けない、という一般の定めによる。APHIS のサイトの利用方針の頁そのものは確かめていない）。帰属の文は「出典: USDA APHIS「題」（URL）。米国政府の著作物。この作品が要約・抜き出しをした」。
+
+- `aphis-s1` Table Egg Layers Case-Control Study Updated Findings（ファクトシート）（https://www.aphis.usda.gov/sites/default/files/hpai-table-egg-layers-case-control-study-updated-findings.pdf、使うカード 6 枚）
+  - 帰属の文: 出典: USDA APHIS「Table Egg Layers Case-Control Study Updated Findings（ファクトシート）」（https://www.aphis.usda.gov/sites/default/files/hpai-table-egg-layers-case-control-study-updated-findings.pdf）。米国政府の著作物。この作品が要約・抜き出しをした
+- `aphis-s2` Turkey Case-Control Study Updated Findings（ファクトシート）（https://www.aphis.usda.gov/sites/default/files/hpai-turkey-case-control-study-updated-findings.pdf、使うカード 2 枚）
+  - 帰属の文: 出典: USDA APHIS「Turkey Case-Control Study Updated Findings（ファクトシート）」（https://www.aphis.usda.gov/sites/default/files/hpai-turkey-case-control-study-updated-findings.pdf）。米国政府の著作物。この作品が要約・抜き出しをした
+- `aphis-s5` Status and Epidemiologic Analyses of HPAI-affected Poultry Flocks, December 31, 2025 Interim Report（https://www.aphis.usda.gov/sites/default/files/epi-analyses-avian-flu-poultry-7th-interim-rpt.pdf、使うカード 1 枚）
+  - 帰属の文: 出典: USDA APHIS Center for Epidemiology and Animal Health「Status and Epidemiologic Analyses of HPAI-affected Poultry Flocks, December 31, 2025 Interim Report」（https://www.aphis.usda.gov/sites/default/files/epi-analyses-avian-flu-poultry-7th-interim-rpt.pdf）。米国政府の著作物。この作品が要約・抜き出しをした
+
+**英国 Defra。** 利用条件は Open Government Licence v3.0（OGL v3.0。https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/ ）。帰属の文は "Contains public sector information licensed under the Open Government Licence v3.0." と、出典の題と URL。
+
+- `defra-s12` Avian influenza prevention zone (AIPZ): checklist for poultry and captive bird keepers（Defra（英国環境・食糧・農村地域省）、https://www.gov.uk/government/publications/avian-influenza-prevention-zone-aipz-checklist-for-poultry-and-captive-bird-keepers、使うカード 4 枚）
+  - 帰属の文: Defra「Avian influenza prevention zone (AIPZ): checklist for poultry and captive bird keepers」（https://www.gov.uk/government/publications/avian-influenza-prevention-zone-aipz-checklist-for-poultry-and-captive-bird-keepers）。Contains public sector information licensed under the Open Government Licence v3.0. この作品が要約・抜き出しをした
+- `defra-s13` Highly pathogenic avian influenza in Great Britain: evaluation and future actions（Defra Science Advisory Council, HPAI Group（英国）、https://www.gov.uk/government/publications/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions、使うカード 2 枚）
+  - 帰属の文: Defra Science Advisory Council, HPAI Group「Highly pathogenic avian influenza in Great Britain: evaluation and future actions」（https://www.gov.uk/government/publications/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions/highly-pathogenic-avian-influenza-in-great-britain-evaluation-and-future-actions）。Contains public sector information licensed under the Open Government Licence v3.0. この作品が要約・抜き出しをした
+
 ## デジタル庁デザインシステム（見た目の考え方）
 
 **出典（表示する文）:** デジタル庁デザインシステムの考え方を参考にした。デジタル庁が作成したものではない。出典：デジタル庁デザインシステムウェブサイト https://design.digital.go.jp/dads/ をもとに作成
