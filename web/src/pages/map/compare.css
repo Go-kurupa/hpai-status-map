@@ -16,13 +16,15 @@
   margin: 0;
 }
 .cmp-show,
-.cmp-scope {
+.cmp-scope,
+.cmp-seasons {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 .cmp-show button,
-.cmp-scope button {
+.cmp-scope button,
+.cmp-seasons button {
   min-height: var(--tap);
   padding: 4px 14px;
   border: 1px solid var(--line);
@@ -33,11 +35,28 @@
   cursor: pointer;
 }
 .cmp-show button[aria-pressed="true"],
-.cmp-scope button[aria-pressed="true"] {
+.cmp-scope button[aria-pressed="true"],
+.cmp-seasons button[aria-pressed="true"] {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--on-accent);
   font-weight: 700;
+}
+/* シーズンのボタンの中の見本は、文字の前に少し空ける */
+.cmp-seasons button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* 3 つ以上の比べ（E12）の色の見本。色は style で当て、縁で地図の上の見え方に合わせる */
+.cmp-latest-swatch {
+  display: inline-block;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  vertical-align: -3px;
 }
 /* 凡例の見本。「／」は比べる 1、「＼」は比べる 2、「×」は両方。地図の斜線と同じ向き */
 .cmp-swatch {
@@ -80,4 +99,29 @@
 .cmp-overlay > .map-box {
   margin: 0;
   min-height: var(--map-h);
+}
+/* 3 つ以上の比べで、2 つ以上のシーズンで発生した町の数字の札（作者 11/7）。地図の上でも読めるよう白地に黒の数字 */
+.cmp-count-badge {
+  min-width: 22px;
+  padding: 0 5px;
+  border: 1px solid var(--fg);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  pointer-events: none;
+}
+.svg-cmp-count {
+  font-size: 18px;
+  font-weight: 700;
+  fill: var(--fg);
+  stroke: var(--surface);
+  stroke-width: 4px;
+  paint-order: stroke;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
 }

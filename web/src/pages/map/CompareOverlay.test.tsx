@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
 import type { OverlayState } from "./applyView";
-import { CompareOverlay, overlayOf, type CompareOverlayProps } from "./CompareOverlay";
+import { CompareOverlay, latestOf, LATEST_COLORS, overlayOf, type CompareOverlayProps } from "./CompareOverlay";
 import { CMP_TEXT } from "./compareTexts";
 import { buildSeasonView } from "./seasonView";
 
@@ -57,16 +57,19 @@ const NAMES: Record<string, string> = { "33203": "津山市", "33215": "美作�
 const view = (season: Season, o: { currentCases?: Case[] | null; history?: HistoryCase[] | null } = {}) =>
   buildSeasonView({ season, current: 2026, currentCases: o.currentCases === undefined ? [] : o.currentCases, history: o.history === undefined ? HISTORY : o.history });
 
-function rig(o: Partial<CompareOverlayProps> & { first?: Season; second?: Season } = {}) {
+type RigOpts = Partial<CompareOverlayProps> & { first?: Season; second?: Season; firstView?: ReturnType<typeof view>; secondView?: ReturnType<typeof view> };
+function rig(o: RigOpts = {}) {
   const calls: Array<Parameters<CompareOverlayProps["renderMap"]>[0]> = [];
+  const picks: Season[][] = [];
   const first = o.first ?? 2024;
   const second = o.second ?? 2025;
+  const seasons = o.seasons ?? [first, second];
+  const views = o.views ?? seasons.map((s, i) => (i === 0 && o.firstView ? o.firstView : i === 1 && o.secondView ? o.secondView : view(s)));
+  const { first: _f, second: _s, firstView: _fv, secondView: _sv, ...rest } = o;
   const p: CompareOverlayProps = {
-    options: [2026, 2025, 2024].map((s) => ({ season: s as Season, label: s === 2026 ? "今季" : `${2026 - s} 年前` })),
-    first,
-    second,
-    onFirst: () => {},
-    onSecond: () => {},
+    options: [2026, 2025, 2024, 2023].map((s) => ({ season: s as Season, label: s === 2026 ? "今季" : `${2026 - s} 年前` })),
+    seasons,
+    onSeasons: (s) => picks.push(s),
     current: 2026,
     currentCases: [],
     history: HISTORY,
@@ -74,22 +77,21 @@ function rig(o: Partial<CompareOverlayProps> & { first?: Season; second?: Season
     onRetryHistory: () => {},
     asOf: "2026-11-10T08:30:00+09:00",
     failedPrefCodes: [],
-    firstView: view(first),
-    secondView: view(second),
+    views,
     focus: null,
     muniName: (c: MuniCode) => NAMES[c] ?? null,
     renderMap: (m) => {
       calls.push(m);
       return <div data-testid="map" />;
     },
-    ...o,
+    ...rest,
   };
   render(
     <MemoryRouter>
       <CompareOverlay {...p} />
     </MemoryRouter>,
   );
-  return { last: () => calls[calls.length - 1]!, calls };
+  return { last: () => calls[calls.length - 1]!, calls, picks };
 }
 
 afterEach(cleanup);
@@ -176,3 +178,67 @@ describe("CompareOverlay", () => {
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
   });
 });
+
+// 3 つ以上のシーズン（設計書 2026-11-06-data-explore E12、作者 11/6 深夜。案 3「いちばん新しい発生」）
+const HISTORY3: HistoryCase[] = [...HISTORY, hist({ season: 2023, no: 1, muniCode: "33203", date: "2023-12-01" }), hist({ season: 2023, no: 2, muniCode: "33201", muniNameThen: "岡山市", date: "2024-01-05" })];
+const view3 = (season: Season) => buildSeasonView({ season, current: 2026, currentCases: [], history: HISTORY3 });
+
+describe("latestOf", () => {
+  it("町ごとに、選んだうち最後に発生したシーズンの色。シーズンごとに最後になった町の数", () => {
+    const r = latestOf([view3(2023), view3(2024), view3(2025)], [], 2026)!;
+    const color = new Map(r.state.colors);
+    // 津山 2023・2024 → 2024、美作 2024・2025 → 2025、倉敷 2025、岡山 2023
+    expect(color.get("33203")).toBe(r.colorOf.get(2024));
+    expect(color.get("33215")).toBe(r.colorOf.get(2025));
+    expect(color.get("33201")).toBe(r.colorOf.get(2023));
+    expect(Object.fromEntries(r.bySeason)).toEqual({ 2023: 1, 2024: 1, 2025: 2 });
+    // 色はシーズンごとに固定（今季から何年前かで決まる。選ぶ数で変わらない）。同じ系統の色を並べない。赤は使わない（作者 11/7）
+    expect(r.colorOf.get(2024)).toBe(LATEST_COLORS[2]);
+    expect(latestOf([view3(2024), view3(2025)], [], 2026)!.colorOf.get(2024)).toBe(LATEST_COLORS[2]);
+    expect(new Set(LATEST_COLORS).size).toBe(7);
+    expect(LATEST_COLORS).not.toContain("#b3261e");
+    // 2 つ以上のシーズンで発生した町は、発生したシーズンの数を持つ（地図に数字の札。作者 11/7）
+    expect(r.state.counts).toEqual([["33203", 2], ["33215", 2]]);
+    expect(latestOf([view3(2023), buildSeasonView({ season: 2026, current: 2026, currentCases: null, history: HISTORY3 })], [], 2026)).toBeNull();
+  });
+});
+
+describe("CompareOverlay（3 つ以上）", () => {
+  it("シーズンはボタンで選ぶ。押すと足し、もう一度押すと外す。最後の 1 つは外せない", () => {
+    const r = rig();
+    const group = screen.getByRole("group", { name: CMP_TEXT.seasonsAria });
+    expect(within(group).getByRole("button", { name: /2 年前/ }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(within(group).getByRole("button", { name: /3 年前/ }));
+    expect(r.picks.at(-1)).toEqual([2023, 2024, 2025]);
+    fireEvent.click(within(group).getByRole("button", { name: /2 年前/ }));
+    expect(r.picks.at(-1)).toEqual([2025]);
+    cleanup();
+    const one = rig({ seasons: [2025], views: [view(2025)] });
+    fireEvent.click(within(screen.getByRole("group", { name: CMP_TEXT.seasonsAria })).getByRole("button", { name: /1 年前/ }));
+    expect(one.picks).toEqual([]);
+  });
+
+  it("3 つ選ぶと見せ方のボタンが消え、地図に最後の発生の色を渡す。凡例に各シーズンが最後の町の数", () => {
+    const r = rig({ seasons: [2023, 2024, 2025], views: [view3(2023), view3(2024), view3(2025)], history: HISTORY3 });
+    expect(screen.queryByRole("group", { name: CMP_TEXT.showAria })).toBeNull();
+    expect(r.last().overlay).toBeNull();
+    expect(r.last().latest!.colors).toHaveLength(4);
+    const legend = screen.getByRole("list", { name: CMP_TEXT.legendAria });
+    expect(within(legend).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      CMP_TEXT.legendLatest("3 年前（2023 年 6 月〜2024 年 5 月）", 1),
+      CMP_TEXT.legendLatest("2 年前（2024 年 6 月〜2025 年 5 月）", 1),
+      CMP_TEXT.legendLatest("1 年前（2025 年 6 月〜2026 年 5 月）", 2),
+    ]);
+    expect(screen.getByText(CMP_TEXT.latestHint)).toBeTruthy();
+  });
+
+  it("3 つのとき町を押すと、選んだシーズンごとに事例が並ぶ（新しい順）", () => {
+    const r = rig({ seasons: [2023, 2024, 2025], views: [view3(2023), view3(2024), view3(2025)], history: HISTORY3 });
+    act(() => r.last().onInspectMuni("33203"));
+    const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(heads).toHaveLength(3);
+    expect(heads[0]).toContain("2025 年 6 月");
+    expect(heads[2]).toContain("2023 年 6 月");
+  });
+});
+

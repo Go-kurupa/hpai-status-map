@@ -52,10 +52,12 @@ export const LAYER_IDS = [
   "cmp-one",
   "cmp-two",
   "cmp-both",
+  "cmp-latest",
   "muni-line",
   "cmp-one-line",
   "cmp-two-line",
   "cmp-both-line",
+  "cmp-latest-line",
   "near-line",
   "pref-line",
   "my-town",
@@ -137,6 +139,8 @@ export function overlayLayers(): LayerSpecification[] {
     { id: "cmp-one", type: "fill", source: "muni", filter: codeFilter("c", []), paint: { "fill-pattern": PAINT.hatchCmpOne } },
     { id: "cmp-two", type: "fill", source: "muni", filter: codeFilter("c", []), paint: { "fill-pattern": PAINT.hatchCmpTwo } },
     { id: "cmp-both", type: "fill", source: "muni", filter: codeFilter("c", []), paint: { "fill-pattern": PAINT.hatchCmpBoth } },
+    // 3 つ以上の比べ（E12）。町ごとに、選んだうち最後に発生したシーズンの色。色は applyLatest が match で当てる
+    { id: "cmp-latest", type: "fill", source: "muni", filter: codeFilter("c", []), paint: { "fill-color": "#000000", "fill-opacity": 0.85 } },
     {
       id: "muni-line",
       type: "line",
@@ -148,6 +152,8 @@ export function overlayLayers(): LayerSpecification[] {
     { id: "cmp-one-line", type: "line", source: "muni", filter: codeFilter("c", []), paint: { "line-color": PAINT.cmpOne, "line-width": 2 } },
     { id: "cmp-two-line", type: "line", source: "muni", filter: codeFilter("c", []), paint: { "line-color": PAINT.cmpTwo, "line-width": 2 } },
     { id: "cmp-both-line", type: "line", source: "muni", filter: codeFilter("c", []), paint: { "line-color": PAINT.cmpBoth, "line-width": 2 } },
+    // 3 つ以上の比べ（設計書 2026-11-06-data-explore E12）の縁。色は町ごとに applyLatest が当てる
+    { id: "cmp-latest-line", type: "line", source: "muni", filter: codeFilter("c", []), paint: { "line-color": "#1a1a1a", "line-width": 1.5 } },
     {
       id: "near-line",
       type: "line",
@@ -191,3 +197,10 @@ export function overlayLayers(): LayerSpecification[] {
     },
   ];
 }
+
+/**
+ * 3 つ以上の比べの色（設計書 2026-11-06-data-explore E12、作者 11/7）。シーズンごとに固定し、添字は今季から何年前か（0 が今季）。
+ * 選ぶ数で色が変わらない。同じ系統の色を並べず、色の見分けにくい人にも区別しやすい組（Okabe-Ito をもとにした）。
+ * 今季の確定の赤（--lv1）と、確認できていない県の灰色は使わない
+ */
+export const LATEST_COLORS: readonly string[] = ["#6a3d9a", "#0072b2", "#e69f00", "#cc79a7", "#009e73", "#56b4e9", "#b8a000"];

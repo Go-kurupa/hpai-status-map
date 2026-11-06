@@ -20,7 +20,7 @@ import { badgeStates, JAPAN_BOUNDS } from "./seasonView";
 import { TEXT } from "./texts";
 
 export interface SvgMapProps
-  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni" | "overlay"> {
+  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni" | "overlay" | "latest"> {
   /** 場所が分からず置けなかった野鳥の数（注記は MapView が出す） */
   onUnplaced?: (n: number) => void;
   /** 形を読めなかった（知らせは MapView が出す） */
@@ -357,6 +357,10 @@ export default function SvgMap(props: SvgMapProps) {
   });
   // 過去シーズンとの重ね合わせ（設計書 2026-11-06-data-explore E8、E14）。あるときは発生の塗りの代わりに 3 つの模様で塗る
   const overlay = props.overlay ?? null;
+  // 3 つ以上の比べ（設計書 2026-11-06-data-explore E12）。町ごとの色。重ね合わせと同じく、1 シーズン分の塗りと札は出さない
+  const latestColors = useMemo(() => (props.latest ? new Map(props.latest.colors) : null), [props.latest]);
+  const latestCounts = useMemo(() => new Map(props.latest?.counts ?? []), [props.latest]);
+  const special = overlay !== null || latestColors !== null;
   const cmp = useMemo(() => {
     if (!overlay) return null;
     const st = overlayStyle(overlay);
@@ -366,11 +370,11 @@ export default function SvgMap(props: SvgMapProps) {
     () => ({
       suspected: new Set(style.suspectedMuniCodes),
       confirmed: new Set(style.confirmedMuniCodes),
-      unwatched: new Set(overlay ? overlay.unwatchedPrefCodes : style.unwatchedPrefCodes),
+      unwatched: new Set(overlay ? overlay.unwatchedPrefCodes : props.latest ? props.latest.unwatchedPrefCodes : style.unwatchedPrefCodes),
       mine: new Set(style.myMuniCodes),
       near: new Set(style.nearMuniCodes),
     }),
-    [style.suspectedMuniCodes, style.confirmedMuniCodes, style.unwatchedPrefCodes, style.myMuniCodes, style.nearMuniCodes, overlay],
+    [style.suspectedMuniCodes, style.confirmedMuniCodes, style.unwatchedPrefCodes, style.myMuniCodes, style.nearMuniCodes, overlay, props.latest],
   );
 
   // 4) 野鳥。場所の決め方は MapView と同じ（町の中心、なければ県の代表の位置）
@@ -412,7 +416,7 @@ export default function SvgMap(props: SvgMapProps) {
   );
   // 確認できていない県。重ね合わせの間は斜線が「比べる 1」と同じ向きになるので、薄い灰色の塗りにする（E14）
   const unwatchedFill = (key: string, d: string) =>
-    overlay ? (
+    special ? (
       <path key={key} d={d} fill={PAINT.muted} fillOpacity={0.25} data-unwatched-flat="true" />
     ) : (
       <path key={key} d={d} fill={`url(#${hatchId(PAINT.hatchMuted)})`} />
@@ -426,7 +430,7 @@ export default function SvgMap(props: SvgMapProps) {
     body = <p role="status">{TEXT.svgLoading}</p>;
   } else if (prefCode === null) {
     // 重ね合わせの間は 1 シーズン分の数の札を出さない（E13）
-    const badges = new Map(overlay ? [] : badgeStates(props.view, 0).map((b) => [b.prefCode, b.text]));
+    const badges = new Map(special ? [] : badgeStates(props.view, 0).map((b) => [b.prefCode, b.text]));
     const anchorOf = (s: Shape) => (anchors?.[s.code] ? japan.proj.at(...anchors[s.code]!) : [s.box.cx, s.box.cy]);
     const labelOf = (s: Shape) => {
       const t = badges.get(s.code);
@@ -474,6 +478,12 @@ export default function SvgMap(props: SvgMapProps) {
             {japan.prefs
               .filter((s) => sets.unwatched.has(s.code))
               .map((s) => unwatchedFill(s.code, s.d))}
+            {latestColors
+              ? [...latestColors].map(([c, color]) => {
+                  const d = japan.muniPath(c);
+                  return d ? <path key={c} d={d} data-code={c} data-fill="latest" fill={color} fillOpacity={0.85} stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" /> : null;
+                })
+              : null}
             {cmpCodes.map(([c, f]) => {
               const d = japan.muniPath(c);
               return d ? <path key={c} d={d} data-code={c} data-fill={f} fill={`url(#${hatchId(CMP_HATCH[f])})`} stroke={CMP_COLOR[f]} strokeWidth={2} vectorEffect="non-scaling-stroke" /> : null;
@@ -522,11 +532,11 @@ export default function SvgMap(props: SvgMapProps) {
     const prefName = PREF_NAME.get(prefCode) ?? prefCode;
     const unwatched = sets.unwatched.has(prefCode);
     const fillOf = (c: MuniCode) =>
-      cmp ? (cmp.one.has(c) ? "cmp-one" : cmp.two.has(c) ? "cmp-two" : cmp.both.has(c) ? "cmp-both" : null) : sets.confirmed.has(c) ? "confirmed" : sets.suspected.has(c) ? "suspected" : null;
+      latestColors ? (latestColors.has(c) ? "latest" : null) : cmp ? (cmp.one.has(c) ? "cmp-one" : cmp.two.has(c) ? "cmp-two" : cmp.both.has(c) ? "cmp-both" : null) : sets.confirmed.has(c) ? "confirmed" : sets.suspected.has(c) ? "suspected" : null;
     const labelOf = (s: Shape) => {
       const parts = [s.name];
       const f = fillOf(s.code);
-      if (f) parts.push(f === "confirmed" ? TEXT.svgConfirmed : f === "suspected" ? TEXT.svgSuspected : f === "cmp-one" ? CMP_TEXT.svgOne : f === "cmp-two" ? CMP_TEXT.svgTwo : CMP_TEXT.svgBoth);
+      if (f) parts.push(f === "confirmed" ? TEXT.svgConfirmed : f === "suspected" ? TEXT.svgSuspected : f === "cmp-one" ? CMP_TEXT.svgOne : f === "cmp-two" ? CMP_TEXT.svgTwo : f === "latest" ? CMP_TEXT.svgLatest : CMP_TEXT.svgBoth);
       if (sets.mine.has(s.code)) parts.push(TEXT.myTown);
       if (sets.near.has(s.code)) parts.push(TEXT.svgNear);
       if (unwatched) parts.push(TEXT.svgUnwatched);
@@ -562,6 +572,14 @@ export default function SvgMap(props: SvgMapProps) {
               ))}
               <g pointerEvents="none">
                 {unwatched ? munis.map((s) => unwatchedFill(s.code, s.d)) : null}
+                {latestColors
+                  ? munis
+                      .filter((s) => latestColors.has(s.code))
+                      .map((s) => {
+                        const color = latestColors.get(s.code)!;
+                        return <path key={s.code} d={s.d} data-code={s.code} data-fill="latest" fill={color} fillOpacity={0.85} stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />;
+                      })
+                  : null}
                 {cmp
                   ? munis
                       .filter((s) => fillOf(s.code) !== null)
@@ -584,6 +602,14 @@ export default function SvgMap(props: SvgMapProps) {
                 {munis.map((s) => (
                   <path key={s.code} className="svg-muni-line" d={s.d} fill="none" {...LINE.muni} />
                 ))}
+                {/* 2 つ以上のシーズンで発生した町は、発生したシーズンの数を真ん中に書く（作者 11/7） */}
+                {munis
+                  .filter((s) => latestCounts.has(s.code))
+                  .map((s) => (
+                    <text key={`n-${s.code}`} className="svg-cmp-count" data-count-code={s.code} x={s.box.cx} y={s.box.cy} aria-hidden="true">
+                      {latestCounts.get(s.code)}
+                    </text>
+                  ))}
                 {munis
                   .filter((s) => sets.near.has(s.code))
                   .map((s) => (

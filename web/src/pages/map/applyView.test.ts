@@ -2,7 +2,7 @@ import type { Case, HistoryCase, WildBird } from "@hpai/shared/types";
 import { describe, expect, it, vi } from "vitest";
 import historyJson from "../../../../data/history/cases.json";
 import { distanceRingsOf } from "../../geo/distanceRings";
-import { applyDistanceRings, applyOverlay, applyView, applyWildBirds, overlayStyle, wildBirdFeatures, type ViewTarget } from "./applyView";
+import { applyDistanceRings, applyLatest, applyOverlay, applyView, applyWildBirds, overlayStyle, wildBirdFeatures, type ViewTarget } from "./applyView";
 import { PAINT } from "./mapStyle";
 import { buildSeasonView } from "./seasonView";
 
@@ -206,3 +206,16 @@ describe("重ね合わせ（設計書 2026-11-06-data-explore E8、E14）", () =
     for (const id of ["cmp-one", "cmp-two", "cmp-both", "cmp-one-line", "cmp-two-line", "cmp-both-line", "pref-unwatched-flat"]) expect(codes(filters.get(id)), id).toEqual([]);
   });
 });
+
+describe("3 つ以上の比べ（設計書 2026-11-06-data-explore E12）", () => {
+  it("町ごとの色を match で当て、縁も同じ色。null なら空にする", () => {
+    const { map, filters, paints } = fakeMap();
+    applyLatest(map, { colors: [["33203", "#5b1f73"], ["01100", "#c9b48a"]], counts: [], unwatchedPrefCodes: [] });
+    expect(((filters.get("cmp-latest") as unknown[])[2] as unknown[])[1]).toEqual(["33203", "01100"]);
+    expect(paints.get("cmp-latest/fill-color")).toEqual(["match", ["get", "c"], "33203", "#5b1f73", "01100", "#c9b48a", "#000000"]);
+    expect(paints.get("cmp-latest-line/line-color")).toEqual(paints.get("cmp-latest/fill-color"));
+    applyLatest(map, null);
+    expect(((filters.get("cmp-latest") as unknown[])[2] as unknown[])[1]).toEqual([]);
+  });
+});
+

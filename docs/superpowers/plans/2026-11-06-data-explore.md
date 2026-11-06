@@ -116,6 +116,25 @@
 
 - [ ] **Step 5: Commit** `feat(explore): 過去の発生に「条件で見る」のタブを足し、用途・羽数・地方のボタンで事例を絞って数と一覧を出す`
 
+### Task 2b: 「条件で見る」に BI の性質を足す（設計書 E4b。11/6 夜に追加）
+
+**Files:**
+- Modify: `web/src/pages/explore/exploreData.ts`（月と件数の関数）、`ExplorePage.tsx`、`texts.ts`、`explore.css`
+- Test: `exploreData.test.ts`、`ExplorePage.test.tsx`、`web/e2e/explore.spec.ts`
+
+**Interfaces（足すもの）:**
+- `ExploreFilter` に `month: number | null`（1〜12。null はすべて）
+- `export function chipCounts(rows, f, dim: "use" | "band" | "region"): Map<string, number>`（その段の条件を外し、ほかの段と月の条件で絞って数える。「すべて」の数は合計）
+- `export function countByMonth(hits): { months: Array<{ month: number; count: number }>; undated: number }`（6〜5 月の 12 か月を必ず返す）
+- `export function countBySeasonMonth(hits, seasons): Map<string, number>`（キーは `${season}-${month}`）
+
+- [ ] **Step 1: 失敗する試験を書く**
+  - `chipCounts`: 実データで、何も選ばないとき用途の採卵鶏が 171、地方の中国が 19。採卵鶏を選んでも肉用鶏のボタンの数が 0 にならない（54 のまま）。地方で中国を選ぶと、用途の採卵鶏が 16。
+  - `countByMonth`: 12 か月を 6 月から順に返し、日付なしは undated に数える。
+  - ExplorePage: ボタンに数が出る（「採卵鶏 171」）。月の行を押すと一覧がその月だけになり、もう一度押すと戻る。シーズン × 月の表のセルに数が出る。守る文は結果全体に 1 回だけ。
+- [ ] **Step 2〜4:** 落ちる → 実装 → 通る（`npx vitest run web/src/pages/explore`、リポジトリ直下から）
+- [ ] **Step 5:** e2e の explore に「月の行を押すと絞れる」を 1 本足す。commit `feat(explore): ボタンに件数、月ごとの件数と月での絞り込み、シーズン × 月の表を足す`
+
 ### Task 3: 重ね合わせの塗りの決まりと層
 
 **Files:**
@@ -228,3 +247,16 @@
 - [ ] **Step 3: 撮影**: PC 1280 とスマホ 390 で `/explore`（中国を選んだ状態）と `/compare`（重ねる、中国）。作者に見せる。
 - [ ] **Step 4: Commit** `test(e2e): 条件で見るの流れと、重ねた比べの地図を確かめる`
 - [ ] **Step 5:** README の審査員の節に足す行（`/explore` の 1 行と、`/compare` の説明の直し）を、別のセッションへ知らせる。HANDOFF.md を更新する。
+
+### Task 8: 3 つ以上のシーズンの比べ（設計書 E12、作者 11/6 深夜）
+
+**決めたこと:** シーズンはボタンで選ぶ（今季＋過去 6、もう一度押すと外れる、最低 1 つ。初めは昨季と今季）。2 つなら今の重ね合わせ（古い方が比べる 1、新しい方が比べる 2、見せ方も残す）。1 つか 3 つ以上なら案 3（町ごとに、選んだうち最後に発生したシーズンの色。新しいほど濃い色。赤は使わない）。今季も選べる（疑いを含む、確認できていない県は灰色）。下の一覧と月の棒は、選んだうちいちばん古いシーズン。
+
+**Files:** CompareOverlay.tsx・CompareOverlay.test.tsx・compareTexts.ts・compare.css、applyView.ts（`LatestState`、`applyLatest`）・mapStyle.ts（層 `cmp-latest`・`cmp-latest-line`、`LATEST_COLORS`）・MapView.tsx（prop `latest`）・SvgMap.tsx（同じ prop）、MapPage.tsx（比べのシーズンを配列で持つ）・MapPage.test.tsx、e2e map.spec.ts の比べの試験。
+
+**Interfaces:**
+- `export interface LatestState { colors: ReadonlyArray<readonly [MuniCode, string]>; unwatchedPrefCodes: readonly PrefCode[] }`
+- `export function latestOf(views: readonly SeasonView[], failedPrefCodes): { state: LatestState; bySeason: Map<Season, number> } | null`（読めていない view があれば null）
+- `CompareOverlayProps` は `seasons: Season[]`（古い順）、`onSeasons(s: Season[])`、`views: SeasonView[]`（seasons と同じ順）。`renderMap` に `latest: LatestState | null` を足す。
+
+**試験:** latestOf（3 シーズンで、町ごとに最後のシーズンの色、凡例の町の数）／ボタンで 3 つ選ぶと見せ方のボタンが消え、地図に latest が渡り overlay は null／2 つに戻すと重ね合わせ／町を押すと選んだシーズンごとに事例が並ぶ（新しい順）／最後の 1 つは外せない／MapPage で 3 つ選ぶと下の一覧はいちばん古いシーズン／SvgMap で latest の町に data-fill="latest"／e2e で 3 つ選ぶと cmp-latest の層に町が入る。

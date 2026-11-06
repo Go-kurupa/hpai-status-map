@@ -106,6 +106,26 @@ export function applyOverlay(map: ViewTarget, s: OverlayState | null): void {
   if (s) map.setFilter("pref-unwatched", codeFilter("p", []));
 }
 
+/** 3 つ以上の比べ（設計書 2026-11-06-data-explore E12）。町ごとの色と、確認できていない県（今季を選んだときだけ） */
+export interface LatestState {
+  colors: ReadonlyArray<readonly [MuniCode, string]>;
+  /** 選んだうち 2 つ以上のシーズンで発生した町と、そのシーズンの数（地図に数字の札。作者 11/7） */
+  counts: ReadonlyArray<readonly [MuniCode, number]>;
+  unwatchedPrefCodes: readonly PrefCode[];
+}
+
+/** 町ごとの色を cmp-latest の層に当てる。null なら空にする */
+export function applyLatest(map: ViewTarget, s: LatestState | null): void {
+  const colors = s?.colors ?? [];
+  const codes = colors.map(([c]) => c);
+  map.setFilter("cmp-latest", codeFilter("c", codes));
+  map.setFilter("cmp-latest-line", codeFilter("c", codes));
+  // match は組が 1 つ以上要る。空なら色は使われない（filter で何も通さない）
+  const paint = colors.length > 0 ? ["match", ["get", "c"], ...colors.flatMap(([c, color]) => [c, color]), "#000000"] : "#000000";
+  map.setPaintProperty("cmp-latest", "fill-color", paint);
+  map.setPaintProperty("cmp-latest-line", "line-color", paint);
+}
+
 export interface WildBirdFeature {
   type: "Feature";
   geometry: { type: "Point"; coordinates: [number, number] };

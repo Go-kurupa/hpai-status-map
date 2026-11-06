@@ -336,4 +336,20 @@ describe("代わりの地図（SVG）", () => {
     rerender(<SvgMap {...props({ focus: { kind: "japan", codes: [], nonce: 2 } })} />);
     await waitFor(() => expect(screen.getByRole("group", { name: TEXT.svgMapAria }).getAttribute("viewBox")).toBe(full));
   });
+
+  // 3 つ以上の比べ（設計書 2026-11-06-data-explore E12）
+  it("最後の発生の色を渡すと、全国の図と市町村の図で町をその色で塗る。県の件数の札は出さない", async () => {
+    const latest = { colors: [["33203", "#5b1f73"], ["01100", "#c9b48a"]] as const, counts: [["33203", 3]] as const, unwatchedPrefCodes: [] };
+    render(<SvgMap {...props({ latest })} />);
+    await screen.findByRole("group", { name: TEXT.svgMapAria });
+    await waitFor(() => expect(document.querySelector("[data-code='33203'][data-fill='latest']")?.getAttribute("fill")).toBe("#5b1f73"));
+    expect(document.querySelector(".svg-badge")).toBeNull();
+    await openPref(/^岡山県/);
+    await screen.findByRole("group", { name: /岡山県の市町村/ });
+    expect(document.querySelector("[data-code='33203'][data-fill='latest']")?.getAttribute("fill")).toBe("#5b1f73");
+    expect(document.querySelector("[data-fill='suspected'], [data-fill='confirmed']")).toBeNull();
+    // 2 つ以上のシーズンで発生した町には、発生したシーズンの数を書く（作者 11/7）
+    expect(document.querySelector("[data-count-code='33203']")?.textContent).toBe("3");
+  });
 });
+

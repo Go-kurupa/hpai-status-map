@@ -7,7 +7,7 @@ import { interiorPoint } from "../../geo/interiorPoint";
 import { distanceRingsAt, distanceRingsOf, pxPerKmAtZoom, ringLabel, ringTop, visibleRingKms } from "../../geo/distanceRings";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { Marker, MlMap } from "../../geo/maplibre";
-import { applyDistanceRings, applyOverlay, applyView, applyWildBirds, type OverlayState, type ViewTarget } from "./applyView";
+import { applyDistanceRings, applyLatest, applyOverlay, applyView, applyWildBirds, type LatestState, type OverlayState, type ViewTarget } from "./applyView";
 import { filledHatchImage, HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
 import { baseStyle, codeFilter, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
 import { TEXT } from "./texts";
@@ -43,6 +43,8 @@ export interface MapViewProps {
   ariaLabel?: string;
   /** 過去シーズンとの重ね合わせ（設計書 2026-11-06-data-explore E8、E13、E14）。あるときは view の発生の塗りと県の件数の札を出さない */
   overlay?: OverlayState | null;
+  /** 3 つ以上の比べ（設計書 2026-11-06-data-explore E12）。町ごとに最後に発生したシーズンの色。あるときは overlay と同じく、view の発生の塗りと札を出さない */
+  latest?: LatestState | null;
 }
 
 type Geo = Awaited<ReturnType<typeof loadWebGeoStore>>;
@@ -50,6 +52,8 @@ type Anchors = Awaited<ReturnType<typeof loadPrefAnchors>>;
 type Bounds = [number, number, number, number];
 
 const FIT = { padding: 8 } as const;
+/** 3 つ以上の比べで、発生したシーズンの数の札を出し始める倍率（全国の広さでは重なるので出さない） */
+const COUNT_ZOOM = 7;
 // WebGL2 が使えない端末の、境の線だけの代わりの地図。必要なときだけ別の chunk で読む
 const SvgMap = lazy(() => import("./SvgMap"));
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
@@ -179,15 +183,18 @@ export default function MapView(props: MapViewProps) {
     });
     // 重ね合わせの間は、1 シーズン分の発生の塗りを消して 3 つの模様で塗る
     const overlay = props.overlay ?? null;
-    if (overlay) {
+    const latestState = props.latest ?? null;
+    if (overlay || latestState) {
       map.setFilter("case-suspected", codeFilter("c", []));
       map.setFilter("case-confirmed", codeFilter("c", []));
     }
-    applyOverlay(map as unknown as ViewTarget, overlay);
+    // 3 つ以上の比べでも、確認できていない県は重ね合わせと同じ灰色の層で示す
+    applyOverlay(map as unknown as ViewTarget, overlay ?? (latestState ? { first: [], second: [], show: "both", unwatchedPrefCodes: latestState.unwatchedPrefCodes } : null));
+    applyLatest(map as unknown as ViewTarget, latestState);
     updateBadges.current?.();
     // failedKey と nearKey が配列の中身の変化を表す
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, props.view, failedKey, props.myMuniCode, nearKey, props.overlay]);
+  }, [ready, props.view, failedKey, props.myMuniCode, nearKey, props.overlay, props.latest]);
 
   // 3) 野鳥の点
   useEffect(() => {
@@ -235,6 +242,34 @@ export default function MapView(props: MapViewProps) {
     };
   }, [ready, rings]);
 
+  // 3 つ以上の比べ（設計書 2026-11-06-data-explore E12、作者 11/7）: 2 つ以上のシーズンで発生した町に、発生したシーズンの数の札を町の中心に出す。
+  // 全国の広さでは札が重なるので、COUNT_ZOOM より寄ったときだけ出す
+  const countsKey = JSON.stringify(props.latest?.counts ?? []);
+  useEffect(() => {
+    const map = mapRef.current;
+    const counts = latest.current.latest?.counts ?? [];
+    if (!ready || !map || !geo || counts.length === 0) return;
+    const marks = counts.flatMap(([code, n]) => {
+      const at = geo.store.index[code]?.center;
+      if (!at) return [];
+      const el = document.createElement("div");
+      el.className = "cmp-count-badge";
+      el.textContent = String(n);
+      el.setAttribute("aria-hidden", "true");
+      return [{ el, marker: new Marker({ element: el }).setLngLat(at).addTo(map) }];
+    });
+    const update = () => {
+      const show = map.getZoom() >= COUNT_ZOOM;
+      for (const m of marks) m.el.hidden = !show;
+    };
+    update();
+    map.on("zoom", update);
+    return () => {
+      map.off("zoom", update);
+      for (const m of marks) m.marker.remove();
+    };
+  }, [ready, geo, countsKey]);
+
   // 4) 県のバッジ（Marker は 1 度だけ作り、文字と表示だけを替える）
   useEffect(() => {
     const map = mapRef.current;
@@ -253,7 +288,7 @@ export default function MapView(props: MapViewProps) {
     const update = () => {
       const view = latest.current.view;
       // 重ね合わせの間は 1 シーズン分の数の札を出さない（E13）
-      const shown = new Map(latest.current.overlay ? [] : badgeStates(view, map.getZoom()).map((s) => [s.prefCode, s.text]));
+      const shown = new Map(latest.current.overlay || latest.current.latest ? [] : badgeStates(view, map.getZoom()).map((s) => [s.prefCode, s.text]));
       for (const [code, el] of badges) {
         const text = shown.get(code);
         el.hidden = text === undefined;
@@ -348,6 +383,7 @@ export default function MapView(props: MapViewProps) {
             onInspectMuni={props.onInspectMuni}
             ringCenter={props.ringCenter}
             overlay={props.overlay}
+            latest={props.latest}
             onUnplaced={setUnplaced}
             onFailed={() => setFailed(true)}
           />

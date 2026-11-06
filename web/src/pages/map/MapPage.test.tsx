@@ -17,6 +17,7 @@ import { SpotProvider } from "../../data/spotContext";
 import type { DataSource, RecordStore } from "../../data/types";
 import type { MapViewProps } from "./MapView";
 import { SPOT_MIN_ZOOM } from "./pickSpot";
+import { CMP_TEXT } from "./compareTexts";
 import { TEXT } from "./texts";
 
 // 市町村の形の読み込みは fetch を使うので、jsdom では実データを fs から読む偽に替える
@@ -448,15 +449,27 @@ describe("MapPage: 自分の町の 1 文", () => {
     // 今季に記録がない文は、時点の日付で言う（2026-11-06 作者の決定）
     expect(blocks[1]!.querySelector("p")!.textContent).toMatch(/^(\d{4} 年 \d+ 月 \d+ 日 \d+:\d{2} 時点で、)?発生記録はありません。$/);
 
-    // 比べる 1 を選び直すと地図と下のシーズンの選びが替わる。開いたときの昨季への切り替えは 1 度だけで、戻されない
-    fireEvent.change(screen.getByLabelText("比べる 1"), { target: { value: "2023" } });
-    await waitFor(() => expect(lastProps().view.season).toBe(2023));
-    expect(screen.getAllByRole("heading", { level: 3 })[0]!.textContent).toBe("比べる 1（2023 年 6 月〜2024 年 5 月）");
+    // シーズンはボタンで選ぶ（設計書 2026-11-06-data-explore E12）。3 つ目を足すと、最後の発生の色に切り替わり、見せ方のボタンが消える
+    const seasonsGroup = () => screen.getByRole("group", { name: CMP_TEXT.seasonsAria });
+    const seasonBtn = (y: number) => within(seasonsGroup()).getByRole("button", { name: new RegExp(`${y}〜`) });
+    fireEvent.click(seasonBtn(2023));
+    await waitFor(() => expect(lastProps().latest!.colors.length).toBeGreaterThan(0));
+    expect(lastProps().overlay).toBeNull();
+    expect(screen.queryByRole("group", { name: "地図の見せ方" })).toBeNull();
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
+    // 下のシーズンの選びは、選んだうちいちばん古いシーズン。開いたときの昨季への切り替えは 1 度だけで、戻されない
+    expect(lastProps().view.season).toBe(2023);
     r.deliverCases([]);
     expect(lastProps().view.season).toBe(2023);
 
+    // 2025 を外すと 2 つ（2023 と今季）に戻り、重ね合わせ。古い方が比べる 1
+    fireEvent.click(seasonBtn(2025));
+    await waitFor(() => expect(lastProps().overlay).not.toBeNull());
+    expect(screen.getAllByRole("heading", { level: 3 })[0]!.textContent).toBe("比べる 1（2023 年 6 月〜2024 年 5 月）");
+
     // 過去 2 シーズンどうしでは、確認できていない県を重ねない
-    fireEvent.change(screen.getByLabelText("比べる 2"), { target: { value: "2024" } });
+    fireEvent.click(seasonBtn(2024));
+    fireEvent.click(seasonBtn(2026));
     expect(screen.getAllByRole("heading", { level: 3 })[1]!.textContent).toBe("比べる 2（2024 年 6 月〜2025 年 5 月）");
     await waitFor(() => expect(lastProps().overlay!.unwatchedPrefCodes).toEqual([]));
 

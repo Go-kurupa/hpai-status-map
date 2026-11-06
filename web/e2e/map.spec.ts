@@ -105,13 +105,14 @@ test.describe("地図（入口）", () => {
     await open(page);
     await expect(page.getByRole("button", { name: /昨季/ })).toHaveCount(0);
     await goViaMenu(page, "過去シーズンとの比べ");
+    // 比べるシーズンのボタンにも「昨季」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
     await expect(page).toHaveURL(/\/compare$/);
-    await expect(page.getByRole("button", { name: /昨季/ })).toBeVisible();
-    await page.getByRole("button", { name: /昨季/ }).click();
-    await expect(page.getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("button", { name: /昨季.*24 件/ })).toBeVisible();
-    await page.getByRole("button", { name: /今季/ }).click();
-    await expect(page.getByRole("button", { name: /今季/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季/ })).toBeVisible();
+    await page.locator(".season-bar").getByRole("button", { name: /昨季/ }).click();
+    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季.*24 件/ })).toBeVisible();
+    await page.locator(".season-bar").getByRole("button", { name: /今季/ }).click();
+    await expect(page.locator(".season-bar").getByRole("button", { name: /今季/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   // 昨季を選んだときの地図の塗り。/compare は 2 つのシーズンを 1 枚に重ねる（設計書 2026-11-06-data-explore E8）。
@@ -123,15 +124,15 @@ test.describe("地図（入口）", () => {
       if (r.url().includes("japan.topo.json")) topoRequests.push(r.url());
     });
     await open(page, 390, "/compare");
-    await page.getByRole("button", { name: /昨季.*24 件/ }).click();
+    await page.locator(".season-bar").getByRole("button", { name: /昨季.*24 件/ }).click();
     await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("cmp-one"), undefined, { timeout: 20_000 });
     const has = (layer: string) => page.waitForFunction((l) => JSON.stringify(window.__hpaiMap!.getFilter(l)).includes("33203"), layer);
     await has("cmp-one");
     // 重ねている間は、発生の塗り（case-confirmed）を使わない
     expect(JSON.stringify(await page.evaluate(() => window.__hpaiMap!.getFilter("case-confirmed")))).not.toContain("33203");
-    await page.getByRole("button", { name: /今季/ }).click();
+    await page.locator(".season-bar").getByRole("button", { name: /今季/ }).click();
     await page.waitForFunction(() => !JSON.stringify(window.__hpaiMap!.getFilter("cmp-one")).includes("33203"));
-    await page.getByRole("button", { name: /昨季/ }).click();
+    await page.locator(".season-bar").getByRole("button", { name: /昨季/ }).click();
     await has("cmp-one");
     expect(topoRequests).toHaveLength(1);
     // / へ戻ると今季（題が「今季の発生状況」）。選んだシーズンを持ち越さない
@@ -469,16 +470,33 @@ test.describe("地図（入口）", () => {
     await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33203"));
     await open(page, 1280, "/compare");
     await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("cmp-one"), undefined, { timeout: 20_000 });
-    await expect(page.getByLabel("比べる 1", { exact: true })).toHaveValue("2025");
-    await expect(page.getByLabel("比べる 2", { exact: true })).toHaveValue("2026");
+    // シーズンはボタンで選ぶ（設計書 2026-11-06-data-explore E12）。初めは昨季と今季
+    const seasons = page.getByRole("group", { name: /^比べるシーズン/ });
+    const seasonBtn = (y: number) => seasons.getByRole("button", { name: new RegExp(`${y}〜`) });
+    await expect(seasonBtn(2025)).toHaveAttribute("aria-pressed", "true");
+    await expect(seasonBtn(2026)).toHaveAttribute("aria-pressed", "true");
     // 地図は 1 枚だけ
     await expect(page.locator(".cmp-overlay .map-canvas")).toHaveCount(1);
     await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("cmp-one")).includes("33203"));
-    // 比べる 2 を 4 年前（2022）にすると、2 だけ（＼）と両方（×）の層にも町が入り、凡例の町の数も 0 でない
-    await page.getByLabel("比べる 2", { exact: true }).selectOption("2022");
+    // 今季の代わりに 4 年前（2022）にすると、2 だけ（＼）と両方（×）の層にも町が入り、凡例の町の数も 0 でない
+    await seasonBtn(2022).click();
+    await seasonBtn(2026).click();
     await page.waitForFunction(() => ["cmp-two", "cmp-both"].every((l) => /"\d{5}"/.test(JSON.stringify(window.__hpaiMap!.getFilter(l)))));
     await expect(page.getByRole("list", { name: "重ね合わせの凡例" })).toContainText(/両方で発生（[1-9]\d* 町）/);
-    await page.getByLabel("比べる 2", { exact: true }).selectOption("2026");
+    // 3 つ目（2024）を足すと、最後の発生の色の層に町が入り、重ね合わせの層は空になる
+    await seasonBtn(2024).click();
+    await page.waitForFunction(() => /"\d{5}"/.test(JSON.stringify(window.__hpaiMap!.getFilter("cmp-latest"))) && !/"\d{5}"/.test(JSON.stringify(window.__hpaiMap!.getFilter("cmp-one"))));
+    await expect(page.getByRole("list", { name: "重ね合わせの凡例" })).toContainText(/が最後（[1-9]\d* 町）/);
+    // 2 つ以上のシーズンで発生した町には、寄ると数字の札が出る（作者 11/7）。全国の広さでは出さない
+    await expect(page.locator(".cmp-count-badge:not([hidden])")).toHaveCount(0);
+    await page.evaluate(() => window.__hpaiMap!.jumpTo({ center: [134.0, 35.07], zoom: 9 }));
+    await expect.poll(() => page.locator(".cmp-count-badge:not([hidden])").count()).toBeGreaterThan(0);
+    // 元の 2 つ（昨季と今季）に戻す
+    await seasonBtn(2022).click();
+    await seasonBtn(2024).click();
+    await seasonBtn(2026).click();
+    await expect(seasonBtn(2025)).toHaveAttribute("aria-pressed", "true");
+    await expect(seasonBtn(2026)).toHaveAttribute("aria-pressed", "true");
     // 右上の見方の切り替えは、広さのボタンに重ならない（11/6 本番で重なっていた）
     const tabs = (await page.locator(".map-page > .section-tabs").boundingBox())!;
     const scope = page.getByRole("group", { name: "地図の広さ" });

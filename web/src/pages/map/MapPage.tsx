@@ -2,7 +2,7 @@ import { jstDateOf } from "@hpai/shared/dates";
 import { PREFS } from "@hpai/shared/pref";
 import { DISTANCE_BAND_KM, isCountable } from "@hpai/shared/level";
 import { FIXED_TEXT } from "@hpai/shared/wording";
-import type { MuniCode } from "@hpai/shared/types";
+import type { MuniCode, Season } from "@hpai/shared/types";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
@@ -100,14 +100,20 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const showMap = inMap || section === "compare";
   const d = useSeasonData();
   const { view } = d;
-  // 比べる 1 は下のシーズンの一覧と同じ選び（d.selected）で、初めは昨季。比べる 2 は初めは今季【AI の既定案】
-  const [secondSeason, setSecondSeason] = useState(d.current);
-  const secondView = useMemo(
-    () => buildSeasonView({ season: secondSeason, current: d.current, currentCases: d.currentCases, history: d.history }),
-    [secondSeason, d.current, d.currentCases, d.history],
+  // 比べるシーズン（設計書 2026-11-06-data-explore E12）。いちばん古いシーズンは下のシーズンの一覧と同じ選び（d.selected）で、
+  // 初めは昨季。残りは cmpRest で、初めは今季【AI の既定案】。2 つなら重ね合わせ、1 つか 3 つ以上なら最後の発生の色
+  const [cmpRest, setCmpRest] = useState<Season[]>([d.current]);
+  const cmpSeasons = useMemo(() => [...new Set([d.selected, ...cmpRest])].sort((a, b) => a - b), [d.selected, cmpRest]);
+  const cmpViews = useMemo(
+    () => cmpSeasons.map((s) => (s === view.season ? view : buildSeasonView({ season: s, current: d.current, currentCases: d.currentCases, history: d.history }))),
+    [cmpSeasons, view, d.current, d.currentCases, d.history],
   );
-  // 画面に出ている地図の中身。比べは 2 枚とも見て、今季の断り（読めていない、確認の行）を出す（どちらかが今季なら）
-  const shownViews = section === "compare" ? [view, secondView] : [view];
+  const pickCmpSeasons = (next: Season[]) => {
+    d.select(next[0]!);
+    setCmpRest(next.slice(1));
+  };
+  // 画面に出ている地図の中身。比べは選んだシーズンを全部見て、今季の断り（読めていない、確認の行）を出す（どれかが今季なら）
+  const shownViews = section === "compare" ? cmpViews : [view];
   const reviewingShown = [...new Set(shownViews.flatMap((v) => v.reviewingPrefCodes))];
   const firstPicked = useRef(false);
   useEffect(() => {
@@ -628,10 +634,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       {section === "compare" ? (
         <CompareOverlay
           options={d.bars}
-          first={d.selected}
-          second={secondSeason}
-          onFirst={d.select}
-          onSecond={setSecondSeason}
+          seasons={cmpSeasons}
+          onSeasons={pickCmpSeasons}
           current={d.current}
           currentCases={d.currentCases}
           history={d.history}
@@ -639,8 +643,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           onRetryHistory={d.retryHistory}
           asOf={d.asOf}
           failedPrefCodes={d.failedPrefCodes}
-          firstView={view}
-          secondView={secondView}
+          views={cmpViews}
           focus={focus}
           muniName={(c) => (geo ? (geo.index[c]?.name ?? null) : null)}
           renderMap={(o) => (
@@ -659,6 +662,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
                   onUnsupported={() => setMapless(true)}
                   ariaLabel={o.ariaLabel}
                   overlay={o.overlay}
+                  latest={o.latest}
                 />
               </Suspense>
             </MapChunkBoundary>
