@@ -45,11 +45,11 @@ describe("AboutPage（このサイトについて）", () => {
     expect(screen.queryByRole("heading", { name: "プライバシー" })).toBeNull();
     expect(screen.getAllByRole("heading", { name: "運営者" })).toHaveLength(1);
   });
-  it("審査員の方への節に、去年の再現、舞台裏、記録を試す、AI の読み取りの確かさの 4 つの入口がある（決定 16）", () => {
+  it("審査員の方への節に、去年の再現、舞台裏、記録を試す、AI の読み取りの確かさの 5 つの入口がある（決定 16。対策の相談を足した）", () => {
     render(<MemoryRouter><AboutPage /></MemoryRouter>);
     const sec = document.getElementById("about-judges") as HTMLElement;
     expect(within(sec).getByRole("heading", { level: 2 }).textContent).toBe("審査員の方へ");
-    expect(within(sec).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/replay", "/replay/backstage", "/sample", "#about-ai"]);
+    expect(within(sec).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/replay", "/replay/backstage", "/sample", "/consult?judge=1", "#about-ai"]);
   });
   it("データの出典は一覧で、URL のあるものは新しいタブで開くリンク。作品の中ですでに使っている URL だけ", () => {
     render(<MemoryRouter><AboutPage /></MemoryRouter>);

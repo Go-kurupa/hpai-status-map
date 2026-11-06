@@ -36,6 +36,17 @@ const authState = vi.hoisted(() => ({
 }));
 vi.mock("../auth/useAuthUser", () => ({ useAuthUser: () => authState.value }));
 
+// 相談から足した見直しの欄。足した項目の口とカードの一覧は偽物に差し替える（Firebase とネットワークに出ない）
+const reviewBox = vi.hoisted(() => ({
+  store: { addReview: vi.fn(), listReviews: vi.fn(), removeReview: vi.fn() },
+  catalog: null as unknown,
+  catalogFail: false,
+}));
+vi.mock("../consult/reviewStore", () => ({ createReviewStore: () => reviewBox.store }));
+vi.mock("../consult/cardsData", () => ({
+  loadConsultCatalog: () => (reviewBox.catalogFail ? Promise.reject(new Error("読めません")) : Promise.resolve(reviewBox.catalog)),
+}));
+
 import TodoPage, { orderSections } from "./TodoPage";
 import { STANDARD_NUMBER_NOTE } from "@hpai/shared/checklist/items";
 import { buildChecklist } from "@hpai/shared/checklist";
@@ -136,6 +147,20 @@ beforeEach(() => {
   getFarmFails = false;
   saveCheck.mockReset();
   saveCheck.mockResolvedValue(undefined);
+  reviewBox.store.addReview.mockReset();
+  reviewBox.store.listReviews.mockReset().mockResolvedValue([]);
+  reviewBox.store.removeReview.mockReset().mockResolvedValue(undefined);
+  reviewBox.catalogFail = false;
+  reviewBox.catalog = {
+    cards: new Map([
+      ["maff-M07", { id: "maff-M07", action: "着替え・履き替えの前後の動線を分ける", evidence: "obligation", sourceId: "maff-s1" }],
+      ["aphis-A01", { id: "aphis-A01", action: "鶏舎の入口で専用の靴に履き替える", evidence: "study-association", sourceId: "aphis-s1" }],
+    ]),
+    sources: new Map([
+      ["maff-s1", { id: "maff-s1", title: "飼養衛生管理基準遵守指導の手引き", publisher: "農林水産省", url: "https://www.maff.go.jp/x.pdf", domestic: true }],
+      ["aphis-s1", { id: "aphis-s1", title: "Table Egg Layers Case-Control Study", publisher: "USDA APHIS", url: "https://www.aphis.usda.gov/x.pdf", domestic: false }],
+    ]),
+  };
   listChecks.mockReset();
   listChecks.mockResolvedValue([]);
   localStorage.clear();
@@ -691,5 +716,92 @@ describe("DisinfectionPanel", () => {
     mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText("近くの発生を読めなかったので、ふだんの項目だけ出しています");
     await waitFor(() => expect(screen.queryAllByRole("button", { name: /^やった/ })).toHaveLength(3));
+  });
+});
+
+describe("相談から足した見直しの欄（会員だけ）", () => {
+  const section = () => screen.findByRole("region", { name: TODO_TEXT.reviewsHeading });
+
+  it("足したカードが 1 行ずつ、対策・根拠の札・資料名と、「外す」のボタンで並ぶ", async () => {
+    reviewBox.store.listReviews.mockResolvedValue(["maff-M07", "aphis-A01"]);
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = within(await section());
+    expect(sec.getByRole("heading", { name: "相談から足した見直し" })).toBeTruthy();
+    await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(2));
+    const rows = sec.getAllByRole("listitem");
+    expect(rows[0]!.textContent).toContain("着替え・履き替えの前後の動線を分ける");
+    expect(rows[0]!.textContent).toContain("義務");
+    expect(rows[0]!.textContent).toContain("飼養衛生管理基準遵守指導の手引き");
+    expect(rows[1]!.textContent).toContain("研究で関係あり");
+    expect(within(rows[0]!).getByRole("button", { name: "外す" })).toBeTruthy();
+  });
+
+  it("「外す」を押すと消して、その行がなくなる", async () => {
+    reviewBox.store.listReviews.mockResolvedValue(["maff-M07", "aphis-A01"]);
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = within(await section());
+    await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(2));
+    fireEvent.click(within(sec.getAllByRole("listitem")[0]!).getByRole("button", { name: "外す" }));
+    await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(1));
+    expect(reviewBox.store.removeReview).toHaveBeenCalledWith("maff-M07");
+    expect(sec.queryByText("着替え・履き替えの前後の動線を分ける")).toBeNull();
+  });
+
+  it("外すのに失敗したら、行は残り、失敗の文が出る", async () => {
+    reviewBox.store.listReviews.mockResolvedValue(["maff-M07"]);
+    reviewBox.store.removeReview.mockRejectedValue(new Error("permission-denied"));
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = within(await section());
+    await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(1));
+    fireEvent.click(sec.getByRole("button", { name: "外す" }));
+    expect((await sec.findByRole("alert")).textContent).toBe("外せませんでした。もう一度お試しください。");
+    expect(sec.getAllByRole("listitem")).toHaveLength(1);
+  });
+
+  it("0 件のときは案内の文と、相談へのリンクを出す", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = within(await section());
+    expect(await sec.findByText("相談の画面で『対策項目に足す』を押すと、ここに並びます。")).toBeTruthy();
+    expect(sec.getByRole("link", { name: "対策の相談を開く" }).getAttribute("href")).toBe("/consult");
+    expect(sec.queryAllByRole("listitem")).toHaveLength(0);
+  });
+
+  it("今の資料にないカードの id は、その旨と「外す」だけ出す", async () => {
+    reviewBox.store.listReviews.mockResolvedValue(["gone-X99"]);
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = within(await section());
+    await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(1));
+    expect(sec.getByText("このカードは今の資料にありません。")).toBeTruthy();
+    expect(sec.getByRole("button", { name: "外す" })).toBeTruthy();
+  });
+
+  it("足した項目を読めなかったときは、読めなかった旨を出す（0 件と読ませない）", async () => {
+    reviewBox.store.listReviews.mockRejectedValue(new Error("permission-denied"));
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = within(await section());
+    expect((await sec.findByRole("alert")).textContent).toBe("足した見直しを読めませんでした。ページを読み込み直してください。");
+    expect(sec.queryByText("相談の画面で『対策項目に足す』を押すと、ここに並びます。")).toBeNull();
+  });
+
+  it("会員でない（農場を読めない）ときは欄を出さず、足した項目も読みにいかない", async () => {
+    farm = null;
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    await screen.findByText("今月の自己点検を確かめましょう");
+    expect(screen.queryByRole("region", { name: "相談から足した見直し" })).toBeNull();
+    expect(reviewBox.store.listReviews).not.toHaveBeenCalled();
+  });
+
+  it("見本の農場（sample）では欄を出さず、足した項目を読みにいかない", async () => {
+    const sample = { ...store, mode: "sample" } as unknown as RecordStore;
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }), store: sample });
+    await screen.findByText("今月の自己点検を確かめましょう");
+    expect(screen.queryByRole("region", { name: "相談から足した見直し" })).toBeNull();
+    expect(reviewBox.store.listReviews).not.toHaveBeenCalled();
+  });
+
+  it("欄の文言に禁句がない", () => {
+    const joined = Object.entries(TODO_TEXT).filter(([k]) => k.startsWith("reviews")).map(([, v]) => v).join("\n");
+    expect(joined).not.toBe("");
+    expect(findForbiddenPhrases(joined)).toEqual([]);
   });
 });

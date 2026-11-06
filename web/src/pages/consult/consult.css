@@ -1,0 +1,143 @@
+/* 対策の相談。平面の単色だけ（陰影・ぼかしなし）。色は ui/theme.css の変数。
+   おすすめの枠の黄色系だけ、この画面の中で決める（theme.css は触らない）。 */
+.consult-page {
+  --advice-bg: #fbf0dc;
+  --advice-fg: #7a4b00;
+  max-width: 40rem;
+}
+.consult-judge {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  font-weight: 700;
+}
+.consult-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  margin: 0 0 var(--s2);
+}
+.consult-ask label {
+  display: block;
+  font-weight: 700;
+}
+.consult-ask textarea {
+  width: 100%;
+  min-height: 5.5rem;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  line-height: 1.6;
+}
+.consult-error {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 2px solid var(--lv1);
+  background: var(--surface);
+}
+.consult-note {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.consult-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin: var(--s3) 0;
+}
+.consult-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-margin-top: 64px;
+}
+.consult-me {
+  align-self: flex-end;
+  max-width: 85%;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: var(--soft);
+}
+.consult-advice {
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: var(--advice-bg);
+  color: var(--fg);
+}
+.consult-advice p {
+  margin: 0 0 4px;
+}
+.consult-advice-head {
+  color: var(--advice-fg);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.consult-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.consult-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.consult-card {
+  padding: 10px 12px;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.consult-card p {
+  margin: 0 0 6px;
+}
+.consult-card-action {
+  font-weight: 700;
+}
+.consult-evidence {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: var(--soft);
+  color: var(--navy);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.consult-quote {
+  margin: 0 0 6px;
+  padding-left: 10px;
+  border-left: 3px solid var(--line);
+  color: var(--sub);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.consult-source,
+.consult-foreign,
+.consult-caveats {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.consult-foreign {
+  font-weight: 700;
+}
+.consult-caveats {
+  margin: 0 0 6px;
+  padding-left: 1.1em;
+}
+.consult-footer {
+  margin-top: var(--s3);
+  padding-top: 8px;
+  border-top: 1px solid var(--divider);
+  color: var(--sub);
+  font-size: 0.9rem;
+}

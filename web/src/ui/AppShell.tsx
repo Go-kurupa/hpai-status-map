@@ -29,6 +29,7 @@ export function shellContextOf(pathname: string, member = false): { mode: ShellM
     farm.push(item("/sample/record/deaths", "死亡・消毒の記録", under(path, "/sample/record")));
     farm.push(item("/sample", "記録を試す", !farm.some((f) => f.current)));
   } else if (member) {
+    farm.push(item("/consult", "対策の相談", under(path, "/consult")));
     farm.push(item("/record/deaths", "死亡・消毒の記録", under(path, "/record")));
     farm.push(item("/settings/farm", "農場と通知の設定", under(path, "/settings")));
   } else {

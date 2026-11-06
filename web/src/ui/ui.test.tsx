@@ -252,7 +252,10 @@ describe("shellContextOf", () => {
   it("会員の印がなければ記録と設定を出さず、会員のログインを出す。/login と /join で選択中", () => {
     const farm = (p: string, member: boolean) => shellContextOf(p, member).groups.find((g) => g.label === "養鶏事業者の方")!.items;
     expect(farm("/", false).map((i) => [i.label, i.to])).toEqual([["対策項目", "/todo"], ["会員のログイン", "/login"]]);
-    expect(farm("/", true).map((i) => [i.label, i.to])).toEqual([["対策項目", "/todo"], ["死亡・消毒の記録", "/record/deaths"], ["農場と通知の設定", "/settings/farm"]]);
+    expect(farm("/", true).map((i) => [i.label, i.to])).toEqual([["対策項目", "/todo"], ["対策の相談", "/consult"], ["死亡・消毒の記録", "/record/deaths"], ["農場と通知の設定", "/settings/farm"]]);
+    // 対策の相談は会員の印があるときだけ。会員でない人と、見本の中には出さない
+    expect(farm("/", false).some((i) => i.to === "/consult")).toBe(false);
+    expect(farm("/consult", true).find((i) => i.label === "対策の相談")!.current).toBe(true);
     expect(farm("/login", false).find((i) => i.label === "会員のログイン")!.current).toBe(true);
     expect(farm("/join/abc", false).find((i) => i.label === "会員のログイン")!.current).toBe(true);
     // 見本の中は会員の印に関係なく、見本の行き先と記録を試す
@@ -262,9 +265,9 @@ describe("shellContextOf", () => {
   });
 });
 
-// 決定 15・16。会員でない人は 8 項目、会員は 9 項目。審査員向けの見本（記録を試す、去年の再現）は並べない
+// 決定 15・16。会員でない人は 8 項目、会員は 10 項目（対策の相談を足した）。審査員向けの見本（記録を試す、去年の再現）は並べない
 const GUEST_HREFS = ["/", "/compare", "/trends", "/todo", "/login", "/known", "/public", "/about"];
-const MEMBER_HREFS = ["/", "/compare", "/trends", "/todo", "/record/deaths", "/settings/farm", "/known", "/public", "/about"];
+const MEMBER_HREFS = ["/", "/compare", "/trends", "/todo", "/consult", "/record/deaths", "/settings/farm", "/known", "/public", "/about"];
 const SAMPLE_HREFS = ["/", "/compare", "/trends", "/sample/todo", "/sample/record/deaths", "/sample", "/known", "/public", "/about"];
 
 function asMember() {
@@ -282,7 +285,7 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
     expect(screen.queryByRole("link", { name: "設定" })).toBeNull();
     expect(screen.queryByRole("navigation", { name: "メイン" })).toBeNull();
   });
-  it("会員の印があれば 9 の行き先と右上の設定。札はない", () => {
+  it("会員の印があれば 10 の行き先と右上の設定。札はない", () => {
     asMember();
     renderShell("/");
     expect(hrefs()).toEqual(MEMBER_HREFS);

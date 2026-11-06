@@ -49,6 +49,14 @@ export const TODO_TEXT = {
   panelNone: "最近の記録はありません",
   panelListFailed: "最近の記録を読めませんでした",
   panelLevelFailed: "近くの発生を読めなかったので、ふだんの項目だけ出しています",
+  // 相談から足した見直し（会員だけ。対策の相談の「対策項目に足す」で足したカード）
+  reviewsHeading: "相談から足した見直し",
+  reviewsEmpty: "相談の画面で『対策項目に足す』を押すと、ここに並びます。",
+  reviewsLink: "対策の相談を開く",
+  reviewsRemove: "外す",
+  reviewsLoadFailed: "足した見直しを読めませんでした。ページを読み込み直してください。",
+  reviewsRemoveFailed: "外せませんでした。もう一度お試しください。",
+  reviewsGone: "このカードは今の資料にありません。",
 } as const;
 
 /** 働く人への声かけ文（M-18）。「安全」「安心」「区域の外です」は書かない。人の健康を断定しない。 */

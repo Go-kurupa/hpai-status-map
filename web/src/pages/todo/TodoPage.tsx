@@ -5,6 +5,7 @@ import { ZONE_AUTHORITY_NOTE, buildChecklist, shortReminder, type ChecklistItem 
 import { STANDARD_NUMBER_NOTE } from "@hpai/shared/checklist/items";
 import { useState } from "react";
 import { Link } from "react-router";
+import { useRecordStore } from "../../data/context";
 import { SURVEILLANCE_NOTE } from "../map/texts";
 import { AsOf } from "../../ui/AsOf";
 import { Button } from "../../ui/Button";
@@ -12,6 +13,7 @@ import { ClassBlock } from "../../ui/ClassBlock";
 import { SourceLine } from "../../ui/SourceLine";
 import { DoneButton, FarmGuide, useDisinfectionLog, useFarmRecord } from "../record/disinfectionLog";
 import { LiftEstimateBlock } from "./LiftEstimateBlock";
+import { ReviewsSection } from "./ReviewsSection";
 import { TODO_TEXT } from "./texts";
 import { levelOf, useTodoData } from "./useTodoData";
 import { WorkerMessagePanel } from "./WorkerMessagePanel";
@@ -47,6 +49,7 @@ function ItemRow({ item, log }: { item: ChecklistItem; log: ReturnType<typeof us
 export default function TodoPage() {
   const data = useTodoData();
   const farm = useFarmRecord();
+  const recordMode = useRecordStore().mode;
   const log = useDisinfectionLog(farm.status === "ready");
   const { state } = data;
   const level = levelOf(state);
@@ -129,6 +132,9 @@ export default function TodoPage() {
           ) : null}
         </>
       ) : null}
+
+      {/* 会員の農場だけ。見本の農場には Firebase の保存先がない */}
+      {farm.status === "ready" && recordMode === "firestore" ? <ReviewsSection farmId={farm.farm.id} /> : null}
     </div>
   );
 }

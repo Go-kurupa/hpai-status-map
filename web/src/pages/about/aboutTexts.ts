@@ -22,6 +22,7 @@ export const JUDGE_LINKS: ReadonlyArray<{ to: string; label: string }> = [
   { to: "/replay", label: "去年の再現（2025 年 12 月の 4 事例と全国の流れ）" },
   { to: "/replay/backstage", label: "舞台裏（2 つの Claude の読み取りと、プログラムの検査）" },
   { to: "/sample", label: "記録を試す（架空の農場。数字は作り物）" },
+  { to: "/consult?judge=1", label: "対策の相談を試す（公的資料のカードだけで答えます。回数に上限あり、保存しません）" },
   { to: "#about-ai", label: "AI の読み取りの確かさと費用（このページの下の節）" },
 ];
 
