@@ -224,7 +224,7 @@ export async function handleConsultFollowup(deps: ConsultDeps, caller: ConsultCa
     return fixed(g.notice);
   }
 
-  const attempt = await callFollowup(deps.client(), buildFollowupRequest(allCards, question, card));
+  const attempt = await callFollowup(deps.client(), buildFollowupRequest(allowed, question));
   await recordUsage(deps, attempt, now, g.settings);
 
   // 第 3 引数のカードは数字の検査に使う（渡さないと、数字を含む答えが全部落ちる）

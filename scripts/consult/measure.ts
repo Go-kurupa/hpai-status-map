@@ -1,4 +1,4 @@
-// 対策の見直し相談の測定（Task 7）。本番と同じ要求（buildPlanRequest）を、下書きのカード全部で 1 回だけ測る。
+// 対策の見直し相談の測定（Task 7）。本番と同じ要求（buildPlanRequest）を、下書きのカード全部から選んだ候補で 1 回だけ測る。
 //
 //   bash scripts/with-dev-key.sh npx tsx scripts/consult/measure.ts --count   入力のトークン数の数え（無料）と、費用の見積もり
 //   bash scripts/with-dev-key.sh npx tsx scripts/consult/measure.ts --yes     **有料**。messages.create を 1 回だけ呼ぶ
@@ -94,16 +94,13 @@ async function runCount(client: Anthropic, params: Anthropic.MessageCreateParams
     }
   }
 
-  // 入力のほぼ全部が system のカード（cache_control 付き）。user の分は小さいので、全部をキャッシュの対象として見積もる（わずかに多めに出る）。
-  const first = (inputTokens * USD_CACHE_WRITE + ASSUMED_OUTPUT_TOKENS * USD_OUTPUT) / 1_000_000;
-  const later = (inputTokens * USD_CACHE_READ + ASSUMED_OUTPUT_TOKENS * USD_OUTPUT) / 1_000_000;
+  // カードは候補だけを user に入れる（キャッシュなし）。入力は全部、通常の料金で見積もる。
+  const cost = (inputTokens * USD_INPUT + ASSUMED_OUTPUT_TOKENS * USD_OUTPUT) / 1_000_000;
   console.log(`モデル: ${CONSULT_MODEL}  effort: ${CONSULT_EFFORT}  max_tokens: ${fmt(CONSULT_MAX_TOKENS)}`);
-  console.log(`カード: ${cardCount} 枚（全部 approved にして system に置く）  候補: ${candidateCount} 件`);
+  console.log(`カード: ${cardCount} 枚（全部 approved にして候補を選ぶ）  候補: ${candidateCount} 件（この分だけを user に入れる）`);
   console.log(`countTokens で外した引数: ${dropped.length === 0 ? "なし" : dropped.join(", ")}${dropped.length > 0 ? "（出力の形の指定の分だけ、実際より少なく数えている）" : ""}`);
   console.log(`入力のトークン数: ${fmt(inputTokens)}`);
-  console.log(`見積もり（出力 ${fmt(ASSUMED_OUTPUT_TOKENS)} トークンと仮定。入力 $${USD_INPUT}/MTok、キャッシュ書き込み $${USD_CACHE_WRITE}/MTok、キャッシュ読み $${USD_CACHE_READ}/MTok、出力 $${USD_OUTPUT}/MTok、1 ドル ${JPY_PER_USD} 円）:`);
-  console.log(`  1 回目（キャッシュ書き込み）: ${money(first)}`);
-  console.log(`  2 回目以降（キャッシュ読み）: ${money(later)}`);
+  console.log(`見積もり（出力 ${fmt(ASSUMED_OUTPUT_TOKENS)} トークンと仮定。キャッシュなし: 入力 $${USD_INPUT}/MTok、出力 $${USD_OUTPUT}/MTok、1 ドル ${JPY_PER_USD} 円）: ${money(cost)}`);
   return 0;
 }
 
