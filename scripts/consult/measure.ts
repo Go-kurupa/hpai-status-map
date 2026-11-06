@@ -4,7 +4,7 @@
 //   bash scripts/with-dev-key.sh npx tsx scripts/consult/measure.ts --yes     **有料**。messages.create を 1 回だけ呼ぶ
 //
 // 入力は private/consult/cards-draft.json。ファイルは書き換えず、メモリの中だけで全カードを approved: true にする。
-// 質問は話題「長靴・服」の文（MEASURE_QUESTION）。カードは索引（cardId, action, appliesTo, evidence, caveats）だけを渡す。
+// 質問は話題「長靴・服」の文（MEASURE_QUESTION）。カードは索引（cardId, action, appliesTo, evidence）だけを渡す。
 // 鍵は SDK が環境変数 ANTHROPIC_API_KEY から読む。ここでは読まず、表示もしない。
 // 返事の中身は画面に出さない。出すのは、秒数、usage、stop_reason、費用、validateFollowup の結果（outOfScope、カード数、failures の符号）と、
 // 生の返事の数（outOfScope、cardIds の数、一覧にない id の数、答えの字数）だけ。
@@ -24,8 +24,8 @@ import { normalizeDraft } from "./verify-cards";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const DRAFT_PATH = path.join(ROOT, "private", "consult", "cards-draft.json");
-// 生の返事の保存先（リポジトリの外。公開しない）。
-const RAW_DIR = "/tmp/claude-1000/-mnt-nas-home-git-built-with-claude-japan-2026/1a7e7b65-9e2b-4dfa-a980-363f0b3b9f05/scratchpad/consult-raw";
+// 生の返事の保存先（private/ は .gitignore 済み。公開しない）。
+const RAW_DIR = path.join(ROOT, "private", "consult", "raw");
 // 本番の cards.json に入れないカード（付け間違いと、図の中の文）。
 const EXCLUDED_IDS = new Set(["maff-M19b", "okayama-OK3"]);
 
