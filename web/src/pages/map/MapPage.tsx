@@ -218,9 +218,11 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   }, [town, nearKind, moveTo]);
   // 町があれば近くで始める。全国の広さでは輪も町の塗りも見えない。再現の 4 事例だけは全国の広さで見せる
   const startNear = ds.mode !== "replay" || replayStats;
+  // 町だけの人は、町の形が届くまで動かさない。届く前は町の中心が分からず、町へ寄ってから輪の広さへもう一度動いてしまう
+  const geoPending = farmMeshCode === null && town !== null && geo === null && !geoFailed;
   useEffect(() => {
-    if (startNear) showNear();
-  }, [startNear, showNear]);
+    if (startNear && !geoPending) showNear();
+  }, [startNear, geoPending, showNear]);
   // 十字を合わせ始めたら、地図の上端を画面の先頭に寄せる（地図の上に町の欄があり、地図が下に隠れやすい）
   useEffect(() => {
     if (aiming) boxRef.current?.scrollIntoView?.({ block: "start" });

@@ -621,6 +621,17 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(near.getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("町だけの人は、起動時に町へ寄らず、町の形が届いてから輪の広さへ 1 回だけ動く", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("rings"));
+    const aims = [...new Map(seen.filter((p) => p.focus).map((p) => [p.focus!.nonce, p.focus!.kind])).values()];
+    expect(aims).toEqual(["rings"]);
+  });
+
   it("地点があれば、最初も『自分の近く』も輪の全体が入る広さ", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
     const r = rig();
