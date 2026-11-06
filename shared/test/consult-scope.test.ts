@@ -15,7 +15,7 @@ describe("範囲外の問いの見分け", () => {
     expect(isOutOfScopeQuestion("人の健康への影響は？")).toBe(true);
     expect(isOutOfScopeQuestion("病院に行くべきですか")).toBe(true);
     expect(isOutOfScopeQuestion("卵を食べても大丈夫？")).toBe(true);
-    expect(isOutOfScopeQuestion("肉を食べても平気？")).toBe(true);
+    expect(isOutOfScopeQuestion("鶏肉を食べても平気？")).toBe(true);
   });
 
   it("区域の問いは範囲外", () => {
@@ -59,5 +59,22 @@ describe("範囲外の問いの見分け", () => {
     expect(isOutOfScopeQuestion("鳥インフルの予防で大事なことは何ですか")).toBe(false);
     expect(isOutOfScopeQuestion("鳥インフルエンザの侵入を防ぐ方法は何ですか")).toBe(false);
     expect(isOutOfScopeQuestion("死亡の原因になる野生動物の侵入を防ぐには")).toBe(false);
+  });
+
+  it("予防の印がある問い、食べ物の語だけの問いは範囲内", () => {
+    expect(isOutOfScopeQuestion("人から鶏へうつさない方法")).toBe(false);
+    expect(isOutOfScopeQuestion("鶏舎に入る人が鶏に感染させないには")).toBe(false);
+    expect(isOutOfScopeQuestion("来訪者の人から感染を防ぐには")).toBe(false);
+    expect(isOutOfScopeQuestion("鳥インフルエンザに感染しないためには")).toBe(false);
+    expect(isOutOfScopeQuestion("鳥インフルエンザにかからないためには")).toBe(false);
+    expect(isOutOfScopeQuestion("鶏肉を運ぶ業者の車の消毒")).toBe(false);
+    expect(isOutOfScopeQuestion("卵を食べる野鳥の対策")).toBe(false);
+  });
+
+  it("予防の印があっても、区域・症状・診断・食の問いは範囲外", () => {
+    expect(isOutOfScopeQuestion("予防していたのに鶏がぐったりしている")).toBe(true);
+    expect(isOutOfScopeQuestion("対策しているのに鳥インフルエンザですか")).toBe(true);
+    expect(isOutOfScopeQuestion("対策のため、うちは制限区域に入りますか")).toBe(true);
+    expect(isOutOfScopeQuestion("ヒトへの影響は")).toBe(true);
   });
 });
