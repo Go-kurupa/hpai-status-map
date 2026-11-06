@@ -31,6 +31,18 @@ describe("validateAsk", () => {
     expect(validateAsk(ok, ["a", "b"], cards)).toEqual({ answer: ok.answer, cardIds: ["a"], outOfScope: false, failures: [] });
   });
 
+  it("答えに禁句（安全・安心など）があれば、forbidden_phrase で決まった文に倒れる。空白で割れていても見つける", () => {
+    for (const answer of ["この対策をすれば安全です。", "これで安心です。", "区域の外です。", "安 全 です。"]) {
+      const r = validateAsk({ answer, cardIds: ["a"], outOfScope: false }, ["a"], cards);
+      expect(r).toEqual({ answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true, failures: ["forbidden_phrase"] });
+    }
+  });
+
+  it("カードの id を取り除いた後の文を禁句で調べる（禁句がなければ通る）", () => {
+    const r = validateAsk({ answer: "防鳥ネットを張ります（a）。", cardIds: ["a"], outOfScope: false }, ["a"], cards);
+    expect(r.failures).toEqual([]);
+  });
+
   it("outOfScope: true のとき、決まった文を返す", () => {
     const r = validateAsk({ answer: "何か", cardIds: ["a"], outOfScope: true }, ["a"], cards);
     expect(r).toEqual({ answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true, failures: ["claude_out_of_scope"] });

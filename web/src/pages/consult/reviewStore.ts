@@ -12,7 +12,9 @@ export interface ReviewStore {
   removeReview(cardId: string): Promise<void>;
 }
 
-const NO_FARM = "農場がありません。先に農場の設定で地点を選んでください";
+/** 農場がない会員への案内（画面は code が no-farm のときに設定へのリンクを添える） */
+export const NO_FARM_MESSAGE = "対策項目に足すには、先に『農場と通知の設定』で農場を登録してください。";
+const noFarmError = () => Object.assign(new Error(NO_FARM_MESSAGE), { code: "no-farm" });
 
 /** farmIdOf: 自分の農場の id。農場がなければ null */
 export function createReviewStore(farmIdOf: () => Promise<string | null>): ReviewStore {
@@ -26,7 +28,7 @@ export function createReviewStore(farmIdOf: () => Promise<string | null>): Revie
   return {
     async addReview(cardId) {
       const { farmId, db, uid } = await open();
-      if (!farmId) throw new Error(NO_FARM);
+      if (!farmId) throw noFarmError();
       if (!uid) throw new Error("ログインしていません");
       const fs = await import("firebase/firestore");
       await fs.setDoc(fs.doc(db, "farms", farmId, "reviews", cardId), { addedAt: fs.serverTimestamp(), addedBy: uid });
@@ -40,7 +42,7 @@ export function createReviewStore(farmIdOf: () => Promise<string | null>): Revie
     },
     async removeReview(cardId) {
       const { farmId, db } = await open();
-      if (!farmId) throw new Error(NO_FARM);
+      if (!farmId) throw noFarmError();
       const fs = await import("firebase/firestore");
       await fs.deleteDoc(fs.doc(db, "farms", farmId, "reviews", cardId));
     },

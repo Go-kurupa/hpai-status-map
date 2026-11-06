@@ -391,6 +391,23 @@ describe("対策の相談の画面", () => {
     expect((first.getByRole("button", { name: CONSULT_TEXT.add }) as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it("農場がなくて足せないときは、農場を登録する案内と設定へのリンクが、そのカードに出る（「もう一度」とは言わない）", async () => {
+    box.reviews.addReview.mockRejectedValue(Object.assign(new Error("x"), { code: "no-farm" }));
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    const first = within(screen.getAllByTestId("consult-card")[0]!);
+    fireEvent.click(first.getByRole("button", { name: CONSULT_TEXT.add }));
+    const alert = await first.findByRole("alert");
+    expect(alert.textContent).toContain("対策項目に足すには、先に『農場と通知の設定』で農場を登録してください。");
+    expect(alert.textContent).not.toContain("もう一度");
+    expect(first.getByRole("link", { name: "農場と通知の設定" }).getAttribute("href")).toBe("/settings/farm");
+    // 別のカードには出ない
+    expect(within(screen.getAllByTestId("consult-card")[1]!).queryByRole("alert")).toBeNull();
+  });
+
   it("審査員の入口（?judge=1）は、judge: true で呼び、足すボタンがなく、案内が出る。会員の確認を通さない", async () => {
     box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
     box.ask.mockResolvedValue(reply());

@@ -5,7 +5,7 @@
 import { CONSULT_TOPICS, type ConsultTopic } from "@hpai/shared/consult/topics";
 import { EVIDENCE_LABEL, type ConsultAnswerCard, type ConsultAskResponse } from "@hpai/shared/consult/types";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { useLocation } from "react-router";
+import { Link, useLocation } from "react-router";
 import { Button } from "../../ui/Button";
 import { RequireMember } from "../auth/RequireMember";
 import { CONSULT_TEXT, attributionText } from "./consultTexts";
@@ -29,6 +29,10 @@ function isWebUrl(url: string): boolean {
   }
 }
 
+function isNoFarm(e: unknown): boolean {
+  return (e as { code?: unknown } | null)?.code === "no-farm";
+}
+
 function isPermissionDenied(e: unknown): boolean {
   const code = (e as { code?: unknown } | null)?.code;
   return typeof code === "string" && code.endsWith("permission-denied");
@@ -40,6 +44,7 @@ function ConsultCardView({
   added,
   adding,
   failed,
+  noFarm,
   onAdd,
 }: {
   card: ConsultAnswerCard;
@@ -47,6 +52,7 @@ function ConsultCardView({
   added: boolean;
   adding: boolean;
   failed: boolean;
+  noFarm: boolean;
   onAdd: (cardId: string) => void;
 }) {
   // 古い関数の返事には source がない。そのときは資料の行と帰属の文を出さず、カードの本体だけ出す
@@ -98,7 +104,15 @@ function ConsultCardView({
       ) : null}
       {failed ? (
         <p role="alert" className="consult-error">
-          {CONSULT_TEXT.addFailed}
+          {noFarm ? (
+            <>
+              {CONSULT_TEXT.noFarmBefore}
+              <Link to="/settings/farm">{CONSULT_TEXT.noFarmLink}</Link>
+              {CONSULT_TEXT.noFarmAfter}
+            </>
+          ) : (
+            CONSULT_TEXT.addFailed
+          )}
         </p>
       ) : null}
     </li>
@@ -116,6 +130,7 @@ function EntryView({
   judge,
   reviews,
   failedIds,
+  noFarmIds,
   addingIds,
   onAdd,
   last,
@@ -124,6 +139,7 @@ function EntryView({
   judge: boolean;
   reviews: ReadonlySet<string>;
   failedIds: ReadonlySet<string>;
+  noFarmIds: ReadonlySet<string>;
   addingIds: ReadonlySet<string>;
   onAdd: (cardId: string) => void;
   last: React.Ref<HTMLElement>;
@@ -151,6 +167,7 @@ function EntryView({
               added={reviews.has(card.id)}
               adding={addingIds.has(card.id)}
               failed={failedIds.has(card.id)}
+              noFarm={noFarmIds.has(card.id)}
               onAdd={onAdd}
             />
           ))}
@@ -176,6 +193,7 @@ function ConsultBody({ judge }: { judge: boolean }) {
   const [reviews, setReviews] = useState<ReadonlySet<string>>(new Set());
   const [reviewsFailed, setReviewsFailed] = useState(false);
   const [addFailed, setAddFailed] = useState<ReadonlySet<string>>(new Set());
+  const [noFarmIds, setNoFarmIds] = useState<ReadonlySet<string>>(new Set());
   const [adding, setAdding] = useState<ReadonlySet<string>>(new Set());
   const addingRef = useRef(new Set<string>()); // 二度押しを同期で止める（state は次の描き直しまで古い）
   const lastEntry = useRef<HTMLElement>(null);
@@ -235,13 +253,19 @@ function ConsultBody({ judge }: { judge: boolean }) {
       next.delete(cardId);
       return next;
     });
+    setNoFarmIds((prev) => {
+      const next = new Set(prev);
+      next.delete(cardId);
+      return next;
+    });
     try {
       await store.addReview(cardId);
       setReviews((prev) => new Set(prev).add(cardId));
     } catch (e) {
       // 足し済みのカードへの書き込みは上書きになり、規則が拒む。一覧を読めていなかっただけなら、読み直して足し済みにする
       let already = false;
-      if (isPermissionDenied(e)) {
+      if (isNoFarm(e)) setNoFarmIds((prev) => new Set(prev).add(cardId));
+      else if (isPermissionDenied(e)) {
         try {
           const ids = await store.listReviews();
           setReviews(new Set(ids));
@@ -302,6 +326,7 @@ function ConsultBody({ judge }: { judge: boolean }) {
             judge={judge}
             reviews={reviews}
             failedIds={addFailed}
+            noFarmIds={noFarmIds}
             addingIds={adding}
             onAdd={(cardId) => void add(cardId)}
             last={i === entries.length - 1 ? lastEntry : null}

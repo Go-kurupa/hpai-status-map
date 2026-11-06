@@ -36,6 +36,18 @@ describe("createReviewStore", () => {
     expect(fsMock.setDoc).not.toHaveBeenCalled();
   });
 
+  it("農場がないときの失敗は code が no-farm で、農場を登録する案内の文になる", async () => {
+    for (const run of [
+      () => createReviewStore(async () => null).addReview("x"),
+      () => createReviewStore(async () => null).removeReview("x"),
+    ]) {
+      await expect(run()).rejects.toMatchObject({
+        code: "no-farm",
+        message: "対策項目に足すには、先に『農場と通知の設定』で農場を登録してください。",
+      });
+    }
+  });
+
   it("listReviews はカードの id の一覧を返す。農場がなければ空", async () => {
     expect(await createReviewStore(async () => "farm1").listReviews()).toEqual(["maff-M01", "aphis-A02"]);
     expect((fsMock.collection.mock.calls[0] as unknown[]).slice(1).join("/")).toBe("farms/farm1/reviews");

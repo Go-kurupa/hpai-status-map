@@ -126,10 +126,17 @@ describe("PRIVACY_NOTICE（文の正）", () => {
   });
 
   it("相談の画面で書いた文を Claude に送ること、保存もログへの記録もしないことが、プライバシーの説明と画面に出る", () => {
-    const line = "相談の画面で書いた文は、答えを作るために Claude（Anthropic）に送ります。保存もログへの記録もしません。";
+    const line = "相談の画面で書いた文は、答えを作るために Claude（Anthropic）に渡します。農場名、位置、記録は渡しません。入力した文は、この作品のサーバーには保存せず、ログにも残しません。";
     expect(PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs).toContain(line);
     renderPage();
     expect(pageText()).toContain(line);
+  });
+
+  it("対策の相談で足した見直しの記録（カードの番号、足した日時、足した人）が、集める情報に出る", () => {
+    const phrase = "対策の相談で『対策項目に足す』を押した見直しの記録（カードの番号、足した日時、足した人）";
+    expect(PRIVACY_NOTICE.find((s) => s.heading === "集める情報")!.paragraphs.join("")).toContain(phrase);
+    renderPage();
+    expect(pageText()).toContain(phrase);
   });
 
   it("選んだ町の保存の説明が、画面にも出る", () => {

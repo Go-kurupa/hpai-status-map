@@ -2,6 +2,7 @@
 // 画面に出すものはカードのデータから出す。Claude の返事（答えの文とカードの id）は、検査に通ったものだけを使う。
 // 落ちたら決まった文（OUT_OF_SCOPE_TEXT）を返す。
 import { normalizeForMatch } from "../text";
+import { findForbiddenPhrases } from "../wording";
 import { OUT_OF_SCOPE_TEXT } from "./scope";
 import type { ConsultCard } from "./types";
 
@@ -139,7 +140,7 @@ const fallbackOf = (failures: string[]): AskResult => ({ answer: OUT_OF_SCOPE_TE
 // cards は数字の検査に使う。渡さないときは数字を確かめられないので、数字を含む答えは通さない。
 // maxCards は使うカードの上限。許された id に絞り、重なりを除いた後の先頭の maxCards 枚だけを使う（数字の検査もその分だけ）。
 // extraText は相談の文。相談者が書いた数字（「300 羽の平飼い」の 300）は、答えにそのまま書いてよい。
-// 落ちたときの failures の符号: shape / claude_out_of_scope / no_valid_id / too_long / url / unknown_number:<数字> / unsupported_quantity:<語> / empty。通ったときは空。
+// 落ちたときの failures の符号: shape / claude_out_of_scope / no_valid_id / too_long / url / unknown_number:<数字> / unsupported_quantity:<語> / empty / forbidden_phrase。通ったときは空。
 export function validateAsk(
   raw: unknown,
   allowedIds: string[],
@@ -164,6 +165,8 @@ export function validateAsk(
   for (const n of new Set(unknownNumbers(answer, allowedNumbers(cited, extraText), maxCards))) failures.push(`unknown_number:${n}`);
   for (const w of unsupportedQuantities(answer, cited)) failures.push(`unsupported_quantity:${w}`);
   if (answer.trim() === "") failures.push("empty");
+  // 禁句（安全・安心など、請け合う語）。画面の文の決まり（wording.ts）を相談の答えにも当てる。語そのものは failures に残さない
+  if (findForbiddenPhrases(answer).length > 0) failures.push("forbidden_phrase");
   if (failures.length > 0) return fallbackOf(failures);
 
   return { answer, cardIds, outOfScope: false, failures: [] };

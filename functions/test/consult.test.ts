@@ -11,6 +11,7 @@ import type { ConsultAnswerCard, ConsultCard, ConsultSource } from "@hpai/shared
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
 import { OUT_OF_SCOPE_TEXT } from "@hpai/shared/consult/validate";
 import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
+import { findForbiddenPhrases } from "@hpai/shared/wording";
 import { CONSULT_EFFORT, CONSULT_MAX_CARDS, CONSULT_MAX_TOKENS, CONSULT_MODEL, CONSULT_SYSTEM, buildAskRequest } from "../src/consult/claude";
 import { loadConsultData } from "../src/consult/data";
 import { CONSULT_DAILY_LIMIT, CONSULT_JUDGE_DAILY_LIMIT, handleConsultAsk, type ConsultDeps } from "../src/consult/handler";
@@ -175,6 +176,11 @@ describe("Claude に渡すもの（buildAskRequest）", () => {
     expect(CONSULT_SYSTEM).not.toContain("caveats");
     expect(CONSULT_SYSTEM).toContain("カードの注意書きは画面に別に出るので、答えで繰り返しません");
     expect(CONSULT_SYSTEM).toContain(`${CONSULT_MAX_CARDS} 枚まで`);
+  });
+
+  it("CONSULT_SYSTEM は、請け合う言葉と不安をあおる言葉を使わないことを言う。指示の文そのものは禁句を含まない", () => {
+    expect(CONSULT_SYSTEM).toContain("請け合う言葉や不安をあおる言葉は使いません");
+    expect(findForbiddenPhrases(CONSULT_SYSTEM)).toEqual([]);
   });
 
   it("CONSULT_SYSTEM は、カードの id を答えに書かないことと、頻度の言い方をカードにあるときだけ使うことを言う", () => {
