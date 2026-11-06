@@ -1,4 +1,4 @@
-// 対策の相談の評価。evals/consult/cases.json の 22 問を、本番と同じ順（範囲外の語 → buildAskRequest → messages.create → decodeMessage → validateFollowup）で処理する。
+// 対策の相談の評価。evals/consult/cases.json の 22 問を、本番と同じ順（範囲外の語 → buildAskRequest → messages.create → decodeMessage → validateAsk）で処理する。
 // 予算・回数の仕組みは通さない（評価なので）。
 //
 //   bash scripts/with-dev-key.sh npx tsx scripts/consult/eval.ts --dry   Claude を呼ばない。語の見分け、呼ぶ問いの数、countTokens（無料）での費用の見積もり
@@ -17,7 +17,7 @@ import { parseCardsFile } from "@hpai/shared/consult/schema";
 import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { findTopic } from "@hpai/shared/consult/topics";
 import type { ConsultCard } from "@hpai/shared/consult/types";
-import { OUT_OF_SCOPE_TEXT, validateFollowup } from "@hpai/shared/consult/validate";
+import { OUT_OF_SCOPE_TEXT, validateAsk } from "@hpai/shared/consult/validate";
 import { buildAskRequest, CONSULT_MAX_CARDS, CONSULT_MODEL } from "../../functions/src/consult/claude";
 import { decodeMessage } from "../../functions/src/read/claude";
 
@@ -186,7 +186,7 @@ async function runOne(client: Anthropic, c: EvalCase, cards: ConsultCard[], stam
   const attempt = decodeMessage(message, z.unknown());
   const raw = attempt.ok ? (attempt.value as { outOfScope?: unknown } | null) : null;
   const outOfScopeRaw = typeof raw?.outOfScope === "boolean" ? raw.outOfScope : null;
-  const result = validateFollowup(attempt.ok ? attempt.value : null, cards.map((x) => x.id), cards, CONSULT_MAX_CARDS, q);
+  const result = validateAsk(attempt.ok ? attempt.value : null, cards.map((x) => x.id), cards, CONSULT_MAX_CARDS, q);
   const failures = [...(attempt.ok ? [] : [`claude:${attempt.reason}`]), ...result.failures];
   const j = judge(c, { outOfScope: result.outOfScope, cardIds: result.cardIds, answer: result.answer, failures });
   return {

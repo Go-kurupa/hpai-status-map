@@ -6,7 +6,7 @@
 // 入力は private/consult/cards-draft.json。ファイルは書き換えず、メモリの中だけで全カードを approved: true にする。
 // 質問は話題「長靴・服」の文（MEASURE_QUESTION）。カードは索引（cardId, action, appliesTo, evidence）だけを渡す。
 // 鍵は SDK が環境変数 ANTHROPIC_API_KEY から読む。ここでは読まず、表示もしない。
-// 返事の中身は画面に出さない。出すのは、秒数、usage、stop_reason、費用、validateFollowup の結果（outOfScope、カード数、failures の符号）と、
+// 返事の中身は画面に出さない。出すのは、秒数、usage、stop_reason、費用、validateAsk の結果（outOfScope、カード数、failures の符号）と、
 // 生の返事の数（outOfScope、cardIds の数、一覧にない id の数、答えの字数）だけ。
 // 生の返事（message 全体）は、公開しない場所（RAW_DIR、日時つきの JSON）に保存する。もう 1 回払わずに後から読めるように。
 // 下書きから外す 2 枚（EXCLUDED_IDS）は、R2 で cards.json ができるまでの間、本番と同じ 103 枚にそろえるため。
@@ -17,7 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { parseCardsFile } from "@hpai/shared/consult/schema";
 import type { ConsultCard } from "@hpai/shared/consult/types";
-import { validateFollowup } from "@hpai/shared/consult/validate";
+import { validateAsk } from "@hpai/shared/consult/validate";
 import { buildAskRequest, CONSULT_EFFORT, CONSULT_MAX_CARDS, CONSULT_MAX_TOKENS, CONSULT_MODEL } from "../../functions/src/consult/claude";
 import { decodeMessage } from "../../functions/src/read/claude";
 import { normalizeDraft } from "./verify-cards";
@@ -133,8 +133,8 @@ async function runYes(client: Anthropic, params: Anthropic.MessageCreateParamsNo
     return 1;
   }
   const ids = cards.map((c) => c.id);
-  const result = validateFollowup(attempt.value, ids, cards, CONSULT_MAX_CARDS, MEASURE_QUESTION);
-  console.log(`validateFollowup: outOfScope=${result.outOfScope} カード数=${result.cardIds.length} 答えの字数=${Array.from(result.answer).length}`);
+  const result = validateAsk(attempt.value, ids, cards, CONSULT_MAX_CARDS, MEASURE_QUESTION);
+  console.log(`validateAsk: outOfScope=${result.outOfScope} カード数=${result.cardIds.length} 答えの字数=${Array.from(result.answer).length}`);
   console.log(`failures: ${result.failures.length === 0 ? "なし" : result.failures.join(",")}`);
   const rawValue = attempt.value as { outOfScope?: unknown; cardIds?: unknown; answer?: unknown } | null;
   const rawIds = Array.isArray(rawValue?.cardIds) ? (rawValue.cardIds as unknown[]) : [];

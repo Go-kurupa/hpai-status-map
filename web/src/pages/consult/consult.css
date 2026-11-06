@@ -72,6 +72,10 @@
 .consult-advice p {
   margin: 0 0 4px;
 }
+/* 答えの改行（箇条書きの行）を保つ */
+.consult-answer {
+  white-space: pre-line;
+}
 .consult-advice-head {
   color: var(--advice-fg);
   font-size: 0.9rem;
@@ -122,6 +126,7 @@
   overflow-wrap: anywhere;
 }
 .consult-source,
+.consult-attribution,
 .consult-foreign,
 .consult-caveats {
   color: var(--sub);
@@ -134,8 +139,16 @@
   margin: 0 0 6px;
   padding-left: 1.1em;
 }
+.consult-processed {
+  margin: var(--s3) 0 0;
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.consult-attribution {
+  overflow-wrap: anywhere;
+}
 .consult-footer {
-  margin-top: var(--s3);
+  margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--divider);
   color: var(--sub);

@@ -1,27 +1,24 @@
 // 対策の相談の画面。相談の関数（consultAskCall）、カードの一覧、足した項目の口は偽物に差し替える。
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
-import type { ConsultCard, ConsultSource } from "@hpai/shared/consult/types";
+import { CONSULT_DAILY_LIMIT, type ConsultAnswerCard, type ConsultCard, type ConsultSource } from "@hpai/shared/consult/types";
 import { OUT_OF_SCOPE_TEXT } from "@hpai/shared/consult/validate";
 import { findWordingViolations } from "@hpai/shared/wording";
+import fs from "node:fs";
+import path from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecordStoreProvider } from "../../data/context";
 import type { RecordStore } from "../../data/types";
 import type { ConsultAskResponse } from "@hpai/shared/consult/types";
-import { CONSULT_TEXT } from "./consultTexts";
+import { CONSULT_TEXT, attributionText } from "./consultTexts";
 
 const box = vi.hoisted(() => ({
   ask: vi.fn(),
   reviews: { addReview: vi.fn(), listReviews: vi.fn(), removeReview: vi.fn() },
-  catalog: null as unknown,
-  catalogFail: false,
   auth: { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} } as unknown,
 }));
 vi.mock("../auth/callables", () => ({ consultAskCall: (...a: unknown[]) => box.ask(...a) }));
-vi.mock("./cardsData", () => ({
-  loadConsultCatalog: () => (box.catalogFail ? Promise.reject(new Error("読めません")) : Promise.resolve(box.catalog)),
-}));
 vi.mock("./reviewStore", () => ({ useReviewStore: () => box.reviews }));
 vi.mock("../auth/useAuthUser", () => ({ useAuthUser: () => box.auth }));
 
@@ -48,8 +45,14 @@ const CARD_US: ConsultCard = {
   caveats: [], conditionTags: [], approved: true,
 };
 
+// 応答のカードは、カードのデータに資料の情報が付いたもの（画面は静的な cards.json を読まない）
+function ans(card: ConsultCard, src: ConsultSource | undefined = SOURCES.find((x) => x.id === card.sourceId)): ConsultAnswerCard {
+  const s = src!;
+  return { ...card, source: { id: s.id, title: s.title, publisher: s.publisher, url: s.url, domestic: s.domestic, license: s.license } };
+}
+
 function reply(over: Partial<ConsultAskResponse> = {}): ConsultAskResponse {
-  return { answer: "履き替えの前後で動線を分けてください。", cards: [CARD_JP, CARD_US], outOfScope: false, notice: null, ...over };
+  return { answer: "履き替えの前後で動線を分けてください。", cards: [ans(CARD_JP), ans(CARD_US)], outOfScope: false, notice: null, ...over };
 }
 
 const store = { mode: "firestore" } as unknown as RecordStore;
@@ -70,8 +73,6 @@ beforeEach(() => {
   box.reviews.addReview.mockReset().mockResolvedValue(undefined);
   box.reviews.listReviews.mockReset().mockResolvedValue([]);
   box.reviews.removeReview.mockReset().mockResolvedValue(undefined);
-  box.catalog = { cards: new Map([CARD_JP, CARD_US].map((c) => [c.id, c])), sources: new Map(SOURCES.map((s) => [s.id, s])) };
-  box.catalogFail = false;
   box.auth = { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} };
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -174,7 +175,7 @@ describe("対策の相談の画面", () => {
   });
 
   it("前の相談が残り、新しい相談は下に足される（新しい相談の位置へ動く）", async () => {
-    box.ask.mockResolvedValueOnce(reply({ answer: "一つ目の答え" })).mockResolvedValueOnce(reply({ answer: "二つ目の答え", cards: [CARD_US] }));
+    box.ask.mockResolvedValueOnce(reply({ answer: "一つ目の答え" })).mockResolvedValueOnce(reply({ answer: "二つ目の答え", cards: [ans(CARD_US)] }));
     renderPage();
     fireEvent.change(input(), { target: { value: "一つ目の問い" } });
     fireEvent.click(askButton());
@@ -329,14 +330,13 @@ describe("対策の相談の画面", () => {
 
   it("資料のリンクは https だけ（http はリンクにしない）", async () => {
     const http = { ...SOURCES[0]!, url: "http://www.maff.go.jp/example.pdf" };
-    box.catalog = { cards: new Map(), sources: new Map([[http.id, http], [SOURCES[1]!.id, SOURCES[1]!]]) };
-    box.ask.mockResolvedValue(reply());
+    box.ask.mockResolvedValue(reply({ cards: [ans(CARD_JP, http), ans(CARD_US)] }));
     renderPage();
     fireEvent.change(input(), { target: { value: "長靴は？" } });
     fireEvent.click(askButton());
     await screen.findByText(CONSULT_TEXT.advice);
     const cards = screen.getAllByTestId("consult-card");
-    await waitFor(() => expect(within(cards[1]!).getByRole("link")).toBeTruthy());
+    expect(within(cards[1]!).getByRole("link")).toBeTruthy();
     expect(within(cards[0]!).queryByRole("link")).toBeNull();
   });
 
@@ -382,8 +382,9 @@ describe("対策の相談の画面", () => {
     expect(screen.queryByLabelText(CONSULT_TEXT.questionLabel)).toBeNull();
   });
 
-  it("カードの一覧を読めなくても、答えとカードの対策・引用・根拠の札は出る（資料の行だけ省く）", async () => {
-    box.catalogFail = true;
+  it("資料の行は応答の source から出す。静的なカードの一覧（/consult/cards.json）は読まない", async () => {
+    const fetchSpy = vi.fn(() => Promise.reject(new Error("読まないはず")));
+    vi.stubGlobal("fetch", fetchSpy);
     box.ask.mockResolvedValue(reply());
     renderPage();
     fireEvent.change(input(), { target: { value: "長靴は？" } });
@@ -391,7 +392,99 @@ describe("対策の相談の画面", () => {
     await screen.findByText(CONSULT_TEXT.advice);
     const first = within(screen.getAllByTestId("consult-card")[0]!);
     expect(first.getByText(CARD_JP.action)).toBeTruthy();
-    expect(first.queryByRole("link")).toBeNull();
+    expect(first.getByRole("link", { name: /飼養衛生管理基準遵守指導の手引き/ })).toBeTruthy();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("notice: unavailable は「答えを作れませんでした…」を出す。回数を使ったことは書かず、決まった文もおすすめの枠もカードも出さない", async () => {
+    box.ask.mockResolvedValue({ answer: "", cards: [], outOfScope: false, notice: "unavailable" });
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    const note = await screen.findByText("答えを作れませんでした。時間をおいて、もう一度お試しください。");
+    expect(note.getAttribute("role")).toBe("status");
+    expect(note.textContent).not.toMatch(/回数|使い切/u);
+    expect(screen.queryByText(OUT_OF_SCOPE_TEXT)).toBeNull();
+    expect(screen.queryByText(CONSULT_TEXT.advice)).toBeNull();
+    expect(screen.queryAllByTestId("consult-card")).toHaveLength(0);
+  });
+
+  it("審査員の入口でも unavailable は同じ文", async () => {
+    box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
+    box.ask.mockResolvedValue({ answer: "", cards: [], outOfScope: false, notice: "unavailable" });
+    renderPage("/consult?judge=1");
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    expect(await screen.findByText(CONSULT_TEXT.unavailable)).toBeTruthy();
+  });
+
+  it("おすすめの文の改行が保たれる（段落の文字列はそのまま、CSS は white-space: pre-line）", async () => {
+    const text = "1. 裏口で履き替える。\n2. 動線を分ける。\n3. 業者に服を貸す。";
+    box.ask.mockResolvedValue(reply({ answer: text }));
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    const answer = screen.getByTestId("consult-advice").querySelector(".consult-answer")!;
+    expect(answer.textContent).toBe(text);
+    const css = fs.readFileSync(path.join(__dirname, "consult.css"), "utf8");
+    expect(css).toMatch(/\.consult-answer\s*\{[^}]*white-space:\s*pre-line/u);
+  });
+
+  describe("資料の帰属（許可証ごとの短い文）", () => {
+    const withLicense = (license: ConsultSource["license"], over: Partial<ConsultSource> = {}) => {
+      const src = { ...SOURCES[0]!, license, ...over };
+      return reply({ cards: [ans(CARD_JP, src)] });
+    };
+    const attribution = async (r: ConsultAskResponse) => {
+      box.ask.mockResolvedValue(r);
+      renderPage();
+      fireEvent.change(input(), { target: { value: "長靴は？" } });
+      fireEvent.click(askButton());
+      await screen.findByText(CONSULT_TEXT.advice);
+      return within(screen.getByTestId("consult-card")).getByTestId("consult-attribution").textContent;
+    };
+
+    it("PDL1.0: 出典: 〈発行者〉『〈題〉』を加工して作成", async () => {
+      expect(await attribution(withLicense("PDL1.0"))).toBe("出典: 農林水産省『飼養衛生管理基準遵守指導の手引き』を加工して作成");
+    });
+    it("CC BY 4.0: 〈題〉（CC BY 4.0、URL ）。要約と抜き出しは当サイト", async () => {
+      expect(await attribution(withLicense("CC BY 4.0"))).toBe(
+        "飼養衛生管理基準遵守指導の手引き（CC BY 4.0、https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト",
+      );
+    });
+    it("OGL v3.0: Contains public sector information licensed under the Open Government Licence v3.0.", async () => {
+      expect(await attribution(withLicense("OGL v3.0"))).toBe("Contains public sector information licensed under the Open Government Licence v3.0.");
+    });
+    it("US Gov: 米国政府の著作物", async () => {
+      expect(await attribution(withLicense("US Gov"))).toBe("米国政府の著作物");
+    });
+  });
+
+  it("帰属の文は禁句を含まない", () => {
+    for (const license of ["PDL1.0", "CC BY", "CC BY 4.0", "OGL v3.0", "US Gov"] as const) {
+      const src = { ...SOURCES[0]!, license };
+      expect(findWordingViolations(attributionText({ id: src.id, title: src.title, publisher: src.publisher, url: src.url, domestic: src.domestic, license }))).toEqual([]);
+    }
+  });
+
+  it("画面の下の 1 行の前に、要約・加工の断りが出る（回答の前でも出る）", () => {
+    renderPage();
+    const note = screen.getByText("カードの対策・効く条件・注意書きは、資料を要約・加工したものです。引用は原文のままです。");
+    const footer = screen.getByText(CONSULT_TEXT.footer);
+    expect(note.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("入力欄の近くに「農場の名前や場所は書かないでください。」が出る", () => {
+    renderPage();
+    const hint = screen.getByText("農場の名前や場所は書かないでください。");
+    expect(hint.compareDocumentPosition(input()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("回数の文の「10 回」は shared の CONSULT_DAILY_LIMIT から組む", () => {
+    expect(CONSULT_DAILY_LIMIT).toBe(10);
+    expect(CONSULT_TEXT.dailyLimit).toBe(`今日の相談の回数（${CONSULT_DAILY_LIMIT} 回）を使い切りました。明日また使えます。`);
   });
 
   it("画面の文言に禁句がない", () => {

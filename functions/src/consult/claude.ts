@@ -13,8 +13,9 @@ import { decodeMessage, type ReadAttempt } from "../read/claude";
 export const CONSULT_MODEL = "claude-opus-5-5";
 // 考える量。まず "low" で、測って決める。
 export const CONSULT_EFFORT = "low" as const;
-// 常に考える（thinking は送らない）ので、考える分も含めて余裕を持たせる。測って絞る。
-export const CONSULT_MAX_TOKENS = 8000;
+// 常に考える（thinking は送らない）ので、考える分も含めて余裕を持たせる。実測（evals/consult/results-2026-11-06T13-27-30-326Z.json の 8 問）の出力は 387〜475 トークン。
+// 上限は最悪の 1 回の費用を決める（docs/consult-cost.md）。
+export const CONSULT_MAX_TOKENS = 2000;
 /** 1 回の答えで選ぶカードの上限。 */
 export const CONSULT_MAX_CARDS = 5;
 
@@ -22,6 +23,7 @@ export const CONSULT_SYSTEM = [
   "あなたは養鶏場の鳥インフルエンザ対策の相談に答えます。根拠にしてよいのは、user の JSON の中の cards に書かれたカードだけです。カードにない数字・事実・手順を書きません。URL を書きません。",
   `user の JSON には question と cards があります。cards は確認済みのカードの索引（cardId、対策 action、効く条件 appliesTo、根拠の強さ evidence、根拠の補足 evidenceNote）です。question に関係するカードを ${CONSULT_MAX_CARDS} 枚まで選び、cardIds に cardId を入れます。`,
   "answer には、選んだカードをもとにしたおすすめを、400 字以内で短く書きます。カードの注意書きは画面に別に出るので、答えで繰り返しません。",
+  "答えに書いた事実の元になったカードは、必ず cardIds に入れます。",
   "カードの id（cardId）は cardIds にだけ入れ、答えの文には書きません。画面が選んだカードを答えの下に並べます。",
   "「多く」「ほとんど」「半数」のような頻度や件数の言い方は、カードの evidenceNote にその言い方があるときだけ使います。evidenceNote に「件数は書かれていない」とあるときは、件数や頻度を書きません。",
   "question に相談者が書いた農場の様子（飼い方、規模、場所の条件など）があれば、それに合うカードを選び、答えもそれに合わせます。カードの appliesTo に合わない点があれば、その旨を書きます。農場の様子が書かれていなければ、推測して補いません。",

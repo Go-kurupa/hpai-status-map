@@ -56,9 +56,9 @@ export interface ConsultCard {
   // 資料の中の場所（章、頁など）。
   locator: string;
   caveats: string[];
-  // 条件の印。相談の関数は使わない。
+  // 条件の印。相談の関数も画面も使わない。data/consult/cards.json と scripts/consult の組み立て・照合が持つ（カードの分類の記録として残す）。
   conditionTags: string[];
-  // 引用が原文にあると、プログラムが照合したか。
+  // 引用が原文にあると、プログラムが照合したか。scripts/consult の照合が書く記録で、相談の関数も画面も読まない。
   quoteVerified?: boolean;
   // 作者が「使う」と決めたか。使うカードは true だけ。
   approved: boolean;
@@ -69,13 +69,24 @@ export interface ConsultCardsFile {
   cards: ConsultCard[];
 }
 
+/** 会員 1 人が 1 日（日本時間）に頼める回数（話題と文の合計）。関数と画面の文が同じ数を使う。 */
+export const CONSULT_DAILY_LIMIT = 10;
+
 // 相談の関数（consultAsk）の返事。関数と画面が同じ型を使う。
-export type ConsultNotice = null | "daily_limit" | "budget_stop";
+//  - daily_limit / budget_stop: Claude を呼ばなかった（1 日の回数、月の予算）
+//  - unavailable: Claude を呼んだが答えを作れなかった（通信の失敗、形の違い、途中で切れた、鍵を読めない）。拒否は含まない
+export type ConsultNotice = null | "daily_limit" | "budget_stop" | "unavailable";
+
+/** 画面に出す資料の情報（応答のカードに付ける。静的な cards.json に頼らずに出典を出すため）。 */
+export type ConsultSourceInfo = Pick<ConsultSource, "id" | "title" | "publisher" | "url" | "domestic" | "license">;
+
+/** 応答のカード。カードのデータそのものに、その資料の情報を付ける。 */
+export type ConsultAnswerCard = ConsultCard & { source: ConsultSourceInfo };
 
 export interface ConsultAskResponse {
   answer: string;
-  cards: ConsultCard[];
+  cards: ConsultAnswerCard[];
   outOfScope: boolean;
-  /** Claude を呼ばなかった理由（予算の停止、1 日の回数）。呼んだときと、範囲外の問いは null */
+  /** Claude を呼ばなかった理由（予算の停止、1 日の回数）か、答えを作れなかったこと（unavailable）。それ以外は null */
   notice: ConsultNotice;
 }

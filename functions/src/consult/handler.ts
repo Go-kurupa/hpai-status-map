@@ -1,7 +1,8 @@
 // 対策の相談: consultAsk の中身。
 // 画面に出すカードの内容は、カードのデータから出す。Claude の返事（答えの文とカードの id）は検査に通ったものだけを使う。
-// 検査に落ちたとき、Claude が使えないとき、予算が止まっているときは、決まった文（OUT_OF_SCOPE_TEXT）に戻す。
-// 順序: 入力の検査 → 範囲外の問い → 資料 → 予算 → 回数の確保 → Claude → 使用量を積む → 返事の検査。
+// 返事の検査に落ちたとき、Claude が拒否したとき、予算が止まっているときは、決まった文（OUT_OF_SCOPE_TEXT）に戻す。
+// Claude の呼び出しが失敗したとき（鍵を読めない、通信の失敗、途中で切れた、形の違い）は決まった文を出さず、notice: "unavailable"（答えは空）を返す。
+// 順序: 入力の検査 → 範囲外の問い → 資料 → 予算 → 回数の確保 → 鍵を読んで client を作る → Claude → 使用量を積む → 返事の検査。
 // 入力の問いの文はログにも、エラーの文にも出さない。農場の名前、位置、記録は読まない。
 // このファイルは db を受け取らない。予算と回数の読み書きは deps の関数（index.ts が usage/ を差し込む）。
 import type Anthropic from "@anthropic-ai/sdk";
@@ -11,15 +12,16 @@ import { isDraftBudgetStopped } from "@hpai/shared/budget";
 import type { TokenUsage, UsageMonth } from "@hpai/shared/budget";
 import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { findTopic } from "@hpai/shared/consult/topics";
-import type { ConsultAskResponse, ConsultCard, ConsultNotice } from "@hpai/shared/consult/types";
-import { OUT_OF_SCOPE_TEXT, validateFollowup } from "@hpai/shared/consult/validate";
+import { CONSULT_DAILY_LIMIT } from "@hpai/shared/consult/types";
+import type { ConsultAnswerCard, ConsultAskResponse, ConsultCard, ConsultNotice, ConsultSource } from "@hpai/shared/consult/types";
+import { OUT_OF_SCOPE_TEXT, validateAsk } from "@hpai/shared/consult/validate";
 import type { RuntimeSettings } from "@hpai/shared/types";
 import type { ReadAttempt } from "../read/claude";
-import { CONSULT_MAX_CARDS, CONSULT_MODEL, buildAskRequest, callAsk } from "./claude";
+import { CONSULT_MAX_CARDS, CONSULT_MODEL, buildAskRequest, callAsk, type AskOutput } from "./claude";
 import type { ConsultData } from "./data";
 
-/** 会員 1 人が 1 日（日本時間）に頼める回数（話題と文の合計）。 */
-export const CONSULT_DAILY_LIMIT = 10;
+/** 会員 1 人が 1 日（日本時間）に頼める回数（話題と文の合計）。画面の文と同じ数（shared が正）。 */
+export { CONSULT_DAILY_LIMIT };
 /** 審査員の入口の、全体の 1 日の回数。 */
 export const CONSULT_JUDGE_DAILY_LIMIT = 30;
 /** 聞く文の長さの上限（文字の数）。 */
@@ -34,7 +36,7 @@ export interface ConsultCaller {
 }
 
 export interface ConsultDeps {
-  /** Claude の client を作る。鍵はここで読む（呼ぶのは、権限と入力の検査と予算と回数を通った後だけ） */
+  /** Claude の client を作る。鍵はここで読む（呼ぶのは、権限と入力の検査と予算と回数を通った後だけ。throw したら unavailable） */
   client(): Anthropic;
   now(): Date;
   settings(): Promise<RuntimeSettings>;
@@ -116,9 +118,9 @@ async function gate(deps: ConsultDeps, who: Who, now: Date): Promise<Gate> {
   return { ok: true, settings };
 }
 
-/** ログに残す理由の種類。unknown_number:<数字> は数字を落として種類だけにする。 */
+/** ログに残す理由の種類。unknown_number:<数字>、unsupported_quantity:<語> は後ろを落として種類だけにする。 */
 function failureKind(f: string): string {
-  return f.replace(/^unknown_number:.*$/u, "unknown_number");
+  return f.replace(/^unknown_number:.*$/u, "unknown_number").replace(/^unsupported_quantity:.*$/u, "unsupported_quantity");
 }
 
 /** 拒否や途中で切れた呼び出しも課金されるので、usage があれば積む。積めなくても結果は返す。 */
@@ -131,10 +133,21 @@ async function recordUsage<T>(deps: ConsultDeps, attempt: ReadAttempt<T>, now: D
   }
 }
 
+/** カードに資料の情報を付ける。資料が見つからない（読み込みの検査で起きない）カードは出さない。 */
+function answerCardOf(card: ConsultCard | undefined, sources: ReadonlyMap<string, ConsultSource>): ConsultAnswerCard[] {
+  const s = card ? sources.get(card.sourceId) : undefined;
+  if (!card || !s) return [];
+  return [{ ...card, source: { id: s.id, title: s.title, publisher: s.publisher, url: s.url, domestic: s.domestic, license: s.license } }];
+}
+
 /** `{question | topicId, judge?}` → おすすめの文と引いたカード。会員だけ（judge: true のときはログインなし）。 */
 export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller | null, data: unknown): Promise<ConsultAskResponse> {
   const who = authorize(caller, data);
   const question = parseAsk(data);
+  const unavailable = (w: Who, kind: string): ConsultAskResponse => {
+    logger.info("対策の相談(ask)", { outOfScope: false, notice: "unavailable", judge: w.judge, failureKinds: [kind] });
+    return { answer: "", cards: [], outOfScope: false, notice: "unavailable" };
+  };
   const fixed = (notice: ConsultNotice): ConsultAskResponse => ({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: true, notice });
 
   // 健康・区域・診断の問いは、Claude を呼ばず、回数も費用も使わずに決まった文を返す
@@ -159,12 +172,22 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
     return fixed(g.notice);
   }
 
-  const attempt = await callAsk(deps.client(), buildAskRequest(allowed, question));
+  // 鍵を読む処理も、回数を確保した後の try の中。失敗は Claude の呼び出しの失敗と同じ（unavailable）
+  let attempt: ReadAttempt<AskOutput>;
+  try {
+    attempt = await callAsk(deps.client(), buildAskRequest(allowed, question));
+  } catch (e) {
+    logger.error("対策の相談: Claude の準備に失敗しました", { error: e instanceof Error ? e.name : "unknown" });
+    return unavailable(who, "client_unavailable");
+  }
   await recordUsage(deps, attempt, now, g.settings);
+  // 拒否は決まった文のまま（検査に回す）。それ以外の失敗は、答えを作れなかったこととして伝える
+  if (!attempt.ok && attempt.reason !== "refusal") return unavailable(who, `claude:${attempt.reason}`);
 
   // 第 3 引数のカードと第 5 引数の相談の文は数字の検査に使う（渡さないと、数字を含む答えが全部落ちる）。5 枚を超えたら先頭の 5 枚だけ使う
-  const result = validateFollowup(attempt.ok ? attempt.value : null, allowed.map((c) => c.id), allowed, CONSULT_MAX_CARDS, question);
+  const result = validateAsk(attempt.ok ? attempt.value : null, allowed.map((c) => c.id), allowed, CONSULT_MAX_CARDS, question);
   const byId = new Map(allowed.map((c) => [c.id, c]));
+  const sources = new Map(cards.sources.map((x) => [x.id, x]));
   logger.info("対策の相談(ask)", {
     outOfScope: result.outOfScope,
     notice: null,
@@ -174,7 +197,7 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
   });
   return {
     answer: result.answer,
-    cards: result.cardIds.map((id) => byId.get(id)).filter((c): c is ConsultCard => c !== undefined),
+    cards: result.cardIds.flatMap((id) => answerCardOf(byId.get(id), sources)),
     outOfScope: result.outOfScope,
     notice: null,
   };

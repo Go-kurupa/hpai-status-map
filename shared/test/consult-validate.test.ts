@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OUT_OF_SCOPE_TEXT } from "../src/consult/scope";
-import { stripCardRefs, validateFollowup } from "../src/consult/validate";
+import { stripCardRefs, validateAsk } from "../src/consult/validate";
 import type { ConsultCard } from "../src/consult/types";
 
 function makeCard(over: Partial<ConsultCard> & { id: string }): ConsultCard {
@@ -23,56 +23,56 @@ function makeCard(over: Partial<ConsultCard> & { id: string }): ConsultCard {
 const a = makeCard({ id: "a", quote: "網目は 2 cm 以下", appliesTo: "100 羽以上の鶏舎", action: "防鳥ネットを張る", conditionTags: ["water-near"] });
 const b = makeCard({ id: "b", conditionTags: ["wild-seen"] });
 
-describe("validateFollowup", () => {
+describe("validateAsk", () => {
   const cards = [a, b];
   const ok = { answer: "網目は 2 cm 以下とされています。", cardIds: ["a"], outOfScope: false };
 
   it("検査を通った答えはそのまま返す", () => {
-    expect(validateFollowup(ok, ["a", "b"], cards)).toEqual({ answer: ok.answer, cardIds: ["a"], outOfScope: false, failures: [] });
+    expect(validateAsk(ok, ["a", "b"], cards)).toEqual({ answer: ok.answer, cardIds: ["a"], outOfScope: false, failures: [] });
   });
 
   it("outOfScope: true のとき、決まった文を返す", () => {
-    const r = validateFollowup({ answer: "何か", cardIds: ["a"], outOfScope: true }, ["a"], cards);
+    const r = validateAsk({ answer: "何か", cardIds: ["a"], outOfScope: true }, ["a"], cards);
     expect(r).toEqual({ answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true, failures: ["claude_out_of_scope"] });
   });
 
   it("形が違う、cardIds が空、許された id がないときは、決まった文を返す", () => {
     for (const raw of [null, "x", {}, { answer: 1, cardIds: ["a"] }, { answer: "答え", cardIds: [] }, { answer: "答え", cardIds: ["zzz"] }, { answer: "答え", cardIds: "a" }]) {
-      expect(validateFollowup(raw, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+      expect(validateAsk(raw, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
     }
   });
 
   it("cardIds は許された id だけに絞る", () => {
-    const r = validateFollowup({ answer: "答え", cardIds: ["zzz", "b", "b"] }, ["a", "b"], cards);
+    const r = validateAsk({ answer: "答え", cardIds: ["zzz", "b", "b"] }, ["a", "b"], cards);
     expect(r.cardIds).toEqual(["b"]);
     expect(r.outOfScope).toBe(false);
   });
 
   it("500 字を超える答え、URL を含む答えは、決まった文を返す", () => {
-    expect(validateFollowup({ answer: "あ".repeat(501), cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(validateAsk({ answer: "あ".repeat(501), cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
     // 指示は 400 字だが、検査の上限は 500 字（わずかな超過で捨てない）
-    for (const n of [400, 401, 500]) expect(validateFollowup({ answer: "あ".repeat(n), cardIds: ["a"] }, ["a"], cards).answer).toBe("あ".repeat(n));
-    expect(validateFollowup({ answer: "https://evil.example を見て", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+    for (const n of [400, 401, 500]) expect(validateAsk({ answer: "あ".repeat(n), cardIds: ["a"] }, ["a"], cards).answer).toBe("あ".repeat(n));
+    expect(validateAsk({ answer: "https://evil.example を見て", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
   });
 
   it("引いたカードにない数字を含む答えは、決まった文を返す", () => {
-    expect(validateFollowup({ answer: "3 倍になります", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(validateAsk({ answer: "3 倍になります", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
     // 引いていない別のカードの数字も不可
-    expect(validateFollowup({ answer: "網目は 2 cm 以下", cardIds: ["b"] }, ["a", "b"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(validateAsk({ answer: "網目は 2 cm 以下", cardIds: ["b"] }, ["a", "b"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
   });
 
   it("カードにない三倍を含む答えは落ち、十分には落ちない", () => {
-    expect(validateFollowup({ answer: "被害は三倍になります", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
-    expect(validateFollowup({ answer: "十分に離してください", cardIds: ["a"] }, ["a"], cards).answer).toBe("十分に離してください");
+    expect(validateAsk({ answer: "被害は三倍になります", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(validateAsk({ answer: "十分に離してください", cardIds: ["a"] }, ["a"], cards).answer).toBe("十分に離してください");
   });
 
   it("カードの一覧を渡さないときは、数字を確かめられないので数字を含む答えを通さない", () => {
-    expect(validateFollowup(ok, ["a"]).answer).toBe(OUT_OF_SCOPE_TEXT);
-    expect(validateFollowup({ answer: "網目は細かいほどよい", cardIds: ["a"] }, ["a"]).answer).toBe("網目は細かいほどよい");
+    expect(validateAsk(ok, ["a"]).answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(validateAsk({ answer: "網目は細かいほどよい", cardIds: ["a"] }, ["a"]).answer).toBe("網目は細かいほどよい");
   });
 
   it("落ちた道筋ごとの failures の符号。通ったときは空", () => {
-    const f = (raw: unknown, extra = "") => validateFollowup(raw, ["a", "b"], cards, 5, extra).failures;
+    const f = (raw: unknown, extra = "") => validateAsk(raw, ["a", "b"], cards, 5, extra).failures;
     expect(f(ok)).toEqual([]);
     // 形が違う
     for (const raw of [null, "x", {}, { answer: 1, cardIds: ["a"] }, { answer: "答え", cardIds: "a" }]) expect(f(raw)).toEqual(["shape"]);
@@ -98,27 +98,27 @@ describe("validateFollowup", () => {
   it("maxCards を渡すと、絞った後の先頭の maxCards 枚だけを使う（同じ id と許されない id は数えない）", () => {
     const many = ["c1", "c2", "c3", "c4", "c5", "c6", "c7"].map((id) => makeCard({ id }));
     const ids = many.map((c) => c.id);
-    const r = validateFollowup({ answer: "答え", cardIds: ["zzz", "c1", "c1", "c2", "c3", "c4", "c5", "c6", "c7"] }, ids, many, 5);
+    const r = validateAsk({ answer: "答え", cardIds: ["zzz", "c1", "c1", "c2", "c3", "c4", "c5", "c6", "c7"] }, ids, many, 5);
     expect(r.cardIds).toEqual(["c1", "c2", "c3", "c4", "c5"]);
     expect(r.outOfScope).toBe(false);
     // 渡さないときは絞らない
-    expect(validateFollowup({ answer: "答え", cardIds: ids }, ids, many).cardIds).toEqual(ids);
+    expect(validateAsk({ answer: "答え", cardIds: ids }, ids, many).cardIds).toEqual(ids);
   });
 
   it("カードの evidenceNote にある数字は通る。ない数字は落ちる", () => {
     const note = makeCard({ id: "n", evidenceNote: "調査で 12 農場のうち 7 農場に破損があった" });
-    expect(validateFollowup({ answer: "12 農場のうち 7 農場でした", cardIds: ["n"] }, ["n"], [note]).failures).toEqual([]);
-    expect(validateFollowup({ answer: "12 農場のうち 8 農場でした", cardIds: ["n"] }, ["n"], [note]).failures).toEqual(["unknown_number:8"]);
+    expect(validateAsk({ answer: "12 農場のうち 7 農場でした", cardIds: ["n"] }, ["n"], [note]).failures).toEqual([]);
+    expect(validateAsk({ answer: "12 農場のうち 8 農場でした", cardIds: ["n"] }, ["n"], [note]).failures).toEqual(["unknown_number:8"]);
   });
 
   it("extraText（相談の文）に書かれた数字は通る。ない数字、別の数字は落ちる", () => {
-    expect(validateFollowup({ answer: "300 羽の平飼いなら見直します", cardIds: ["a"] }, ["a"], cards, 5, "300 羽の平飼いです").answer).toBe("300 羽の平飼いなら見直します");
+    expect(validateAsk({ answer: "300 羽の平飼いなら見直します", cardIds: ["a"] }, ["a"], cards, 5, "300 羽の平飼いです").answer).toBe("300 羽の平飼いなら見直します");
     // 全角の数字も同じ数字、漢数字の数量も同じ
-    expect(validateFollowup({ answer: "300 羽なら見直します", cardIds: ["a"] }, ["a"], cards, 5, "３００羽です").answer).toBe("300 羽なら見直します");
-    expect(validateFollowup({ answer: "二十羽なら見直します", cardIds: ["a"] }, ["a"], cards, 5, "20 羽です").answer).toBe("二十羽なら見直します");
-    expect(validateFollowup({ answer: "500 羽なら見直します", cardIds: ["a"] }, ["a"], cards, 5, "300 羽の平飼いです").answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(validateAsk({ answer: "300 羽なら見直します", cardIds: ["a"] }, ["a"], cards, 5, "３００羽です").answer).toBe("300 羽なら見直します");
+    expect(validateAsk({ answer: "二十羽なら見直します", cardIds: ["a"] }, ["a"], cards, 5, "20 羽です").answer).toBe("二十羽なら見直します");
+    expect(validateAsk({ answer: "500 羽なら見直します", cardIds: ["a"] }, ["a"], cards, 5, "300 羽の平飼いです").answer).toBe(OUT_OF_SCOPE_TEXT);
     // 渡さなければ今までどおり落ちる
-    expect(validateFollowup({ answer: "300 羽なら見直します", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(validateAsk({ answer: "300 羽なら見直します", cardIds: ["a"] }, ["a"], cards).answer).toBe(OUT_OF_SCOPE_TEXT);
   });
 
   it("数字の検査は、使う maxCards 枚のカードだけで行う（外れた 6 枚目の数字は通らない）", () => {
@@ -126,13 +126,14 @@ describe("validateFollowup", () => {
     const sixth = makeCard({ id: "c6", action: "7 日ごとに見直す" });
     const all = [...six, sixth];
     const ids = all.map((c) => c.id);
-    expect(validateFollowup({ answer: "7 日ごとに見直します", cardIds: ids }, ids, all, 5).answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(validateAsk({ answer: "7 日ごとに見直します", cardIds: ids }, ids, all, 5).answer).toBe(OUT_OF_SCOPE_TEXT);
   });
 });
 
-describe("validateFollowup: 箇条書きの番号と項目の数は事実の数字として数えない（Ruling 20）", () => {
+describe("validateAsk: 箇条書きの番号と項目の数は事実の数字として数えない（Ruling 20）", () => {
   const ids = ["maff-M06a", "papers-C04a", "papers-C03", "maff-M07a", "maff-M05"];
-  const many = ids.map((id) => makeCard({ id, action: "履き替える", appliesTo: "鶏舎に入る農場", quote: "長靴を交換する" }));
+  // 本物の答えは「例が多く見られました」と書くので、カードの evidenceNote にも「多く」を置く（数量の語の検査）
+  const many = ids.map((id) => makeCard({ id, action: "履き替える", appliesTo: "鶏舎に入る農場", quote: "長靴を交換する", evidenceNote: "多くの例で見られた" }));
   // 本物の返事（2026-11-07 の実測）。数字は箇条書きの番号と「3点」だけ。
   const REAL_ANSWER = [
     "まず見直したいのは、次の3点です。",
@@ -141,7 +142,7 @@ describe("validateFollowup: 箇条書きの番号と項目の数は事実の数�
     "3. 動線の区分：着替え・履き替えの前と後で、すのこや分離板を使って保管場所を分け、一方通行にします。",
     "あわせて、外部事業者には農場で用意した服と長靴を使ってもらうこと、複数の衛生管理区域がある場合は区域ごとに更衣することも確認しましょう。",
   ].join("\n");
-  const check = (answer: string, extra = "") => validateFollowup({ answer, cardIds: ids }, ids, many, 5, extra);
+  const check = (answer: string, extra = "") => validateAsk({ answer, cardIds: ids }, ids, many, 5, extra);
 
   it("本物の答え（番号 1. 2. 3. と「3点」）は通る", () => {
     const r = check(REAL_ANSWER);
@@ -177,8 +178,8 @@ describe("validateFollowup: 箇条書きの番号と項目の数は事実の数�
   });
 
   it("maxCards が 5 より小さいときは、それを超える「N点」は数える", () => {
-    expect(validateFollowup({ answer: "4点です", cardIds: ids }, ids, many, 3).failures).toEqual(["unknown_number:4"]);
-    expect(validateFollowup({ answer: "3点です", cardIds: ids }, ids, many, 3).failures).toEqual([]);
+    expect(validateAsk({ answer: "4点です", cardIds: ids }, ids, many, 3).failures).toEqual(["unknown_number:4"]);
+    expect(validateAsk({ answer: "3点です", cardIds: ids }, ids, many, 3).failures).toEqual([]);
   });
 });
 
@@ -201,12 +202,12 @@ describe("答えの文のカードの id の書き込みを取り除く（Ruling
 
   const idsA = ["maff-M01", "maff-M02a", "maff-M03", "maff-M11a", "maff-M34"];
   const idsB = ["maff-M13a", "maff-M01", "maff-M34", "maff-M31", "papers-C15"];
-  const mk = (ids: string[]) => ids.map((id) => makeCard({ id, action: "確認する", appliesTo: "農場", quote: "網目は 2cm 以下。毎週 1 回の点検。5,000 羽以上の商業農場。" }));
+  const mk = (ids: string[]) => ids.map((id) => makeCard({ id, action: "確認する", appliesTo: "農場", quote: "網目は 2cm 以下。毎週 1 回の点検。5,000 羽以上の商業農場。", evidenceNote: "多くの農場で確認された" }));
   const ANSWER_A = "農場の様子が書かれていないため、一般的な見直し点をまとめます。\n1. 防鳥ネットは網目2cm以下で設置し、定期的に破損を確認・修繕します（基準上の義務、maff-M01）。\n2. 家きん舎・堆肥舎の防鳥ネットだけでなく、除糞・集卵設備の開口部や壁の破損も点検し、野鳥・野生動物が入れる隙間をなくします。こうした破損や隙間は発生農場で多く確認されています（maff-M02a）。\n3. 壁面やネットの破損を放置しないこと。イタチや野鳥の侵入・食害を経験した農場では特に重要です（maff-M03）。\n4. 集卵ベルトのシャッターや鶏卵・鶏糞の搬出口の覆いも確認し、侵入口を減らします。対象は、これらの設備が屋外に開口している農場です（maff-M11a）。\n5. 点検は毎週決めた曜日に行うなど、習慣化すると漏れを防げます。これは小規模農家向けマニュアルの例です（maff-M34）。";
   const ANSWER_B = "裏の田んぼに冬に水が張る点を踏まえ、次を優先して見直すことをおすすめします。\n1. 水田への対策：近くに水田がある農場向けの対策として、水抜き、テグス・忌避テープ、水田の耕起、雑草や不要な樹木の除去が挙げられています（maff-M13a/M13b）。田んぼが家きん舎からどのくらい離れているかを確認し、所有者や地域と相談して進めてください。\n2. 鶏舎の防鳥ネット：網目2cm以下のネットを張り、破損がないか定期的に確認・修繕します（maff-M01）。\n3. 週1回の点検：小規模農家向けの例として、毎週決めた曜日に防護柵・防鳥ネットの破損と野生動物の侵入を確認する方法があります（maff-M34）。\n4. 飼料・水の管理：飼料や給水設備に野鳥・ねずみの排せつ物が入らないようにします（maff-M31）。\nなお、水辺の近さと発生の関連を示した研究（papers-C15）は5,000羽以上の商業農場が対象で、300羽の平飼いにそのまま当てはまるとは言えません。";
 
   it("本物の答え（防鳥ネット）は、id を取り除いた後に通る。answer に id の形が残らない", () => {
-    const r = validateFollowup({ answer: ANSWER_A, cardIds: idsA }, idsA, mk(idsA), 5);
+    const r = validateAsk({ answer: ANSWER_A, cardIds: idsA }, idsA, mk(idsA), 5);
     expect(r.failures).toEqual([]);
     expect(r.outOfScope).toBe(false);
     expect(r.answer).not.toMatch(ID_SHAPE);
@@ -216,7 +217,7 @@ describe("答えの文のカードの id の書き込みを取り除く（Ruling
 
   it("本物の答え（裏の田んぼ。433 字）は、id の分を除いた長さで通る。相談の文の数字（300 羽）も通る", () => {
     expect(Array.from(ANSWER_B).length).toBeGreaterThan(400);
-    const r = validateFollowup({ answer: ANSWER_B, cardIds: idsB }, idsB, mk(idsB), 5, "裏の田んぼに冬に水が張ります。300 羽の平飼いです");
+    const r = validateAsk({ answer: ANSWER_B, cardIds: idsB }, idsB, mk(idsB), 5, "裏の田んぼに冬に水が張ります。300 羽の平飼いです");
     expect(r.failures).toEqual([]);
     expect(r.answer).not.toMatch(ID_SHAPE);
     expect(Array.from(r.answer).length).toBeLessThanOrEqual(500);
@@ -224,12 +225,56 @@ describe("答えの文のカードの id の書き込みを取り除く（Ruling
   });
 
   it("id 以外の数字は今までどおり落ちる（id を取り除いても）", () => {
-    const r = validateFollowup({ answer: "3倍に増えます（maff-M01）。", cardIds: ["maff-M01"] }, ["maff-M01"], mk(["maff-M01"]), 5);
+    const r = validateAsk({ answer: "3倍に増えます（maff-M01）。", cardIds: ["maff-M01"] }, ["maff-M01"], mk(["maff-M01"]), 5);
     expect(r.failures).toEqual(["unknown_number:3"]);
   });
 
   it("id を取り除いた後でも 500 字を超える答えは落ちる", () => {
-    const r = validateFollowup({ answer: "あ".repeat(501) + "（maff-M01）", cardIds: ["maff-M01"] }, ["maff-M01"], mk(["maff-M01"]), 5);
+    const r = validateAsk({ answer: "あ".repeat(501) + "（maff-M01）", cardIds: ["maff-M01"] }, ["maff-M01"], mk(["maff-M01"]), 5);
     expect(r.failures).toEqual(["too_long"]);
+  });
+});
+
+describe("validateAsk: 数量の語（半数・過半・大半・ほとんど・多く）は、選んだカードに同じ語があるときだけ", () => {
+  const plain = makeCard({ id: "q1", quote: "裏口で靴を替える", evidenceNote: "件数は書かれていない" });
+  const withWord = makeCard({ id: "q2", quote: "半数以上の農場で不備があった", evidenceNote: "ほとんどの例で見られた" });
+  const run = (answer: string, ids: string[], cards: ConsultCard[]) => validateAsk({ answer, cardIds: ids }, ids, cards, 5, "").failures;
+
+  it("カードにない語は落ちる（unsupported_quantity:<語>）", () => {
+    for (const w of ["半数", "過半", "大半", "ほとんど", "多く"]) {
+      expect(run(`外部の事業者の不備が${w}の農場で見られました。`, ["q1"], [plain, withWord])).toEqual([`unsupported_quantity:${w}`]);
+    }
+  });
+  it("選んだカードの quote か evidenceNote に同じ語があれば通る。選んでいないカードの語は数えない", () => {
+    expect(run("半数以上の農場で見られました。", ["q2"], [plain, withWord])).toEqual([]);
+    expect(run("ほとんどの例で見られました。", ["q2"], [plain, withWord])).toEqual([]);
+    expect(run("半数以上の農場で見られました。", ["q1"], [plain, withWord])).toEqual(["unsupported_quantity:半数"]);
+  });
+  it("語ごとに見る（半数がカードにあっても、多くは別）", () => {
+    expect(run("半数以上で、多くの例でした。", ["q2"], [plain, withWord])).toEqual(["unsupported_quantity:多く"]);
+  });
+  it("生の返事（2026-11-06 の boots-clothes。指示 4 の前のもの）の答えは「半数」で落ちる", () => {
+    const answer =
+      "あわせて、外部事業者には農場で用意した衣服・長靴を着せ、手指消毒を徹底してもらいます。発生農場の調査では、外部事業者の不備が半数以上の農場で見られました。";
+    expect(run(answer, ["q1"], [plain])).toEqual(["unsupported_quantity:半数"]);
+  });
+  it("落ちたら決まった文になる", () => {
+    const r = validateAsk({ answer: "ほとんどの農場で", cardIds: ["q1"] }, ["q1"], [plain], 5);
+    expect(r.answer).toBe(OUT_OF_SCOPE_TEXT);
+    expect(r.outOfScope).toBe(true);
+  });
+});
+
+describe("validateAsk: URL の形（ドメイン、hxxp、[.]）", () => {
+  const f = (answer: string) => validateAsk({ answer, cardIds: ["a"] }, ["a"], [a], 5).failures;
+  it("ドメインの形、hxxp、[.] を落とす", () => {
+    for (const s of ["example.com を見て", "詳しくは maff.go.jp へ", "evil.org/x", "a-b.net で", "foo.info", "bar.io です", "hxxp://x 見て", "example[.]com", "example(.)com", "ｅｘａｍｐｌｅ．ｃｏｍ"]) {
+      expect(f(s), s).toContain("url");
+    }
+  });
+  it("日本語の文の数字（2.5）や普通の文は落とさない", () => {
+    for (const s of ["網目は 2.5 倍ではありません", "鶏舎を見直します。次に長靴です。", "e.g. info を見る", "A.B と C"]) {
+      expect(f(s).includes("url"), s).toBe(false);
+    }
   });
 });

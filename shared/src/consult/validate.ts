@@ -10,7 +10,7 @@ export { OUT_OF_SCOPE_TEXT };
 // 答えの字数の上限。指示（CONSULT_SYSTEM）は 400 字だが、わずかな超過で答えを捨てないよう、検査は 500 字まで。
 const ANSWER_MAX_CHARS = 500;
 
-export interface FollowupResult {
+export interface AskResult {
   answer: string;
   cardIds: string[];
   outOfScope: boolean;
@@ -18,12 +18,20 @@ export interface FollowupResult {
   failures: string[];
 }
 
-// 長さと URL の判定。functions の lengthAndUrlFailures と同じ判定を、shared に小さく持つ。
+// 長さと URL の判定。shared に小さく持つ（functions の lengthAndUrlFailures より URL の形が広い。ドメインの形、hxxp、[.] も落とす）。
 function lengthAndUrlFailures(text: string, maxChars: number): string[] {
   const failures: string[] = [];
   if (Array.from(text).length > maxChars) failures.push("too_long");
-  if (/https?:|www\./iu.test(normalizeForMatch(text))) failures.push("url");
+  if (looksLikeUrl(text)) failures.push("url");
   return failures;
+}
+
+// URL の形。スキーム（https:、hxxp）、www.、[.] や (.) で崩した点、ドメインの形（example.com、maff.go.jp）。
+// ドメインは空白を除く前の文で調べる（「e.g. info」を誤って落とさない）。「2.5」のような数字は末尾が一覧の語でないので対象外。
+const DOMAIN_FORM = /(?<![a-z0-9-])[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:jp|com|org|net|gov|info|io)(?![a-z0-9])/iu;
+function looksLikeUrl(text: string): boolean {
+  if (/https?:|hxxps?:|www\.|\[\.\]|\(\.\)|\[dot\]/iu.test(normalizeForMatch(text))) return true;
+  return DOMAIN_FORM.test(text.normalize("NFKC"));
 }
 
 // 漢数字（〇〜九、十、百、千、万）を整数にする。「二十」は 20、「二〇」は 20。
@@ -90,6 +98,15 @@ function withoutListNumbers(text: string, maxCards: number): string {
     .replace(COUNT_WORD, (m: string, n: string, unit: string) => (Number(n) <= limit ? unit : m));
 }
 
+// 数量の語。選んだカードの quote か evidenceNote に同じ語があるときだけ、答えに書いてよい。
+const QUANTITY_WORDS = ["半数", "過半", "大半", "ほとんど", "多く"] as const;
+
+function unsupportedQuantities(answer: string, cited: ConsultCard[]): string[] {
+  const grounds = normalizeForMatch(cited.map((c) => `${c.quote}${c.evidenceNote}`).join(""));
+  const text = normalizeForMatch(answer);
+  return QUANTITY_WORDS.filter((w) => text.includes(w) && !grounds.includes(w));
+}
+
 function unknownNumbers(text: string, allowed: Set<string>, maxCards: number): string[] {
   return numbersOf(withoutListNumbers(text, maxCards)).filter((n) => !allowed.has(n));
 }
@@ -117,19 +134,19 @@ export function stripCardRefs(text: string): string {
 }
 
 // 落ちたときの結果。failures は理由の符号だけ（答えの文、相談者の文は入れない）。
-const fallbackOf = (failures: string[]): FollowupResult => ({ answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true, failures });
+const fallbackOf = (failures: string[]): AskResult => ({ answer: OUT_OF_SCOPE_TEXT, cardIds: [], outOfScope: true, failures });
 
 // cards は数字の検査に使う。渡さないときは数字を確かめられないので、数字を含む答えは通さない。
 // maxCards は使うカードの上限。許された id に絞り、重なりを除いた後の先頭の maxCards 枚だけを使う（数字の検査もその分だけ）。
 // extraText は相談の文。相談者が書いた数字（「300 羽の平飼い」の 300）は、答えにそのまま書いてよい。
-// 落ちたときの failures の符号: shape / claude_out_of_scope / no_valid_id / too_long / url / unknown_number:<数字> / empty。通ったときは空。
-export function validateFollowup(
+// 落ちたときの failures の符号: shape / claude_out_of_scope / no_valid_id / too_long / url / unknown_number:<数字> / unsupported_quantity:<語> / empty。通ったときは空。
+export function validateAsk(
   raw: unknown,
   allowedIds: string[],
   cards: ConsultCard[] = [],
   maxCards: number = Infinity,
   extraText: string = "",
-): FollowupResult {
+): AskResult {
   if (!isRecord(raw) || typeof raw.answer !== "string" || !Array.isArray(raw.cardIds)) return fallbackOf(["shape"]);
   if (raw.outOfScope === true) return fallbackOf(["claude_out_of_scope"]);
 
@@ -145,6 +162,7 @@ export function validateFollowup(
   const failures = lengthAndUrlFailures(answer, ANSWER_MAX_CHARS);
   const cited = cards.filter((c) => cardIds.includes(c.id));
   for (const n of new Set(unknownNumbers(answer, allowedNumbers(cited, extraText), maxCards))) failures.push(`unknown_number:${n}`);
+  for (const w of unsupportedQuantities(answer, cited)) failures.push(`unsupported_quantity:${w}`);
   if (answer.trim() === "") failures.push("empty");
   if (failures.length > 0) return fallbackOf(failures);
 

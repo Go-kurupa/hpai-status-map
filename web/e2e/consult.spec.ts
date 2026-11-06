@@ -5,10 +5,12 @@ import { expectNoForbiddenText } from "./wording.helper";
 // 対策の相談の画面（R3）。模擬環境（Auth、Firestore、Functions）が動いていること。実行の例:
 //   npm run bundle -w functions && FUNCTIONS_DISCOVERY_TIMEOUT=120 browser-guard run -- npx firebase emulators:exec \
 //     --only firestore,auth,functions --project demo-hpai "cd web && npx playwright test consult shell"
-// 模擬環境には Claude の鍵がないので、関数の中の Claude の呼び出しは api_error になり、決まった文に倒れる。
+// 模擬環境には Claude の鍵がないので、関数の中の Claude の呼び出しは失敗し、「答えを作れませんでした」（unavailable）が出る。
 // この試験は、本物の Claude を呼ばない（鍵を渡さない）。
 
+const UNAVAILABLE = "答えを作れませんでした。時間をおいて、もう一度お試しください。";
 const OUT_OF_SCOPE = "集めた資料では分かりません。管轄の家畜保健衛生所にご相談ください。";
+const PROCESSED = "カードの対策・効く条件・注意書きは、資料を要約・加工したものです。引用は原文のままです。";
 const JUDGE_BANNER = "審査員の方向けの試しの画面です。1 日の回数に上限があり、相談は保存しません。";
 const FOOTER = "根拠は、農林水産省・岡山県・論文・海外の公的機関の資料だけです。人の健康、区域、鶏の診断には答えません。迷ったら管轄の家畜保健衛生所へ。";
 
@@ -19,21 +21,21 @@ test.describe("対策の相談", () => {
     await expect(page.getByText(JUDGE_BANNER)).toBeVisible();
     await expect(page.getByText("話題を選ぶか、聞きたいことを書いてください。")).toBeVisible();
     await expect(page.getByRole("group", { name: "話題" }).getByRole("button")).toHaveCount(7);
+    await expect(page.getByText(PROCESSED)).toBeVisible();
+    await expect(page.getByText("農場の名前や場所は書かないでください。")).toBeVisible();
     await expect(page.getByText(FOOTER)).toBeVisible();
     await expect(page.getByRole("heading", { name: "招待コードを入れてください" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "聞く" })).toBeDisabled();
   });
 
-  test("話題のボタンで聞くと、決まった文か通知が出て、画面は壊れない。足すボタンはない", async ({ page }) => {
+  test("話題のボタンで聞くと、鍵がないので「答えを作れませんでした」が出て、画面は壊れない。決まった文は出ない。足すボタンはない", async ({ page }) => {
     const problems: string[] = [];
     page.on("pageerror", (e) => problems.push(e.message));
     await page.goto("/consult?judge=1&emulator=1");
     await page.getByRole("button", { name: "長靴・服" }).click();
-    // 鍵がないので api_error → 決まった文。予算や回数の通知になることもある
-    const settled = page.getByText(
-      new RegExp(`${OUT_OF_SCOPE}|いまは相談を受け付けていません。しばらくしてからお試しください。|今日の試しの回数を使い切りました。`),
-    );
-    await expect(settled.first()).toBeVisible({ timeout: 120_000 });
+    // 鍵がないので Claude の呼び出しは失敗する → unavailable の文（決まった文ではない）
+    await expect(page.getByText(UNAVAILABLE)).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByText(OUT_OF_SCOPE)).toHaveCount(0);
     await expect(page.getByRole("button", { name: /対策項目に足/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "聞く" })).toBeVisible();
     await expect(page.getByText(FOOTER)).toBeVisible();

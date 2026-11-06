@@ -125,6 +125,13 @@ describe("PRIVACY_NOTICE（文の正）", () => {
     expect(pageText()).toContain("近隣への説明文の下書きでは、本人が操作したときに、入力した文を Claude に渡します");
   });
 
+  it("相談の画面で書いた文を Claude に送ること、保存もログへの記録もしないことが、プライバシーの説明と画面に出る", () => {
+    const line = "相談の画面で書いた文は、答えを作るために Claude（Anthropic）に送ります。保存もログへの記録もしません。";
+    expect(PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs).toContain(line);
+    renderPage();
+    expect(pageText()).toContain(line);
+  });
+
   it("選んだ町の保存の説明が、画面にも出る", () => {
     renderPage();
     expect(pageText()).toContain("hpai.town.v1");

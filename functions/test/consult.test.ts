@@ -7,7 +7,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { logger } from "firebase-functions";
 import { HttpsError } from "firebase-functions/v2/https";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ConsultCard } from "@hpai/shared/consult/types";
+import type { ConsultAnswerCard, ConsultCard, ConsultSource } from "@hpai/shared/consult/types";
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
 import { OUT_OF_SCOPE_TEXT } from "@hpai/shared/consult/validate";
 import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
@@ -44,6 +44,24 @@ const CARDS: ConsultCard[] = [
   card({ id: "mat", evidence: "study-no-difference", action: "消毒マットを置く", appliesTo: "入口にマットを置く農場", conditionTags: ["open"] }),
   card({ id: "draft", evidence: "obligation", action: "下書きのカード", appliesTo: "確認前", conditionTags: ["open"], approved: false }),
 ];
+const SOURCE: ConsultSource = {
+  id: "s1",
+  title: "資料 1",
+  publisher: "農林水産省",
+  url: "https://www.maff.go.jp/example",
+  fetchedAt: "2026-11-01",
+  domestic: true,
+  kind: "guideline",
+  license: "PDL1.0",
+  licenseVerified: true,
+  studyDesign: null,
+};
+// 応答のカードは、カードのデータに資料の情報（id, title, publisher, url, domestic, license）を付けたもの
+const answerCard = (c: ConsultCard): ConsultAnswerCard => ({
+  ...c,
+  source: { id: SOURCE.id, title: SOURCE.title, publisher: SOURCE.publisher, url: SOURCE.url, domestic: SOURCE.domestic, license: SOURCE.license },
+});
+const UNAVAILABLE = { answer: "", cards: [], outOfScope: false, notice: "unavailable" };
 const APPROVED_IDS = CARDS.filter((c) => c.approved).map((c) => c.id);
 
 afterEach(() => vi.restoreAllMocks());
@@ -96,7 +114,7 @@ function setup(reply: Anthropic.Message | Error, o: SetupOptions = {}) {
   });
   const data = vi.fn(async () => {
     if (o.dataFails) throw new Error("cards.json がない");
-    return { cards: { sources: [], cards: o.cards ?? CARDS } };
+    return { cards: { sources: [SOURCE], cards: o.cards ?? CARDS } };
   });
   const deps: ConsultDeps = {
     client: makeClient,
@@ -133,6 +151,7 @@ describe("Claude に渡すもの（buildAskRequest）", () => {
     expect(CONSULT_MODEL).toBe("claude-opus-5-5");
     expect(CONSULT_EFFORT).toBe("low");
     expect(p.max_tokens).toBe(CONSULT_MAX_TOKENS);
+    expect(CONSULT_MAX_TOKENS).toBe(2000);
     expect(p.output_config?.effort).toBe("low");
     expect(p.output_config?.format?.type).toBe("json_schema");
     for (const k of ["temperature", "top_p", "top_k", "thinking", "tool_choice", "tools", "citations", "fallbacks"]) expect(p).not.toHaveProperty(k);
@@ -161,6 +180,10 @@ describe("Claude に渡すもの（buildAskRequest）", () => {
   it("CONSULT_SYSTEM は、カードの id を答えに書かないことと、頻度の言い方をカードにあるときだけ使うことを言う", () => {
     expect(CONSULT_SYSTEM).toContain("カードの id（cardId）は cardIds にだけ入れ、答えの文には書きません。画面が選んだカードを答えの下に並べます。");
     expect(CONSULT_SYSTEM).toContain("「多く」「ほとんど」「半数」のような頻度や件数の言い方は、カードの evidenceNote にその言い方があるときだけ使います。evidenceNote に「件数は書かれていない」とあるときは、件数や頻度を書きません。");
+  });
+
+  it("CONSULT_SYSTEM は、答えに書いた事実の元のカードを cardIds に入れることを言う", () => {
+    expect(CONSULT_SYSTEM).toContain("答えに書いた事実の元になったカードは、必ず cardIds に入れます。");
   });
 
   it("CONSULT_SYSTEM は条件の問い・優先順・理由（前の流れ）の文を含まない", () => {
@@ -402,20 +425,50 @@ describe("審査員の入口", () => {
 });
 
 describe("Claude の返事が使えないとき、画面が空にならない（決まった文）", () => {
-  const replies: [string, Anthropic.Message | Error, boolean][] = [
-    ["refusal", msg("", { stop_reason: "refusal", content: [] } as Partial<Anthropic.Message>), true],
+  // 拒否は決まった文。呼び出しの失敗（切れた、形が違う、通信の失敗）は決まった文を出さず、unavailable にする
+  it("refusal: 決まった文を返す。使用量は積む", async () => {
+    const t = setup(msg("", { stop_reason: "refusal", content: [] } as Partial<Anthropic.Message>));
+    expect(await ask(t.deps)).toEqual({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: true, notice: null });
+    expect(t.record).toHaveBeenCalledTimes(1);
+  });
+  const failures: [string, Anthropic.Message | Error, boolean][] = [
     ["max_tokens", msg('{"answer":"長靴', { stop_reason: "max_tokens" }), true],
     ["api_error", Object.assign(new Error("overloaded 秘密の文"), { status: 529 }), false],
     ["json でない", msg("すみません"), true],
   ];
-  for (const [name, reply, usage] of replies) {
-    it(`${name}: 決まった文を返す。使用量は${usage ? "積む" : "ない"}`, async () => {
+  for (const [name, reply, usage] of failures) {
+    it(`${name}: 決まった文でなく unavailable（答えは空、カードなし）。使用量は${usage ? "積む" : "ない"}`, async () => {
       const t = setup(reply);
       const r = await ask(t.deps);
-      expect(r).toEqual({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: true, notice: null });
+      expect(r).toEqual(UNAVAILABLE);
+      expect(r.answer).not.toBe(OUT_OF_SCOPE_TEXT);
       expect(t.record).toHaveBeenCalledTimes(usage ? 1 : 0);
     });
   }
+  it("返事の検査に落ちたとき（数字、長さ、URL）は、今までどおり決まった文", async () => {
+    const r = await ask(setup(msg(wire("長靴を 9 足そろえます。", ["boots"]))).deps);
+    expect(r).toEqual({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: true, notice: null });
+  });
+  it("鍵を読めない（client() が throw する）ときは unavailable。回数は確保済みで、鍵の中身も文も結果に出ない", async () => {
+    vi.spyOn(logger, "error").mockImplementation(() => {});
+    const t = setup(msg(wire("x", ["boots"])));
+    t.deps.client = () => {
+      throw new Error("秘密の鍵 sk-xxx が読めない");
+    };
+    const r = await ask(t.deps);
+    expect(r).toEqual(UNAVAILABLE);
+    expect(JSON.stringify(r)).not.toContain("sk-xxx");
+    expect(t.reserve).toHaveBeenCalledTimes(1);
+    expect(t.record).not.toHaveBeenCalled();
+  });
+  it("client() は回数を確保した後に作る（回数の上限・予算の停止では作らない）", async () => {
+    const t = setup(msg(wire("x", ["boots"])), { reserve: false });
+    await ask(t.deps);
+    expect(t.makeClient).not.toHaveBeenCalled();
+    const t2 = setup(msg(wire("x", ["boots"])), { budgetJpy: 99999 });
+    await ask(t2.deps);
+    expect(t2.makeClient).not.toHaveBeenCalled();
+  });
   it("refusal の detail の文は結果に出ない", async () => {
     const t = setup(msg("", { stop_reason: "refusal", stop_details: { type: "refusal", category: "cyber", explanation: "秘密" } } as unknown as Partial<Anthropic.Message>));
     expect(JSON.stringify(await ask(t.deps))).not.toContain("cyber");
@@ -426,7 +479,12 @@ describe("答えの検査と、返すカード", () => {
   it("答えとカードの実物（引用つき）を、Claude が挙げた順に返す", async () => {
     const t = setup(msg(wire("鶏舎ごとに長靴を替えます。開放鶏舎なら網目も見ます。", ["boots", "net"])));
     const r = await ask(t.deps);
-    expect(r).toEqual({ answer: "鶏舎ごとに長靴を替えます。開放鶏舎なら網目も見ます。", cards: [CARDS[1], CARDS[0]], outOfScope: false, notice: null });
+    expect(r).toEqual({ answer: "鶏舎ごとに長靴を替えます。開放鶏舎なら網目も見ます。", cards: [answerCard(CARDS[1]!), answerCard(CARDS[0]!)], outOfScope: false, notice: null });
+  });
+  it("各カードに資料の情報 { id, title, publisher, url, domestic, license } だけが付く（fetchedAt などは付かない）", async () => {
+    const r = await ask(setup(msg(wire("鶏舎ごとに長靴を替えます。", ["boots"]))).deps);
+    expect(r.cards[0]!.source).toEqual({ id: "s1", title: "資料 1", publisher: "農林水産省", url: "https://www.maff.go.jp/example", domestic: true, license: "PDL1.0" });
+    expect(Object.keys(r.cards[0]!.source).sort()).toEqual(["domestic", "id", "license", "publisher", "title", "url"]);
   });
   it("話題の条件に関わらず、確認済みのカードなら全部引ける（印が重ならなくてもよい）", async () => {
     const r = await ask(setup(msg(wire("車を消毒します。", ["disinfect"]))).deps);
@@ -540,7 +598,8 @@ describe("入力をログに出さない", () => {
     expect(await kinds(msg(wire("あ".repeat(501), ["boots"])))).toEqual(["too_long"]);
     expect(await kinds(msg(wire("https://example.test", ["boots"])))).toEqual(["url"]);
     expect(await kinds(msg(wire("  ", ["boots"])))).toEqual(["empty"]);
-    expect(await kinds(msg("すみません"))).toEqual(["claude:format_error", "shape"]);
+    expect(await kinds(msg("すみません"))).toEqual(["claude:format_error"]);
+    expect(await kinds(msg(wire("外部業者の不備がほとんどの農場で見られました。", ["boots"])))).toEqual(["unsupported_quantity"]);
     expect(await kinds(msg(wire("鶏舎ごとに長靴を替えます。", ["boots"])))).toEqual([]);
   });
 });

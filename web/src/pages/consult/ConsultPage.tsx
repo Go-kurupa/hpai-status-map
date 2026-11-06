@@ -1,14 +1,14 @@
 // 対策の相談（設計書 2026-11-06-consult-design 14 章）。話題を押すか、文で聞くと、集めた資料のカードから、おすすめと根拠が返る。
 // おすすめの文は Claude の下書き。引用・資料・根拠の札・注意書きは、カードのデータをそのまま出す（Claude は書き換えない）。
+// 資料の行は、応答のカードに付いた source から出す（静的な /consult/cards.json は、対策項目の欄でだけ使う）。
 // 前の相談は画面に残し、ページを離れたら消える（保存しない）。会員だけの画面だが、?judge=1 の審査員の入口は会員の確認を通さない。
 import { CONSULT_TOPICS, type ConsultTopic } from "@hpai/shared/consult/topics";
-import { EVIDENCE_LABEL, type ConsultAskResponse, type ConsultCard, type ConsultSource } from "@hpai/shared/consult/types";
+import { EVIDENCE_LABEL, type ConsultAnswerCard, type ConsultAskResponse } from "@hpai/shared/consult/types";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { Button } from "../../ui/Button";
 import { RequireMember } from "../auth/RequireMember";
-import { loadConsultCatalog, type ConsultCatalog } from "./cardsData";
-import { CONSULT_TEXT } from "./consultTexts";
+import { CONSULT_TEXT, attributionText } from "./consultTexts";
 import { useReviewStore } from "./reviewStore";
 import "./consult.css";
 
@@ -36,21 +36,20 @@ function isPermissionDenied(e: unknown): boolean {
 
 function ConsultCardView({
   card,
-  source,
   canAdd,
   added,
   adding,
   failed,
   onAdd,
 }: {
-  card: ConsultCard;
-  source: ConsultSource | undefined;
+  card: ConsultAnswerCard;
   canAdd: boolean;
   added: boolean;
   adding: boolean;
   failed: boolean;
   onAdd: (cardId: string) => void;
 }) {
+  const { source } = card;
   return (
     <li className="consult-card" data-testid="consult-card">
       <p className="consult-card-action">{card.action}</p>
@@ -58,20 +57,21 @@ function ConsultCardView({
         <span className="consult-evidence">{EVIDENCE_LABEL[card.evidence]}</span>
       </p>
       <blockquote className="consult-quote">{card.quote}</blockquote>
-      {source ? (
-        <p className="consult-source">
-          資料:{" "}
-          {isWebUrl(source.url) ? (
-            <a href={source.url} target="_blank" rel="noopener noreferrer">
-              {source.title}
-            </a>
-          ) : (
-            source.title
-          )}
-          （{source.publisher}）
-        </p>
-      ) : null}
-      {source && !source.domestic ? <p className="consult-foreign">{CONSULT_TEXT.foreign}</p> : null}
+      <p className="consult-source">
+        資料:{" "}
+        {isWebUrl(source.url) ? (
+          <a href={source.url} target="_blank" rel="noopener noreferrer">
+            {source.title}
+          </a>
+        ) : (
+          source.title
+        )}
+        （{source.publisher}）
+      </p>
+      <p className="consult-attribution" data-testid="consult-attribution">
+        {attributionText(source)}
+      </p>
+      {!source.domestic ? <p className="consult-foreign">{CONSULT_TEXT.foreign}</p> : null}
       {card.caveats.length > 0 ? (
         <ul className="consult-caveats">
           {card.caveats.map((c) => (
@@ -99,7 +99,8 @@ function ConsultCardView({
   );
 }
 
-function noticeText(notice: "daily_limit" | "budget_stop", judge: boolean): string {
+function noticeText(notice: "daily_limit" | "budget_stop" | "unavailable", judge: boolean): string {
+  if (notice === "unavailable") return CONSULT_TEXT.unavailable;
   if (notice === "budget_stop") return CONSULT_TEXT.budgetStop;
   return judge ? CONSULT_TEXT.dailyLimitJudge : CONSULT_TEXT.dailyLimit;
 }
@@ -107,7 +108,6 @@ function noticeText(notice: "daily_limit" | "budget_stop", judge: boolean): stri
 function EntryView({
   entry,
   judge,
-  catalog,
   reviews,
   failedIds,
   addingIds,
@@ -116,7 +116,6 @@ function EntryView({
 }: {
   entry: Entry;
   judge: boolean;
-  catalog: ConsultCatalog | null;
   reviews: ReadonlySet<string>;
   failedIds: ReadonlySet<string>;
   addingIds: ReadonlySet<string>;
@@ -135,14 +134,13 @@ function EntryView({
       <>
         <div className="consult-advice" data-testid="consult-advice">
           <p className="consult-advice-head">{CONSULT_TEXT.advice}</p>
-          <p>{result.answer}</p>
+          <p className="consult-answer">{result.answer}</p>
         </div>
         <ul className="consult-cards">
           {result.cards.map((card) => (
             <ConsultCardView
               key={card.id}
               card={card}
-              source={catalog?.sources.get(card.sourceId)}
               canAdd={!judge}
               added={reviews.has(card.id)}
               adding={addingIds.has(card.id)}
@@ -169,7 +167,6 @@ function ConsultBody({ judge }: { judge: boolean }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [catalog, setCatalog] = useState<ConsultCatalog | null>(null);
   const [reviews, setReviews] = useState<ReadonlySet<string>>(new Set());
   const [reviewsFailed, setReviewsFailed] = useState(false);
   const [addFailed, setAddFailed] = useState<ReadonlySet<string>>(new Set());
@@ -177,17 +174,6 @@ function ConsultBody({ judge }: { judge: boolean }) {
   const addingRef = useRef(new Set<string>()); // 二度押しを同期で止める（state は次の描き直しまで古い）
   const lastEntry = useRef<HTMLElement>(null);
   const counter = useRef(0);
-
-  useEffect(() => {
-    let off = false;
-    loadConsultCatalog().then(
-      (c) => !off && setCatalog(c),
-      () => undefined, // 読めなければ資料の行だけ省く
-    );
-    return () => {
-      off = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (judge) return;
@@ -280,6 +266,7 @@ function ConsultBody({ judge }: { judge: boolean }) {
 
       <div className="consult-ask">
         <label htmlFor={`${id}-q`}>{CONSULT_TEXT.questionLabel}</label>
+        <p className="consult-note">{CONSULT_TEXT.inputHint}</p>
         <textarea
           id={`${id}-q`}
           rows={3}
@@ -307,7 +294,6 @@ function ConsultBody({ judge }: { judge: boolean }) {
             key={e.n}
             entry={e}
             judge={judge}
-            catalog={catalog}
             reviews={reviews}
             failedIds={addFailed}
             addingIds={adding}
@@ -317,6 +303,7 @@ function ConsultBody({ judge }: { judge: boolean }) {
         ))}
       </div>
 
+      <p className="consult-processed">{CONSULT_TEXT.processed}</p>
       <p className="consult-footer">{CONSULT_TEXT.footer}</p>
     </div>
   );
