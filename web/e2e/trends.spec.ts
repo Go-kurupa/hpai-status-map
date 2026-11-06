@@ -16,6 +16,10 @@ test.describe("全国の傾向（作り直し）", () => {
     const points = page.locator("section.tr-points");
     await expect(points).toContainText(/のうち、ねずみの痕跡があったと書かれていたのは \d+ 件（約 \d+ 割）/u);
     await expect(points).toContainText("発生していない農場との比べはありません");
+    // 段階 2 の抽出の集計が入っていれば「どう気づいたか」の枠が出る
+    if (await page.getByRole("heading", { name: "発生農場はどう気づいたか" }).count()) {
+      await expect(page.locator("section.tr-noticing")).toContainText(/まとまった死亡・急な大量死\s*\d+ 件/u);
+    }
     const side = page.getByRole("complementary", { name: "くわしく" });
     await expect(side.getByRole("heading", { name: "ねずみの痕跡" })).toBeVisible();
     await shot(page, "trends-pc");

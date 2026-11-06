@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T22:34:15+09:00",
+  "generatedAt": "2026-11-06T22:54:24+09:00",
   "total": {
     "season": 0,
     "surveyed": 246,
@@ -348,5 +348,140 @@
       "reportTitle": "2023年～2024年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書",
       "reportUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r5_hpai_kokunai-157.pdf"
     }
-  ]
+  ],
+  "noticing": {
+    "read": 245,
+    "fields": [
+      {
+        "key": "first_sign",
+        "label": "最初に気づいた異変",
+        "values": [
+          {
+            "key": "mass_death",
+            "label": "まとまった死亡・急な大量死",
+            "count": 134
+          },
+          {
+            "key": "death_increase",
+            "label": "死亡の増加",
+            "count": 85
+          },
+          {
+            "key": "lethargy",
+            "label": "元気消失・うずくまり",
+            "count": 3
+          },
+          {
+            "key": "egg_drop",
+            "label": "産卵の低下",
+            "count": 5
+          },
+          {
+            "key": "feed_water_drop",
+            "label": "餌や水の減り",
+            "count": 3
+          },
+          {
+            "key": "other",
+            "label": "その他",
+            "count": 9
+          },
+          {
+            "key": "not_mentioned",
+            "label": "記載なし",
+            "count": 3
+          }
+        ],
+        "unverified": 3
+      },
+      {
+        "key": "other_disease_suspected",
+        "label": "最初は別の病気を疑った",
+        "values": [
+          {
+            "key": "yes",
+            "label": "はい",
+            "count": 39
+          },
+          {
+            "key": "no",
+            "label": "いいえ",
+            "count": 4
+          },
+          {
+            "key": "not_mentioned",
+            "label": "記載なし",
+            "count": 202
+          }
+        ],
+        "unverified": 0
+      },
+      {
+        "key": "waterside_1km",
+        "label": "1 km 以内の水辺",
+        "values": [
+          {
+            "key": "yes",
+            "label": "はい",
+            "count": 201
+          },
+          {
+            "key": "no",
+            "label": "いいえ",
+            "count": 12
+          },
+          {
+            "key": "not_mentioned",
+            "label": "記載なし",
+            "count": 32
+          }
+        ],
+        "unverified": 0
+      },
+      {
+        "key": "waterfowl_seen",
+        "label": "水辺や周辺のカモ類などの水鳥",
+        "values": [
+          {
+            "key": "yes",
+            "label": "はい",
+            "count": 170
+          },
+          {
+            "key": "no",
+            "label": "いいえ",
+            "count": 24
+          },
+          {
+            "key": "not_mentioned",
+            "label": "記載なし",
+            "count": 50
+          }
+        ],
+        "unverified": 1
+      },
+      {
+        "key": "staff_hygiene",
+        "label": "従業員の鶏舎ごとの長靴の交換・手指の消毒",
+        "values": [
+          {
+            "key": "issue",
+            "label": "不備あり",
+            "count": 94
+          },
+          {
+            "key": "no_issue",
+            "label": "不備なし",
+            "count": 129
+          },
+          {
+            "key": "not_mentioned",
+            "label": "記載なし",
+            "count": 6
+          }
+        ],
+        "unverified": 16
+      }
+    ]
+  }
 }
