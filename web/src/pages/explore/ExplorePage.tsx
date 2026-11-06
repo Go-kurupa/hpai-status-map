@@ -2,7 +2,7 @@ import { FIXED_TEXT } from "@hpai/shared/wording";
 import { PREFS } from "@hpai/shared/pref";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { REGIONS, type RegionId } from "../../geo/regions";
+import { regionOf, REGIONS, type RegionId } from "../../geo/regions";
 import { SectionTabs } from "../../ui/SectionTabs";
 import { countText } from "../map/SeasonBar";
 import { dateText } from "../map/TownCasesPanel";
@@ -79,14 +79,24 @@ export default function ExplorePage() {
     [rows, f],
   );
   const counts = useMemo(() => (result === null ? [] : countBySeason(result.hits, seasons)), [result, seasons]);
-  const sorted = useMemo(() => (result === null ? [] : [...result.hits].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))), [result]);
+  // 新しい順。日付の記載がない今季の事例は、いちばん新しいシーズンの先頭に置く（古い側の最後に回さない）
+  const sorted = useMemo(
+    () =>
+      result === null
+        ? []
+        : [...result.hits].sort((a, b) => b.season - a.season || (a.date === null ? -1 : b.date === null ? 1 : b.date.localeCompare(a.date))),
+    [result],
+  );
   const regionNames = REGIONS.filter((r) => f.region.includes(r.id)).map((r) => r.name);
   // 段の中は「、」、段どうしは「・」でつなぐ（例「東北、関東・採卵鶏」）
   const cond = [regionNames, f.use, f.band, f.month === null ? [] : [T.monthText(f.month)]].filter((xs) => xs.length > 0).map((xs) => xs.join("、")).join("・") || T.japan;
   // 地図で見るのは、地方を 1 つだけ選んだとき（地図はひとつの広さにしか寄せられない）
   const oneRegion = f.region.length === 1 ? (REGIONS.find((r) => r.id === f.region[0]) ?? null) : null;
   const withCurrent = d.currentCases !== null;
-  const allUnchecked = d.failedPrefCodes.length === PREFS.length;
+  // 確認できていない県は、選んだ地方の中だけを数える（中国だけを選んで北海道が確認できていないとき、断りを出さない）
+  const scopePrefs = f.region.length === 0 ? PREFS.map((p) => p.code) : PREFS.map((p) => p.code).filter((c) => f.region.includes(regionOf(c)));
+  const unchecked = d.failedPrefCodes.filter((c) => scopePrefs.includes(c)).length;
+  const allUnchecked = unchecked === scopePrefs.length;
   const max = Math.max(1, ...counts.map((c) => c.count));
   const monthMax = Math.max(1, ...(byMonth?.months.map((m) => m.count) ?? []));
   const gridMax = Math.max(1, ...(grid ? [...grid.values()] : []));
@@ -154,7 +164,7 @@ export default function ExplorePage() {
                 const isNow = c.season === d.current;
                 // 今季は確認できていない県の断りを、今の画面と同じ文にする（E16）
                 const text = isNow
-                  ? countText({ count: withCurrent ? c.count : null, unchecked: d.failedPrefCodes.length, allUnchecked })
+                  ? countText({ count: withCurrent ? c.count : null, unchecked, allUnchecked })
                   : countText({ count: c.count });
                 return (
                   <tr key={c.season} className={isNow ? "is-current" : undefined}>
@@ -189,7 +199,8 @@ export default function ExplorePage() {
           ) : null}
 
           {grid ? (
-            <div className="explore-grid">
+            // 横に送る箱。キーボードでも送れるように、押せるものがなくても入れる
+            <div className="explore-grid" role="region" aria-label={T.gridCaption} tabIndex={0}>
               <table>
                 <caption>{T.gridCaption}</caption>
                 <thead>
@@ -225,7 +236,7 @@ export default function ExplorePage() {
             </div>
           ) : null}
           {grid && !withCurrent ? <p className="explore-note">{T.gridNotLoaded}</p> : null}
-          {grid && withCurrent && d.failedPrefCodes.length > 0 ? <p className="explore-note">{T.gridUnchecked(d.failedPrefCodes.length)}</p> : null}
+          {grid && withCurrent && unchecked > 0 ? <p className="explore-note">{T.gridUnchecked(unchecked)}</p> : null}
 
           <div className="explore-cases">
             <table>

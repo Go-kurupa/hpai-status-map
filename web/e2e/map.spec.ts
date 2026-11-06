@@ -42,7 +42,7 @@ type MapHandle = {
 declare global {
   interface Window {
     __hpaiMap?: MapHandle;
-    /** 過去シーズンとの比べが 2 枚の地図だったころの 2 枚目。今は 1 枚に重ねるので作られない（作られないことを確かめる） */
+    /** 過去シーズンとの比べが 2 枚の地図だったころの 2 枚目の名前。今は 1 枚に重ねるので使わない */
     __hpaiMap2?: MapHandle;
   }
 }
@@ -473,8 +473,12 @@ test.describe("地図（入口）", () => {
     await expect(page.getByLabel("比べる 2", { exact: true })).toHaveValue("2026");
     // 地図は 1 枚だけ
     await expect(page.locator(".cmp-overlay .map-canvas")).toHaveCount(1);
-    expect(await page.evaluate(() => !!window.__hpaiMap2)).toBe(false);
     await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("cmp-one")).includes("33203"));
+    // 比べる 2 を 4 年前（2022）にすると、2 だけ（＼）と両方（×）の層にも町が入り、凡例の町の数も 0 でない
+    await page.getByLabel("比べる 2", { exact: true }).selectOption("2022");
+    await page.waitForFunction(() => ["cmp-two", "cmp-both"].every((l) => /"\d{5}"/.test(JSON.stringify(window.__hpaiMap!.getFilter(l)))));
+    await expect(page.getByRole("list", { name: "重ね合わせの凡例" })).toContainText(/両方で発生（[1-9]\d* 町）/);
+    await page.getByLabel("比べる 2", { exact: true }).selectOption("2026");
     // 右上の見方の切り替えは、広さのボタンに重ならない（11/6 本番で重なっていた）
     const tabs = (await page.locator(".map-page > .section-tabs").boundingBox())!;
     const scope = page.getByRole("group", { name: "地図の広さ" });

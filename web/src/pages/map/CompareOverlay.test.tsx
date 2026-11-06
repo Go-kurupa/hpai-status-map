@@ -140,14 +140,17 @@ describe("CompareOverlay", () => {
     expect(within(panel).getByText("2025 年 12 月 2 日")).toBeTruthy();
   });
 
-  it("同じシーズンを選ぶと案内を出す", () => {
+  it("同じシーズンを選ぶと案内を出し、凡例は「両方」の 1 行だけ", () => {
     rig({ first: 2025, second: 2025 });
     expect(screen.getByText(CMP_TEXT.sameSeason)).toBeTruthy();
+    const legend = screen.getByRole("list", { name: CMP_TEXT.legendAria });
+    expect(within(legend).getAllByRole("listitem").map((li) => li.textContent)).toEqual([CMP_TEXT.legendBoth(2)]);
   });
 
   it("今季を読めていない間は塗らない", () => {
     const r = rig({ first: 2026, firstView: view(2026, { currentCases: null }), currentCases: null });
-    expect(r.last().overlay).toBeNull();
+    // 1 シーズン分の普通の塗りを出さないよう、空の重ね合わせを渡す。確認できていない県は今季なので示す
+    expect(r.last().overlay).toEqual<OverlayState>({ first: [], second: [], show: "both", unwatchedPrefCodes: [] });
     // 凡例も町の数も出さない（読めていない断りは MapPage が出す）
     expect(screen.queryByRole("list", { name: CMP_TEXT.legendAria })).toBeNull();
   });

@@ -221,6 +221,10 @@
   .explore-bar-cell {
     display: none;
   }
+  /* 今季の断り（確認できた範囲では…）が長いので、スマホでは折り返す */
+  .explore-bar-count {
+    white-space: normal;
+  }
   /* スマホは表を 1 件ずつのまとまりにする。1 行目に日付、続けて場所・用途・羽数・資料。数と語の途中で折らない */
   .explore-cases thead {
     display: none;

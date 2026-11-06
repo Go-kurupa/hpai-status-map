@@ -26,7 +26,17 @@ vi.mock("../../geo/loadGeo", () => {
     loadPrefTopo: async (p) =>
       JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../../../../data/geo/pref", `${p}.topo.json`), "utf8")) as unknown,
   });
-  return { loadWebGeoStore: () => Promise.resolve(store), loadJapanTopo: () => Promise.reject(new Error("unused")), loadPrefAnchors: () => Promise.reject(new Error("unused")) };
+  // 町の形が届く時を試験で決められるように、止めておく口を持つ（hold で止め、release で届ける）
+  let gate: { promise: Promise<typeof store>; release(): void } | null = null;
+  return {
+    __holdGeo: () => {
+      let release = () => {};
+      const promise = new Promise<typeof store>((res) => (release = () => res(store)));
+      gate = { promise, release };
+    },
+    __releaseGeo: () => gate?.release(),
+    loadWebGeoStore: () => gate?.promise ?? Promise.resolve(store),
+    loadJapanTopo: () => Promise.reject(new Error("unused")), loadPrefAnchors: () => Promise.reject(new Error("unused")) };
 });
 
 // MapView は maplibre（WebGL）を使うので、jsdom では差し替える。渡された props を控える
@@ -412,13 +422,13 @@ describe("MapPage: 自分の町の 1 文", () => {
     const r = rig();
     show(r, { section: "compare" });
     await screen.findAllByTestId("map");
-    // 今季を読めていない間は塗らない
-    expect(lastProps().overlay ?? null).toBeNull();
+    // 今季を読めていない間は塗らない（空の重ね合わせ。1 シーズン分の普通の塗りも出さない）
+    expect(lastProps().overlay!.first).toEqual([]);
+    expect(lastProps().overlay!.second).toEqual([]);
     expect(screen.getByText(/今季の発生をまだ読めていません/)).toBeTruthy();
     r.deliverCases([]);
-    await waitFor(() => expect(lastProps().overlay).toBeTruthy());
+    await waitFor(() => expect(lastProps().overlay!.first.length).toBeGreaterThan(0));
     expect(screen.getAllByTestId("map")).toHaveLength(1);
-    expect(seen.every((p) => p.mapIndex !== 1)).toBe(true);
     expect(lastProps().view.season).toBe(2025);
     expect(lastProps().overlay!.show).toBe("both");
     // 津山市は 2025 年シーズンに国の事例一覧の記録がある
@@ -488,10 +498,43 @@ describe("MapPage: 自分の町の 1 文", () => {
     await act(async () => {});
     expect(inChugoku(lastProps().focus!.codes)).toBe(true);
     expect(pressedScope()).toEqual(["中国"]);
+    // 一度も選択地域付近へ動いていない（中国へ寄せる前に近くへ寄って上書きされた、ではない）
+    expect(seen.some((p) => p.focus?.kind === "rings" || (p.focus?.codes.includes("01100") ?? false))).toBe(false);
     // 地域を選んでいるので［選択地域付近］もある。押すとそちらへ
     fireEvent.click(within(scope()).getByRole("button", { name: "選択地域付近" }));
     expect(pressedScope()).toEqual(["選択地域付近"]);
     expect(lastProps().focus!.codes).toEqual(["01100"]);
+  });
+
+  it("くわしい場所まで登録した人が ?region=chugoku で開いても、一度も選択地域付近へ動かず中国に寄せる", async () => {
+    const c = (indexJson as unknown as Record<string, { center: [number, number] }>)["01100"]!.center;
+    localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: latLngToMesh3(c[1], c[0]), muniCode: "01100", frequentMuniCodes: [] }));
+    seen.length = 0;
+    const r = rig();
+    show(r, { section: "compare", path: "/compare?region=chugoku" });
+    await screen.findAllByTestId("map");
+    await waitFor(() => expect(lastProps().focus?.kind).toBe("muni"));
+    r.deliverCases([]);
+    await act(async () => {});
+    expect(inChugoku(lastProps().focus!.codes)).toBe(true);
+    expect(seen.some((p) => p.focus?.kind === "rings")).toBe(false);
+    expect(pressedScope()).toEqual(["中国"]);
+  });
+
+  it("町の形が届く前に［全国］を押すと、届いた後も選択地域付近へ寄せ直さない（押された印と寄せ先がずれない）", async () => {
+    localStorage.setItem(TOWN_KEY, "01100");
+    const geoMod = (await import("../../geo/loadGeo")) as unknown as { __holdGeo(): void; __releaseGeo(): void };
+    geoMod.__holdGeo();
+    seen.length = 0;
+    const r = rig();
+    show(r, { section: "compare" });
+    await screen.findAllByTestId("map");
+    fireEvent.click(within(scope()).getByRole("button", { name: "全国" }));
+    await act(async () => geoMod.__releaseGeo());
+    r.deliverCases([]);
+    await act(async () => {});
+    expect(pressedScope()).toEqual(["全国"]);
+    expect(lastProps().focus?.kind).toBe("japan");
   });
 
   it("知らない地方の指定は全国のまま", async () => {

@@ -138,11 +138,20 @@ export function CompareOverlay(p: CompareOverlayProps) {
         {showButton("two", CMP_TEXT.showTwo)}
       </div>
       <div className="map-box">
-        {p.renderMap({ overlay, focus: p.focus, ariaLabel: CMP_TEXT.mapAria(labelOf(p.first), labelOf(p.second)), onInspectMuni: setInspected })}
+        {/* 読めていない間も重ね合わせの形で渡し、塗りは空にする。1 シーズン分の普通の塗りと県の件数の札を凡例なしで出さない（E8、E13） */}
+        {p.renderMap({
+          overlay: overlay ?? { first: [], second: [], show, unwatchedPrefCodes: withCurrent ? [...p.failedPrefCodes] : [] },
+          focus: p.focus, ariaLabel: CMP_TEXT.mapAria(labelOf(p.first), labelOf(p.second)), onInspectMuni: setInspected })}
       </div>
       {split ? (
         <ul className="map-legend cmp-legend" aria-label={CMP_TEXT.legendAria}>
-          {show === "both" ? (
+          {show === "both" && p.first === p.second ? (
+            // 同じシーズンどうしは、すべて「両方」になる。0 町の行を並べない
+            <li>
+              <span className="swatch cmp-swatch is-both" aria-hidden="true" />
+              {CMP_TEXT.legendBoth(split.both.length)}
+            </li>
+          ) : show === "both" ? (
             <>
               <li>
                 <span className="swatch cmp-swatch is-one" aria-hidden="true" />

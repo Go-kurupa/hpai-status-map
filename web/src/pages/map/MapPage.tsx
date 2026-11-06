@@ -225,14 +225,18 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const startNear = (ds.mode !== "replay" || replayStats) && regionParam === null;
   // 町だけの人は、町の形が届くまで動かさない。届く前は町の中心が分からず、町へ寄ってから輪の広さへもう一度動いてしまう
   const geoPending = farmMeshCode === null && town !== null && geo === null && !geoFailed;
+  // 比べの広さのボタンを一度でも押したら、自動で選択地域付近へ寄せ直さない（町の形や会員の農場が後から届くと showNear が作り直されるため。
+  // 押された印と地図の寄せ先がずれないように）
+  const userScoped = useRef(regionParam !== null);
   useEffect(() => {
-    if (startNear && !geoPending) showNear();
+    if (startNear && !geoPending && !userScoped.current) showNear();
   }, [startNear, geoPending, showNear]);
   // 比べの広さのボタン（1 段。押された印は最後に押した 1 つ）。地方へ寄せるには町の形が要るので、届く前に押されたら届いてから寄せる
   const [cmpScope, setCmpScope] = useState<Scope>(() => regionParam ?? (town !== null && startNear ? "near" : "japan"));
   const pendingRegion = useRef<RegionId | null>(regionParam);
   const goRegion = useCallback(
     (id: RegionId) => {
+      userScoped.current = true;
       setCmpScope(id);
       if (geo) moveTo("muni", regionMuniCodes(id, Object.keys(geo.index)));
       else pendingRegion.current = id;
@@ -593,11 +597,13 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           hasNear={town !== null}
           picked={cmpScope}
           onNear={() => {
+            userScoped.current = true;
             setCmpScope("near");
             pendingRegion.current = null;
             showNear();
           }}
           onJapan={() => {
+            userScoped.current = true;
             setCmpScope("japan");
             pendingRegion.current = null;
             moveTo("japan", []);
