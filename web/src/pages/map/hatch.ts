@@ -44,7 +44,31 @@ export function hatchImage(color: Rgb, period = HATCH_PERIOD, stripe = HATCH_STR
   return img;
 }
 
-/** 網目（右上がりと右下がりの和）。重ね合わせの「両方で発生」に使う */
+/**
+ * 色で塗りつぶし、斜線を白く抜いた模様（過去シーズンとの重ね合わせ。作者 11/6 夜の決定「C」）。
+ * 細い色の斜線だけでは背景の地図に埋もれるので、町を色で塗る。白い線の向き（up は右上がり、down は右下がり、cross は両方）で
+ * 「比べる 1 だけ」「比べる 2 だけ」「両方」を見分けられるようにし、色だけで読ませない。
+ */
+export function filledHatchImage(color: Rgb, dir: "up" | "down" | "cross", period = HATCH_PERIOD, stripe = HATCH_STRIPE): RgbaImage {
+  const img = blank(period);
+  for (let y = 0; y < period; y++) {
+    for (let x = 0; x < period; x++) {
+      const up = (x + y) % period < stripe;
+      const down = (period - 1 - x + y) % period < stripe;
+      const white = dir === "up" ? up : dir === "down" ? down : up || down;
+      const i = (y * period + x) * 4;
+      const [r, g, b] = white ? WHITE : color;
+      img.data[i] = r;
+      img.data[i + 1] = g;
+      img.data[i + 2] = b;
+      // 少しだけ透かして、下の地図の線がうっすら見えるようにする
+      img.data[i + 3] = white ? 230 : 235;
+    }
+  }
+  return img;
+}
+
+/** 網目（右上がりと右下がりの和）。重ね合わせの「両方で発生」に使っていた（いまは filledHatchImage の cross） */
 export function crossHatchImage(color: Rgb, period = HATCH_PERIOD, stripe = HATCH_STRIPE): RgbaImage {
   const img = blank(period);
   for (let y = 0; y < period; y++) {

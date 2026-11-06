@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { crossHatchImage, hatchImage, ringImage, squareImage } from "./hatch";
+import { crossHatchImage, filledHatchImage, HATCH_PERIOD, hatchImage, ringImage, squareImage } from "./hatch";
 
 function alphaAt(img: { width: number; data: Uint8Array | Uint8ClampedArray }, x: number, y: number): number {
   return img.data[(y * img.width + x) * 4 + 3]!;
@@ -44,5 +44,29 @@ describe("画像", () => {
     const c = Math.floor(ring.width / 2);
     expect(alphaAt(ring, c, c)).toBe(0);
     expect(alphaAt(sq, c, c)).toBe(255);
+  });
+});
+
+// 重ね合わせの模様（作者 11/6 夜の決定「C」）。色で塗りつぶし、斜線を白く抜く。向きで 1・2・両方を見分ける
+describe("filledHatchImage", () => {
+  const px = (img: { width: number; data: Uint8Array }, x: number, y: number) => [...img.data.slice((y * img.width + x) * 4, (y * img.width + x) * 4 + 4)];
+  const P = HATCH_PERIOD;
+  const c = [217, 122, 0] as const;
+  it("線は白、ほかは色。どの画素も透明でない", () => {
+    const up = filledHatchImage(c, "up");
+    expect(px(up, 0, 0)).toEqual([255, 255, 255, 230]);
+    expect(px(up, 5, 0)).toEqual([217, 122, 0, 235]);
+    for (let i = 3; i < up.data.length; i += 4) expect(up.data[i]).toBeGreaterThan(0);
+  });
+  it("down は up の左右反転、cross は両方の白の和", () => {
+    const up = filledHatchImage(c, "up");
+    const down = filledHatchImage(c, "down");
+    const cross = filledHatchImage(c, "cross");
+    const white = (p: number[]) => p[0] === 255 && p[1] === 255 && p[2] === 255;
+    for (let y = 0; y < P; y++)
+      for (let x = 0; x < P; x++) {
+        expect(px(down, x, y)).toEqual(px(up, P - 1 - x, y));
+        expect(white(px(cross, x, y))).toBe(white(px(up, x, y)) || white(px(down, x, y)));
+      }
   });
 });

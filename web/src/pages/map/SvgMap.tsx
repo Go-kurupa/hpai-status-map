@@ -212,19 +212,22 @@ function activate(fn: () => void) {
 }
 
 /** 斜線の模様。hatchImage と同じ周期と太さ。既定は右上がり、"down" は左右反転、"cross" は両方（重ね合わせ。設計書 2026-11-06-data-explore E8） */
-function Hatch({ id, color, dir = "up" }: { id: string; color: string; dir?: "up" | "down" | "cross" }) {
+// filled は重ね合わせの模様（filledHatchImage と同じ形）。色で塗りつぶし、線を白く抜く（作者 11/6 夜の決定「C」）
+function Hatch({ id, color, dir = "up", filled = false }: { id: string; color: string; dir?: "up" | "down" | "cross"; filled?: boolean }) {
   const p = HATCH_PERIOD;
   const s = HATCH_STRIPE;
   const k = W / REF_WIDTH / HATCH_PIXEL_RATIO;
+  const line = filled ? "#ffffff" : color;
   const up = (
     <>
-      <polygon points={`0,0 ${s},0 0,${s}`} fill={color} />
-      <polygon points={`0,${p} ${p},0 ${p},${s} ${s},${p}`} fill={color} />
+      <polygon points={`0,0 ${s},0 0,${s}`} fill={line} />
+      <polygon points={`0,${p} ${p},0 ${p},${s} ${s},${p}`} fill={line} />
     </>
   );
   const flipped = <g transform={`matrix(-1 0 0 1 ${p} 0)`}>{up}</g>;
   return (
-    <pattern id={id} data-color={color} patternUnits="userSpaceOnUse" width={p} height={p} patternTransform={`scale(${k})`}>
+    <pattern id={id} data-color={color} data-filled={filled ? "true" : undefined} patternUnits="userSpaceOnUse" width={p} height={p} patternTransform={`scale(${k})`}>
+      {filled ? <rect width={p} height={p} fill={color} /> : null}
       {dir === "down" ? flipped : up}
       {dir === "cross" ? flipped : null}
     </pattern>
@@ -233,6 +236,7 @@ function Hatch({ id, color, dir = "up" }: { id: string; color: string; dir?: "up
 
 /** 重ね合わせの模様の id */
 const CMP_HATCH = { "cmp-one": PAINT.hatchCmpOne, "cmp-two": PAINT.hatchCmpTwo, "cmp-both": PAINT.hatchCmpBoth } as const;
+const CMP_COLOR = { "cmp-one": PAINT.cmpOne, "cmp-two": PAINT.cmpTwo, "cmp-both": PAINT.cmpBoth } as const;
 
 /** 距離の輪と km のラベル。scale は viewBox の 1 単位が画面の何 px か */
 function RingMarks({ rings, proj, scale }: { rings: DistanceRings; proj: Projection; scale: number }) {
@@ -390,9 +394,9 @@ export default function SvgMap(props: SvgMapProps) {
       {HATCH_COLORS.map(([id, color]) => (
         <Hatch key={id} id={hatchId(id)} color={color} />
       ))}
-      <Hatch id={hatchId(PAINT.hatchCmpOne)} color={PAINT.cmpOne} />
-      <Hatch id={hatchId(PAINT.hatchCmpTwo)} color={PAINT.cmpTwo} dir="down" />
-      <Hatch id={hatchId(PAINT.hatchCmpBoth)} color={PAINT.cmpBoth} dir="cross" />
+      <Hatch id={hatchId(PAINT.hatchCmpOne)} color={PAINT.cmpOne} filled />
+      <Hatch id={hatchId(PAINT.hatchCmpTwo)} color={PAINT.cmpTwo} dir="down" filled />
+      <Hatch id={hatchId(PAINT.hatchCmpBoth)} color={PAINT.cmpBoth} dir="cross" filled />
     </defs>
   );
   // 確認できていない県。重ね合わせの間は斜線が「比べる 1」と同じ向きになるので、薄い灰色の塗りにする（E14）
@@ -531,7 +535,11 @@ export default function SvgMap(props: SvgMapProps) {
                 {cmp
                   ? munis
                       .filter((s) => fillOf(s.code) !== null)
-                      .map((s) => <path key={s.code} d={s.d} data-code={s.code} data-fill={fillOf(s.code)!} fill={`url(#${hatchId(CMP_HATCH[fillOf(s.code) as keyof typeof CMP_HATCH])})`} />)
+                      .map((s) => {
+                        const f = fillOf(s.code) as keyof typeof CMP_HATCH;
+                        // 町の縁は塗りと同じ色（地図の cmp-*-line と同じ）
+                        return <path key={s.code} d={s.d} data-code={s.code} data-fill={f} fill={`url(#${hatchId(CMP_HATCH[f])})`} stroke={CMP_COLOR[f]} strokeWidth={2} vectorEffect="non-scaling-stroke" />;
+                      })
                   : null}
                 {munis
                   .filter((s) => fillOf(s.code) === "suspected")

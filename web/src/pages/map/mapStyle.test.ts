@@ -21,6 +21,9 @@ describe("地図の層", () => {
       "cmp-two",
       "cmp-both",
       "muni-line",
+      "cmp-one-line",
+      "cmp-two-line",
+      "cmp-both-line",
       "near-line",
       "pref-line",
       "my-town",
@@ -133,5 +136,18 @@ describe("maplibre の style の検査（本物の検証器）", () => {
     expect(run(codeFilter("c", ["33203"]), { c: "33999" })).toBe(false);
     expect(run(codeFilter("p", ["33"]), { p: "33" })).toBe(true);
     expect(run(codeFilter("p", []), { p: "33" })).toBe(false);
+  });
+});
+
+describe("重ね合わせの町の縁（作者 11/6 夜の決定「C」）", () => {
+  it("3 つの縁の線は町の境の線の上にあり、色は塗りと同じ、太さ 2、minzoom なし", () => {
+    const by = Object.fromEntries(overlayLayers().map((l) => [l.id, l]));
+    for (const [id, color] of [["cmp-one-line", PAINT.cmpOne], ["cmp-two-line", PAINT.cmpTwo], ["cmp-both-line", PAINT.cmpBoth]] as const) {
+      const l = by[id]!;
+      expect(l.type, id).toBe("line");
+      expect(l.minzoom, id).toBeUndefined();
+      expect((l.paint as Record<string, unknown>)["line-color"], id).toBe(color);
+      expect((l.paint as Record<string, unknown>)["line-width"], id).toBe(2);
+    }
   });
 });

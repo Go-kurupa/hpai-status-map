@@ -99,6 +99,9 @@ export function applyOverlay(map: ViewTarget, s: OverlayState | null): void {
   map.setFilter("cmp-one", codeFilter("c", st.one));
   map.setFilter("cmp-two", codeFilter("c", st.two));
   map.setFilter("cmp-both", codeFilter("c", st.both));
+  map.setFilter("cmp-one-line", codeFilter("c", st.one));
+  map.setFilter("cmp-two-line", codeFilter("c", st.two));
+  map.setFilter("cmp-both-line", codeFilter("c", st.both));
   map.setFilter("pref-unwatched-flat", codeFilter("p", s ? s.unwatchedPrefCodes : []));
   if (s) map.setFilter("pref-unwatched", codeFilter("p", []));
 }

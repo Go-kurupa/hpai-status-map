@@ -196,9 +196,13 @@ describe("重ね合わせ（設計書 2026-11-06-data-explore E8、E14）", () =
     expect(codes(filters.get("cmp-one"))).toEqual(["A"]);
     expect(codes(filters.get("cmp-two"))).toEqual(["B"]);
     expect(codes(filters.get("cmp-both"))).toEqual([]);
+    // 町の縁の線も、塗りと同じ町
+    expect(codes(filters.get("cmp-one-line"))).toEqual(["A"]);
+    expect(codes(filters.get("cmp-two-line"))).toEqual(["B"]);
+    expect(codes(filters.get("cmp-both-line"))).toEqual([]);
     expect(codes(filters.get("pref-unwatched-flat"))).toEqual(["01"]);
     expect(codes(filters.get("pref-unwatched"))).toEqual([]);
     applyOverlay(map, null);
-    for (const id of ["cmp-one", "cmp-two", "cmp-both", "pref-unwatched-flat"]) expect(codes(filters.get(id)), id).toEqual([]);
+    for (const id of ["cmp-one", "cmp-two", "cmp-both", "cmp-one-line", "cmp-two-line", "cmp-both-line", "pref-unwatched-flat"]) expect(codes(filters.get(id)), id).toEqual([]);
   });
 });

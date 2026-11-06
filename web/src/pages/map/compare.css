@@ -49,16 +49,20 @@
   border: 1px solid var(--line);
   vertical-align: middle;
 }
+/* 地図と同じく、色で塗りつぶして線を白く抜く（作者 11/6 夜の決定「C」）。縁も同じ色 */
 .cmp-swatch.is-one {
-  background: repeating-linear-gradient(135deg, var(--cmp-one) 0 3px, var(--surface) 3px 8px);
+  border: 2px solid var(--cmp-one);
+  background: repeating-linear-gradient(135deg, #ffffff 0 2px, var(--cmp-one) 2px 6px);
 }
 .cmp-swatch.is-two {
-  background: repeating-linear-gradient(45deg, var(--cmp-two) 0 3px, var(--surface) 3px 8px);
+  border: 2px solid var(--cmp-two);
+  background: repeating-linear-gradient(45deg, #ffffff 0 2px, var(--cmp-two) 2px 6px);
 }
 .cmp-swatch.is-both {
+  border: 2px solid var(--cmp-both);
   background:
-    repeating-linear-gradient(135deg, var(--cmp-both) 0 3px, transparent 3px 8px),
-    repeating-linear-gradient(45deg, var(--cmp-both) 0 3px, var(--surface) 3px 8px);
+    repeating-linear-gradient(135deg, #ffffff 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(45deg, #ffffff 0 2px, var(--cmp-both) 2px 6px);
 }
 .cmp-swatch.is-unwatched {
   background: color-mix(in srgb, var(--muted) 25%, var(--surface));

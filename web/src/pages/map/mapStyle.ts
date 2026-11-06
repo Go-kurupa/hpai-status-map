@@ -53,6 +53,9 @@ export const LAYER_IDS = [
   "cmp-two",
   "cmp-both",
   "muni-line",
+  "cmp-one-line",
+  "cmp-two-line",
+  "cmp-both-line",
   "near-line",
   "pref-line",
   "my-town",
@@ -141,6 +144,10 @@ export function overlayLayers(): LayerSpecification[] {
       minzoom: 5.5,
       paint: { "line-color": PAINT.muted, "line-width": 0.6, "line-opacity": 0.6 },
     },
+    // 重ね合わせの町の縁。塗りと同じ色の太い線で、背景の地図の上でも町の形が分かるようにする（作者 11/6 夜の決定「C」）
+    { id: "cmp-one-line", type: "line", source: "muni", filter: codeFilter("c", []), paint: { "line-color": PAINT.cmpOne, "line-width": 2 } },
+    { id: "cmp-two-line", type: "line", source: "muni", filter: codeFilter("c", []), paint: { "line-color": PAINT.cmpTwo, "line-width": 2 } },
+    { id: "cmp-both-line", type: "line", source: "muni", filter: codeFilter("c", []), paint: { "line-color": PAINT.cmpBoth, "line-width": 2 } },
     {
       id: "near-line",
       type: "line",

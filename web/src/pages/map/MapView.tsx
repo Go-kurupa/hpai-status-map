@@ -7,7 +7,7 @@ import { distanceRingsAt, distanceRingsOf, pxPerKmAtZoom, ringLabel, ringTop, vi
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { Marker, MlMap } from "../../geo/maplibre";
 import { applyDistanceRings, applyOverlay, applyView, applyWildBirds, type OverlayState, type ViewTarget } from "./applyView";
-import { crossHatchImage, HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
+import { filledHatchImage, HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
 import { baseStyle, codeFilter, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
 import { TEXT } from "./texts";
 import { BADGE_ZOOM, badgeStates, JAPAN_BOUNDS, type SeasonView } from "./seasonView";
@@ -108,9 +108,9 @@ export default function MapView(props: MapViewProps) {
         for (const [id, color] of HATCH_COLORS) {
           map.addImage(id, hatchImage(hexToRgb(color)), { pixelRatio: HATCH_PIXEL_RATIO });
         }
-        map.addImage(PAINT.hatchCmpOne, hatchImage(hexToRgb(PAINT.cmpOne)), { pixelRatio: HATCH_PIXEL_RATIO });
-        map.addImage(PAINT.hatchCmpTwo, hatchImage(hexToRgb(PAINT.cmpTwo), undefined, undefined, "down"), { pixelRatio: HATCH_PIXEL_RATIO });
-        map.addImage(PAINT.hatchCmpBoth, crossHatchImage(hexToRgb(PAINT.cmpBoth)), { pixelRatio: HATCH_PIXEL_RATIO });
+        map.addImage(PAINT.hatchCmpOne, filledHatchImage(hexToRgb(PAINT.cmpOne), "up"), { pixelRatio: HATCH_PIXEL_RATIO });
+        map.addImage(PAINT.hatchCmpTwo, filledHatchImage(hexToRgb(PAINT.cmpTwo), "down"), { pixelRatio: HATCH_PIXEL_RATIO });
+        map.addImage(PAINT.hatchCmpBoth, filledHatchImage(hexToRgb(PAINT.cmpBoth), "cross"), { pixelRatio: HATCH_PIXEL_RATIO });
         map.addImage(IMAGE_IDS.birdScreening, ringImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
         map.addImage(IMAGE_IDS.birdConfirmed, squareImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
         map.addSource("muni", { type: "geojson", data: munis, tolerance: 0.3 });

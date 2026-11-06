@@ -296,6 +296,14 @@ describe("代わりの地図（SVG）", () => {
     expect(fill("33203")).toBe("cmp-one");
     expect(fill("33202")).toBe("cmp-two");
     expect(fill("33214")).toBe("cmp-both");
+    // 模様は色で塗りつぶし、斜線を白く抜く。町の縁は塗りと同じ色（作者 11/6 夜の決定「C」）
+    const stroke = (c: string) => document.querySelector(`[data-code='${c}'][data-fill]`)?.getAttribute("stroke");
+    expect(stroke("33203")).toBe(PAINT.cmpOne);
+    expect(stroke("33202")).toBe(PAINT.cmpTwo);
+    expect(stroke("33214")).toBe(PAINT.cmpBoth);
+    const pattern = document.querySelector(`pattern[data-color='${PAINT.cmpOne}'][data-filled='true']`)!;
+    expect(pattern.querySelector("rect")!.getAttribute("fill")).toBe(PAINT.cmpOne);
+    expect([...pattern.querySelectorAll("polygon")].every((p) => p.getAttribute("fill") === "#ffffff")).toBe(true);
     expect(document.querySelector("[data-unwatched-flat='true']")).toBeTruthy();
     expect(document.querySelector("[data-fill='suspected'], [data-fill='confirmed']")).toBeNull();
   });
