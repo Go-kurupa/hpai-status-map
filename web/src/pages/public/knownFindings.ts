@@ -37,7 +37,7 @@ export interface KnownFinding {
   leadLimit: number;
   /** 本文の数を図にする（同じ分母の記録と、比べた農場の数だけ。差がはっきりしない割合や距離は図にしない） */
   figure: KnownFigure | null;
-  /** 作品のほかの画面へのリンク。名前はメニューと同じ */
+  /** 作品のほかの画面へのリンク。名前はメニューの項目名か、リンク先の画面の題と同じ */
   related: ReadonlyArray<{ to: string; label: string }>;
 }
 
@@ -58,7 +58,7 @@ export type KnownFigure =
 const TO_COMPARE = { to: "/compare", label: "過去の発生" } as const;
 const TO_TRENDS = { to: "/trends", label: "全国の傾向" } as const;
 const TO_TODO = { to: "/todo", label: "対策項目" } as const;
-const TO_EXPLORE = { to: "/explore", label: "過去の発生を条件で見る" } as const;
+const TO_EXPLORE = { to: "/explore", label: "条件で見る過去の発生" } as const;
 
 const VERIFIED_ON: IsoDate = "2026-11-04";
 
