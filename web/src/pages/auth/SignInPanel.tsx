@@ -7,8 +7,18 @@ import { CODE_REFUSED } from "./InviteCodeForm";
 import "./auth.css";
 
 const GOOGLE_FAILED = "メールのリンクで入ってください";
+const GOOGLE_BLOCKED = "ログインの窓が開けませんでした。もう一度「Google で入る」を押してください";
+const GOOGLE_CLOSED = "ログインをやめました";
 const SEND_FAILED = "メールを送れませんでした。メールアドレスを確かめて、もう一度試してください";
 const LINK_FAILED = "このリンクは使えません。もう一度、リンクを送ってください";
+
+type FirebaseAuth = Awaited<ReturnType<typeof getFirebase>>["auth"];
+
+/** Firebase の失敗の符号（auth/popup-blocked など）。auth/ で始まる文字列だけ。メールなど別の値は拾わない */
+function authCode(e: unknown): string | null {
+  const code = typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined;
+  return typeof code === "string" && /^auth\/[a-z0-9-]+$/.test(code) ? code : null;
+}
 
 /**
  * メールのリンクか Google で入る。招待コード（code）があれば、入った後に会員にする。
@@ -31,6 +41,7 @@ export function SignInPanel({
   const [asking, setAsking] = useState<null | ((email: string) => void)>(null);
   const [askValue, setAskValue] = useState("");
   const started = useRef(false);
+  const readyAuth = useRef<FirebaseAuth | null>(null); // 表示のときに用意しておく。押したらすぐ窓を開くため
   const latest = useRef({ code, onDone, onFlow });
   latest.current = { code, onDone, onFlow };
 
@@ -58,6 +69,16 @@ export function SignInPanel({
       return false;
     }
   }
+
+  // Google の窓は、押した操作のすぐ後に開かないと止められることがある。通信を待たずに済むよう、先に用意する
+  useEffect(() => {
+    getFirebase().then(
+      ({ auth }) => {
+        readyAuth.current = auth;
+      },
+      () => {}, // 失敗は、押したときにもう一度試して、その結果を出す
+    );
+  }, []);
 
   // メールのリンクから戻ってきたとき
   useEffect(() => {
@@ -98,13 +119,19 @@ export function SignInPanel({
   }
 
   function google() {
+    const ready = readyAuth.current; // await の前に取る。用意済みなら、窓をその場で開く
     void enter(async () => {
       let user;
       try {
-        const { auth } = await getFirebase();
-        user = await signInWithGoogle(auth);
-      } catch {
-        setError(GOOGLE_FAILED); // ポップアップが閉じられた、使えない場面（LINE の中など）。例外にしない
+        user = await (ready ? signInWithGoogle(ready) : getFirebase().then(({ auth }) => signInWithGoogle(auth)));
+      } catch (e) {
+        // ポップアップが止められた・閉じられた、使えない場面（LINE の中など）。例外にしない
+        const code = authCode(e);
+        if (code) console.warn("Google でのログインに失敗", code);
+        if (code === "auth/popup-blocked") setError(`${GOOGLE_BLOCKED}（${code}）`);
+        else if (code === "auth/popup-closed-by-user") setError(GOOGLE_CLOSED);
+        else if (code === "auth/cancelled-popup-request") setError(null); // 別の窓に置き換わっただけ
+        else setError(code ? `${GOOGLE_FAILED}（${code}）` : GOOGLE_FAILED);
         return false;
       }
       return finish(user);

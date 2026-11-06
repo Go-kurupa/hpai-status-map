@@ -301,13 +301,72 @@ describe("/login", () => {
     expect(redeem.fn).not.toHaveBeenCalled();
   });
 
-  it("Google のポップアップの失敗は例外にせず、redeemInvite も呼ばず、メールのリンクを案内する", async () => {
+  it("Google: 用意が済んでいれば、押した操作の流れの中（await の前）で signInWithPopup を呼ぶ", async () => {
+    firebaseAuth.signInWithPopup.mockImplementation(() => new Promise(() => {})); // 結果は待たない
+    mount("/login");
+    const button = await screen.findByRole("button", { name: "Google で入る" });
+    await new Promise((r) => setTimeout(r, 0)); // 表示のとき始めた Firebase の用意が済むのを待つ
+    fireEvent.click(button);
+    expect(firebaseAuth.signInWithPopup).toHaveBeenCalledTimes(1); // await を挟まず、その場で
+    expect(firebaseAuth.signInWithPopup.mock.calls[0]![0]).toBe(auth);
+  });
+
+  it("Google: 用意がまだなら、用意ができてから signInWithPopup を呼ぶ", async () => {
+    firebaseAuth.signInWithPopup.mockImplementation(() => new Promise(() => {}));
+    mount("/login");
+    fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
+    await waitFor(() => expect(firebaseAuth.signInWithPopup).toHaveBeenCalledTimes(1));
+  });
+
+  it("Google のポップアップが止められたら、もう一度押す案内と符号を出し、redeemInvite も呼ばない", async () => {
     firebaseAuth.signInWithPopup.mockRejectedValue(Object.assign(new Error("blocked"), { code: "auth/popup-blocked" }));
     mount("/login");
     fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
-    expect(await screen.findByText("メールのリンクで入ってください")).toBeTruthy();
+    expect(
+      await screen.findByText("ログインの窓が開けませんでした。もう一度「Google で入る」を押してください（auth/popup-blocked）"),
+    ).toBeTruthy();
     expect(redeem.fn).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Google で入る" })).toBeTruthy(); // 画面は生きている
+  });
+
+  it("Google の失敗は、メールのリンクの案内の後ろに符号を添える", async () => {
+    firebaseAuth.signInWithPopup.mockRejectedValue(Object.assign(new Error("x"), { code: "auth/unauthorized-domain" }));
+    mount("/login");
+    fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
+    expect(await screen.findByText("メールのリンクで入ってください（auth/unauthorized-domain）")).toBeTruthy();
+  });
+
+  it("Google の失敗に code がなければ、今までの文だけ（符号なし）", async () => {
+    firebaseAuth.signInWithPopup.mockRejectedValue(new Error("boom"));
+    mount("/login");
+    fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("メールのリンクで入ってください");
+  });
+
+  it("Google の失敗の code が auth/ で始まらなければ、符号は添えない", async () => {
+    firebaseAuth.signInWithPopup.mockRejectedValue(Object.assign(new Error("x"), { code: "me@example.test" }));
+    mount("/login");
+    fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("メールのリンクで入ってください");
+  });
+
+  it("Google の窓を自分で閉じたときは「ログインをやめました」だけ（符号なし）", async () => {
+    firebaseAuth.signInWithPopup.mockRejectedValue(Object.assign(new Error("x"), { code: "auth/popup-closed-by-user" }));
+    mount("/login");
+    fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("ログインをやめました");
+  });
+
+  it("Google の窓の重ね押し（auth/cancelled-popup-request）では文を出さない", async () => {
+    firebaseAuth.signInWithPopup.mockRejectedValue(Object.assign(new Error("x"), { code: "auth/cancelled-popup-request" }));
+    mount("/login");
+    fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
+    await waitFor(() => expect(firebaseAuth.signInWithPopup).toHaveBeenCalled());
+    await waitFor(() => expect((screen.getByRole("button", { name: "Google で入る" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("ログイン済みで claim がなければ、招待コードの入力欄を出す。入れると redeemInvite、getIdToken(true) の順で /settings/farm", async () => {
@@ -380,7 +439,7 @@ describe("/join/:code", () => {
     firebaseAuth.signInWithPopup.mockRejectedValue(Object.assign(new Error("x"), { code: "auth/popup-blocked" }));
     mount("/join/CODE123");
     fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
-    expect(await screen.findByText("メールのリンクで入ってください")).toBeTruthy();
+    expect(await screen.findByText("ログインの窓が開けませんでした。もう一度「Google で入る」を押してください（auth/popup-blocked）")).toBeTruthy();
     expect(redeem.fn).not.toHaveBeenCalled();
     expect(at()).toBe("/join/CODE123");
   });
