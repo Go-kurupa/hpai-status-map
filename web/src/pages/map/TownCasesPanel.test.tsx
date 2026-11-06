@@ -68,8 +68,9 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
     const external = links.filter((a) => a.getAttribute("href")!.startsWith("https://"));
     expect(external.map((a) => a.getAttribute("href"))).toEqual(["https://example.invalid/now", "https://www.maff.go.jp/x.pdf", "https://www.maff.go.jp/x.pdf"]);
     for (const a of external) expect(a.getAttribute("target")).toBe("_blank");
-    // この町のくわしい状況（設計書 2026-11-06-ui-frame 4.2）
-    expect(screen.getByRole("link", { name: "この町のくわしい状況" }).getAttribute("href")).toBe("/area/33203");
+    // 案内ページへのリンクは残す（設計書 2026-11-06-town-picker D9）。札は「地図で押した町」（D10）
+    expect(screen.getByRole("link", { name: "この町の案内ページ（登録なしで開ける・共有用）" }).getAttribute("href")).toBe("/area/33203");
+    expect(screen.getByText("地図で押した町", { selector: ".town-cases-label" })).toBeTruthy();
     expect(screen.getByText(/関連農場は件数に入れていません/)).toBeTruthy();
   });
 

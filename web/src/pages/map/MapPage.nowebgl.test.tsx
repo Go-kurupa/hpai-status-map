@@ -118,6 +118,15 @@ describe("WebGL2 が使えない端末", () => {
     expect((await screen.findByText("西粟倉村", { selector: "strong" })).textContent).toBe("西粟倉村");
   });
 
+  it("代わりの地図では上の文を出さない（代わりの地図の中に案内がある）", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mount();
+    await screen.findByRole("group", { name: TEXT.svgMapAria });
+    fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
+    expect(screen.queryByText(TEXT.pickingBar)).toBeNull();
+    expect(screen.getAllByText(TEXT.mapTapHint).length).toBeGreaterThan(0);
+  });
+
   it("「くわしい場所を決める」は、十字ではなく町の中心あたりのマス目を使うボタンになり、この端末に保存する", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { container } = mount();

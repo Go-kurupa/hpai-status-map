@@ -98,10 +98,10 @@ async function aimAtStation(page: Page) {
 }
 
 async function chooseTown(page: Page, pref: string, muni: string) {
-  await page.getByRole("button", { name: "町を選ぶ", exact: true }).click();
+  await page.getByRole("button", { name: "自分の町を選ぶ", exact: true }).click();
   await page.getByLabel("都道府県").selectOption(pref);
   await page.getByLabel("市町村").selectOption(muni);
-  await page.getByRole("button", { name: "この町にする" }).click();
+  await page.getByRole("button", { name: "自分の町にする" }).click();
 }
 
 test.describe("自分の町の 1 文", () => {
@@ -114,7 +114,20 @@ test.describe("自分の町の 1 文", () => {
     await filterHas(page, "my-town", "33214");
     await filterHas(page, "near-line", "33203");
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv2");
-    await expect(page.getByRole("link", { name: /この町のくわしい状況/ })).toHaveAttribute("href", "/area/33214");
+    // 最初の画面の自分の町の欄は「自分の町の過去を見る」の 1 本。案内ページは自分の町の過去の画面から（設計書 2026-11-06-town-picker D8）
+    await expect(page.getByRole("link", { name: /この町の案内ページ/ })).toHaveCount(0);
+    await page.goto("/town");
+    await expect(page.getByRole("link", { name: "この町の案内ページ（登録なしで開ける・共有用）" })).toHaveAttribute("href", "/area/33214");
+  });
+
+  test("町の名前を入力して探し、候補を押すとすぐ自分の町になる。変えるボタンは町の名前の横にある", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: "自分の町を選ぶ", exact: true }).click();
+    await page.getByLabel("町の名前を入力").fill("西粟倉");
+    await page.getByRole("button", { name: "岡山県 西粟倉村" }).click();
+    await expect(page.locator(".town-name strong")).toHaveText("西粟倉村");
+    await filterHas(page, "my-town", "33643");
+    await expect(page.locator(".town-name-row").getByRole("button", { name: "自分の町を変える" })).toBeVisible();
   });
 
   test("地点を指定すると『区域に入っている可能性があります』（①）。/compare でシーズンを変えても色は lv1 のまま", async ({ page }) => {

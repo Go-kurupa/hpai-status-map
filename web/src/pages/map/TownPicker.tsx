@@ -5,6 +5,7 @@ import { useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Button } from "../../ui/Button";
 import { TEXT } from "./texts";
+import { searchTowns } from "./townSearch";
 
 export interface TownPickerProps {
   /** 市町村の一覧（索引）。まだ読めていなければ null */
@@ -15,17 +16,32 @@ export interface TownPickerProps {
   readOnly: boolean;
   /** readOnly のときの説明。既定は会員の農場の場所を使っている旨 */
   readOnlyNote?: string;
+  /** この端末に鶏舎の場所（くわしい場所）がある。別の町にすると消えることを前もって伝える */
+  hasSpot?: boolean;
+  /** 地図を押しても選べると書く。地図がない画面（/town）では false。既定は true */
+  mapHint?: boolean;
   /** 選ぶ画面を開いている（地図の町をさわっても選べる） */
   picking: boolean;
   onPickingChange(open: boolean): void;
   onChoose(code: MuniCode): void;
 }
 
-/** 県 → 市町村の順に選ぶ。知らない人でも迷わないよう、ふつうの選択欄（select）と大きなボタンだけを使う */
-function Chooser({ geo, town, onChoose, onClose }: { geo: Pick<GeoStore, "index">; town: MuniCode | null; onChoose(c: MuniCode): void; onClose(): void }) {
+/**
+ * 町の名前を入力して探すか、県 → 市町村の順に選ぶ。入力の候補は押すとすぐ決まる（設計書 2026-11-06-town-picker D2）。
+ * 文字を打つのが苦手な人のため、ふつうの選択欄（select）と大きなボタンも残す
+ */
+function Chooser({ geo, town, hasSpot, mapHint, onChoose, onClose }: { geo: Pick<GeoStore, "index">; town: MuniCode | null; hasSpot: boolean; mapHint: boolean; onChoose(c: MuniCode): void; onClose(): void }) {
   const [pref, setPref] = useState<string>(() => (town ? (geo.index[town]?.prefCode ?? "") : ""));
   const hintId = useId();
   const [muni, setMuni] = useState<string>(() => (town && geo.index[town] ? town : ""));
+  const [query, setQuery] = useState("");
+  // かな漢字の変換の途中は、ひらがなで「見つかりません」を点滅させない
+  const [composing, setComposing] = useState(false);
+  const found = useMemo(() => searchTowns(geo.index, query), [geo, query]);
+  const decide = (code: MuniCode) => {
+    onChoose(code);
+    onClose();
+  };
 
   const options = useMemo(() => {
     if (!pref) return [];
@@ -38,6 +54,29 @@ function Chooser({ geo, town, onChoose, onClose }: { geo: Pick<GeoStore, "index"
 
   return (
     <div className="town-chooser">
+      {hasSpot ? <p className="map-note">{TEXT.spotWillClear}</p> : null}
+      <label className="field town-search">
+        <span>{TEXT.searchLabel}</span>
+        <input
+          type="search"
+          value={query}
+          placeholder={TEXT.searchPlaceholder}
+          onChange={(e) => setQuery(e.target.value)}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={() => setComposing(false)}
+        />
+      </label>
+      {found.hits.length > 0 ? (
+        <ul className="town-hits">
+          {found.hits.map((h) => (
+            <li key={h.code}>
+              <Button onClick={() => decide(h.code)}>{h.label}</Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {found.more > 0 ? <p className="map-note">{TEXT.searchMore(found.more)}</p> : null}
+      {query.trim() && found.hits.length === 0 && !composing ? <p role="status">{TEXT.searchNone}</p> : null}
       <label className="field">
         <span>{TEXT.prefLabel}</span>
         <select
@@ -66,16 +105,13 @@ function Chooser({ geo, town, onChoose, onClose }: { geo: Pick<GeoStore, "index"
           ))}
         </select>
       </label>
-      <p className="map-note">{TEXT.mapTapHint}</p>
+      {mapHint ? <p className="map-note">{TEXT.mapTapHint}</p> : null}
       <div className="town-actions">
         <Button
           variant="primary"
           disabled={!muni}
           aria-describedby={muni ? undefined : hintId}
-          onClick={() => {
-            onChoose(muni);
-            onClose();
-          }}
+          onClick={() => decide(muni)}
         >
           {TEXT.decideTown}
         </Button>
@@ -113,7 +149,7 @@ export function TownPicker(p: TownPickerProps) {
       </div>
       {p.picking ? (
         p.geo ? (
-          <Chooser geo={p.geo} town={p.town} onChoose={p.onChoose} onClose={() => p.onPickingChange(false)} />
+          <Chooser geo={p.geo} town={p.town} hasSpot={p.hasSpot ?? false} mapHint={p.mapHint ?? true} onChoose={p.onChoose} onClose={() => p.onPickingChange(false)} />
         ) : p.geoFailed ? (
           <p role="alert">市町村の一覧を読めませんでした。ページを読み込み直してください。</p>
         ) : (

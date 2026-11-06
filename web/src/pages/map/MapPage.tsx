@@ -167,6 +167,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   // 地図の見る場所、町を選ぶ画面、十字
   const [focus, setFocus] = useState<MapViewProps["focus"]>(null);
   const [picking, setPicking] = useState(false);
+  // 選ぶ画面を開いた時の、町の欄の置き場（地図の後ろか）。開いている間に置き場が変わると選ぶ画面が作り直され、入力が消えるので固定する
+  const [pickSlot, setPickSlot] = useState<boolean | null>(null);
   const [aiming, setAiming] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [mapless, setMapless] = useState(false); // 地図が描けない端末（代わりの地図を出している）
@@ -186,8 +188,10 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       setNotice(clearedSpot ? TEXT.townCleared : null);
       setPicking(false);
       moveTo("muni", [code]);
+      // スマホは自分の町の欄が地図の下にある。決めた結果が見えるよう、地図の上端へ戻す（設計書 2026-11-06-town-picker D5）
+      if (narrow) boxRef.current?.scrollIntoView?.({ block: "start" });
     },
-    [spotState, moveTo],
+    [spotState, moveTo, narrow],
   );
   const aim = useCallback(
     (on: boolean) => {
@@ -287,6 +291,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const narrowTown = narrow && town !== null;
   const townLead = narrowTown && (lineFailed || (d.currentCases !== null && (townLine.line?.tone === "lv1" || townLine.line?.tone === "lv2" || townLine.line?.tone === "none")));
   const bannerAfterMap = bannerBelowMap || narrowTown;
+  const bannerSlotAfterMap = picking && pickSlot !== null ? pickSlot : bannerAfterMap;
   const riskMovedUp = showStats && view.loaded && lineHasRisk && (bannerAfterMap || zeroShown);
   const riskAboveStats = view.isCurrent && view.loaded && (riskMovedUp || (zeroShown && !lineHasRisk));
   const bannerLine = riskMovedUp && townLine.line ? { ...townLine.line, details: townLine.line.details.filter((t) => t !== FIXED_TEXT.riskAnywhere) } : townLine.line;
@@ -313,8 +318,14 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         town={town}
         readOnly={spotState.readOnly}
         readOnlyNote={spotState.source === "fixed" ? TEXT.spotFixed : undefined}
+        hasSpot={spotState.deviceSpot !== null}
+        mapHint={showMap}
         picking={picking}
-        onPickingChange={setPickingOpen}
+        onPickingChange={(open) => {
+          // 開いた時の置き場を覚えておく（下の bannerSlotAfterMap）
+          setPickSlot(open ? bannerAfterMap : null);
+          setPickingOpen(open);
+        }}
         onChoose={choose}
       />
       {notice ? <p role="status">{notice}</p> : null}
@@ -334,7 +345,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     riskShownAbove: riskMovedUp,
   };
   const banner = (
-    <TownBanner {...bannerProps} part={townLead ? "rest" : "all"} pastBrief={section === "now"}>
+    <TownBanner {...bannerProps} part={townLead ? "rest" : "all"} pastBrief={section === "now"} nameAction={town !== null ? picker : undefined}>
       {town === null ? picker : null}
     </TownBanner>
   );
@@ -520,12 +531,12 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         </div>
       ) : null}
       {section === "town" ? (
-        <TownBanner {...bannerProps} part="all">
+        <TownBanner {...bannerProps} part="all" nameAction={town !== null ? picker : undefined}>
           {town === null ? picker : null}
         </TownBanner>
       ) : null}
       {inMap && townLead ? <TownBanner {...bannerProps} part="lead" /> : null}
-      {inMap && !bannerAfterMap ? banner : null}
+      {inMap && !bannerSlotAfterMap ? banner : null}
 
       {showMap ? (
         <>
@@ -588,6 +599,16 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           )}
         />
       ) : (
+      <>
+      {/* 選ぶ間は、地図を押すと自分の町になる。地図のすぐ上でそれを示す（設計書 2026-11-06-town-picker D6）。代わりの地図は中に案内がある */}
+      {picking && canEdit && !mapless ? (
+        <div className="picking-bar" role="status">
+          <p>{TEXT.pickingBar}</p>
+          <button type="button" className="btn" onClick={() => setPickingOpen(false)}>
+            {TEXT.cancel}
+          </button>
+        </div>
+      ) : null}
       <div className="map-box" ref={boxRef}>
         <MapChunkBoundary>
           <Suspense fallback={<p role="status">地図を読み込んでいます</p>}>
@@ -639,6 +660,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           </div>
         ) : null}
       </div>
+      </>
       )}
 
       <p className="map-disclaimer">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
@@ -663,7 +685,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           {frequentStat}
         </div>
       ) : null}
-      {inMap && bannerAfterMap ? banner : null}
+      {inMap && bannerSlotAfterMap ? banner : null}
       {/* 右の欄（設計書 2026-11-06-ui-frame 4.1）: ふだんは自分の町の 1 文。町を押すとその町の事例に替わる（map.css で町の文を隠す） */}
       {section === "now" ? (
         <TownCasesPanel
@@ -681,7 +703,6 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           onClose={() => setInspected(null)}
         />
       ) : null}
-      {inMap && town !== null ? picker : null}
       {section === "compare" ? null : <Legend isCurrent={view.isCurrent} />}
 
       {mapless ? null : (

@@ -27,14 +27,14 @@ export const TEXT = {
   // 自分の町の県が、見回りで確認できていない（結果が未着を含む）。④の「全国の動き」だけで済ませない
   prefUnwatched: "この県は、見回りで確認できていません。発生がないとは言えません",
   // 町の選び方（高齢の人が迷わないよう、仕事の言葉で）
-  pickTown: "町を選ぶ",
-  changeTown: "町を変える",
+  pickTown: "自分の町を選ぶ",
+  changeTown: "自分の町を変える",
   japan: "全国",
   myTown: "自分の町",
   // 地図の見る場所の切り替え
   mapNear: "自分の近く",
   // 地図で押した町の事例の欄（設計書 2026-11-06-ui-frame 4.1、決定 4）
-  panelLabel: "選んだ町",
+  panelLabel: "地図で押した町",
   // シーズンは 6 月 1 日から翌年 5 月 31 日。「今季」の始まりを日付で示す（2026-11-06 作者の決定）
   // 見出しと文は、言葉の途中で折れないように塊の並びで持つ（塊の中だけで折れる）
   panelNow: (season: number) => ["今季", `（${season} 年 6 月 1 日から）`],
@@ -84,8 +84,17 @@ export const TEXT = {
   muniLabel: "市町村",
   prefPlaceholder: "県を選んでください",
   muniPlaceholder: "市町村を選んでください",
-  mapTapHint: "地図の町をさわっても選べます",
-  decideTown: "この町にする",
+  mapTapHint: "地図の町を押しても、自分の町にできます",
+  decideTown: "自分の町にする",
+  // 町の名前を入力して探す（設計書 2026-11-06-town-picker 4 章）
+  searchLabel: "町の名前を入力",
+  searchPlaceholder: "例: 西粟倉",
+  searchNone: "見つかりません。下の県と市町村からも選べます",
+  searchMore: (n: number): string => `ほかに ${n} 件あります。もう少しくわしく入力してください`,
+  // 選ぶ間、地図のすぐ上に出す（決定 D6）。やめるボタンは cancel を使う
+  pickingBar: "自分の町を選んでいます。地図の町を押すと決まります",
+  // 鶏舎の場所が消えることを前もって伝える（決定 D7）
+  spotWillClear: "別の町にすると、くわしい場所は消えます（あとで決め直せます）",
   decideHint: "県と市町村を選ぶと押せます",
   openFarmSettings: "農場の設定を開く",
   cancel: "やめる",
@@ -161,7 +170,7 @@ export const TEXT = {
    */
   pastAsOf: "時点: 過去の記録（国の事例一覧、確認日 2026-11-02）",
   pastFailed: "過去の記録を読めませんでした",
-  areaLink: "この町のくわしい状況",
+  areaLink: "この町の案内ページ（登録なしで開ける・共有用）",
   // 確認状況（W-06）
   watchNotLoaded: "見回りの結果をまだ読めていません。どの県も確認できていない扱いです。",
   watchFailedTail: "地図の斜線の県は、発生がないとは言えません。",

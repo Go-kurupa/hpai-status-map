@@ -115,15 +115,29 @@ describe("TownBanner", () => {
     expect(container.querySelector("[data-tone]")).toBeNull();
   });
 
-  it("町の案内ページ /area/{code} へのリンクがある", () => {
+  it("town の画面では案内ページへのリンクを出す", () => {
     show(props());
-    expect(screen.getByRole("link", { name: /この町のくわしい状況/ }).getAttribute("href")).toBe("/area/33214");
+    expect(screen.getByRole("link", { name: "この町の案内ページ（登録なしで開ける・共有用）" }).getAttribute("href")).toBe("/area/33214");
+  });
+
+  it("最初の画面では案内ページへのリンクを出さない（自分の町の過去を見るの 1 本。設計書 2026-11-06-town-picker D8）", () => {
+    show(props({ pastBrief: true }));
+    expect(screen.queryByRole("link", { name: TEXT.areaLink })).toBeNull();
+    expect(screen.getByRole("link", { name: TEXT.townPastLink })).toBeTruthy();
+  });
+
+  it("名前の横に差し込める（自分の町を変えるボタンの置き場。設計書 2026-11-06-town-picker D1）", () => {
+    show(props({ nameAction: <button type="button">x</button> }));
+    const row = document.querySelector(".town-name-row")!;
+    const btn = screen.getByRole("button", { name: "x" });
+    expect(row.contains(btn)).toBe(true);
+    expect(row.querySelector(".town-name")!.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("町を選んでいなければ町を選ぶ案内を出す。area へのリンクは出さない", () => {
     show(props({ muniCode: null, muniName: null, line: { tone: "none", main: "町を選んでください", details: [] }, past: { status: "idle" } }));
     expect(screen.getByText(TEXT.pickPrompt)).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /この町のくわしい状況/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: TEXT.areaLink })).toBeNull();
   });
 
   it("町の名前と、選び方の部品（children）を出す", () => {
@@ -306,8 +320,8 @@ describe("過去の発生の一覧（PastList）", () => {
     expect(b.container.querySelector(".town-now-wait")).toBeNull();
   });
 
-  it("『この町のくわしい状況』のリンクは tap-link", () => {
+  it("案内ページへのリンクは tap-link", () => {
     show(props());
-    expect(screen.getByRole("link", { name: /この町のくわしい状況/ }).className).toContain("tap-link");
+    expect(screen.getByRole("link", { name: TEXT.areaLink }).className).toContain("tap-link");
   });
 });

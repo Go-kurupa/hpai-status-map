@@ -303,7 +303,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(tones()).toEqual(["lv2"]);
     expect(lastProps().myMuniCode).toBe("33214");
     expect(lastProps().nearMuniCodes).toEqual(["33203"]);
-    expect(screen.getByRole("link", { name: /この町のくわしい状況/ }).getAttribute("href")).toBe("/area/33214");
+    expect(screen.getByRole("link", { name: TEXT.areaLink }).getAttribute("href")).toBe("/area/33214");
   });
 
   it("シーズンを変えても、自分の町の色は今季の段階のまま（過去の棒を押しても lv2）", async () => {
@@ -349,10 +349,10 @@ describe("MapPage: 自分の町の 1 文", () => {
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
-    fireEvent.click(screen.getByRole("button", { name: "町を選ぶ" }));
+    fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     fireEvent.change(await screen.findByLabelText("都道府県"), { target: { value: "33" } });
     fireEvent.change(await screen.findByLabelText("市町村"), { target: { value: "33214" } });
-    fireEvent.click(screen.getByRole("button", { name: "この町にする" }));
+    fireEvent.click(screen.getByRole("button", { name: TEXT.decideTown }));
     expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
     expect(localStorage.getItem(TOWN_KEY)).toBe("33214");
     expect(localStorage.getItem(SPOT_KEY)).toBeNull();
@@ -366,7 +366,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
     expect(lastProps().onSelectMuni).toBeUndefined();
-    fireEvent.click(screen.getByRole("button", { name: "町を選ぶ" }));
+    fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     expect(lastProps().pickMode).toBe(true);
     expect(lastProps().onSelectMuni).toBeTypeOf("function");
     act(() => lastProps().onSelectMuni!("33214"));
@@ -389,7 +389,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(document.querySelector(".map-page > .town-cases h2")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "自分の町に戻る" }));
     expect(screen.queryByRole("heading", { level: 2, name: "津山市" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "町を変える" }));
+    fireEvent.click(screen.getByRole("button", { name: TEXT.changeTown }));
     expect(lastProps().onSelectMuni).toBeTypeOf("function");
     expect(lastProps().onInspectMuni).toBeUndefined();
     cleanup();
@@ -450,7 +450,10 @@ describe("MapPage: 自分の町の 1 文", () => {
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
-    fireEvent.click(await screen.findByRole("button", { name: "町を変える" }));
+    // 町の 1 文が決まると、町の欄が地図の前後で置き直される。置き直した後のボタンを押す
+    await screen.findByText(TEXT.myTown, { selector: ".town-name .town-label" });
+    await waitFor(() => expect(screen.queryByText(TEXT.loading)).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: TEXT.changeTown }));
     act(() => lastProps().onSelectMuni!("33214"));
     expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
     expect(localStorage.getItem(SPOT_KEY)).toBeNull();
@@ -471,6 +474,10 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(getFarm).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/登録した農場の場所で見ています/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "地図で場所を合わせる" })).toBeNull();
+    // 読み取り専用では変えるボタンを出さない。説明は自分の町の欄の名前の行にある
+    expect(screen.queryByRole("button", { name: TEXT.changeTown })).toBeNull();
+    expect(document.querySelector(".town-name-row")!.textContent).toContain(TEXT.spotFromFarm);
+    expect(screen.queryByText(TEXT.pickingBar)).toBeNull();
   });
 
   it("画面の全文に、禁じた語がない", async () => {
@@ -525,8 +532,70 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(before(scope, box)).toBe(true);
     expect(screen.getAllByRole("button", { name: "全国" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: TEXT.myTown })).toBeNull();
-    const change = screen.getByRole("button", { name: TEXT.changeTown });
-    expect(before(document.querySelector(".map-disclaimer")!, change)).toBe(true);
+    // 自分の町を変えるボタンは、自分の町の欄の名前の行に 1 つだけ（設計書 2026-11-06-town-picker D1）
+    const changes = screen.getAllByRole("button", { name: TEXT.changeTown });
+    expect(changes).toHaveLength(1);
+    expect(document.querySelector(".town-banner .town-name-row")!.contains(changes[0]!)).toBe(true);
+  });
+
+  it("選ぶ間は地図の上に文が出る。やめると消え、地図を押しても町は決まらない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    await waitFor(() => expect(screen.queryByText(TEXT.loading)).toBeNull());
+    expect(screen.queryByText(TEXT.pickingBar)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: TEXT.changeTown }));
+    const bar = screen.getByText(TEXT.pickingBar);
+    expect(before(bar, document.querySelector(".map-box")!)).toBe(true);
+    fireEvent.click(within(bar.closest(".picking-bar") as HTMLElement).getByRole("button", { name: TEXT.cancel }));
+    expect(screen.queryByText(TEXT.pickingBar)).toBeNull();
+    expect(screen.queryByLabelText(TEXT.searchLabel)).toBeNull();
+    expect(lastProps().onSelectMuni).toBeUndefined();
+  });
+
+  it("選ぶ画面を開いている間に事例が届いて町の欄の置き場が変わっても、入力した文字は消えない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    fireEvent.click(await screen.findByRole("button", { name: TEXT.changeTown }));
+    fireEvent.change(screen.getByLabelText(TEXT.searchLabel), { target: { value: "津山" } });
+    r.deliverCases([tsuyamaCase()]);
+    expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
+    expect((screen.getByLabelText(TEXT.searchLabel) as HTMLInputElement).value).toBe("津山");
+  });
+
+  it("town の画面で町を変えられる", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r, { section: "town" });
+    r.deliverCases([]);
+    fireEvent.click(await screen.findByRole("button", { name: TEXT.changeTown }));
+    // 地図がない画面なので、地図を押して選べるとは書かない
+    expect(screen.queryByText(TEXT.mapTapHint)).toBeNull();
+    fireEvent.change(screen.getByLabelText(TEXT.searchLabel), { target: { value: "津山" } });
+    fireEvent.click(screen.getByRole("button", { name: "岡山県 津山市" }));
+    expect(localStorage.getItem(TOWN_KEY)).toBe("33203");
+    expect(await screen.findByText("津山市", { selector: ".town-name strong" })).toBeTruthy();
+  });
+
+  it("場所があると、選ぶ画面で消えることを前もって伝える", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    await waitFor(() => expect(screen.queryByText(TEXT.loading)).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: TEXT.changeTown }));
+    expect(screen.getByText(TEXT.spotWillClear)).toBeTruthy();
+    // PC は地図が見えているので、決めても画面を動かさない
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    fireEvent.change(screen.getByLabelText(TEXT.searchLabel), { target: { value: "真庭" } });
+    fireEvent.click(screen.getByRole("button", { name: "岡山県 真庭市" }));
+    expect(scroll).not.toHaveBeenCalled();
   });
 
   it("切り替えは最初『自分の近く』で、押すと地図が動き、押された状態が移る", async () => {
@@ -1697,6 +1766,22 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("スマホでは自分の町を決めた後に地図の上端へ戻す", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    fireEvent.click(await screen.findByRole("button", { name: TEXT.changeTown }));
+    scroll.mockClear();
+    fireEvent.change(screen.getByLabelText(TEXT.searchLabel), { target: { value: "津山" } });
+    fireEvent.click(screen.getByRole("button", { name: "岡山県 津山市" }));
+    expect(scroll).toHaveBeenCalledWith({ block: "start" });
+    expect(scroll.mock.contexts.at(-1)).toBe(document.querySelector(".map-box"));
   });
 
   it("スマホでも、町が分からない発表と読めない断りは約 60 km の残りに出る", async () => {

@@ -636,6 +636,50 @@
 .town-name {
   margin: 0 0 4px;
 }
+/* 自分の町を選ぶ間の、地図のすぐ上の 1 行。文とやめるボタンを並べ、狭いと折り返す */
+.picking-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 4px;
+  padding: 6px 12px;
+  border-left: 4px solid var(--accent);
+  background: var(--ctl);
+}
+.picking-bar p {
+  flex: 1 1 12em;
+  margin: 0;
+  font-weight: 700;
+}
+/* スマホは文を 1 行に使い、やめるボタンは次の行に置く（「決まりま／す」と語の途中で折らない） */
+@media (max-width: 63.99rem) {
+  .picking-bar p {
+    flex-basis: 100%;
+  }
+}
+/* 町の名前と、自分の町を変えるボタンを 1 行に並べる。選ぶ画面と知らせは次の行に幅いっぱいで開く */
+.town-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 4px;
+}
+.town-name-row .town-name {
+  margin: 0;
+}
+.town-name-row .town-picker {
+  display: contents;
+}
+.town-name-row .town-actions {
+  margin: 0;
+}
+.town-name-row .town-chooser,
+.town-name-row .town-picker > p,
+.town-name-row > [role="status"] {
+  flex: 0 0 100%;
+}
 .town-label {
   color: var(--sub);
   font-size: 0.9rem;
@@ -777,6 +821,31 @@
 .town-chooser .field > span {
   display: block;
   font-weight: 700;
+}
+/* 町の名前を入力して探す欄と候補。候補は押しやすい高さで幅いっぱいに並べる */
+.town-chooser input[type="search"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.town-hits {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.town-hits .btn {
+  width: 100%;
+  min-height: var(--tap);
+  justify-content: flex-start;
+  text-align: left;
 }
 .town-chooser select {
   width: 100%;
@@ -1304,6 +1373,13 @@
     margin-bottom: 8px;
   }
   .map-page:not(:has(> .spot-picker[data-active="true"])) > .map-scope {
+    order: 1;
+  }
+  /* 自分の町を選ぶ間の 1 行は、切り替えの下、地図の真上に横いっぱいで置く */
+  .map-page > .picking-bar {
+    grid-column: 1 / -1;
+  }
+  .map-page:not(:has(> .spot-picker[data-active="true"])) > .picking-bar {
     order: 1;
   }
   .map-scope button {

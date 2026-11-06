@@ -106,7 +106,7 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     await firstScreen(page);
     await expect(page.getByRole("group", { name: "地図の見る場所" })).toHaveCount(0);
     const text = (await page.locator(".town-prompt-text").boundingBox())!;
-    const btn = page.getByRole("button", { name: "町を選ぶ" });
+    const btn = page.getByRole("button", { name: "自分の町を選ぶ" });
     const box = (await btn.boundingBox())!;
     await bottomAboveNav(page, btn);
     expect(box.y).toBeLessThan(text.y + text.height);
@@ -514,7 +514,8 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
       const above = await textBeforeMap(page);
       expect(above).not.toContain("https://");
       expect(above).not.toMatch(/過去 \d+ シーズン/);
-      expect(above).not.toContain("自分の町");
+      // 自分の町の欄の文は地図の下。町を選ぶ前のボタン「自分の町を選ぶ」だけは地図の上に置く（設計書 2026-11-06-town-picker 3 章）
+      expect(above.replace("自分の町を選ぶ", "")).not.toContain("自分の町");
       expect(above).not.toContain("47 都道府県のうち");
       // 地図の断りは地図のすぐ下
       await expect(page.locator(".map-box + .map-disclaimer")).toBeVisible();
