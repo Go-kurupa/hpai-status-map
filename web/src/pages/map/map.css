@@ -131,6 +131,11 @@
 .map-ring-note {
   margin: 0 0 8px;
 }
+/* 輪の注記は ※ を付けた補足。字は 14px を下回らない決まりなので、色（--sub）と ※ で補足と分かる形にする（2026-11-06） */
+.map-ring-note {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
 
 /* 距離の輪のラベル。押せない（下の地図の操作を止めない） */
 .ring-label {

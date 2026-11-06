@@ -507,7 +507,9 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     const page = document.querySelector(".map-page")!;
     const box = document.querySelector(".map-box")!;
     const above = [...page.children].filter((e) => before(e, box));
-    expect(childNames(above)).toEqual(["h1", "p.as-of", "p.state-ok watch-line", "p.map-notice map-risk", "div.stat-row", "section.town-banner"]);
+    expect(childNames(above)).toEqual(["h1", "p.as-of", "p.map-notice map-risk", "div.stat-row", "section.town-banner"]);
+    // 全県確認なら見回りの行は出さない（2026-11-06 作者の決定）。並びからも外してある
+    expect(screen.queryByTestId("watch-line")).toBeNull();
     const banner = document.querySelector(".town-banner")!;
     expect(banner.querySelector(".town-prompt-text")!.textContent).toBe(TEXT.pickPrompt);
     const pick = within(banner as HTMLElement).getByRole("button", { name: TEXT.pickTown });
@@ -727,8 +729,10 @@ describe("MapPage: 確認状況", () => {
     expect(screen.getByTestId("watch-line").textContent).toContain("まだ読めていません");
     expect(screen.getByTestId("watch-line").textContent).not.toMatch(/件を確認/);
     r.deliverWatch(okWatch());
-    expect(screen.getByTestId("watch-line").textContent).toContain("47 都道府県すべてを確認しました。");
-    expect(screen.getByTestId("watch-line").textContent).not.toContain("確認できていません");
+    // 全県確認なら行そのものを出さない（2026-11-06 作者の決定）
+    expect(screen.queryByTestId("watch-line")).toBeNull();
+    r.deliverWatch(failed(["33"]));
+    expect(screen.getByTestId("watch-line").textContent).toContain("確認できていません");
   });
 
   it("上の時刻は checkedAt の最大（8:30）で、now（9:00）ではない", async () => {
@@ -958,18 +962,20 @@ describe("MapPage: 並びと出典", () => {
   const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
   it("守る文は地図の直後にあり、場所を合わせる区画より前。.map-status は画面にない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
-    show(r);
+    show(r, { section: "now" });
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     const box = document.querySelector(".map-box")!;
-    const disclaimer = screen.getByText(/色がない場所は/);
+    // 「色がない場所は」の断りはなくなり、60 km 以内に発生がないときの文がその場所に出る（2026-11-06 作者の決定）
+    const disclaimer = await screen.findByText(TEXT.nearNone);
     const picker = screen.getByRole("region", { name: TEXT.spotTitle });
     expect(follows(box, disclaimer)).toBe(true);
     expect(follows(disclaimer, picker)).toBe(true);
     expect(disclaimer.className).toBe("map-disclaimer");
-    expect(screen.getByTestId("watch-line").className).toContain("state-ok");
+    expect(screen.queryByTestId("watch-line")).toBeNull();
     expect(document.querySelector(".map-status")).toBeNull();
   });
 
@@ -990,7 +996,7 @@ describe("MapPage: 並びと出典", () => {
     r.deliverCases([
       tsuyamaCase({ id: "rev-1", prefCode: "31", muniCode: null, muniName: null, headCount: null, stages: {}, confirmState: "reviewing", sourceUrls: ["https://example.invalid/r"] }),
     ]);
-    r.deliverWatch(okWatch());
+    r.deliverWatch(failed(["33"])); // 全県確認だと見回りの行が出ないので、1 県を確認できない状態にして位置を見る
     const p = await screen.findByText("確認中の発表がある県: 鳥取県。件数にはまだ入れていません。");
     expect(p.className).toBe("state-wait");
     expect(follows(screen.getByTestId("watch-line"), p)).toBe(true);
@@ -1024,12 +1030,15 @@ describe("MapPage: 並びと出典", () => {
 
   it("地図の部品が読み込めなければ mapLoadFailed を出し、守る文は残る", async () => {
     mapThrows = true;
+    localStorage.setItem(TOWN_KEY, "33214");
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    show(rig());
+    const r = rig();
+    show(r, { section: "now" });
+    r.deliverCases([]);
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toBe(TEXT.mapLoadFailed);
     expect(alert.className).toBe("map-error");
-    expect(screen.getByText(/色がない場所は/)).toBeTruthy();
+    expect(await screen.findByText(TEXT.nearNone)).toBeTruthy();
     spy.mockRestore();
   });
 });
@@ -1093,15 +1102,15 @@ describe("MapPage: 平面の札（T12）", () => {
     expect(row.querySelectorAll(".stat")).toHaveLength(4);
     const box = document.querySelector(".map-box")!;
     expect(follows(row, box)).toBe(true);
-    expect(box.nextElementSibling).toBe(document.querySelector(".map-disclaimer"));
+    expect(document.querySelector(".map-disclaimer")).toBeNull(); // 町を選んでいないので、付近の断りは出ない（2026-11-06 作者の決定）
     const rest = document.querySelector(".stat-rest")!;
     expect(rest.querySelectorAll(".stat")).toHaveLength(1);
     expect(follows(document.querySelector(".case-list")!, rest)).toBe(true);
     expect(follows(rest, document.querySelector(".season-bar")!)).toBe(true);
-    expect(follows(screen.getByTestId("watch-line"), row)).toBe(true);
+    expect(screen.queryByTestId("watch-line")).toBeNull(); // 全県確認なので見回りの行は出ない（2026-11-06 作者の決定）
     expect(follows(screen.getByText(/確認中の発表がある県/), row)).toBe(true);
     expect(follows(row, document.querySelector(".map-attribution")!)).toBe(true);
-    expect(screen.getAllByTestId("watch-line")).toHaveLength(1);
+    expect(screen.queryAllByTestId("watch-line")).toHaveLength(0);
     expect(row.querySelector("[role=status]")).toBeNull();
     expect(row.querySelector(".stat-headline")!.textContent).toBe(TEXT.statHeadline);
     expect(stats()[2]!.textContent).toContain("11 月 4 日 8:30 時点");
@@ -1336,14 +1345,57 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
     it("町だけを選んだときは、町の中心を輪の中心に渡し、町の中心の断りを出す（設計書 2026-11-06-ui-frame 決定 6）", async () => {
       localStorage.setItem(TOWN_KEY, "33203");
       const r = rig();
-      show(r);
+      show(r, { section: "now" });
       await screen.findByTestId("map");
       r.deliverCases([]);
       expect(lastProps().farmMeshCode).toBeNull();
       const center = (indexJson as unknown as Record<string, { center: [number, number] }>)["33203"]!.center;
       await waitFor(() => expect(lastProps().ringCenter).toEqual(center));
       expect(screen.queryByText(TEXT.ringNote)).toBeNull();
+      // 60 km 以内に今季の発生がないので、付近の文（.map-disclaimer）の次に輪の断りが並ぶ
       expect(screen.getByText(TEXT.ringNoteTown).previousElementSibling?.className).toBe("map-disclaimer");
+      expect(screen.getByText(TEXT.nearNone).className).toBe("map-disclaimer");
+    });
+
+    describe("付近に発生がないときの文（nearNone）", () => {
+      const nearNone = () => screen.queryByText(TEXT.nearNone);
+
+      it("町だけ選んで、60 km 以内に今季の事例が 0 件なら出る。全国を押すと消え、付近に戻すと出る", async () => {
+        localStorage.setItem(TOWN_KEY, "33214");
+        const r = rig();
+        show(r, { section: "now" });
+        await screen.findByTestId("map");
+        // 北海道の事例は真庭市から約 60 km より遠い
+        r.deliverCases([tsuyamaCase({ id: "far", prefCode: "01", muniCode: "01100", muniName: "札幌市" })]);
+        r.deliverWatch(okWatch());
+        expect(await screen.findByText(TEXT.nearNone)).toBeTruthy();
+        expect(screen.getByText(TEXT.nearNone).className).toBe("map-disclaimer");
+        fireEvent.click(screen.getByRole("button", { name: "全国" }));
+        expect(lastProps().focus?.kind).toBe("japan");
+        expect(nearNone()).toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: TEXT.mapNear }));
+        expect(await screen.findByText(TEXT.nearNone)).toBeTruthy();
+      });
+
+      it("60 km 以内に今季の事例が 1 件あれば出ない", async () => {
+        localStorage.setItem(TOWN_KEY, "33214");
+        const r = rig();
+        show(r, { section: "now" });
+        await screen.findByTestId("map");
+        r.deliverCases([tsuyamaCase({ id: "near" })]);
+        r.deliverWatch(okWatch());
+        await waitFor(() => expect(lastProps().focus?.kind).toBe("rings"));
+        expect(nearNone()).toBeNull();
+        expect(document.querySelector(".map-disclaimer")).toBeNull();
+      });
+
+      it("今季の事例がまだ読めていない間は出さない（0 件と言えない）", async () => {
+        localStorage.setItem(TOWN_KEY, "33214");
+        const r = rig();
+        show(r, { section: "now" });
+        await screen.findByTestId("map");
+        expect(nearNone()).toBeNull();
+      });
     });
 
     it("地点も町もあれば、輪は地点から。町の中心は渡さず、断りは地点の文だけ", async () => {
@@ -1362,10 +1414,13 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
     it("地点があれば、マス目を地図に渡し、断りを色がない場所の断りのすぐ後に出す", async () => {
       setSpot();
       const r = rig();
-      show(r);
+      show(r, { section: "now" });
       await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
       expect(lastProps().farmMeshCode).toBe(FARM_MESH);
-      const note = screen.getByText("輪は距離の目安で、発表の区域ではありません。");
+      const note = await screen.findByText(TEXT.ringNote);
+      expect(note.className).toBe("map-ring-note");
       expect(note.previousElementSibling?.className).toBe("map-disclaimer");
     });
 
@@ -1842,8 +1897,8 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     const source = document.querySelector(".map-risk-source")!;
     expect(before(document.querySelector(".map-box")!, source)).toBe(true);
     expect(source.textContent).toContain(url);
-    expect(screen.getAllByTestId("watch-line")).toHaveLength(1);
-    expect(before(document.querySelector(".map-box")!, screen.getByTestId("watch-line"))).toBe(true);
+    // 全県確認なので見回りの行は出ない（2026-11-06 作者の決定）。地図の下の位置の確かめは、出る条件の試験（確認状況）が受け持つ
+    expect(screen.queryAllByTestId("watch-line")).toHaveLength(0);
   });
 
   it("選択地域付近: 確認中の県と町の分からない発表を、地図の下の端の 1 行に出す。『全国で見る』で全国へ。全国の広さでは出さない", async () => {

@@ -39,7 +39,7 @@ const nowCase = (o: Partial<Case>): Case =>
     ...o,
   }) as unknown as Case;
 
-const base = { current: 2026, asOf: "2026-11-04T08:30:00+09:00", nearbyTowns: [], onPick: () => {}, onClose: () => {}, historyFailed: false, onRetryHistory: () => {}, hasTown: true };
+const base = { current: 2026, asOf: "2026-11-04T08:30:00+09:00", onClose: () => {}, historyFailed: false, onRetryHistory: () => {}, hasTown: true };
 // 欄は「この町のくわしい状況」へのリンクを持つので、道筋の中で描く
 const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
@@ -90,24 +90,7 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
     expect([...document.querySelectorAll(".town-cases > p")].filter((e) => e.textContent === "発生記録はありません。")).toHaveLength(2);
   });
 
-  it("町を選んでいないときは、近くで過去に発生のある町をボタンで並べ、押すとその町を選ぶ（キーボードでも選べる）", () => {
-    const onPick = vi.fn();
-    render(
-      <TownCasesPanel
-        {...base}
-        muniCode={null}
-        muniName={null}
-        currentCases={[]}
-        history={[]}
-        nearbyTowns={[{ muniCode: "33203", name: "津山市", distanceKm: 32, count: 1, seasons: [2025] }]}
-        onPick={onPick}
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "津山市" }));
-    expect(onPick).toHaveBeenCalledWith("33203");
-  });
-
-  it("近くの町もなく、町も選んでいなければ何も出さない", () => {
+  it("町を押していなければ何も出さない（近くの自治体のボタンは選択地域の欄の過去の記録へ移した。2026-11-06 作者の決定）", () => {
     const { container } = render(<TownCasesPanel {...base} muniCode={null} muniName={null} currentCases={[]} history={[]} />);
     expect(container.firstChild).toBeNull();
   });
@@ -145,19 +128,26 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
   it("町を押すと題へフォーカスが移る。閉じると開いた元のボタンへ戻る。町を選んでいない人には『閉じる』", () => {
     vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
     try {
-      const towns = [{ muniCode: "33203", name: "津山市", distanceKm: 32, count: 1, seasons: [2025] }];
+      // 開いた元は、選択地域の欄の過去の記録にある自治体のボタン（欄の外）
       const view = (muniCode: string | null, onClose = () => {}) => (
         <MemoryRouter>
-          <TownCasesPanel {...base} muniCode={muniCode} muniName={muniCode ? "津山市" : null} currentCases={[]} history={[]} nearbyTowns={towns} onClose={onClose} />
+          <ul className="town-cases-picks">
+            <li>
+              <button type="button" data-muni="33203">
+                津山市 1 件
+              </button>
+            </li>
+          </ul>
+          <TownCasesPanel {...base} muniCode={muniCode} muniName={muniCode ? "津山市" : null} currentCases={[]} history={[]} onClose={onClose} />
         </MemoryRouter>
       );
       const { rerender } = rtlRender(view(null));
-      screen.getByRole("button", { name: "津山市" }).focus();
+      screen.getByRole("button", { name: "津山市 1 件" }).focus();
       rerender(view("33203", () => rerender(view(null))));
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2 }));
       fireEvent.click(screen.getByRole("button", { name: "選択地域に戻る" }));
       act(() => vi.runAllTimers());
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: "津山市" }));
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "津山市 1 件" }));
     } finally {
       vi.useRealTimers();
     }

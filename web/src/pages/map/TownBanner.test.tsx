@@ -1,8 +1,8 @@
 import type { PastSummary } from "@hpai/shared/past";
 import { findForbiddenPhrases, findWordingViolations, FIXED_TEXT } from "@hpai/shared/wording";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NearbyPastState } from "./NearbyPast";
 import { TownBanner, type TownBannerProps } from "./TownBanner";
 import { TEXT } from "./texts";
@@ -323,5 +323,64 @@ describe("過去の発生の一覧（PastList）", () => {
   it("案内ページへのリンクは tap-link", () => {
     show(props());
     expect(screen.getByRole("link", { name: TEXT.areaLink }).className).toContain("tap-link");
+  });
+});
+
+describe("TownBanner: 最初の画面の過去の記録（近くの自治体のボタン）", () => {
+  const NEARBY: NearbyPastState = {
+    status: "ready",
+    basis: "center",
+    summary: {
+      // 近い順で渡ってくる。画面では件数の多い順、同じなら近い順に並べ直す
+      towns: [
+        { muniCode: "33214", name: "真庭市", distanceKm: 0, count: 1, seasons: [2025] },
+        { muniCode: "33202", name: "津山市", distanceKm: 12.4, count: 3, seasons: [2024, 2022, 2021] },
+        { muniCode: "33205", name: "新見市", distanceKm: 20.1, count: 1, seasons: [2023] },
+        { muniCode: "33204", name: "高梁市", distanceKm: 30.2, count: 3, seasons: [2024, 2023, 2022] },
+      ],
+      total: 8,
+      seasonsWithCases: 4,
+      windowSeasons: 6,
+    },
+    smallFlocks: { total: 0, known: 0, small: 0 },
+    current: 2026,
+  };
+
+  it("pastBrief と onPickTown なら、件数の多い順（同じなら近い順）の「名前 N 件」のボタンと、1 文を出す。押すと市町村コードが渡る", () => {
+    const onPickTown = vi.fn();
+    show(props({ pastBrief: true, nearby: NEARBY, onPickTown }));
+    const list = document.querySelector("ul.town-cases-picks")!;
+    const buttons = [...list.querySelectorAll("button[data-muni]")];
+    expect(buttons.map((b) => b.textContent)).toEqual(["津山市 3 件", "高梁市 3 件", "真庭市 1 件", "新見市 1 件"]);
+    expect(buttons.map((b) => b.getAttribute("data-muni"))).toEqual(["33202", "33204", "33214", "33205"]);
+    expect(buttons[0]!.textContent).toBe(TEXT.pastPick("津山市", 3));
+    expect(document.body.textContent).toContain(TEXT.pastNearby(4, 8, 2020, 2026));
+    fireEvent.click(buttons[1]!);
+    expect(onPickTown).toHaveBeenCalledTimes(1);
+    expect(onPickTown).toHaveBeenCalledWith("33204");
+    expect(screen.getByRole("link", { name: TEXT.townPastLink })).toBeTruthy();
+  });
+
+  it("onPickTown を渡さなければボタンを出さず、今までの 1 文にする", () => {
+    show(props({ pastBrief: true, nearby: NEARBY }));
+    expect(document.querySelector("ul.town-cases-picks")).toBeNull();
+    expect(document.body.textContent).toContain(PAST.sentence);
+  });
+
+  it("hideNationalHead なら「全国の動き」の見出しを出さず、下の文（details）は残す", () => {
+    const line: TownLine = { tone: "lv4", main: TEXT.national, details: [FIXED_TEXT.riskAnywhere] };
+    show(props({ line, hideNationalHead: true }));
+    expect(document.querySelector("p.town-main")).toBeNull();
+    expect(document.body.textContent).not.toContain(TEXT.national);
+    expect(document.querySelector(".town-details")!.textContent).toContain("シーズン中はどこでも");
+  });
+
+  it("hideNationalHead でなければ見出しを出す。全国でない行（隣町など）は hideNationalHead でも見出しが残る", () => {
+    const line: TownLine = { tone: "lv4", main: TEXT.national, details: [FIXED_TEXT.riskAnywhere] };
+    show(props({ line }));
+    expect(document.querySelector("p.town-main")!.textContent).toBe(TEXT.national);
+    cleanup();
+    show(props({ hideNationalHead: true }));
+    expect(document.querySelector("p.town-main")!.textContent).toBe(LINE.main);
   });
 });

@@ -8,6 +8,8 @@ import type { WatchLineResult } from "./watchLineText";
  * いつ時点かは、ページ上部の AsOf が同じ checkedAt の最大を出す。
  */
 export function WatchLine({ loaded, line }: { loaded: boolean; line: WatchLineResult }) {
+  // 全部の県を確認できたときは出さない（2026-11-06 作者の決定）。確認できない県があるときと、読めていないときは出す
+  if (loaded && line.failedPrefCodes.length === 0) return null;
   return (
     <p
       className={loaded && line.failedPrefCodes.length === 0 ? "state-ok watch-line" : "state-unknown watch-line"}

@@ -337,7 +337,7 @@ describe("ReplayPage: 距離の輪", () => {
     await show();
     await mapReady();
     expect(lastProps().farmMeshCode).toBe(scenario.defaultSpot.meshCode);
-    expect(screen.getByText("輪は距離の目安で、発表の区域ではありません。")).toBeTruthy();
+    expect(screen.getByText("※ 輪は距離の目安で、発表の区域ではありません。")).toBeTruthy();
     expect(document.querySelector(".stat-row")).toBeNull();
   });
 });

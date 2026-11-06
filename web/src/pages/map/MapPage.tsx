@@ -20,7 +20,7 @@ import { CompareMaps } from "./CompareMaps";
 import { buildSeasonView } from "./seasonView";
 import { MapLinks, NextLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
-import { countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
+import { casesNearCenter, countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
 import type { PickTarget } from "./pickSpot";
 import { countText, SeasonBar, type SeasonBarItem } from "./SeasonBar";
 import { SeasonCharts } from "./SeasonCharts";
@@ -347,7 +347,14 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     riskShownAbove: riskMovedUp,
   };
   const banner = (
-    <TownBanner {...bannerProps} part={townLead ? "rest" : "all"} pastBrief={section === "now"} nameAction={town !== null ? picker : undefined}>
+    <TownBanner
+      {...bannerProps}
+      part={townLead ? "rest" : "all"}
+      pastBrief={section === "now"}
+      onPickTown={section === "now" ? setInspected : undefined}
+      hideNationalHead={section === "now"}
+      nameAction={town !== null ? picker : undefined}
+    >
       {town === null ? picker : null}
     </TownBanner>
   );
@@ -429,6 +436,17 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     return `${p.name} ${parts.filter((s) => s !== null).join("・")}`;
   });
   const showUnmarked = narrow && town !== null && showingNear && !mapless && view.loaded && unmarked.length > 0;
+  // 「選択地域付近」で、約 60 km 以内に今季の発生がないときだけ「確認されていません」と出す（2026-11-06 作者の決定）。
+  // 1 件以上あるとき、全国の見方、再現、数えられないとき（町の分からない発表がある、まだ読めていない）は出さない
+  const nowCountable = d.currentCases === null ? null : d.currentCases.filter((c) => c.season === d.current && isCountable(c));
+  const nearCount =
+    section !== "now" || ds.mode === "replay" || !showingNear || town === null || geo === null || nowCountable === null || nowCountable.some((c) => c.muniCode === null)
+      ? null
+      : farmMeshCode !== null
+        ? typeof band.now === "number"
+          ? band.now
+          : null
+        : casesNearCenter(town, nowCountable, geo);
 
   return (
     <div className="map-page" data-section={section}>
@@ -537,7 +555,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           {town === null ? picker : null}
         </TownBanner>
       ) : null}
-      {inMap && townLead ? <TownBanner {...bannerProps} part="lead" /> : null}
+      {inMap && townLead ? <TownBanner {...bannerProps} part="lead" hideNationalHead={section === "now"} /> : null}
       {inMap && !bannerSlotAfterMap ? banner : null}
 
       {showMap ? (
@@ -665,7 +683,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       </>
       )}
 
-      <p className="map-disclaimer">色がない場所は、発生の報告がないだけです。これから出ないという意味ではありません。</p>
+      {nearCount === 0 ? <p className="map-disclaimer">{TEXT.nearNone}</p> : null}
       {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : ringCenter !== null ? <p className="map-ring-note">{TEXT.ringNoteTown}</p> : null}
       {narrow && riskAboveStats ? (
         <p className="map-risk-source">
@@ -699,9 +717,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           onRetryHistory={d.retryHistory}
           current={d.current}
           asOf={d.asOf}
-          nearbyTowns={nearby.status === "ready" ? nearby.summary.towns.filter((t) => t.muniCode !== town) : []}
           hasTown={town !== null}
-          onPick={setInspected}
           onClose={() => setInspected(null)}
         />
       ) : null}

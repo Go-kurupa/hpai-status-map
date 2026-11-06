@@ -58,8 +58,14 @@ export const TEXT = {
   panelCloseNoTown: "閉じる",
   panelPastFailed: "過去の記録をまだ読めていません。",
   panelRetry: "もう一度読む",
-  panelHint: "地図で町を押すと、その町の今季と過去の発生が出ます。近くで過去に発生のある町:",
-  panelPickAria: "町を選んで発生を見る",
+  // 最初の画面の過去の記録（2026-11-06 作者の決定）: 近くの自治体ごとの件数のボタン。押すと押した町の欄が開く。件数の多い順、同じなら近い順
+  pastNearby: (towns: number, total: number, from: number, to: number) =>
+    `約 60 km 以内の ${towns} 自治体で、計 ${total} 件発生しました（${from} 年 6 月〜${to} 年 5 月）`,
+  pastPick: (name: string, count: number) => `${name} ${count} 件`,
+  pastPickHint: "自治体を押すと、今季と過去の事例が出ます。",
+  pastPickAria: "近くで過去に発生のある自治体",
+  // 選択地域付近で、約 60 km 以内に今季の発生がないときだけ出す（2026-11-06 作者の決定。あるときと全国の見方では出さない）
+  nearNone: "現時点では、付近での発生は確認されていません。",
   // 過去シーズンとの比べの 2 枚の地図（設計書 2026-11-06-ui-frame 4.4、決定 5）。シーズンは日付の範囲でも示す
   compareFirst: "比べる 1",
   compareSecond: "比べる 2",
@@ -69,7 +75,7 @@ export const TEXT = {
   compareMapWait:"地図は、画面に入ってから読み込みます",
   compareHint: "地図で町を押すと、2 つのシーズンのその町の発生が、地図の下に並んで出ます。",
   // 町だけ選んだ人の、町の中心からの輪（設計書 2026-11-06-ui-frame 決定 6）
-  ringNoteTown: "輪は町の中心からの距離の目安で、発表の区域ではありません。",
+  ringNoteTown: "※ 輪は自治体の中心からの距離の目安で、発表の区域ではありません。",
   // 最初の画面の過去の行から「選択地域の過去」へ（設計書 2026-11-06-ui-frame 4.1）
   townPastLink: "選択地域の過去を見る",
   mapScopeAria: "地図の見る場所",
@@ -117,7 +123,7 @@ export const TEXT = {
   spotFixed: "この画面では場所を変えられません",
   townCleared: "町を選び直したので、くわしい場所は消しました",
   // 距離の輪（発表の区域と別物であることを、地図の下に常に出す）
-  ringNote: "輪は距離の目安で、発表の区域ではありません。",
+  ringNote: "※ 輪は距離の目安で、発表の区域ではありません。",
   // 毎朝の札。多い少ないを書かない。題に「時点」を入れない（E2E が時刻の表示を「時点」で確かめている）
   // スマホの見出しの題。札の題（発生した件数）は PC の札に残す
   statHeadline: "今季の発生（全国）",

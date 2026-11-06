@@ -433,7 +433,7 @@ test.describe("地図（入口）", () => {
     test("町だけ選んだ人は、町の中心から輪が描かれ、選択地域付近は約 60 km の輪の全体が入る。断りは町の中心の文", async ({ page }) => {
       await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
       await open(page, 1280);
-      await expect(page.getByText("輪は町の中心からの距離の目安で、発表の区域ではありません。")).toBeVisible();
+      await expect(page.getByText("※ 輪は自治体の中心からの距離の目安で、発表の区域ではありません。")).toBeVisible();
       await expect(page.getByText(RING_NOTE)).toHaveCount(0);
       await expect
         .poll(() => page.evaluate(() => window.__hpaiMap!.queryRenderedFeatures(undefined, { layers: ["distance-rings"] }).length), { timeout: 10_000 })
@@ -511,11 +511,13 @@ test.describe("地図（入口）", () => {
 
   // 設計書 2026-11-06-ui-frame 決定 4: 地図で町を押すと、その町の今季と過去の事例が右の列（スマホは地図の下）に出る
   test.describe("押した町の事例", () => {
-    test("PC: 地図の真ん中（自分の町）を押すと右の列の先頭に欄が出て、題へ移る。戻ると近くの町のボタン、押すと過去の事例が出る", async ({ page }) => {
+    test("PC: 地図の真ん中（自分の町）を押すと右の列の先頭に欄が出て、題へ移る。過去の記録の近くの町のボタンを押すと過去の事例が出て、戻るとそのボタンへ戻る", async ({ page }) => {
       await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
       await open(page, 1280);
       const panel = page.locator(".town-cases");
-      await expect(panel.getByRole("button", { name: "美作市" })).toBeVisible({ timeout: 20_000 });
+      // 近くの自治体のボタンは、選択地域の欄の「過去の記録」にある（2026-11-06 作者の決定。同じ町が 2 か所に並ばないように）
+      const pick = page.locator(".town-past .town-cases-picks").getByRole("button", { name: /^美作市 \d+ 件$/ });
+      await expect(pick).toBeVisible({ timeout: 20_000 });
       // 輪の広さへ動いている最中に押すと動きが止まり、町の塗りのない広さに残る。真ん中に自分の町の塗りが描かれてから押す
       await expect
         .poll(
@@ -539,10 +541,14 @@ test.describe("地図（入口）", () => {
       expect(box.x).toBeGreaterThan(canvas.x + canvas.width);
       expect(Math.abs(box.y - canvas.y)).toBeLessThanOrEqual(2);
       await panel.getByRole("button", { name: "選択地域に戻る" }).click();
-      await panel.getByRole("button", { name: "美作市" }).click();
+      await expect(panel).toHaveCount(0);
+      await pick.click();
       await expect(panel.getByRole("heading", { level: 2, name: "美作市" })).toBeFocused();
       await expect(panel.getByText("2020 年 12 月 11 日")).toBeVisible();
       await expect(panel.getByRole("link", { name: "資料を開く" }).first()).toHaveAttribute("rel", /noopener/);
+      // 戻ると、開いた元の美作市のボタンへフォーカスが戻る
+      await panel.getByRole("button", { name: "選択地域に戻る" }).click();
+      await expect(pick).toBeFocused();
     });
 
     test("欄は今季の発生の地図だけ。過去の発生（/compare）と選択地域のまわり（/town）には出ない", async ({ page }) => {

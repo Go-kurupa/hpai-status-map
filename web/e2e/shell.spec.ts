@@ -87,13 +87,15 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
   });
 
   // 開いた瞬間に、断り、数字、地図の全部（と地図の断り）が画面の下端より上に入る。地図は横幅いっぱい
-  async function firstScreen(page: Page) {
+  /** registered: 地点か町がある。そのときだけ地図の下に「確認されていません」の 1 文が出る（2026-11-06 作者の決定） */
+  async function firstScreen(page: Page, registered: boolean) {
     await expect(page.locator(".stat-row")).toBeVisible();
     await bottomAboveNav(page, page.locator(".map-risk"));
     await bottomAboveNav(page, page.locator(".stat-row .stat-value").first());
     const canvas = page.locator(".map-box .map-canvas");
     await bottomAboveNav(page, canvas);
-    await bottomAboveNav(page, page.locator(".map-disclaimer"));
+    if (registered) await bottomAboveNav(page, page.locator(".map-disclaimer"));
+    else await expect(page.locator(".map-disclaimer")).toHaveCount(0);
     const box = (await canvas.boundingBox())!;
     expect(box.width).toBeGreaterThanOrEqual(360 - 2 * 16);
     expect(box.height).toBeGreaterThanOrEqual(200);
@@ -103,7 +105,7 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
 
   test("/ 登録なし: 断り、数字、地図が入る。切り替えは出さず、案内とボタンを 1 行に並べ、ボタンの文字は折れない", async ({ page }) => {
     await page.goto("/");
-    await firstScreen(page);
+    await firstScreen(page, false);
     await expect(page.getByRole("group", { name: "地図の見る場所" })).toHaveCount(0);
     const text = (await page.locator(".town-prompt-text").boundingBox())!;
     const btn = page.getByRole("button", { name: "地域を選択" });
@@ -119,7 +121,7 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
   test("/ 登録あり: 断り、数字、切り替え、地図が入る。段階 ④ の文は地図の下", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("hpai.spot.v1", JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] })));
     await page.goto("/");
-    await firstScreen(page);
+    await firstScreen(page, true);
     await bottomAboveNav(page, page.locator(".map-ring-note"));
     const near = page.getByRole("button", { name: "選択地域付近" });
     await bottomAboveNav(page, near);
@@ -215,12 +217,12 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 
-    // 地図の断りと輪の注記は地図のすぐ下で、画面の下端より上。地図の切り替えは地図に重ねず、その後ろ
-    const disclaimer = await box(page.locator(".map-disclaimer"));
+    // 輪の注記は地図のすぐ下で、画面の下端より上。再現では「確認されていません」の 1 文は出さない（2026-11-06 作者の決定）。
+    // 地図の切り替えは地図に重ねず、その後ろ
+    await expect(page.locator(".map-disclaimer")).toHaveCount(0);
     const ringNote = await box(page.locator(".map-ring-note"));
-    expect(disclaimer.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
-    expect(disclaimer.y - (canvas.y + canvas.height)).toBeLessThanOrEqual(8);
-    expect(ringNote.y).toBeGreaterThanOrEqual(disclaimer.y + disclaimer.height);
+    expect(ringNote.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
+    expect(ringNote.y - (canvas.y + canvas.height)).toBeLessThanOrEqual(8);
     expect(ringNote.y + ringNote.height).toBeLessThanOrEqual(nav.y);
     const mapScope = await box(page.getByRole("group", { name: "地図の見る場所" }));
     expect(mapScope.y).toBeGreaterThanOrEqual(ringNote.y + ringNote.height);
@@ -428,7 +430,8 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     town?: string;
     cases?: Case[];
     watch?: WatchStatus[];
-    tone?: "lv1" | "lv2" | "lv3" | "lv4";
+    /** 段階の枠の色。"none" は枠が出ないことを確かめる */
+    tone?: "lv1" | "lv2" | "lv3" | "lv4" | "none";
   }
   const STATES: MapState[] = [
     { name: "登録なし、0 件" },
@@ -437,18 +440,18 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     { name: "登録なし、発生ありで 5 県が未確認", cases: [FAR], watch: FIVE },
     { name: "登録なし、全県未確認", watch: ALL },
     { name: "登録なし、見回りの結果が未着", watch: [] },
-    { name: "登録あり、段階 4、0 件", spot: true, tone: "lv4" },
-    { name: "登録あり、段階 4、発生あり", spot: true, cases: [FAR], tone: "lv4" },
+    { name: "登録あり、段階 4、0 件", spot: true, tone: "none" },
+    { name: "登録あり、段階 4、発生あり", spot: true, cases: [FAR], tone: "none" },
     { name: "登録あり、段階 1", spot: true, cases: [SAME_TOWN], tone: "lv1" },
     { name: "登録あり、段階 2", spot: true, cases: [NEIGHBOR], tone: "lv2" },
     { name: "登録あり、段階 3", spot: true, cases: [BAND], tone: "lv3" },
-    { name: "登録あり、1 県が未確認", spot: true, watch: watchFailing(["01"]), tone: "lv4" },
+    { name: "登録あり、1 県が未確認", spot: true, watch: watchFailing(["01"]), tone: "none" },
     { name: "登録あり、自分の県が未確認", spot: true, watch: ONE },
     { name: "登録あり、全県未確認", spot: true, watch: ALL },
     { name: "登録あり、自分の県を含む 5 県が未確認", spot: true, watch: FIVE },
     { name: "登録あり、段階 1、5 県が未確認で直近 14 日が 0 件（一番長い形）", spot: true, cases: [makeCase("e-old", "33", "33203", "津山市", "2026-10-01")], watch: FIVE, tone: "lv1" },
     { name: "登録した町あり、段階 3", spot: true, frequent: ["33213", "33214"], cases: [BAND], tone: "lv3" },
-    { name: "登録した町あり、0 件", spot: true, frequent: ["33213", "33214"], tone: "lv4" },
+    { name: "登録した町あり、0 件", spot: true, frequent: ["33213", "33214"], tone: "none" },
     { name: "町だけ、同じ町で発生", town: "33203", cases: [SAME_TOWN], tone: "lv1" },
     { name: "町だけ、隣町で発生", town: "33203", cases: [NEIGHBOR], tone: "lv2" },
     { name: "町だけ、0 件", town: "33203", tone: "lv4" },
@@ -509,7 +512,9 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
       expect(canvas.width).toBeGreaterThanOrEqual(360 - 2 * 16);
       expect(await page.evaluate(() => window.scrollY)).toBe(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
-      if (s.tone) await expect(page.locator("[data-tone]").first()).toHaveAttribute("data-tone", s.tone);
+      // 地点がある人の段階 4 は、/ では全国の見出しを消すので段階の枠ごと出ない（2026-11-06 作者の決定「見出しは要らない」）
+      if (s.tone === "none") await expect(page.locator("[data-tone]")).toHaveCount(0);
+      else if (s.tone) await expect(page.locator("[data-tone]").first()).toHaveAttribute("data-tone", s.tone);
 
       const above = await textBeforeMap(page);
       expect(above).not.toContain("https://");
@@ -517,14 +522,20 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
       // 選択地域の欄の文は地図の下。町を選ぶ前のボタン「地域を選択」と、切り替えの「選択地域付近」だけは地図の上に置く
       expect(above.replace("地域を選択", "").replaceAll("選択地域付近", "")).not.toContain("選択地域");
       expect(above).not.toContain("47 都道府県のうち");
-      // 地図の断りは地図のすぐ下
-      await expect(page.locator(".map-box + .map-disclaimer")).toBeVisible();
+      // 「確認されていません」の 1 文は、約 60 km 以内に今季の発生がないときだけ、地図のすぐ下に出す（2026-11-06 作者の決定）
+      // FAR（函館市）は約 60 km の外なので、「付近」の発生に数えない
+      const nearNone = (s.spot || s.town) && (s.cases ?? []).every((c) => c === FAR);
+      await expect(page.locator(".map-box + .map-disclaimer")).toHaveCount(nearNone ? 1 : 0);
+      if (nearNone) await expect(page.locator(".map-disclaimer")).toHaveText("現時点では、付近での発生は確認されていません。");
       // 輪は地点があればそこから、町だけなら町の中心から描く（設計書 2026-11-06-ui-frame 決定 6）。どちらでもなければ断りもない
-      await expect(page.locator(".map-disclaimer + .map-ring-note")).toHaveCount(s.spot || s.town ? 1 : 0);
-      // 確認の行は消さず、地図の下で読める
+      await expect(page.locator(".map-ring-note")).toHaveCount(s.spot || s.town ? 1 : 0);
+      // 確認の行は、確認できない県があるときだけ出し、消さずに地図の下で読める。全県を確認できた朝は出さない（2026-11-06 作者の決定）
       const watchLine = page.getByTestId("watch-line");
-      await expect(watchLine).toBeVisible();
-      expect((await watchLine.boundingBox())!.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
+      if (s.watch === undefined || s.watch === OK) await expect(watchLine).toHaveCount(0);
+      else {
+        await expect(watchLine).toBeVisible();
+        expect((await watchLine.boundingBox())!.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
+      }
 
       // 守る文は数字の直前で、短いリンクの出典を持つ。文の全部を読める
       const risk = page.locator(".map-risk");
@@ -737,10 +748,8 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
         expect(b.y + b.height).toBeLessThanOrEqual(top);
       }
       for (const card of await cards.all()) await expect(card.locator(".stat-when")).toBeVisible();
-      // 全県を確認できた朝の行は断りではないので、右の列の先頭に上げない
-      const ok = (await page.locator(".state-ok.watch-line").boundingBox())!;
-      const disclaimer = (await page.locator(".map-disclaimer").boundingBox())!;
-      expect(ok.y).toBeGreaterThan(disclaimer.y);
+      // 全県を確認できた朝は、確認の行を出さない（2026-11-06 作者の決定）
+      await expect(page.getByTestId("watch-line")).toHaveCount(0);
       if (spot) {
         // 切り替えは札の下、地図の真上に、2 列にまたがって置く（2026-11-06 作者の決定）
         const scope = (await page.locator(".map-scope").boundingBox())!;

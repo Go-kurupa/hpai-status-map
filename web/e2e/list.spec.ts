@@ -132,10 +132,10 @@ test.describe("確認状況", () => {
     await expect(page.getByRole("list", { name: "地図の見方" })).toContainText("確認できていない県");
   });
 
-  test("全県が確認できていれば、文に括弧がない", async ({ page }) => {
+  test("全県が確認できていれば、確認の行を出さない（2026-11-06 作者の決定）", async ({ page }) => {
     await open(page, { watch: watchOk() });
-    await expect(page.getByTestId("watch-line")).toContainText("47 都道府県すべてを確認しました。");
-    await expect(page.getByTestId("watch-line")).not.toContainText("（");
+    await expect(page.getByText("都道府県すべてを確認しました")).toHaveCount(0);
+    await expect(page.getByTestId("watch-line")).toHaveCount(0);
   });
 
   test("地図の上に checkedAt の時点（8:30）が出る。now（9:00）ではない", async ({ page }) => {

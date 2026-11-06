@@ -3,7 +3,6 @@ import { isCountable } from "@hpai/shared/level";
 import type { Case, HistoryCase, IsoDateTime, MuniCode, Season } from "@hpai/shared/types";
 import { useEffect, useRef } from "react";
 import { Link } from "react-router";
-import type { NearbyTown } from "@hpai/shared/past";
 import { TEXT } from "./texts";
 
 /** 文の塊を並べる。塊の中だけで折れ、言葉の途中では折れない */
@@ -44,7 +43,7 @@ export function Detail({ birdUse, housing, headCount }: { birdUse: string | null
 }
 
 export interface TownCasesPanelProps {
-  /** 押した町。null なら、近くで過去に発生のある町を押せる一覧だけを出す */
+  /** 押した町。null なら何も出さない */
   muniCode: MuniCode | null;
   muniName: string | null;
   /** 今季の事例（読めていなければ null） */
@@ -59,9 +58,6 @@ export interface TownCasesPanelProps {
   current: Season;
   /** 今季の記録の時点（画面の上の「時点」と同じ値）。記録がないときの文に日付で書く（2026-11-06 作者の決定） */
   asOf: IsoDateTime | null;
-  /** 近くで過去に発生のある町（キーボードでも町を選べるように、ボタンで並べる） */
-  nearbyTowns: readonly NearbyTown[];
-  onPick: (code: MuniCode) => void;
   onClose: () => void;
 }
 
@@ -71,7 +67,7 @@ export interface TownCasesPanelProps {
  */
 export function TownCasesPanel(p: TownCasesPanelProps) {
   const headRef = useRef<HTMLHeadingElement>(null);
-  // 欄を開いた元（地図、近くの町のボタン）。閉じたらそこへフォーカスを戻す
+  // 欄を開いた元（地図、過去の記録の自治体のボタン）。閉じたらそこへフォーカスを戻す
   const opener = useRef<{ el: Element | null; code: MuniCode | null }>({ el: null, code: null });
   // 町を押したら、読み上げとキーボードの位置を欄の題へ移す。スマホは欄が地図の下なので、題まで画面を動かす
   useEffect(() => {
@@ -89,23 +85,8 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
     });
   };
 
-  if (p.muniCode === null) {
-    if (p.nearbyTowns.length === 0) return null;
-    return (
-      <section className="town-cases" aria-label={TEXT.panelPickAria}>
-        <p className="town-cases-hint">{TEXT.panelHint}</p>
-        <ul className="town-cases-picks">
-          {p.nearbyTowns.map((t) => (
-            <li key={t.muniCode}>
-              <button type="button" className="btn" data-muni={t.muniCode} onClick={() => p.onPick(t.muniCode)}>
-                {t.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-    );
-  }
+  // 近くの自治体のボタンは、選択地域の欄の「過去の記録」に移した（2026-11-06 作者の決定。同じ町が 2 か所に並ばないように）
+  if (p.muniCode === null) return null;
 
   // 今季は件数に数える事例だけ（否定・確認中は出さない）。新しい順
   const now = (p.currentCases ?? [])

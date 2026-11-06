@@ -54,6 +54,20 @@ export function nearbyPastByCenter(town: MuniCode, history: readonly HistoryCase
   return nearbyPast(history, pastSeasonsOf(history, current), nameFrom(geo), (muni) => centerDistanceKm(town, muni, geo));
 }
 
+/**
+ * 町だけのとき: 町の中心から距離の帯（約 60km）以内の町で起きた事例の数。呼び出し側が数える事例を選んで渡す。
+ * 町が分からない事例と、索引にない町の事例があれば null（0 件と言えない）。県の形を読まない
+ */
+export function casesNearCenter(town: MuniCode, cases: readonly Case[], geo: GeoStore): number | null {
+  if (!Object.hasOwn(geo.index, town)) return null;
+  let count = 0;
+  for (const c of cases) {
+    if (c.muniCode === null || !Object.hasOwn(geo.index, c.muniCode)) return null;
+    if (isWithinDistanceBand(centerDistanceKm(town, c.muniCode, geo))) count++;
+  }
+  return count;
+}
+
 /** 地点があるとき: マス目から町の面までの距離で周辺の過去を集計する（約 60km の札と同じ測り方）。形を読めなければ投げる */
 export async function nearbyPastFromMesh(meshCode: MeshCode, history: readonly HistoryCase[], geo: GeoStore, current: Season): Promise<NearbyPastSummary> {
   const seasons = pastSeasonsOf(history, current);

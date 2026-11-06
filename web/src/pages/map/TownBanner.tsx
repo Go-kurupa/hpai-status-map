@@ -39,22 +39,61 @@ export interface TownBannerProps {
   part?: "all" | "lead" | "rest";
   /** 過去の行を 1 文と「選択地域の過去」へのリンクだけにする（最初の画面。設計書 2026-11-06-ui-frame 4.1） */
   pastBrief?: boolean;
+  /**
+   * 最初の画面で、過去の記録に近くの自治体ごとの件数のボタンを並べ、押すとその町の欄を開く（2026-11-06 作者の決定）。
+   * 渡さなければボタンを出さない
+   */
+  onPickTown?: (code: MuniCode) => void;
+  /** 「全国の動き」の見出しを出さない（最初の画面は「全国」の見方があるので要らない。2026-11-06 作者の決定）。下の文は残す */
+  hideNationalHead?: boolean;
 }
 
-function PastRow({ past, nearby, town, line, showDisclaimer, riskShownAbove, brief }: { past: PastState; nearby?: NearbyPastState; town: MuniCode | null; line: TownLine | null; showDisclaimer: boolean; riskShownAbove: boolean; brief: boolean }) {
+/** 近くの自治体のボタン。件数の多い順、同じなら近い順 */
+function NearbyPicks({ nearby, onPick }: { nearby: Extract<NearbyPastState, { status: "ready" }>; onPick: (code: MuniCode) => void }) {
+  const { summary, current } = nearby;
+  const towns = [...summary.towns].sort((a, b) => b.count - a.count || a.distanceKm - b.distanceKm);
+  return (
+    <>
+      <p>
+        <span className="town-label">{TEXT.pastLabel}</span> {TEXT.pastNearby(towns.length, summary.total, current - summary.windowSeasons, current)}
+      </p>
+      <ul className="town-cases-picks" aria-label={TEXT.pastPickAria}>
+        {towns.map((t) => (
+          <li key={t.muniCode}>
+            <button type="button" className="btn" data-muni={t.muniCode} onClick={() => onPick(t.muniCode)}>
+              {TEXT.pastPick(t.name, t.count)}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="town-note">{TEXT.pastPickHint}</p>
+    </>
+  );
+}
+
+function PastRow({ past, nearby, town, line, showDisclaimer, riskShownAbove, brief, onPickTown }: { past: PastState; nearby?: NearbyPastState; town: MuniCode | null; line: TownLine | null; showDisclaimer: boolean; riskShownAbove: boolean; brief: boolean; onPickTown?: (code: MuniCode) => void }) {
   if (past.status === "idle") return null;
   let body: ReactNode;
   if (past.status === "loading") body = <p>{TEXT.pastLoading}</p>;
   else if (past.status === "failed") body = <p role="alert">{TEXT.pastFailed}</p>;
   else if (brief) {
-    body = (
-      <p>
-        <span className="town-label">{TEXT.pastLabel}</span> {past.summary.sentence}{" "}
-        <Link to="/town" className="tap-link">
-          {TEXT.townPastLink}
-        </Link>
-      </p>
+    const link = (
+      <Link to="/town" className="tap-link">
+        {TEXT.townPastLink}
+      </Link>
     );
+    // 近くの自治体が読めていて 1 つ以上あれば、どこで何件かをボタンで並べる。なければ今までの 1 文
+    body =
+      onPickTown && nearby?.status === "ready" && nearby.summary.towns.length > 0 ? (
+        <>
+          <NearbyPicks nearby={nearby} onPick={onPickTown} />
+          <p>{link}</p>
+        </>
+      ) : (
+        <p>
+          <span className="town-label">{TEXT.pastLabel}</span> {past.summary.sentence} {link}
+        </p>
+      );
   } else {
     const { summary } = past;
     const hits: readonly PastHit[] = summary.hits;
@@ -135,9 +174,10 @@ export function TownBanner(p: TownBannerProps) {
       </p>
     );
   } else {
-    now = (
+    const hideHead = p.hideNationalHead === true && p.line.main === TEXT.national;
+    now = hideHead && p.line.details.length === 0 ? null : (
       <div className="town-now" data-tone={p.line.tone} role="status">
-        <p className="town-main">{p.line.main}</p>
+        {hideHead ? null : <p className="town-main">{p.line.main}</p>}
         {p.line.details.length > 0 ? (
           <ul className="town-details">
             {p.line.details.map((d, i) => (
@@ -162,7 +202,7 @@ export function TownBanner(p: TownBannerProps) {
         </div>
       ) : null}
       {now}
-      <PastRow past={p.past} nearby={p.nearby} town={p.muniCode} line={p.line} showDisclaimer={p.showPastDisclaimer} riskShownAbove={p.riskShownAbove ?? false} brief={p.pastBrief ?? false} />
+      <PastRow past={p.past} nearby={p.nearby} town={p.muniCode} line={p.line} showDisclaimer={p.showPastDisclaimer} riskShownAbove={p.riskShownAbove ?? false} brief={p.pastBrief ?? false} onPickTown={p.onPickTown} />
       {/* 最初の画面は「選択地域の過去を見る」の 1 本にする。案内ページへは選択地域の過去の画面から（設計書 2026-11-06-town-picker D8） */}
       {p.pastBrief ? null : (
         <p className="town-area-link">

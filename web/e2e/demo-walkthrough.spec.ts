@@ -59,11 +59,16 @@ test.describe("デモの筋", () => {
 
     // 今季の 1 文は段階の色（data-tone）を持ち、過去の行は事実だけで色を持たない
     await expect(page.getByText("隣町で発生しました", { exact: true })).toBeVisible();
+    // 最初の画面の過去の記録は、近くの自治体の件数の 1 文とボタン（2026-11-06 作者の決定）。過去の 1 文は /town で読む
     const past = page.locator(".town-past");
+    await expect(past).toContainText(/約 60 km 以内の \d+ 自治体で、計 \d+ 件発生しました/);
+    const noTone = () => past.evaluate((el) => el.closest("[data-tone]") === null && el.querySelector("[data-tone]") === null);
+    expect(await noTone()).toBe(true);
+    await expect(page.locator(".town-now[data-tone]")).toHaveAttribute("data-tone", "lv2");
+    await page.goto("/town");
     await expect(past).toContainText("（記録）");
     await expect(past).toContainText("隣町で発生しました");
-    expect(await past.evaluate((el) => el.closest("[data-tone]") === null && el.querySelector("[data-tone]") === null)).toBe(true);
-    await expect(page.locator(".town-now[data-tone]")).toHaveAttribute("data-tone", "lv2");
+    expect(await noTone()).toBe(true);
 
     // 過去 6 シーズンの件数（古い順に 52、25、84、11、51、24。合わせて 247 事例）。
     // シーズンの棒は「過去シーズンとの比べ」（/compare）にある（2026-11-06 骨組みの作り直し、設計書 2026-11-06-ui-frame 4.4）
