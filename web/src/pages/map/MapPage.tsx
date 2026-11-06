@@ -100,18 +100,15 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const showMap = inMap || section === "compare";
   const d = useSeasonData();
   const { view } = d;
-  // 比べるシーズン（設計書 2026-11-06-data-explore E12）。いちばん古いシーズンは下のシーズンの一覧と同じ選び（d.selected）で、
-  // 初めは昨季。残りは cmpRest で、初めは今季【AI の既定案】。2 つなら重ね合わせ、1 つか 3 つ以上なら最後の発生の色
-  const [cmpRest, setCmpRest] = useState<Season[]>([d.current]);
-  const cmpSeasons = useMemo(() => [...new Set([d.selected, ...cmpRest])].sort((a, b) => a - b), [d.selected, cmpRest]);
+  // 比べるシーズン（設計書 2026-11-06-data-explore E12）。地図の上のシーズンのボタンだけで選ぶ（初めは昨季と今季）【AI の既定案】。
+  // 下のシーズンの棒（d.selected）は一覧と月の件数のシーズンを選ぶだけで、比べるシーズンには触らない（棒を押して比べのシーズンが
+  // 黙って替わらないように。11/7 の横断レビューの指摘）。2 つなら重ね合わせ、1 つか 3 つ以上なら最後の発生の色
+  const [cmpSeasons, setCmpSeasons] = useState<Season[]>(() => [d.current - 1, d.current]);
   const cmpViews = useMemo(
     () => cmpSeasons.map((s) => (s === view.season ? view : buildSeasonView({ season: s, current: d.current, currentCases: d.currentCases, history: d.history }))),
     [cmpSeasons, view, d.current, d.currentCases, d.history],
   );
-  const pickCmpSeasons = (next: Season[]) => {
-    d.select(next[0]!);
-    setCmpRest(next.slice(1));
-  };
+  const pickCmpSeasons = (next: Season[]) => setCmpSeasons([...new Set(next)].sort((a, b) => a - b));
   // 画面に出ている地図の中身。比べは選んだシーズンを全部見て、今季の断り（読めていない、確認の行）を出す（どれかが今季なら）
   const shownViews = section === "compare" ? cmpViews : [view];
   const reviewingShown = [...new Set(shownViews.flatMap((v) => v.reviewingPrefCodes))];
@@ -663,6 +660,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
                   ariaLabel={o.ariaLabel}
                   overlay={o.overlay}
                   latest={o.latest}
+                  pickedMuni={o.picked}
                 />
               </Suspense>
             </MapChunkBoundary>

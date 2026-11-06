@@ -197,7 +197,7 @@ describe("latestOf", () => {
     expect(latestOf([view3(2024), view3(2025)], [], 2026)!.colorOf.get(2024)).toBe(LATEST_COLORS[2]);
     expect(new Set(LATEST_COLORS).size).toBe(7);
     expect(LATEST_COLORS).not.toContain("#b3261e");
-    // 2 つ以上のシーズンで発生した町は、発生したシーズンの数を持つ（地図に数字の札。作者 11/7）
+    // 選んだシーズン全体で 2 回以上発生した町は、発生の回数（事例の数）を持つ（地図に「計◯回」の札。作者 11/7）
     expect(r.state.counts).toEqual([["33203", 2], ["33215", 2]]);
     expect(latestOf([view3(2023), buildSeasonView({ season: 2026, current: 2026, currentCases: null, history: HISTORY3 })], [], 2026)).toBeNull();
   });
@@ -239,6 +239,31 @@ describe("CompareOverlay（3 つ以上）", () => {
     expect(heads).toHaveLength(3);
     expect(heads[0]).toContain("2025 年 6 月");
     expect(heads[2]).toContain("2023 年 6 月");
+  });
+});
+
+describe("「計◯回」と押した町の赤い枠（作者 11/7）", () => {
+  it("同じシーズンに 2 回発生した町も、発生の回数で数える", () => {
+    const h = [...HISTORY3, hist({ season: 2023, no: 9, muniCode: "33201", muniNameThen: "岡山市", date: "2024-02-01" })];
+    const v = (s: Season) => buildSeasonView({ season: s, current: 2026, currentCases: [], history: h });
+    const r = latestOf([v(2023), v(2024), v(2025)], [], 2026)!;
+    expect(new Map(r.state.counts).get("33201")).toBe(2);
+  });
+
+  it("町を押すと地図に押した町を渡し、閉じると外す", () => {
+    const r = rig({ seasons: [2023, 2024, 2025], views: [view3(2023), view3(2024), view3(2025)], history: HISTORY3 });
+    expect(r.last().picked).toBeNull();
+    act(() => r.last().onInspectMuni("33203"));
+    expect(r.last().picked).toBe("33203");
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(r.last().picked).toBeNull();
+  });
+
+  it("凡例の下に「計◯回」の意味を書く", () => {
+    rig({ seasons: [2023, 2024, 2025], views: [view3(2023), view3(2024), view3(2025)], history: HISTORY3 });
+    expect(screen.getByText(CMP_TEXT.countNote)).toBeTruthy();
+    expect(CMP_TEXT.countNote).toContain("計");
+    expect(CMP_TEXT.countBadge(3)).toBe("計 3 回");
   });
 });
 

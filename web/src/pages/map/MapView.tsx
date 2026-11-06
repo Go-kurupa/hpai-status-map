@@ -10,6 +10,7 @@ import { Marker, MlMap } from "../../geo/maplibre";
 import { applyDistanceRings, applyLatest, applyOverlay, applyView, applyWildBirds, type LatestState, type OverlayState, type ViewTarget } from "./applyView";
 import { filledHatchImage, HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
 import { baseStyle, codeFilter, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
+import { CMP_TEXT } from "./compareTexts";
 import { TEXT } from "./texts";
 import { BADGE_ZOOM, badgeStates, JAPAN_BOUNDS, type SeasonView } from "./seasonView";
 
@@ -49,6 +50,8 @@ export interface MapViewProps {
   overlay?: OverlayState | null;
   /** 3 つ以上の比べ（設計書 2026-11-06-data-explore E12）。町ごとに最後に発生したシーズンの色。あるときは overlay と同じく、view の発生の塗りと札を出さない */
   latest?: LatestState | null;
+  /** 比べの画面で押した町。赤い線で囲む（作者 11/7） */
+  pickedMuni?: MuniCode | null;
 }
 
 type Geo = Awaited<ReturnType<typeof loadWebGeoStore>>;
@@ -202,6 +205,13 @@ export default function MapView(props: MapViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, props.view, failedKey, props.myMuniCode, nearKey, props.overlay, props.latest]);
 
+  // 比べの画面で押した町を赤い線で囲む
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    map.setFilter("picked-line", codeFilter("c", props.pickedMuni ? [props.pickedMuni] : []));
+  }, [ready, props.pickedMuni]);
+
   // 3) 野鳥の点
   useEffect(() => {
     const map = mapRef.current;
@@ -260,7 +270,7 @@ export default function MapView(props: MapViewProps) {
       if (!at) return [];
       const el = document.createElement("div");
       el.className = "cmp-count-badge";
-      el.textContent = String(n);
+      el.textContent = CMP_TEXT.countBadge(n);
       el.setAttribute("aria-hidden", "true");
       return [{ el, marker: new Marker({ element: el }).setLngLat(at).addTo(map) }];
     });
@@ -395,6 +405,7 @@ export default function MapView(props: MapViewProps) {
             ringCenter={props.ringCenter}
             overlay={props.overlay}
             latest={props.latest}
+            pickedMuni={props.pickedMuni}
             onUnplaced={setUnplaced}
             onFailed={() => setFailed(true)}
           />

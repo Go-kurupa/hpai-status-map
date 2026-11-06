@@ -20,7 +20,7 @@ import { badgeStates, JAPAN_BOUNDS } from "./seasonView";
 import { TEXT } from "./texts";
 
 export interface SvgMapProps
-  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni" | "overlay" | "latest"> {
+  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni" | "overlay" | "latest" | "pickedMuni"> {
   /** 場所が分からず置けなかった野鳥の数（注記は MapView が出す） */
   onUnplaced?: (n: number) => void;
   /** 形を読めなかった（知らせは MapView が出す） */
@@ -602,12 +602,18 @@ export default function SvgMap(props: SvgMapProps) {
                 {munis.map((s) => (
                   <path key={s.code} className="svg-muni-line" d={s.d} fill="none" {...LINE.muni} />
                 ))}
-                {/* 2 つ以上のシーズンで発生した町は、発生したシーズンの数を真ん中に書く（作者 11/7） */}
+                {/* 押した町を赤い線で囲む（作者 11/7） */}
+                {props.pickedMuni
+                  ? munis
+                      .filter((s) => s.code === props.pickedMuni)
+                      .map((s) => <path key={`p-${s.code}`} d={s.d} data-picked={s.code} fill="none" stroke={PAINT.current} strokeWidth={4} vectorEffect="non-scaling-stroke" />)
+                  : null}
+                {/* 選んだシーズン全体で 2 回以上発生した町は、「計◯回」を真ん中に書く（作者 11/7） */}
                 {munis
                   .filter((s) => latestCounts.has(s.code))
                   .map((s) => (
                     <text key={`n-${s.code}`} className="svg-cmp-count" data-count-code={s.code} x={s.box.cx} y={s.box.cy} aria-hidden="true">
-                      {latestCounts.get(s.code)}
+                      {CMP_TEXT.countBadge(latestCounts.get(s.code)!)}
                     </text>
                   ))}
                 {munis

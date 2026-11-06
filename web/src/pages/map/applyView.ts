@@ -109,7 +109,7 @@ export function applyOverlay(map: ViewTarget, s: OverlayState | null): void {
 /** 3 つ以上の比べ（設計書 2026-11-06-data-explore E12）。町ごとの色と、確認できていない県（今季を選んだときだけ） */
 export interface LatestState {
   colors: ReadonlyArray<readonly [MuniCode, string]>;
-  /** 選んだうち 2 つ以上のシーズンで発生した町と、そのシーズンの数（地図に数字の札。作者 11/7） */
+  /** 選んだシーズン全体で 2 回以上発生した町と、その回数（事例の数。地図に「計◯回」の札。作者 11/7） */
   counts: ReadonlyArray<readonly [MuniCode, number]>;
   unwatchedPrefCodes: readonly PrefCode[];
 }

@@ -37,7 +37,8 @@ export interface CompareOverlayProps {
   views: readonly SeasonView[];
   focus: Focus;
   muniName: (code: MuniCode) => string | null;
-  renderMap: (o: { overlay: OverlayState | null; latest: LatestState | null; focus: Focus; ariaLabel: string; onInspectMuni: (c: MuniCode) => void }) => ReactNode;
+  /** picked は欄を開いている町（地図で赤い線で囲む。作者 11/7） */
+  renderMap: (o: { overlay: OverlayState | null; latest: LatestState | null; picked: MuniCode | null; focus: Focus; ariaLabel: string; onInspectMuni: (c: MuniCode) => void }) => ReactNode;
 }
 
 /** 欄の 1 行。今季の事例と過去の事例を同じ形にそろえる */
@@ -95,12 +96,10 @@ export function latestOf(
   // 色はシーズンごとに固定（今季から何年前か）。選ぶ数で変わらない（作者 11/7）
   const colorOf = new Map(ordered.map((v) => [v.season, LATEST_COLORS[Math.min(LATEST_COLORS.length - 1, Math.max(0, current - v.season))]!] as const));
   const last = new Map<MuniCode, Season>();
+  for (const v of ordered) for (const c of muniOf(v)) last.set(c, v.season);
+  // 町ごとの発生の回数（選んだシーズン全体の事例の数。同じシーズンに 2 回でも 2）。作者 11/7「計◯回」
   const times = new Map<MuniCode, number>();
-  for (const v of ordered)
-    for (const c of muniOf(v)) {
-      last.set(c, v.season);
-      times.set(c, (times.get(c) ?? 0) + 1);
-    }
+  for (const v of ordered) for (const k of v.cases) if (k.muniCode !== null && last.has(k.muniCode)) times.set(k.muniCode, (times.get(k.muniCode) ?? 0) + 1);
   const bySeason = new Map<Season, number>(ordered.map((v) => [v.season, 0]));
   for (const s of last.values()) bySeason.set(s, (bySeason.get(s) ?? 0) + 1);
   const colors = [...last].sort(([a], [b]) => (a < b ? -1 : 1)).map(([c, s]) => [c, colorOf.get(s)!] as const);
@@ -186,6 +185,7 @@ export function CompareOverlay(p: CompareOverlayProps) {
             ? {
                 overlay: overlay ?? { first: [], second: [], show, unwatchedPrefCodes: withCurrent ? [...p.failedPrefCodes] : [] },
                 latest: null,
+                picked: inspected,
                 focus: p.focus,
                 ariaLabel: CMP_TEXT.mapAria(labelOf(p.seasons[0]!), labelOf(p.seasons[1]!)),
                 onInspectMuni: setInspected,
@@ -194,6 +194,7 @@ export function CompareOverlay(p: CompareOverlayProps) {
                 overlay: null,
                 // 読めていない間は色を付けない（空の色で渡し、1 シーズン分の普通の塗りと札を出さない）
                 latest: latest?.state ?? { colors: [], counts: [], unwatchedPrefCodes: withCurrent ? [...p.failedPrefCodes] : [] },
+                picked: inspected,
                 focus: p.focus,
                 ariaLabel: CMP_TEXT.latestAria(p.seasons.length),
                 onInspectMuni: setInspected,

@@ -29,6 +29,7 @@ describe("地図の層", () => {
       "near-line",
       "pref-line",
       "my-town",
+      "picked-line",
       "distance-rings",
       "wild-bird-screening",
       "wild-bird-confirmed",
@@ -55,6 +56,12 @@ describe("地図の層", () => {
 
   it("重ね合わせの色は橙と青緑（設計書 E9）", () => {
     expect([PAINT.cmpOne, PAINT.cmpTwo, PAINT.cmpBoth]).toEqual(["#d97a00", "#00857a", "#3b3b8f"]);
+  });
+
+  it("比べの画面で押した町を赤い線で囲む層（作者 11/7）", () => {
+    const by = Object.fromEntries(layers.map((l) => [l.id, l]));
+    expect((by["picked-line"]!.paint as Record<string, unknown>)["line-color"]).toBe(PAINT.current);
+    expect(by["picked-line"]!.minzoom).toBeUndefined();
   });
 
   it("circle の層がない（農場を点で示さない）", () => {

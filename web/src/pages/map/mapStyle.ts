@@ -61,6 +61,7 @@ export const LAYER_IDS = [
   "near-line",
   "pref-line",
   "my-town",
+  "picked-line",
   "distance-rings",
   "wild-bird-screening",
   "wild-bird-confirmed",
@@ -173,6 +174,14 @@ export function overlayLayers(): LayerSpecification[] {
       source: "muni",
       filter: codeFilter("c", []),
       paint: { "line-color": PAINT.mine, "line-width": 4 },
+    },
+    {
+      // 比べの画面で押した町を赤い線で囲み、どれを押したかを分かるようにする（作者 11/7）
+      id: "picked-line",
+      type: "line",
+      source: "muni",
+      filter: codeFilter("c", []),
+      paint: { "line-color": PAINT.current, "line-width": 4 },
     },
     {
       // 農場からの距離の目安。発表の区域と別物なので、面を塗らず点線だけにする

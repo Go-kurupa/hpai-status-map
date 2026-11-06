@@ -27,8 +27,9 @@ export const CMP_TEXT = {
   seasonChip: (label: string, s: number): string => `${label}（${s}〜${String(s + 1).slice(2)}）`,
   seasonsHint: "シーズンを押して選びます。2 つなら重ねて、3 つ以上なら、町ごとに最後に発生したシーズンの色で塗ります。",
   legendLatest: (season: string, n: number): string => `${season}が最後（${n} 町）`,
-  countNote: "町の中の数字は、選んだシーズンのうち発生したシーズンの数です（2 つ以上の町だけ。地図を拡大すると出ます）。",
-  countAria: (n: number): string => `${n} シーズンで発生`,
+  countNote: "町の中の「計◯回」は、選んだシーズン全体でその町で発生した回数（事例の数）です（2 回以上の町だけ。地図を拡大すると出ます）。",
+  /** 町の中の札（作者 11/7「数字の意味を分かりやすく」） */
+  countBadge: (n: number): string => `計 ${n} 回`,
   latestHint: "町ごとに、選んだシーズンのうち最後に発生したシーズンの色で塗っています。地図で町を押すと、選んだシーズンごとのその町の発生が並んで出ます。",
   latestAria: (n: number): string => `発生状況の地図（選んだ ${n} シーズンのうち、町ごとに最後に発生したシーズンの色）`,
   scopeAria: "地図の広さ",

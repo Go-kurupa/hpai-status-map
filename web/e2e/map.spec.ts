@@ -115,10 +115,10 @@ test.describe("地図（入口）", () => {
     await expect(page.locator(".season-bar").getByRole("button", { name: /今季/ })).toHaveAttribute("aria-pressed", "true");
   });
 
-  // 昨季を選んだときの地図の塗り。/compare は 2 つのシーズンを 1 枚に重ねる（設計書 2026-11-06-data-explore E8）。
-  // 下のシーズンの棒で選ぶのは比べる 1。比べる 2 は今季（試験の今季は 0 件）なので、昨季の町は「比べる 1 だけ」の層に入る。
+  // 比べの地図の塗り。/compare は初め昨季と今季を 1 枚に重ねる（設計書 2026-11-06-data-explore E8）。比べる 2 は今季（試験の今季は 0 件）なので、
+  // 昨季の町は「比べる 1 だけ」の層に入る。下のシーズンの棒は一覧と月の件数のシーズンを選ぶだけで、地図の比べには触らない（11/7 の横断レビュー）。
   // 画面は行き先ごとに作り直すので、/ へ戻ると今季に戻る（設計書 2026-11-06-ui-frame 4.1）
-  test("昨季を /compare で選ぶと、重ねた地図の cmp-one に 33203 が入る。/ へ戻ると今季。japan.topo.json の要求は 1 回", async ({ page }) => {
+  test("/compare は初め昨季と今季を重ね、cmp-one に 33203 が入る。下の棒を押しても地図の比べは替わらない。/ へ戻ると今季。japan.topo.json の要求は 1 回", async ({ page }) => {
     const topoRequests: string[] = [];
     page.on("request", (r) => {
       if (r.url().includes("japan.topo.json")) topoRequests.push(r.url());
@@ -130,9 +130,12 @@ test.describe("地図（入口）", () => {
     await has("cmp-one");
     // 重ねている間は、発生の塗り（case-confirmed）を使わない
     expect(JSON.stringify(await page.evaluate(() => window.__hpaiMap!.getFilter("case-confirmed")))).not.toContain("33203");
+    // 下の棒で今季を押すと、棒の印は今季に移るが、比べるシーズン（昨季と今季）と地図の塗りはそのまま
     await page.locator(".season-bar").getByRole("button", { name: /今季/ }).click();
-    await page.waitForFunction(() => !JSON.stringify(window.__hpaiMap!.getFilter("cmp-one")).includes("33203"));
-    await page.locator(".season-bar").getByRole("button", { name: /昨季/ }).click();
+    await expect(page.locator(".season-bar").getByRole("button", { name: /今季/ })).toHaveAttribute("aria-pressed", "true");
+    const seasons = page.getByRole("group", { name: /^比べるシーズン/ });
+    await expect(seasons.getByRole("button", { name: /2025〜/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(seasons.getByRole("button", { name: /2026〜/ })).toHaveAttribute("aria-pressed", "true");
     await has("cmp-one");
     expect(topoRequests).toHaveLength(1);
     // / へ戻ると今季（題が「今季の発生状況」）。選んだシーズンを持ち越さない
@@ -516,6 +519,8 @@ test.describe("地図（入口）", () => {
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     const panel = page.locator(".compare-cases");
     await expect(panel.getByRole("heading", { level: 2, name: "津山市" })).toBeFocused();
+    // 押した町を赤い線で囲む（作者 11/7）
+    await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("picked-line")).includes("33203"));
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(["比べる 1（2025 年 6 月〜2026 年 5 月）", "比べる 2（2026 年 6 月〜2027 年 5 月）"]);
   });
 

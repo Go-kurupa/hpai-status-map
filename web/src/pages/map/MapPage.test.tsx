@@ -457,10 +457,14 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(lastProps().overlay).toBeNull();
     expect(screen.queryByRole("group", { name: "地図の見せ方" })).toBeNull();
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
-    // 下のシーズンの選びは、選んだうちいちばん古いシーズン。開いたときの昨季への切り替えは 1 度だけで、戻されない
-    expect(lastProps().view.season).toBe(2023);
-    r.deliverCases([]);
-    expect(lastProps().view.season).toBe(2023);
+    // 下のシーズンの棒（一覧と月の件数のシーズン）は、比べるシーズンのボタンとは別。ボタンを押しても棒の選びは昨季のまま
+    expect(screen.getByRole("region", { name: "シーズンの切り替え" }).querySelector('[aria-pressed="true"]')!.textContent).toContain("昨季");
+    // 棒を押しても、比べるシーズンは黙って替わらない（横断レビューの指摘、11/7）
+    fireEvent.click(within(screen.getByRole("region", { name: "シーズンの切り替え" })).getByRole("button", { name: /^今季/ }));
+    expect(seasonBtn(2023).getAttribute("aria-pressed")).toBe("true");
+    expect(seasonBtn(2025).getAttribute("aria-pressed")).toBe("true");
+    expect(seasonBtn(2026).getAttribute("aria-pressed")).toBe("true");
+    expect(lastProps().latest!.colors.length).toBeGreaterThan(0);
 
     // 2025 を外すと 2 つ（2023 と今季）に戻り、重ね合わせ。古い方が比べる 1
     fireEvent.click(seasonBtn(2025));
