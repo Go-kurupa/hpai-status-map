@@ -452,6 +452,10 @@ test.describe("地図（入口）", () => {
     await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("case-confirmed") && !!window.__hpaiMap2?.getLayer("case-confirmed"), undefined, { timeout: 20_000 });
     await expect(page.getByLabel("比べる 1", { exact: true })).toHaveValue("2025");
     await expect(page.getByLabel("比べる 2", { exact: true })).toHaveValue("2026");
+    // 右上の見方の切り替えは、「自分の近く／全国」の枠に重ならない（11/6 本番で重なっていた）
+    const tabs = (await page.locator(".map-page > .section-tabs").boundingBox())!;
+    const scope = (await page.locator(".map-page > .map-scope").boundingBox())!;
+    expect(tabs.y + tabs.height).toBeLessThanOrEqual(scope.y);
     const [a, b] = await page.locator(".compare-side .map-canvas").all();
     const boxA = (await a!.boundingBox())!;
     const boxB = (await b!.boundingBox())!;

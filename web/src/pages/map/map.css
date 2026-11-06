@@ -1382,6 +1382,10 @@
     right: 0;
     margin: 0;
   }
+  /* 比べは題の下の時点の行を地図ごとに移したので、題の行の高さだけでは右上の切り替えと「自分の近く／全国」が重なる。題の下を空ける */
+  .map-page[data-section="compare"] > h1 {
+    margin-bottom: 20px;
+  }
   /* 押した町の事例は右の列の先頭（地図の隣）に出す。町を選ぶ一覧は、自分の町の 1 文（order 3）の後ろ（DOM の順） */
   .map-page:not(:has(> .spot-picker[data-active="true"])) > .town-cases:has(h2) {
     order: 1;
