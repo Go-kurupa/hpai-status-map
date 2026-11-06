@@ -24,7 +24,7 @@ describe("handleUnsubscribe", () => {
     const res = await handleUnsubscribe(db, q("f1", "u1"), KEY);
     expect(res.status).toBe(200);
     expect(res.html).toContain("基準に当たった知らせと期限の知らせも止まります。画面の表示は止まりません");
-    expect(res.html).toContain("知らせの設定で戻せます");
+    expect(res.html).toContain("通知の設定で戻せます");
     expect(await stoppedOf("f1")).toEqual(["u1"]);
     expect(await stoppedOf("f2")).toEqual([]);
   });

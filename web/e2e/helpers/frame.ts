@@ -15,16 +15,15 @@ export const menuNav = (page: Page): Locator => page.getByRole("navigation", { n
 /** スマホの三本線 */
 export const menuButton = (page: Page): Locator => page.getByRole("button", { name: "メニューを開く" });
 
-/** メニューの 11 の行き先（設計書 2026-11-06-ui-frame 3 章、決定 8〜13） */
+/** メニューの 10 の行き先（設計書 2026-11-06-ui-frame 3 章、決定 8〜14） */
 export const MENU_ITEMS: ReadonlyArray<{ name: string; path: string }> = [
   { name: "今季の発生", path: "/" },
   { name: "過去の発生", path: "/compare" },
   { name: "全国の傾向", path: "/trends" },
   { name: "やること", path: "/todo" },
   { name: "記録", path: "/record/deaths" },
-  { name: "農場と知らせの設定", path: "/settings/farm" },
-  { name: "掲示用の貼り紙", path: "/poster" },
-  { name: "見本で試す", path: "/sample" },
+  { name: "農場と通知の設定", path: "/settings/farm" },
+  { name: "記録の画面を試す", path: "/sample" },
   { name: "分かっていること", path: "/known" },
   { name: "鶏を飼っていない方へ", path: "/public" },
   { name: "このサイトについて", path: "/about" },

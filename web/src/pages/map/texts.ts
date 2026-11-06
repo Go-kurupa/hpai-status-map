@@ -35,11 +35,17 @@ export const TEXT = {
   mapNear: "自分の近く",
   // 地図で押した町の事例の欄（設計書 2026-11-06-ui-frame 4.1、決定 4）
   panelLabel: "選んだ町",
-  panelNow: "今季",
-  panelPast: "過去 6 シーズン（国の事例一覧）",
+  // シーズンは 6 月 1 日から翌年 5 月 31 日。「今季」の始まりを日付で示す（2026-11-06 作者の決定）
+  // 見出しと文は、言葉の途中で折れないように塊の並びで持つ（塊の中だけで折れる）
+  panelNow: (season: number) => ["今季", `（${season} 年 6 月 1 日から）`],
+  panelPast: (range: string | null) => (range ? ["過去 6 シーズン", `（${range}、`, "国の事例一覧）"] : ["過去 6 シーズン", "（国の事例一覧）"]),
+  panelPastRange: (from: number, to: number) => `${from} 年 6 月〜${to} 年 5 月`,
+  // 塊の頭の普通の空白は詰められるので、件数の前は詰められない空白
+  panelSeason: (season: number, n: number) => [`${season} 年 6 月〜${season + 1} 年 5 月`, `\u00a0${n} 件`],
   panelLoading: "読み込んでいます",
-  panelNoneNow: "今季の発生の記録はありません。記録がないことは、これから出ないという意味ではありません。",
-  panelNonePast: "国の事例一覧に、この町の記録はありません。記録がないことは、これから出ないという意味ではありません。",
+  // 記録がない町は短く言う。「これから出ないという意味ではない」は地図のすぐ下の断りが言う（2026-11-06 作者の決定）
+  panelNoneNow: (asOf: string | null) => (asOf ? [`${asOf} 時点で、`, "発生記録はありません。"] : ["発生記録はありません。"]),
+  panelNonePast: "発生記録はありません。",
   panelSuspected: "疑い",
   panelConfirmed: "確定",
   panelNoDate: "日付の記載なし",

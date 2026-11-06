@@ -103,7 +103,7 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
 
   return (
     <div className="settings-page">
-      <h1>知らせの設定</h1>
+      <h1>通知の設定</h1>
 
       {stopped === true ? (
         <section>
@@ -175,7 +175,7 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
             </>
           ) : null}
           <Button variant="primary" disabled={notifySave.state === "saving"} onClick={() => void notifySave.run()}>
-            知らせの設定を保存
+            通知の設定を保存
           </Button>
           <SaveStatus state={notifySave.state} />
         </div>
@@ -243,7 +243,7 @@ function NotifySettingsLoader() {
   if (load.state === "error") {
     return (
       <section className="settings-page">
-        <h1>知らせの設定</h1>
+        <h1>通知の設定</h1>
         <p className="settings-error" role="alert">
           {load.message ?? "農場の情報を読めませんでした。通信を確かめて、ページを読み込み直してください。"}
         </p>
@@ -254,8 +254,8 @@ function NotifySettingsLoader() {
     // 農場がないと保存できない（ルールが meshCode を要る）。地点を決める画面へ案内する
     return (
       <section className="settings-page">
-        <h1>知らせの設定</h1>
-        <p>先に、農場の設定で地点を選んでください。地点を登録すると、知らせの設定ができます。</p>
+        <h1>通知の設定</h1>
+        <p>先に、農場の設定で地点を選んでください。地点を登録すると、通知の設定ができます。</p>
         <p>
           <Link to="/settings/farm" className="tap-link">農場の設定へ</Link>
         </p>

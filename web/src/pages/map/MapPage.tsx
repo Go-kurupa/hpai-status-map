@@ -606,6 +606,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           historyFailed={d.historyFailed}
           onRetryHistory={d.retryHistory}
           current={d.current}
+          asOf={d.asOf}
           nearbyTowns={nearby.status === "ready" ? nearby.summary.towns.filter((t) => t.muniCode !== town) : []}
           hasTown={town !== null}
           onPick={setInspected}

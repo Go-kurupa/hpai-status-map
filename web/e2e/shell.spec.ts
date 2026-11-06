@@ -16,7 +16,7 @@ test.describe("骨格", () => {
     const burger = menuButton(page);
     await expect(burger).toBeVisible();
     await expect(burger).toHaveAttribute("aria-expanded", "false");
-    // 設定は、スマホではメニューの中（農場と知らせの設定）にある（2026-11-06 骨組みの作り直し）
+    // 設定は、スマホではメニューの中（農場と通知の設定）にある（2026-11-06 骨組みの作り直し）
     await expect(page.getByRole("banner").getByRole("link", { name: "設定" })).toBeHidden();
 
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);

@@ -1,25 +1,36 @@
 import { caseDate, isSuspectedOnly, pastSeasonsOf } from "@hpai/shared/overview";
 import { isCountable } from "@hpai/shared/level";
-import { seasonAgoLabel } from "@hpai/shared/season";
-import type { Case, HistoryCase, MuniCode, Season } from "@hpai/shared/types";
+import type { Case, HistoryCase, IsoDateTime, MuniCode, Season } from "@hpai/shared/types";
 import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 import type { NearbyTown } from "@hpai/shared/past";
 import { TEXT } from "./texts";
 
-/** 「昨季（2025 年シーズン）」。今季より先のシーズン（再現の時計など）は年だけ */
-function seasonText(season: Season, current: Season): string {
-  try {
-    return `${seasonAgoLabel(season, current)}（${season} 年シーズン）`;
-  } catch {
-    return `${season} 年シーズン`;
-  }
+/** 文の塊を並べる。塊の中だけで折れ、言葉の途中では折れない */
+function Chunks({ parts }: { parts: readonly string[] }) {
+  return (
+    <>
+      {parts.map((t, i) => (
+        <span key={i} className="town-cases-chunk">
+          {t}
+        </span>
+      ))}
+    </>
+  );
 }
 
 /** 日付を「2025 年 12 月 20 日」に */
 function dateText(iso: string | null): string {
   const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
   return m ? `${m[1]} 年 ${Number(m[2])} 月 ${Number(m[3])} 日` : TEXT.panelNoDate;
+}
+
+/** 時点を「2026 年 11 月 4 日 8:30」に（日本時間）。読めなければ null */
+function asOfText(iso: IsoDateTime | null): string | null {
+  const t = iso ? new Date(iso).getTime() : Number.NaN;
+  if (Number.isNaN(t)) return null;
+  const d = new Date(t + 9 * 60 * 60 * 1000);
+  return `${d.getUTCFullYear()} 年 ${d.getUTCMonth() + 1} 月 ${d.getUTCDate()} 日 ${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 /** 用途・飼い方・羽数。記載がなければそう書く（空欄にしない）。羽数は数と「羽」の間で折らない */
@@ -46,6 +57,8 @@ export interface TownCasesPanelProps {
   /** 自分の町を選んでいる。閉じるボタンの文を「自分の町に戻る」にする（選んでいなければ「閉じる」） */
   hasTown: boolean;
   current: Season;
+  /** 今季の記録の時点（画面の上の「時点」と同じ値）。記録がないときの文に日付で書く（2026-11-06 作者の決定） */
+  asOf: IsoDateTime | null;
   /** 近くで過去に発生のある町（キーボードでも町を選べるように、ボタンで並べる） */
   nearbyTowns: readonly NearbyTown[];
   onPick: (code: MuniCode) => void;
@@ -99,7 +112,11 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
     .filter((c) => c.muniCode === p.muniCode && c.season === p.current && isCountable(c))
     .sort((a, b) => (caseDate(b) ?? "").localeCompare(caseDate(a) ?? ""));
   // 過去は見出しどおりの 6 シーズンだけ（データに古いシーズンが入っても混ぜない）。関連農場は出さない
-  const seasons = new Set(pastSeasonsOf(p.history ?? [], p.current));
+  const pastSeasons = pastSeasonsOf(p.history ?? [], p.current);
+  const seasons = new Set(pastSeasons);
+  // シーズンは 6 月 1 日から翌年 5 月 31 日。「今季」「過去」を日付の範囲で示す（2026-11-06 作者の決定）
+  const pastRange = pastSeasons.length > 0 ? TEXT.panelPastRange(Math.min(...pastSeasons), Math.max(...pastSeasons) + 1) : null;
+  const asOf = asOfText(p.asOf);
   const past = (p.history ?? []).filter((h) => h.muniCode === p.muniCode && !h.related && seasons.has(h.season)).sort((a, b) => b.date.localeCompare(a.date));
   const bySeason = new Map<Season, HistoryCase[]>();
   for (const h of past) bySeason.set(h.season, [...(bySeason.get(h.season) ?? []), h]);
@@ -111,11 +128,15 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
         {name}
       </h2>
 
-      <h3>{TEXT.panelNow}</h3>
+      <h3>
+        <Chunks parts={TEXT.panelNow(p.current)} />
+      </h3>
       {p.currentCases === null ? (
         <p role="status">{TEXT.panelLoading}</p>
       ) : now.length === 0 ? (
-        <p>{TEXT.panelNoneNow}</p>
+        <p>
+          <Chunks parts={TEXT.panelNoneNow(asOf)} />
+        </p>
       ) : (
         <ul className="town-cases-list">
           {now.map((c) => (
@@ -134,7 +155,9 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
         </ul>
       )}
 
-      <h3>{TEXT.panelPast}</h3>
+      <h3>
+        <Chunks parts={TEXT.panelPast(pastRange)} />
+      </h3>
       {p.history === null && p.historyFailed ? (
         <p className="state-unknown" role="status">
           {TEXT.panelPastFailed}{" "}
@@ -150,7 +173,7 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
         [...bySeason.entries()].map(([season, rows]) => (
           <div key={season} className="town-cases-season">
             <p className="town-cases-season-label">
-              {seasonText(season, p.current)} {rows.length} 件
+              <Chunks parts={TEXT.panelSeason(season, rows.length)} />
             </p>
             <ul className="town-cases-list">
               {rows.map((h) => (

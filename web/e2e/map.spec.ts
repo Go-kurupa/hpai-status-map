@@ -168,7 +168,7 @@ test.describe("地図（入口）", () => {
     expect(text).not.toMatch(/区域の外です|安全|安心/);
   });
 
-  test("メニューの 11 の行き先で各ページに着き、下のタブも地図の下のリンクの列もない（スマホは三本線から）", async ({ page }) => {
+  test("メニューの 10 の行き先で各ページに着き、下のタブも地図の下のリンクの列もない（スマホは三本線から）", async ({ page }) => {
     await open(page);
     // 下のタブ（メイン）は出さない。地図の下には、次の画面へのリンクだけ。ほかのページへのリンクの列（ほかのページ）は / から消えた
     await expect(page.getByRole("navigation", { name: "メイン" })).toHaveCount(0);
@@ -186,7 +186,7 @@ test.describe("地図（入口）", () => {
       await expect(next).toBeVisible();
     }
 
-    expect(MENU_ITEMS).toHaveLength(11); // 設計書 2026-11-06-ui-frame 3 章（決定 8〜13）
+    expect(MENU_ITEMS).toHaveLength(10); // 設計書 2026-11-06-ui-frame 3 章（決定 8〜14）
     const burger = menuButton(page);
     expect(await burger.isVisible()).toBe(true); // 390px はスマホ（三本線）
     for (const { name, path } of MENU_ITEMS) {
@@ -200,7 +200,7 @@ test.describe("地図（入口）", () => {
     }
   });
 
-  test("PC（1280px）は左のメニューで 11 の行き先へ 1 回で行ける。今いる項目に aria-current が付く。今季の中の切り替えは題と同じ行", async ({ page }) => {
+  test("PC（1280px）は左のメニューで 10 の行き先へ 1 回で行ける。今いる項目に aria-current が付く。今季の中の切り替えは題と同じ行", async ({ page }) => {
     await open(page, 1280);
     await expect(menuButton(page)).toBeHidden();
     const nav = menuNav(page);
@@ -463,7 +463,7 @@ test.describe("地図（入口）", () => {
       await page.mouse.click(c.x + c.width / 2, c.y + c.height / 2);
       const heading = panel.getByRole("heading", { level: 2, name: "西粟倉村" });
       await expect(heading).toBeFocused();
-      await expect(panel.getByText("今季の発生の記録はありません。")).toBeVisible();
+      await expect(panel.getByText(/時点で、発生記録はありません。/)).toBeVisible();
       // 右の列の先頭で、地図の上端と並ぶ
       const canvas = (await page.locator(".map-canvas").boundingBox())!;
       const box = (await panel.boundingBox())!;

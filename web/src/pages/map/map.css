@@ -560,6 +560,11 @@
 .town-cases-nowrap {
   white-space: nowrap;
 }
+/* 文の塊。1 行に入らない長さのときだけ塊の中で折れる */
+.town-cases-chunk {
+  display: inline-block;
+  max-width: 100%;
+}
 .town-cases-picks {
   display: flex;
   flex-wrap: wrap;

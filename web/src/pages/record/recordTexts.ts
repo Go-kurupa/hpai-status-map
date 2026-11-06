@@ -13,7 +13,7 @@ export const RECORD_TEXT = {
   lastRecordFailed: "読めませんでした",
   mailStopped: "メールは止まっています。基準に当たっても届きません",
   mailStopFailed: "メールの状態を読めませんでした",
-  mailResume: "知らせの設定を開く",
+  mailResume: "通知の設定を開く",
 
   loading: "読み込んでいます",
   setFarmLink: "農場を設定する",
@@ -82,7 +82,7 @@ export const RECORD_TEXT = {
   selfMonth: (label: string) => `対象の月: ${label}`,
   selfDue: (date: string) => `期限: ${date}`,
   selfDueMissing: "期限を設定してください",
-  selfDueLink: "知らせの設定を開く",
+  selfDueLink: "通知の設定を開く",
   selfMeaning: "○ できている　× できていない",
   selfOk: "○",
   selfNg: "×",

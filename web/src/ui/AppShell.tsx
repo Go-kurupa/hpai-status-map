@@ -24,8 +24,8 @@ export function shellContextOf(pathname: string): { mode: ShellMode; groups: Men
     item(`${prefix}/todo`, "やること", under(path, `${prefix}/todo`), true),
     item(`${prefix}/record/deaths`, "記録", under(path, `${prefix}/record`), true),
   ];
-  if (mode !== "sample") farm.push(item("/settings/farm", "農場と知らせの設定", under(path, "/settings"), true));
-  // 設計書 2026-11-06-ui-frame 3 章（決定 8〜13）。11 項目。今季と過去は中の切り替え（SectionTabs）で見方を選ぶ
+  if (mode !== "sample") farm.push(item("/settings/farm", "農場と通知の設定", under(path, "/settings"), true));
+  // 設計書 2026-11-06-ui-frame 3 章（決定 8〜14）。10 項目。今季と過去は中の切り替え（SectionTabs）で見方を選ぶ
   const groups: MenuGroup[] = [
     {
       label: "発生状況",
@@ -39,12 +39,12 @@ export function shellContextOf(pathname: string): { mode: ShellMode; groups: Men
       label: "自分の農場",
       items: [
         ...farm,
-        item("/poster", "掲示用の貼り紙", under(path, "/poster")),
-        item("/sample", "見本で試す", mode === "sample" && !farm.some((f) => f.current)),
+        // 掲示用の貼り紙は入口だけ外した（画面と /poster は残す。2026-11-06 作者の決定: 入口の注意の紙は各自で作れる）
+        item("/sample", "記録の画面を試す", mode === "sample" && !farm.some((f) => f.current)),
       ],
     },
     {
-      label: "読みもの",
+      label: "鳥インフルエンザとは",
       items: [item("/known", "分かっていること", under(path, "/known")), item("/public", "鶏を飼っていない方へ", under(path, "/public"))],
     },
     {

@@ -237,14 +237,14 @@ describe("MapPage", () => {
     expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
   });
 
-  it("地図の下に固定のリンクが 8 つある", async () => {
+  it("地図の下に固定のリンクが 7 つある。掲示用の貼り紙は入口を外した（2026-11-06 作者の決定）", async () => {
     show(rig());
     await screen.findByTestId("map");
     const nav = screen.getByRole("navigation", { name: "ほかのページ" });
     const hrefs = within(nav)
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/public", "/known", "/trends", "/replay", "/sample", "/poster", "/results", "/privacy"]);
+    expect(hrefs).toEqual(["/public", "/known", "/trends", "/replay", "/sample", "/results", "/privacy"]);
   });
 });
 

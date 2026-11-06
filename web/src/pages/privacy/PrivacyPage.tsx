@@ -61,7 +61,7 @@ export function PrivacyContent({ reviewedOn, embedded = false }: { reviewedOn: I
           {section.heading === "消し方" ? (
             <ul>
               <li>
-                <Link to="/settings/notify" className="tap-link">配信停止と知らせの設定</Link>
+                <Link to="/settings/notify" className="tap-link">配信停止と通知の設定</Link>
               </li>
               <li>
                 <Link to="/record" className="tap-link">全データの削除（記録の画面）</Link>

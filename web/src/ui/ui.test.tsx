@@ -250,11 +250,11 @@ describe("shellContextOf", () => {
   });
 });
 
-// 11 項目（設計書 2026-11-06-ui-frame 3 章、決定 8〜13）
-const MENU_HREFS = ["/", "/compare", "/trends", "/todo", "/record/deaths", "/settings/farm", "/poster", "/sample", "/known", "/public", "/about"];
+// 10 項目（設計書 2026-11-06-ui-frame 3 章、決定 8〜14。掲示用の貼り紙は入口を外した）
+const MENU_HREFS = ["/", "/compare", "/trends", "/todo", "/record/deaths", "/settings/farm", "/sample", "/known", "/public", "/about"];
 
 describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章）", () => {
-  it("/ は帯なし。メニューは 11 の行き先で、今季の発生が選択中。下のタブはない", () => {
+  it("/ は帯なし。メニューは 10 の行き先で、今季の発生が選択中。下のタブはない", () => {
     const { container } = renderShell("/");
     expect(container.querySelector(".app-context")).toBeNull();
     expect(hrefs()).toEqual(MENU_HREFS);
@@ -321,7 +321,7 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
     expect(currentLabels()).toEqual(["記録会員"]);
     cleanup();
     const { container } = renderShell("/sample");
-    expect(currentLabels()).toEqual(["見本で試す"]);
+    expect(currentLabels()).toEqual(["記録の画面を試す"]);
     expect(container.querySelector(".app-context")).not.toBeNull();
   });
   it("/replay と /replay/backstage は帯に再現を終わる、行き先は通常、過去の発生が選択中", () => {

@@ -279,7 +279,7 @@ function FarmSettings() {
       </p>
       <p>
         <Link to="/settings/notify" className="tap-link">
-          知らせの設定を開く
+          通知の設定を開く
         </Link>
       </p>
     </div>

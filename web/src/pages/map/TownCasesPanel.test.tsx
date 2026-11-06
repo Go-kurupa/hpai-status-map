@@ -39,7 +39,7 @@ const nowCase = (o: Partial<Case>): Case =>
     ...o,
   }) as unknown as Case;
 
-const base = { current: 2026, nearbyTowns: [], onPick: () => {}, onClose: () => {}, historyFailed: false, onRetryHistory: () => {}, hasTown: true };
+const base = { current: 2026, asOf: "2026-11-04T08:30:00+09:00", nearbyTowns: [], onPick: () => {}, onClose: () => {}, historyFailed: false, onRetryHistory: () => {}, hasTown: true };
 // 欄は「この町のくわしい状況」へのリンクを持つので、道筋の中で描く
 const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
@@ -59,7 +59,7 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
     expect(lists[0]!.textContent).toContain("2026 年 11 月 2 日　確定");
     expect(lists[0]!.textContent).toContain("用途の記載なし・飼い方の記載なし・1,000 羽");
     const pastText = [...document.querySelectorAll(".town-cases-season")].map((e) => e.textContent);
-    expect(pastText[0]).toContain("昨季（2025 年シーズン） 1 件");
+    expect(pastText[0]).toContain("2025 年 6 月〜2026 年 5 月\u00a01 件");
     expect(pastText[0]).toContain("2025 年 12 月 20 日");
     expect(pastText[0]).toContain("採卵鶏・ケージ飼い・430,000 羽");
     expect(pastText[0]).not.toContain("12 月 24 日"); // 関連農場
@@ -73,11 +73,20 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
     expect(screen.getByText(/関連農場は件数に入れていません/)).toBeTruthy();
   });
 
-  it("記録がない町は『記録はありません。記録がないことは、これから出ないという意味ではありません』。0 件を安全と読ませない", () => {
-    render(<TownCasesPanel {...base} muniCode="33643" muniName="西粟倉村" currentCases={[]} history={[hist({})]} />);
-    expect(screen.getByText("今季の発生の記録はありません。記録がないことは、これから出ないという意味ではありません。")).toBeTruthy();
-    expect(screen.getByText("国の事例一覧に、この町の記録はありません。記録がないことは、これから出ないという意味ではありません。")).toBeTruthy();
+  // 2026-11-06 作者の決定: 「今季」は日付の範囲で示し、記録がない文は短く「時点で、発生記録はありません」
+  it("今季と過去は日付の範囲で見出しに出す。記録がない町は、データの時点の日付で『発生記録はありません』。0 件を安全と読ませない", () => {
+    render(<TownCasesPanel {...base} muniCode="33643" muniName="西粟倉村" currentCases={[]} history={[hist({}), hist({ season: 2020, no: 5 })]} />);
+    const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(heads).toEqual(["今季（2026 年 6 月 1 日から）", "過去 6 シーズン（2020 年 6 月〜2026 年 5 月、国の事例一覧）"]);
+    // 文は言葉の途中で折れないよう塊に分けて描く
+    const paras = [...document.querySelectorAll(".town-cases > p")].map((e) => e.textContent);
+    expect(paras).toContain("2026 年 11 月 4 日 8:30 時点で、発生記録はありません。");
+    expect(paras).toContain("発生記録はありません。");
     expect(document.body.textContent).not.toMatch(/安全|安心|0 件/);
+    cleanup();
+    // 時点が読めなければ日付を書かない（端末の時計で日付を作らない）
+    render(<TownCasesPanel {...base} asOf={null} muniCode="33643" muniName="西粟倉村" currentCases={[]} history={[]} />);
+    expect([...document.querySelectorAll(".town-cases > p")].filter((e) => e.textContent === "発生記録はありません。")).toHaveLength(2);
   });
 
   it("町を選んでいないときは、近くで過去に発生のある町をボタンで並べ、押すとその町を選ぶ（キーボードでも選べる）", () => {

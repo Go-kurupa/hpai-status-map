@@ -303,7 +303,7 @@ describe("/settings/farm", () => {
 
   it("末尾に、/settings/notify へのリンクがある", async () => {
     mount("/settings/farm");
-    const link = await screen.findByRole("link", { name: "知らせの設定を開く" });
+    const link = await screen.findByRole("link", { name: "通知の設定を開く" });
     expect(link.getAttribute("href")).toBe("/settings/notify");
     expect(link.className).toContain("tap-link");
   });
@@ -313,7 +313,7 @@ describe("/settings/farm", () => {
     const links = [
       await screen.findByRole("link", { name: "近隣への説明文を作る" }),
       screen.getByRole("link", { name: "プライバシーの説明" }),
-      screen.getByRole("link", { name: "知らせの設定を開く" }),
+      screen.getByRole("link", { name: "通知の設定を開く" }),
     ];
     for (const l of links) expect(l.classList.contains("tap-link")).toBe(true);
   });
@@ -371,7 +371,7 @@ describe("MeshPicker", () => {
 });
 
 describe("/settings/notify", () => {
-  const save = () => screen.getByRole("button", { name: "知らせの設定を保存" });
+  const save = () => screen.getByRole("button", { name: "通知の設定を保存" });
 
   it("農場がなければ保存を出さず、/settings/farm へ案内する（ルールが meshCode を要る）", async () => {
     farm = null;
@@ -461,7 +461,7 @@ describe("/settings/notify", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("知らせの設定の末尾に、/settings/farm へのリンクがある", async () => {
+  it("通知の設定の末尾に、/settings/farm へのリンクがある", async () => {
     mount("/settings/notify");
     const link = await screen.findByRole("link", { name: "農場の設定を開く" });
     expect(link.getAttribute("href")).toBe("/settings/farm");
@@ -519,7 +519,7 @@ describe("/settings/notify", () => {
 
   it("配信を止めていなければ『配信を止めています』も戻すボタンも出さない", async () => {
     mount("/settings/notify");
-    await screen.findByRole("button", { name: "知らせの設定を保存" });
+    await screen.findByRole("button", { name: "通知の設定を保存" });
     expect(screen.queryByText("配信を止めています")).toBeNull();
     expect(screen.queryByRole("button", { name: "配信を再開する" })).toBeNull();
   });
@@ -554,7 +554,7 @@ describe("/settings/notify", () => {
 
   it("止まっているかを確かめられなくても、設定の画面は使える（止めている表示は出さない）", async () => {
     mount("/settings/notify", { isMailStopped: vi.fn(async () => Promise.reject(new Error("x"))) });
-    expect(await screen.findByRole("button", { name: "知らせの設定を保存" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "通知の設定を保存" })).toBeTruthy();
     expect(screen.queryByText("配信を止めています")).toBeNull();
   });
 

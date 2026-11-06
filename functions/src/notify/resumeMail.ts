@@ -1,4 +1,4 @@
-// 配信の再開（M-13）。止めた本人が、知らせの設定の画面から自分だけを戻す。運営者が戻す形は作らない（設計書 §12）。
+// 配信の再開（M-13）。止めた本人が、通知の設定の画面から自分だけを戻す。運営者が戻す形は作らない（設計書 §12）。
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import type { Farm } from "@hpai/shared/types";
