@@ -9,7 +9,7 @@
       "domestic": false,
       "kind": "report",
       "license": "US Gov",
-      "licenseVerified": false,
+      "licenseVerified": true,
       "studyDesign": null
     },
     {
@@ -21,7 +21,7 @@
       "domestic": false,
       "kind": "report",
       "license": "US Gov",
-      "licenseVerified": false,
+      "licenseVerified": true,
       "studyDesign": null
     },
     {
@@ -33,7 +33,7 @@
       "domestic": false,
       "kind": "report",
       "license": "US Gov",
-      "licenseVerified": false,
+      "licenseVerified": true,
       "studyDesign": null
     },
     {
@@ -164,7 +164,7 @@
       "fetchedAt": "2026-11-06",
       "domestic": false,
       "kind": "paper",
-      "license": "CC BY",
+      "license": "CC BY 4.0",
       "licenseVerified": true,
       "studyDesign": "症例対照 18 戸対 22 戸（米国の採卵鶏・育成鶏・種鶏）"
     },
@@ -212,7 +212,7 @@
       "fetchedAt": "2026-11-06",
       "domestic": true,
       "kind": "paper",
-      "license": "CC BY",
+      "license": "CC BY 4.0",
       "licenseVerified": true,
       "studyDesign": "症例対照 58 戸対 26 戸（採卵鶏、2022/23 シーズン）"
     },
@@ -224,7 +224,7 @@
       "fetchedAt": "2026-11-06",
       "domestic": false,
       "kind": "paper",
-      "license": "CC BY",
+      "license": "CC BY 4.0",
       "licenseVerified": true,
       "studyDesign": "記述的分析（韓国の発生農場 311 戸の不備の記録。発生しなかった農場との比較なし）"
     },
@@ -261,7 +261,7 @@
       "domestic": false,
       "kind": "paper",
       "license": "CC BY 4.0",
-      "licenseVerified": false,
+      "licenseVerified": true,
       "studyDesign": "症例対照 18 戸対 34 戸（デンマークの家きんとその他の飼育鳥の施設）"
     },
     {
@@ -273,7 +273,7 @@
       "domestic": false,
       "kind": "paper",
       "license": "CC BY 4.0",
-      "licenseVerified": false,
+      "licenseVerified": true,
       "studyDesign": "症例対照 15 戸対 26 戸（ドイツ、2 回以上発生した農場）"
     }
   ],
