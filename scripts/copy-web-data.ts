@@ -11,6 +11,7 @@ const COPIES: ReadonlyArray<readonly [string, string]> = [
   ["data/replay", "web/public/replay"],
   ["evals/results/summary.json", "web/public/evals/summary.json"],
   ["data/trends/summary.json", "web/public/trends/summary.json"],
+  ["data/trends/insights.json", "web/public/trends/insights.json"],
   ["data/migration/summary.json", "web/public/migration/summary.json"],
   ["data/migration/routes", "web/public/migration/routes"],
   ["data/consult/cards.json", "web/public/consult/cards.json"],

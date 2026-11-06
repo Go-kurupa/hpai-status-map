@@ -239,3 +239,18 @@ describe("渡り鳥の飛来（季節の参考）", () => {
     expect(parseMigrationSummary({ ...SUMMARY, arrivals: [{ ...SUMMARY.arrivals[0], threshold: 0 }] })).toBeNull();
   });
 });
+
+describe("図（設計書 2026-11-06-trends-redesign §4.5）", () => {
+  it("比べられる地点だけに範囲の図を付け、飛来の早さの時間軸を出す。図は読み上げから外し、数は文に残す", async () => {
+    stub(SUMMARY);
+    const { container } = show();
+    await screen.findByRole("heading", { name: "渡り鳥の飛来（季節の参考）" });
+    const withBaseline = SUMMARY.sites.filter((s) => s.baseline !== null).length;
+    const strips = container.querySelectorAll("svg.migration-range");
+    expect(strips).toHaveLength(withBaseline);
+    for (const s of Array.from(strips)) expect(s.getAttribute("aria-hidden")).toBe("true");
+    expect(container.querySelector(".migration-timeline")).not.toBeNull();
+    // 1 つ目の断りは折りたたみの外に出す
+    expect(container.querySelector(".migration-caveat")!.textContent).toContain("農場の危険度や警報ではありません");
+  });
+});

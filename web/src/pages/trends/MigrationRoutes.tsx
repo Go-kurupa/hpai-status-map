@@ -73,9 +73,11 @@ export default function MigrationRoutes() {
         <li>農場の危険度や、これから飛ぶ経路を示すものではありません。</li>
       </ul>
 
-      {ROUTE_FIGURES.map((f) => (
-        <Figure key={f.file} f={f} />
-      ))}
+      <div className="migration-route-grid">
+        {ROUTE_FIGURES.map((f) => (
+          <Figure key={f.file} f={f} />
+        ))}
+      </div>
 
       <h3 className="migration-sub">出典</h3>
       <p>

@@ -1,0 +1,318 @@
+/* /trends の要点と「発生農場で見つかったこと」（設計書 2026-11-06-trends-redesign §4.6）。色は theme.css の変数から作る。 */
+.trends {
+  --tr-yes: var(--accent);
+  --tr-no: #6fa3c7;
+  --tr-none: #dcdde2;
+}
+
+.tr-points {
+  display: grid;
+  gap: var(--s1);
+}
+.tr-points ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--s1);
+}
+.tr-points li {
+  border-left: 4px solid var(--accent);
+  padding-left: 12px;
+}
+.tr-points strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15em;
+}
+.tr-caveat {
+  background: var(--soft);
+  border-radius: 4px;
+  padding: var(--s1) 12px;
+}
+.tr-report {
+  color: var(--sub);
+  font-size: 0.9em;
+}
+
+.tr-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: start;
+}
+@media (max-width: 63.99rem) {
+  .tr-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.tr-main {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.tr-side {
+  min-width: 0;
+  border-left: 1px solid var(--hair);
+  padding-left: var(--s3);
+  position: sticky;
+  top: var(--s2);
+}
+
+.tr-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.tr-chips button {
+  font: inherit;
+  font-size: 0.85em;
+  white-space: nowrap;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+.tr-chips button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.tr-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 0.8em;
+  color: var(--sub);
+}
+.tr-key span::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+.tr-key-yes::before {
+  background: var(--tr-yes);
+}
+.tr-key-no::before {
+  background: var(--tr-no);
+}
+.tr-key-none::before {
+  background: var(--tr-none);
+  outline: 1px solid var(--hair);
+}
+
+.tr-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.tr-row > button {
+  font: inherit;
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--hair);
+  border-left: 4px solid var(--hair);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+.tr-row-open > button {
+  border-color: var(--accent);
+}
+.tr-row > button:focus-visible,
+.tr-chips button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.tr-row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s1);
+}
+.tr-row-label {
+  font-weight: 700;
+}
+.tr-row-more {
+  color: var(--accent);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+.tr-row-nums {
+  font-size: 0.8em;
+  color: var(--sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-stack {
+  display: flex;
+  gap: 2px;
+  height: 22px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.tr-stack-small {
+  height: 12px;
+  border-radius: 2px;
+}
+.tr-stack i {
+  display: block;
+  height: 100%;
+}
+.tr-yes {
+  background: var(--tr-yes);
+}
+.tr-no {
+  background: var(--tr-no);
+}
+.tr-none {
+  background: var(--tr-none);
+}
+
+.tr-detail {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.tr-row .tr-detail {
+  margin-top: var(--s1);
+  padding: 12px;
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  background: var(--bg);
+}
+.tr-detail h3,
+.tr-detail h4 {
+  margin: 0;
+}
+.tr-detail h4 {
+  font-size: 0.9em;
+}
+.tr-seasons ul,
+.tr-hbars ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.tr-seasons li {
+  display: grid;
+  grid-template-columns: 4.2em minmax(0, 1fr) 6.5em;
+  gap: var(--s1);
+  align-items: center;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+}
+.tr-season-num {
+  text-align: right;
+  color: var(--sub);
+}
+.tr-hbars li {
+  display: grid;
+  grid-template-columns: 6.5em minmax(0, 1fr) 3.5em;
+  gap: var(--s1);
+  align-items: center;
+  font-size: 0.85em;
+}
+.tr-hbar-track {
+  height: 12px;
+  background: var(--soft);
+  border-radius: 0 4px 4px 0;
+  overflow: hidden;
+}
+.tr-hbar-track i {
+  display: block;
+  height: 100%;
+  background: var(--tr-yes);
+  border-radius: 0 4px 4px 0;
+}
+.tr-hbar-val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--sub);
+}
+.tr-note {
+  font-size: 0.85em;
+  color: var(--sub);
+}
+.tr-group {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+.tr-group caption {
+  text-align: left;
+  color: var(--sub);
+  padding-bottom: 4px;
+}
+.tr-group th,
+.tr-group td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--hair);
+  text-align: left;
+  font-weight: normal;
+}
+.tr-group td {
+  text-align: right;
+}
+.tr-quotes blockquote {
+  margin: 4px 0 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--divider);
+}
+.tr-quotes footer {
+  margin-top: 4px;
+}
+.tr-table summary,
+.tr-sources summary {
+  cursor: pointer;
+  color: var(--accent);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+/* 並べ方の枠の列は中身の幅に引っぱられないようにする（中の表は .table-scroll の中で横に流す。幅 360px で横にはみ出さない） */
+.tr-main,
+.tr-rows,
+.tr-detail,
+.tr-points,
+.tr-points ul {
+  grid-template-columns: minmax(0, 1fr);
+}
+.tr-main > *,
+.tr-rows > *,
+.tr-detail > * {
+  min-width: 0;
+}
+
+/* 段階 2「発生農場はどう気づいたか」 */
+.tr-noticing {
+  display: grid;
+  gap: 12px;
+  margin-top: var(--s3);
+}
+.tr-noticing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--s2) var(--s3);
+}
+.tr-noticing-field {
+  min-width: 0;
+}

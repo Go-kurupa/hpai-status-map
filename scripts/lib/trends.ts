@@ -187,7 +187,7 @@ export function buildSurveyRequests(docs: readonly SurveyDoc[]): SurveyRequest[]
 
 /** 1 バッチ 200MB ごとに分ける（上限は 256MB）。evals/run.ts と同じ */
 export const BATCH_CHUNK_BYTES = 200 * 1024 * 1024;
-function chunk<T extends { bytes: number }>(reqs: readonly T[]): T[][] {
+export function chunk<T extends { bytes: number }>(reqs: readonly T[]): T[][] {
   const out: T[][] = [];
   let cur: T[] = [];
   let size = 0;
@@ -206,7 +206,7 @@ function chunk<T extends { bytes: number }>(reqs: readonly T[]): T[][] {
 
 // ── 見積もり ──
 
-const PDF_TOKENS_PER_PAGE = 2500; // evals/run.ts と同じ（上振れ側）
+export const PDF_TOKENS_PER_PAGE = 2500; // evals/run.ts と同じ（上振れ側）
 export const EXPECTED_OUTPUT_TOKENS = 400;
 
 export interface SurveyEstimate {
@@ -340,7 +340,7 @@ export interface TrendsDeps {
   muniNames?: () => readonly string[];
 }
 
-interface ManifestEntry extends SurveyLink {
+export interface ManifestEntry extends SurveyLink {
   season: Season;
   /** surveyDir からの相対 */
   file: string;
@@ -363,13 +363,13 @@ const USAGE = `使い方:
   build-trends.ts --resume <batchId>   保存したバッチの結果を取り直す（新しい依頼は作らない）
   build-trends.ts --aggregate          手元の抽出の結果から data/trends/summary.json を書く`;
 
-const readJson = <T,>(file: string, fallback: T): T => (fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")) as T) : fallback);
-const writeJson = (file: string, v: unknown): void => {
+export const readJson = <T,>(file: string, fallback: T): T => (fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")) as T) : fallback);
+export const writeJson = (file: string, v: unknown): void => {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(v, null, 2)}\n`);
 };
-const fmtUsd = (n: number): string => `${n.toFixed(2)} ドル（約 ${Math.round(n * DEFAULT_RUNTIME_SETTINGS.jpyPerUsd)} 円）`;
-const fmtMb = (n: number): string => `${(n / 1024 / 1024).toFixed(2)} MB`;
+export const fmtUsd = (n: number): string => `${n.toFixed(2)} ドル（約 ${Math.round(n * DEFAULT_RUNTIME_SETTINGS.jpyPerUsd)} 円）`;
+export const fmtMb = (n: number): string => `${(n / 1024 / 1024).toFixed(2)} MB`;
 const seasons = (): Season[] => Object.keys(SEASON_PAGES).map(Number);
 
 /** 終了コード: 0 成功、1 取れない・足りない・検査に落ちた、2 引数の誤りや有料の確認待ち */

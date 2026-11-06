@@ -6,6 +6,8 @@ import { Link } from "react-router";
 import { Placeholder } from "../../ui/Placeholder";
 import MigrationRoutes from "./MigrationRoutes";
 import MigrationSection from "./MigrationSection";
+import TrendsInsights from "./TrendsInsights";
+import { parseTrendInsights, type TrendInsights } from "./insightsTypes";
 import { parseTrendSummary, type TrendSummary } from "./types";
 
 function BackLinks() {
@@ -16,10 +18,22 @@ function BackLinks() {
   );
 }
 
-type Load = { s: "loading" } | { s: "none" } | { s: "failed" } | { s: "ready"; v: TrendSummary };
+type Load = { s: "loading" } | { s: "none" } | { s: "failed" } | { s: "ready"; v: TrendSummary; insights: TrendInsights | null };
+
+/** 深掘りの集計（/trends/insights.json、設計書 2026-11-06-trends-redesign）。無い、読めない、形が違うときは null で、今の表示に戻る */
+async function loadInsights(): Promise<TrendInsights | null> {
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}trends/insights.json`);
+    if (!res.ok) return null;
+    return parseTrendInsights(JSON.parse(await res.text()));
+  } catch {
+    return null;
+  }
+}
 
 async function load(): Promise<Load> {
   try {
+    const insights = loadInsights();
     const res = await fetch(`${import.meta.env.BASE_URL}trends/summary.json`);
     if (res.status === 404) return { s: "none" };
     if (!res.ok) return { s: "failed" };
@@ -32,7 +46,7 @@ async function load(): Promise<Load> {
       return (res.headers.get("content-type") ?? "").includes("text/html") ? { s: "none" } : { s: "failed" };
     }
     const v = parseTrendSummary(json);
-    return v === null ? { s: "failed" } : { s: "ready", v };
+    return v === null ? { s: "failed" } : { s: "ready", v, insights: await insights };
   } catch {
     return { s: "failed" };
   }
@@ -83,6 +97,31 @@ export default function TrendsPage() {
     );
 
   const { generatedAt, seasons, sourceUrls } = state.v;
+  if (state.insights)
+    return (
+      <div className="trends">
+        <h1>全国の傾向</h1>
+        <p>国の疫学調査チームが発生農場で行った現地調査の概要から、国の報告書で多かった 3 つの項目を数えました。{formatAt(state.insights.generatedAt)} 時点。</p>
+        <TrendsInsights v={state.insights} />
+        <details className="tr-sources">
+          <summary>数え方と出典</summary>
+          <p>自由記述を Claude が項目に揃え、根拠の文で照合できたものだけを数えました。全件を人が確かめたものではありません。</p>
+          <p>事例ごとの現地調査の概要に書かれた指摘だけを数えています。事例や市町村とは結びつけていません。</p>
+          <ul>
+            {sourceUrls.map((u) => (
+              <li key={u}>
+                <a href={u} target="_blank" rel="noreferrer">
+                  農林水産省 シーズンごとの鳥インフルエンザの情報（疫学調査の結果）: {u}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+        <MigrationSection />
+        <MigrationRoutes />
+        <BackLinks />
+      </div>
+    );
   return (
     <div className="trends">
       <h1>全国の傾向</h1>

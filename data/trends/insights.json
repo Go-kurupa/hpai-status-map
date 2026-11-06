@@ -1,0 +1,352 @@
+{
+  "generatedAt": "2026-11-06T22:34:15+09:00",
+  "total": {
+    "season": 0,
+    "surveyed": 246,
+    "items": [
+      {
+        "key": "external_clothing",
+        "issue": 62,
+        "noIssue": 102,
+        "notMentioned": 82
+      },
+      {
+        "key": "rodent_signs",
+        "issue": 189,
+        "noIssue": 50,
+        "notMentioned": 7
+      },
+      {
+        "key": "wall_net_damage",
+        "issue": 159,
+        "noIssue": 36,
+        "notMentioned": 51
+      }
+    ]
+  },
+  "seasons": [
+    {
+      "season": 2025,
+      "surveyed": 24,
+      "items": [
+        {
+          "key": "external_clothing",
+          "issue": 6,
+          "noIssue": 16,
+          "notMentioned": 2
+        },
+        {
+          "key": "rodent_signs",
+          "issue": 20,
+          "noIssue": 4,
+          "notMentioned": 0
+        },
+        {
+          "key": "wall_net_damage",
+          "issue": 15,
+          "noIssue": 5,
+          "notMentioned": 4
+        }
+      ]
+    },
+    {
+      "season": 2024,
+      "surveyed": 51,
+      "items": [
+        {
+          "key": "external_clothing",
+          "issue": 16,
+          "noIssue": 28,
+          "notMentioned": 7
+        },
+        {
+          "key": "rodent_signs",
+          "issue": 33,
+          "noIssue": 16,
+          "notMentioned": 2
+        },
+        {
+          "key": "wall_net_damage",
+          "issue": 25,
+          "noIssue": 15,
+          "notMentioned": 11
+        }
+      ]
+    },
+    {
+      "season": 2023,
+      "surveyed": 11,
+      "items": [
+        {
+          "key": "external_clothing",
+          "issue": 4,
+          "noIssue": 7,
+          "notMentioned": 0
+        },
+        {
+          "key": "rodent_signs",
+          "issue": 9,
+          "noIssue": 2,
+          "notMentioned": 0
+        },
+        {
+          "key": "wall_net_damage",
+          "issue": 8,
+          "noIssue": 2,
+          "notMentioned": 1
+        }
+      ]
+    },
+    {
+      "season": 2022,
+      "surveyed": 84,
+      "items": [
+        {
+          "key": "external_clothing",
+          "issue": 32,
+          "noIssue": 41,
+          "notMentioned": 11
+        },
+        {
+          "key": "rodent_signs",
+          "issue": 62,
+          "noIssue": 19,
+          "notMentioned": 3
+        },
+        {
+          "key": "wall_net_damage",
+          "issue": 54,
+          "noIssue": 11,
+          "notMentioned": 19
+        }
+      ]
+    },
+    {
+      "season": 2021,
+      "surveyed": 25,
+      "items": [
+        {
+          "key": "external_clothing",
+          "issue": 4,
+          "noIssue": 8,
+          "notMentioned": 13
+        },
+        {
+          "key": "rodent_signs",
+          "issue": 20,
+          "noIssue": 5,
+          "notMentioned": 0
+        },
+        {
+          "key": "wall_net_damage",
+          "issue": 18,
+          "noIssue": 2,
+          "notMentioned": 5
+        }
+      ]
+    },
+    {
+      "season": 2020,
+      "surveyed": 51,
+      "items": [
+        {
+          "key": "external_clothing",
+          "issue": 0,
+          "noIssue": 2,
+          "notMentioned": 49
+        },
+        {
+          "key": "rodent_signs",
+          "issue": 45,
+          "noIssue": 4,
+          "notMentioned": 2
+        },
+        {
+          "key": "wall_net_damage",
+          "issue": 39,
+          "noIssue": 1,
+          "notMentioned": 11
+        }
+      ]
+    }
+  ],
+  "phrases": [
+    {
+      "key": "rodent_signs",
+      "base": 189,
+      "words": [
+        {
+          "label": "ふん",
+          "count": 88
+        },
+        {
+          "label": "姿・捕獲",
+          "count": 77
+        },
+        {
+          "label": "かじり跡",
+          "count": 53
+        },
+        {
+          "label": "死骸",
+          "count": 37
+        },
+        {
+          "label": "通り道・巣",
+          "count": 19
+        },
+        {
+          "label": "足跡",
+          "count": 13
+        }
+      ],
+      "unmatched": 12
+    },
+    {
+      "key": "wall_net_damage",
+      "base": 159,
+      "words": [
+        {
+          "label": "金網・ネット",
+          "count": 108
+        },
+        {
+          "label": "壁",
+          "count": 54
+        },
+        {
+          "label": "カーテン",
+          "count": 20
+        },
+        {
+          "label": "天井・屋根",
+          "count": 19
+        },
+        {
+          "label": "換気口",
+          "count": 16
+        },
+        {
+          "label": "扉の隙間",
+          "count": 10
+        }
+      ],
+      "unmatched": 18
+    }
+  ],
+  "rodentSource": {
+    "survey": 141,
+    "interview": 44,
+    "unclear": 4
+  },
+  "groups": [
+    {
+      "dimension": "housing",
+      "rows": [
+        {
+          "label": "ケージ",
+          "total": 130,
+          "issue": {
+            "external_clothing": 43,
+            "rodent_signs": 102,
+            "wall_net_damage": 78
+          }
+        },
+        {
+          "label": "平飼い（併用を含む）",
+          "total": 48,
+          "issue": {
+            "external_clothing": 12,
+            "rodent_signs": 31,
+            "wall_net_damage": 32
+          }
+        },
+        {
+          "label": "記載なし",
+          "total": 68,
+          "issue": {
+            "external_clothing": 7,
+            "rodent_signs": 56,
+            "wall_net_damage": 49
+          }
+        }
+      ]
+    },
+    {
+      "dimension": "use",
+      "rows": [
+        {
+          "label": "採卵鶏",
+          "total": 169,
+          "issue": {
+            "external_clothing": 47,
+            "rodent_signs": 138,
+            "wall_net_damage": 104
+          }
+        },
+        {
+          "label": "肉用鶏",
+          "total": 45,
+          "issue": {
+            "external_clothing": 7,
+            "rodent_signs": 31,
+            "wall_net_damage": 34
+          }
+        },
+        {
+          "label": "その他",
+          "total": 32,
+          "issue": {
+            "external_clothing": 8,
+            "rodent_signs": 20,
+            "wall_net_damage": 21
+          }
+        }
+      ]
+    }
+  ],
+  "reportQuotes": [
+    {
+      "season": 2025,
+      "about": "general",
+      "text": "国内では近隣での感染確認の有無によらず、初発事例後は全国どこでも感染リスクがあるものと考えられた。",
+      "reportTitle": "2025年～2026年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書",
+      "reportUrl": "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_98/attach/pdf/kakin_98-12.pdf"
+    },
+    {
+      "season": 2025,
+      "about": "rodent_signs",
+      "text": "ネズミについても、半数以上の農場で死体や痕跡が確認されている。",
+      "reportTitle": "2025年～2026年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書",
+      "reportUrl": "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_98/attach/pdf/kakin_98-12.pdf"
+    },
+    {
+      "season": 2025,
+      "about": "wall_net_damage",
+      "text": "家きん舎へのウイルスの侵入要因については、多くの農場で、裏口を含めた家きん舎立入り時の手指の洗浄・消毒等の人の衛生管理や、家きん舎の壁面破損の修繕等の野生動物侵入防止対策に不備等があったことから、これらがウイルスの侵入経路となった可能性が考えられた。",
+      "reportTitle": "2025年～2026年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書",
+      "reportUrl": "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_98/attach/pdf/kakin_98-12.pdf"
+    },
+    {
+      "season": 2025,
+      "about": "external_clothing",
+      "text": "飼養衛生管理の実施状況については、飼養衛生管理基準の遵守に努めている農場においても発生が確認された一方で、半数以上の農場で、外部事業者における衛生管理区域立入り時の専用衣服又は靴の使用について不備が確認された。",
+      "reportTitle": "2025年～2026年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書",
+      "reportUrl": "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_98/attach/pdf/kakin_98-12.pdf"
+    },
+    {
+      "season": 2024,
+      "about": "wall_net_damage",
+      "text": "家きん舎への侵入経路については、作業着・長靴の交換、手指消毒の不徹底等や、家きん舎の壁面破損の修繕、家きん舎及び関連施設における防鳥ネットの設置等の不備があり、これらが感染リスクとなった可能性が考えられた。",
+      "reportTitle": "2024年～2025年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書",
+      "reportUrl": "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_94/attach/pdf/kakin_94-10.pdf"
+    },
+    {
+      "season": 2023,
+      "about": "wall_net_damage",
+      "text": "家きん舎へのウイルスの侵入経路については、ほとんどの発生農家で壁や防鳥ネットの破損部からのカラス等の野鳥や小動物の侵入、手指消毒等の不徹底がみられたことから、これらが要因となった可能性が考えられた。",
+      "reportTitle": "2023年～2024年シーズンにおける高病原性鳥インフルエンザの発生に係る疫学調査報告書",
+      "reportUrl": "https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r5_hpai_kokunai-157.pdf"
+    }
+  ]
+}

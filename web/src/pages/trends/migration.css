@@ -56,3 +56,134 @@
 .migration-route figcaption p {
   margin: 0 0 4px;
 }
+
+/* 作り直し（設計書 2026-11-06-trends-redesign §4.5）: 地点ごとの範囲の図、飛来の早さの時間軸、経路の図の見本の並び */
+.migration,
+.migration-routes {
+  max-width: none;
+}
+.migration-caveat {
+  background: var(--soft);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+.migration-more summary {
+  cursor: pointer;
+  color: var(--accent);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.migration-small {
+  font-size: 0.85em;
+  color: var(--sub);
+}
+.migration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  column-gap: 24px;
+}
+.migration-range {
+  display: block;
+  width: 100%;
+  height: 22px;
+  margin: 2px 0 6px;
+  overflow: visible;
+}
+.migration-range-axis {
+  stroke: var(--hair);
+  stroke-width: 2;
+}
+.migration-range-band {
+  fill: #c9cfee;
+}
+.migration-range-median {
+  stroke: var(--navy);
+  stroke-width: 2;
+}
+.migration-range-now {
+  fill: var(--lv1);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.migration-range-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 0.8em;
+  color: var(--sub);
+}
+.migration-range-key span::before {
+  content: "";
+  display: inline-block;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+.migration-range-key .k-band::before {
+  width: 20px;
+  height: 10px;
+  border-radius: 3px;
+  background: #c9cfee;
+}
+.migration-range-key .k-median::before {
+  width: 2px;
+  height: 14px;
+  background: var(--navy);
+}
+.migration-range-key .k-now::before {
+  width: 10px;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--lv1);
+}
+.migration-timeline {
+  margin: 8px 0 12px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  max-width: 40rem;
+}
+.migration-timeline li {
+  display: grid;
+  grid-template-columns: minmax(0, 9em) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+.migration-tl-name {
+  font-size: 0.85em;
+  line-height: 1.3;
+}
+.migration-tl-track {
+  position: relative;
+}
+.migration-tl-track svg {
+  display: block;
+  width: 100%;
+  height: 16px;
+  overflow: visible;
+}
+.migration-tl-ticks {
+  position: relative;
+  height: 1.5em;
+  font-size: 0.8em;
+  color: var(--sub);
+}
+.migration-tl-ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.migration-tl-still {
+  font-size: 0.8em;
+  color: var(--sub);
+}
+.migration-route-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  gap: 16px;
+}
+.migration-route-grid .migration-route {
+  margin: 0;
+  font-size: 0.85em;
+}

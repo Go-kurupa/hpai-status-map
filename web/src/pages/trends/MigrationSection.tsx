@@ -37,11 +37,100 @@ function ymdLabel(iso: string): string {
 }
 const num = (n: number): string => n.toLocaleString("ja-JP");
 
+/**
+ * 過去の同じ時期の幅（帯）、中央値（縦線）、今季の最新（点）を 1 本の目盛りに並べる（設計書 2026-11-06-trends-redesign §4.5）。
+ * 目盛りは地点ごと（その地点の最大の値が右端）。判定の言葉は付けない。数は下の文にある。
+ */
+export function RangeStrip({ s }: { s: MigrationSite }) {
+  const b = s.baseline;
+  if (!b) return null;
+  const top = Math.max(b.max, s.latestTotal, 1);
+  const x = (v: number): number => 4 + (v / top) * 292;
+  return (
+    <svg className="migration-range" viewBox="0 0 300 20" aria-hidden="true" focusable="false">
+      <line x1="4" x2="296" y1="10" y2="10" className="migration-range-axis" />
+      <rect x={x(b.min)} y="4" width={Math.max(2, x(b.max) - x(b.min))} height="12" rx="3" className="migration-range-band" />
+      <line x1={x(b.median)} x2={x(b.median)} y1="1" y2="19" className="migration-range-median" />
+      <circle cx={x(s.latestTotal)} cy="10" r="5" className="migration-range-now" />
+    </svg>
+  );
+}
+
+function RangeKey() {
+  return (
+    <p className="migration-range-key" aria-hidden="true">
+      <span className="k-band">過去の同じ時期の幅</span>
+      <span className="k-median">中央値</span>
+      <span className="k-now">今季の最新</span>
+    </p>
+  );
+}
+
+/** "2025-10-02" → 9 月 1 日からの日数（年をまたがない秋の調査だけを並べる） */
+const dayOfAutumn = (iso: string): number => {
+  const m = Number(iso.slice(5, 7));
+  const d = Number(iso.slice(8, 10));
+  return [0, 30, 61, 91][m - 9]! + d - 1;
+};
+
+/** 飛来の早さを時間軸に並べる。帯は過去の初記録日の幅、点は今季（まだならその旨） */
+function ArrivalTimeline({ arrivals }: { arrivals: MigrationArrival[] }) {
+  const rows = arrivals
+    .map((a) => ({ a, past: a.past.flatMap((p) => (p.date && Number(p.date.slice(5, 7)) >= 9 && Number(p.date.slice(5, 7)) <= 12 ? [dayOfAutumn(p.date)] : [])) }))
+    .filter((r) => r.past.length > 0);
+  if (rows.length === 0) return null;
+  const all = rows.flatMap((r) => [...r.past, ...(r.a.currentDate ? [dayOfAutumn(r.a.currentDate)] : [])]);
+  const lo = Math.max(0, Math.min(...all) - 7);
+  const hi = Math.min(121, Math.max(...all) + 7);
+  /** 0〜100（%）。目盛りの文字は図の外の HTML に出す（SVG の中の文字は縮んで小さくなるため） */
+  const X = (d: number): number => ((d - lo) / Math.max(1, hi - lo)) * 100;
+  const ticks = (
+    [
+      ["9/1", 0],
+      ["10/1", 30],
+      ["11/1", 61],
+      ["12/1", 91],
+    ] as [string, number][]
+  ).filter(([, d]) => d >= lo && d <= hi);
+  return (
+    <ul className="migration-timeline" aria-hidden="true">
+      {rows.map(({ a, past }) => (
+        <li key={`${a.siteId}-${a.species}-${a.threshold}`}>
+          <span className="migration-tl-name">
+            {a.siteName}の{a.species}
+          </span>
+          <span className="migration-tl-track">
+            <svg viewBox="0 0 100 16" preserveAspectRatio="none" focusable="false">
+              {ticks.map(([t, d]) => (
+                <line key={t} x1={X(d)} x2={X(d)} y1="0" y2="16" className="migration-range-axis" vectorEffect="non-scaling-stroke" />
+              ))}
+              <rect x={X(Math.min(...past))} y="3" width={Math.max(1, X(Math.max(...past)) - X(Math.min(...past)))} height="10" className="migration-range-band" />
+              {a.currentDate ? <rect x={X(dayOfAutumn(a.currentDate)) - 1} y="1" width="2" height="14" className="migration-range-now" /> : null}
+            </svg>
+            {a.currentDate ? null : <span className="migration-tl-still">今季はまだ</span>}
+          </span>
+        </li>
+      ))}
+      <li>
+        <span />
+        <span className="migration-tl-ticks">
+          {ticks.map(([t, d]) => (
+            <span key={t} style={{ left: `${X(d)}%` }}>
+              {t}
+            </span>
+          ))}
+        </span>
+      </li>
+    </ul>
+  );
+}
+
 function SiteItem({ s, baselineCount }: { s: MigrationSite; baselineCount: number }) {
   const b = s.baseline;
   return (
     <li className="migration-site">
       <h3>{s.name}</h3>
+      <RangeStrip s={s} />
       <p>
         今季の最新（{mdLabel(s.latestDate)}の調査）: <strong>{num(s.latestTotal)} 羽</strong>
       </p>
@@ -125,8 +214,8 @@ export default function MigrationSection() {
       <h2 id="migration-title">渡り鳥の飛来（季節の参考）</h2>
       <p>環境省が全国の定点で数えた水鳥（ガン・ハクチョウ・カモ類）の数を、同じ地点の過去の同じ時期と並べました。季節の進みの目安です。水鳥の数は、種ごとの羽数と、種まで分からなかった「カモ類」などの羽数を足したものです。</p>
 
-      <ul className="migration-notes">
-        <li>農場の危険度や警報ではありません。この数から、ご自分の農場や地域の状況は分かりません。</li>
+      <p className="migration-caveat">農場の危険度や警報ではありません。この数から、ご自分の農場や地域の状況は分かりません。</p>
+      <ul className="migration-notes migration-small">
         <li>調査の回ごとの数は、年によって大きく揺れます。数え方の範囲や調査日のずれにも左右されます。</li>
         <li>感染の情報は含みません。鳥インフルエンザの検査の結果とは別の調査です。</li>
         <li>調査から公開まで、数日から 2 週間ほどかかります。下の日付は調査の日で、今日の様子ではありません。</li>
@@ -142,10 +231,15 @@ export default function MigrationSection() {
       )}
 
       <h3 className="migration-sub">地点ごとの水鳥の数</h3>
-      <p>
-        比べるのは {first}〜{last} 年秋のシーズンのうち、今季の最新の調査日に近い日（前後 7 日以内）の調査です。国指定鳥獣保護区の地点と、岡山県の 1 地点のうち、過去の一覧にも連続して載っている地点を候補にし、過去の同じ時期の中央値が 100 羽未満の地点は載せていません。ツルが主な出水・高尾野も、ツルは水鳥の合計に入らず水鳥の数が小さいため載せていません。載っていない地点は「調べていない」「いない」という意味ではありません。
-      </p>
-      <ul className="migration-list">
+      <p>北から南の順です。図の目盛りは地点ごとに違います（羽数の桁が地点で違うため）。</p>
+      <RangeKey />
+      <details className="migration-more">
+        <summary>比べ方と、載せている地点</summary>
+        <p>
+          比べるのは {first}〜{last} 年秋のシーズンのうち、今季の最新の調査日に近い日（前後 7 日以内）の調査です。国指定鳥獣保護区の地点と、岡山県の 1 地点のうち、過去の一覧にも連続して載っている地点を候補にし、過去の同じ時期の中央値が 100 羽未満の地点は載せていません。ツルが主な出水・高尾野も、ツルは水鳥の合計に入らず水鳥の数が小さいため載せていません。載っていない地点は「調べていない」「いない」という意味ではありません。
+        </p>
+      </details>
+      <ul className="migration-list migration-grid">
         {sites.map((s) => (
           <SiteItem key={s.id} s={s} baselineCount={baselineSeasons.length} />
         ))}
@@ -154,8 +248,9 @@ export default function MigrationSection() {
       {arrivals.length > 0 ? (
         <>
           <h3 className="migration-sub">飛来の早さ</h3>
-          <p>地点と種を絞り、1 回の調査で決めた羽数に初めて届いた調査日を、過去のシーズンの幅と並べました。調査は 2 週間ほどの間隔なので、日付の精度はその程度です。</p>
-          <ul className="migration-list">
+          <p>地点と種を絞り、1 回の調査で決めた羽数に初めて届いた調査日を、過去のシーズンの幅と並べました。調査は 2 週間ほどの間隔なので、日付の精度はその程度です。図の帯は過去のシーズンの初めて記録した日の幅、赤い縦線は今季です。</p>
+          <ArrivalTimeline arrivals={arrivals} />
+          <ul className="migration-list migration-grid">
             {arrivals.map((a) => (
               <ArrivalItem key={`${a.siteId}-${a.species}-${a.threshold}`} a={a} />
             ))}
@@ -171,7 +266,7 @@ export default function MigrationSection() {
         </a>
         （{sourceUrl}）。
       </p>
-      <p>
+      <p className="migration-small">
         この作品が地点ごとの Excel ファイルから水鳥の合計を求め、過去のシーズンと並べるよう加工しました（編集・加工の主体: この作品の作者）。加工した結果は環境省が作成したものではありません。水鳥の合計は、ガン・ヒシクイ・ハクチョウ・カモ・アイサの種の羽数と、「カモ類」「ハクチョウ類」「ガン類」などの種まで分からなかった羽数の和で、ツル、カモメ、家禽のアイガモなどは含みません。空欄は 0 羽として足しています。水鳥の欄に数が 1 つもない回は、数の記録がない回として扱います。
       </p>
     </section>
