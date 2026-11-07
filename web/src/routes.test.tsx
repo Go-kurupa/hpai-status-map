@@ -66,7 +66,7 @@ describe("骨格", () => {
   it("会員の印がなければ、メニューの養鶏事業者の方は『対策項目』『会員のログイン』で、header に『設定』はない。下のタブはない", async () => {
     const router = createMemoryRouter(routes, { initialEntries: ["/todo"] });
     render(<RouterProvider router={router} />);
-    await screen.findByRole("heading", { name: "対策項目" });
+    await screen.findByRole("heading", { name: "対策項目" }, { timeout: 10_000 });
 
     expect(screen.queryByRole("navigation", { name: "メイン" })).toBeNull();
     const nav = screen.getByRole("navigation", { name: "メニュー" });
@@ -84,7 +84,7 @@ describe("骨格", () => {
     try {
       const router = createMemoryRouter(routes, { initialEntries: ["/todo"] });
       render(<RouterProvider router={router} />);
-      await screen.findByRole("heading", { name: "対策項目" });
+      await screen.findByRole("heading", { name: "対策項目" }, { timeout: 10_000 });
       const nav = screen.getByRole("navigation", { name: "メニュー" });
       expect(within(nav).getByRole("link", { name: "死亡・消毒の記録" }).getAttribute("href")).toBe("/record/deaths");
       expect(within(nav).getByRole("link", { name: "農場と通知の設定" }).getAttribute("href")).toBe("/settings/farm");

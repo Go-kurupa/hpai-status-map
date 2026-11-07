@@ -90,6 +90,12 @@ function mount(entry: string) {
 }
 
 const where = () => screen.getByTestId("where").textContent;
+/** 死亡数の画面の 1 鶏舎の行。欄に数を入れ、その行の「記録する」か「記録し直す」を押す */
+const rowOf = (house: string) => screen.getAllByRole("listitem").find((li) => li.querySelector(".row-title")?.textContent === house)!;
+function recordIn(house: string, n: string) {
+  fireEvent.change(screen.getByLabelText(RECORD_TEXT.deathsInputLabel(house)), { target: { value: n } });
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(`^(${RECORD_TEXT.save}|${RECORD_TEXT.resave}): ${house}$`) }));
+}
 const text = () => document.body.textContent ?? "";
 
 beforeEach(() => {
@@ -240,17 +246,19 @@ function expectNoMemberLinks() {
 }
 
 describe("/sample/record", () => {
-  it("『去年の再現です』の帯と、4 つの行き先が /sample/record の下にある。『最後の記録』が出る。メールは止まっていない", async () => {
+  it("『去年の再現です』の帯と、3 つの行き先が /sample/record の下にある。/sample/record は死亡数へ送る。『最後に記録した日』が出る。メールは止まっていない", async () => {
     mount("/sample/record");
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.exportTitle });
+    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.pageTitle });
+    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
+    expect(where()).toBe("/sample/record/deaths");
     expect(screen.getAllByText(FIXED_TEXT.replayBanner).length).toBeGreaterThan(0);
     expect(text()).toContain("架空の農場です。数字は作り物です");
     const nav = screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel });
     const hrefs = within(nav)
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/sample/record/deaths", "/sample/record/self-check", "/sample/record/disinfection", "/sample/record"]);
-    await screen.findByText(/最後の記録: 2025年12月30日/);
+    expect(hrefs).toEqual(["/sample/record/deaths", "/sample/record/self-check", "/sample/record/disinfection"]);
+    await screen.findByText("最後に記録した日: 12月30日");
     expect(text()).not.toContain(RECORD_TEXT.mailStopped);
     // 削除は見本に出さない
     expect(screen.queryByText(RECORD_TEXT.deleteHeading)).toBeNull();
@@ -259,41 +267,42 @@ describe("/sample/record", () => {
 
   it("タブを押すと /record へ移動せず、/sample/record/… の中で切り替わる", async () => {
     mount("/sample/record");
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.exportTitle });
+    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
     const nav = () => screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel });
-    fireEvent.click(within(nav()).getByRole("link", { name: RECORD_TEXT.tabDeaths }));
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.deathsTitle });
-    expect(where()).toBe("/sample/record/deaths");
     fireEvent.click(within(nav()).getByRole("link", { name: RECORD_TEXT.tabSelfCheck }));
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.selfTitle });
+    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.selfTitle });
     expect(where()).toBe("/sample/record/self-check");
     fireEvent.click(within(nav()).getByRole("link", { name: RECORD_TEXT.tabDisinfection }));
-    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.panelTitle });
+    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.disTitle });
     expect(where()).toBe("/sample/record/disinfection");
-    fireEvent.click(within(nav()).getByRole("link", { name: RECORD_TEXT.tabExport }));
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.exportTitle });
-    expect(where()).toBe("/sample/record");
+    fireEvent.click(within(nav()).getByRole("link", { name: RECORD_TEXT.tabDeaths }));
+    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
+    expect(where()).toBe("/sample/record/deaths");
+    expect(within(nav()).getAllByRole("link")).toHaveLength(3);
     expectNoMemberLinks();
   });
 
   it("鶏舎 A に 10 羽を入れると、基準に当たる可能性と見本の連絡先が出る。C では『まだ計算できません』", async () => {
     mount("/sample/record/deaths");
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.deathsTitle });
-    const house = (await screen.findByLabelText(RECORD_TEXT.houseLabel)) as HTMLSelectElement;
-    expect([...house.options].map((o) => o.textContent)).toEqual(["鶏舎A", "鶏舎B", "鶏舎C"]);
-    expect(house.value).toBe("house-a");
+    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
+    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎A"));
+    const rows = within(screen.getByRole("list", { name: RECORD_TEXT.rowsLabel })).getAllByRole("listitem");
+    expect(rows.map((r) => r.querySelector(".row-title")?.textContent)).toEqual(["鶏舎A", "鶏舎B", "鶏舎C"]);
+    // 見本の今日（12月30日）の記録では、鶏舎A が届け出の基準に達している可能性がある
+    const judge = within(screen.getByRole("list", { name: RECORD_TEXT.statsLabel }))
+      .getAllByRole("listitem")
+      .find((li) => li.querySelector(".stat-label")?.textContent === RECORD_TEXT.statJudge)!;
+    expect(judge.querySelector(".stat-value")?.textContent).toBe(RECORD_TEXT.judgeHit);
+    expect(judge.querySelector(".stat-note")?.textContent).toBe("鶏舎A");
 
-    fireEvent.change(screen.getByLabelText(RECORD_TEXT.deathsLabel), { target: { value: "10" } });
-    fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.save }));
+    recordIn("鶏舎A", "10");
     const result = await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
     expect(result.textContent).toContain(MORTALITY_TEXT.hit);
     expect(result.textContent).toContain("直ちに家保へ通報してください（基準 項目 32）");
     expect(result.textContent).toContain(`${RECORD_TEXT.hitContact}: 見本の家保（作り物） 00-0000-0000`);
     expect(findForbiddenPhrases(result.textContent ?? "")).toEqual([]);
 
-    fireEvent.change(house, { target: { value: "house-c" } });
-    fireEvent.change(screen.getByLabelText(RECORD_TEXT.deathsLabel), { target: { value: "1" } });
-    fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.save }));
+    recordIn("鶏舎C", "1");
     const resultC = await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
     expect(resultC.textContent).toContain(MORTALITY_TEXT.insufficient);
     expect(resultC.textContent).toContain("まだ計算できません");
@@ -303,10 +312,8 @@ describe("/sample/record", () => {
 
   it("鶏舎 B では当たらない（設備の故障の日は除いて計算）", async () => {
     mount("/sample/record/deaths");
-    const house = (await screen.findByLabelText(RECORD_TEXT.houseLabel)) as HTMLSelectElement;
-    fireEvent.change(house, { target: { value: "house-b" } });
-    fireEvent.change(screen.getByLabelText(RECORD_TEXT.deathsLabel), { target: { value: "2" } });
-    fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.save }));
+    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎B"));
+    recordIn("鶏舎B", "2");
     const result = await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
     expect(result.textContent).toContain(RECORD_TEXT.notHit);
     expect(result.textContent).not.toContain("直ちに家保へ");
@@ -338,22 +345,21 @@ describe("/sample/record", () => {
 
   it("記録した死亡数は、タブを移っても残る。ページを読み込み直す（新しい口）と元に戻る", async () => {
     const first = mount("/sample/record/deaths");
-    await screen.findByLabelText(RECORD_TEXT.houseLabel);
-    fireEvent.change(screen.getByLabelText(RECORD_TEXT.deathsLabel), { target: { value: "7" } });
-    fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.save }));
+    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎A"));
+    recordIn("鶏舎A", "7");
     await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
     const nav = screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel });
     fireEvent.click(within(nav).getByRole("link", { name: RECORD_TEXT.tabSelfCheck }));
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.selfTitle });
+    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.selfTitle });
     fireEvent.click(within(screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel })).getByRole("link", { name: RECORD_TEXT.tabDeaths }));
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.deathsTitle });
-    await waitFor(() => expect(text()).toContain("7 羽（飼養 5000 羽）"));
+    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
+    await waitFor(() => expect(rowOf("鶏舎A").textContent).toContain(RECORD_TEXT.deathsRecorded(7)));
     first.unmount(); // ページの読み込み直しに当たる
 
     mount("/sample/record/deaths");
-    await screen.findByLabelText(RECORD_TEXT.houseLabel);
-    await waitFor(() => expect(text()).toContain("10 羽（飼養 5000 羽）"));
-    expect(text()).not.toContain("7 羽（飼養 5000 羽）");
+    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎A"));
+    await waitFor(() => expect(rowOf("鶏舎A").textContent).toContain(RECORD_TEXT.deathsRecorded(10)));
+    expect(rowOf("鶏舎A").textContent).not.toContain(RECORD_TEXT.deathsRecorded(7));
   });
 
   it("入口・やること・記録の間を移っても、見本の記録は残る（やること → 記録の消毒、入口を挟んでも）。読み込みは 1 回だけ", async () => {
@@ -369,14 +375,18 @@ describe("/sample/record", () => {
     await screen.findByRole("heading", { level: 1, name: SAMPLE_TEXT.title });
     expect(screen.queryByRole("navigation", { name: SAMPLE_TEXT.navLabel })).toBeNull(); // 入口では行き来の帯を出さない
     fireEvent.click(screen.getByRole("link", { name: /^死亡・消毒の記録/ }));
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.deathsTitle });
+    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
     fireEvent.click(within(screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel })).getByRole("link", { name: RECORD_TEXT.tabDisinfection }));
-    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.panelTitle });
-    const recent = await screen.findByRole("region", { name: TODO_TEXT.panelRecent });
+    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.disTitle });
+    const recent = await screen.findByRole("region", { name: RECORD_TEXT.disTableHeading });
     await waitFor(() => expect(recent.textContent).toContain("12月30日"));
-    expect(recent.textContent).toContain(label.slice(0, 10));
-    // 同じ日の同じ項目は『今日は記録しました』のまま（やること側の「やった」の記録を引き継いでいる）
-    expect(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}: ${label.slice(0, 10)}`) })[0]!.textContent).toBe(TODO_TEXT.doneSaved);
+    // 同じ日の同じ項目は「今日 記録済み」で、押すものがない（やること側の「やった」の記録を引き継いでいる）
+    await waitFor(() => expect(screen.queryAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}: ${label.slice(0, 10)}`) })).toHaveLength(0));
+    const row = screen.getAllByRole("listitem").find((li) => li.classList.contains("row-item") && li.textContent?.includes(label.slice(0, 10)))!;
+    expect(row.textContent).toContain(RECORD_TEXT.disDoneToday);
+    // 表の 12月30日 の行に、その項目の ☑ がある
+    const today = within(recent).getByRole("rowheader", { name: "12月30日" }).closest("tr")!;
+    expect(within(today).getAllByRole("img", { name: RECORD_TEXT.disTableDone }).length).toBeGreaterThan(0);
     expect(fetched.filter((u) => u.endsWith("sample-farm.json"))).toHaveLength(1);
     expect(fetched.filter((u) => u.endsWith("scenario.json"))).toHaveLength(1);
   });
@@ -388,8 +398,8 @@ describe("/sample/record", () => {
     fireEvent.click(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) })[0]!);
     await waitFor(() => expect(screen.getAllByText(TODO_TEXT.doneSaved).length).toBeGreaterThan(0));
     await router.navigate("/sample/record/disinfection");
-    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.panelTitle });
-    const recent = await screen.findByRole("region", { name: TODO_TEXT.panelRecent });
+    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.disTitle });
+    const recent = await screen.findByRole("region", { name: RECORD_TEXT.disTableHeading });
     await waitFor(() => expect(recent.textContent).toContain("12月30日"));
     expect(forbidden.firebase).not.toHaveBeenCalled();
     expect(fetched.filter((u) => u.endsWith("sample-farm.json"))).toHaveLength(1);
@@ -425,7 +435,7 @@ describe("見本の全体", () => {
 
   it("記録の画面の説明のうち『同じ農場の会員へメールで知らせます』は見本では送らない、と書いてある", async () => {
     mount("/sample/record/deaths");
-    await screen.findByLabelText(RECORD_TEXT.houseLabel);
+    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎A"));
     expect(text()).toContain("メールは送りません");
   });
 });

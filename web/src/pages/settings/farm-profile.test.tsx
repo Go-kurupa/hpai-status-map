@@ -135,7 +135,7 @@ describe("並び（農場がないあいだは地点だけ）", () => {
     mount();
     await screen.findByRole("button", { name: "地点を保存" });
     expect(screen.queryByLabelText("農場名")).toBeNull();
-    for (const name of [/農場の情報を保存/, /行き来する町を保存/, /鶏舎を追加する/, /家畜保健衛生所の連絡先を保存/]) {
+    for (const name of [/農場の情報を保存/, /行き来する町を保存/, /鶏舎を追加する/, /鶏舎を登録する/, /家畜保健衛生所の連絡先を保存/]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
     expect(screen.queryByRole("heading", { name: "鶏舎" })).toBeNull();
@@ -143,20 +143,29 @@ describe("並び（農場がないあいだは地点だけ）", () => {
     expect(listHouses).not.toHaveBeenCalled();
   });
 
-  it("地点、農場の情報、鶏舎、行き来する町、家保の連絡先、招待の順に並ぶ（記録に要る鶏舎は農場の情報のすぐ後）", async () => {
+  it("地点、農場の情報、鶏舎、家保の連絡先、行き来する町、会員の追加の順に並び、一番下が全データの削除（札の順にそろえる）", async () => {
     mount();
     await screen.findByRole("button", { name: "農場の情報を保存" });
     const order = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(order).toEqual(["農場の地点", "農場の情報", "鶏舎", "行き来する町", "家畜保健衛生所の連絡先", "会員を追加する"]);
+    // 2026-11-08 レビュー: 札の順（地点 → 農場名 → 鶏舎 → 家保 → 通知）にそろえ、登録済みの地点は一番上に 1 行。
+    // 全データの削除は h2 を置かず、畳んだ欄の summary が見出しの役（一番下の節）
+    expect(order).toEqual(["農場の地点", "農場の情報", "鶏舎", "家畜保健衛生所の連絡先", "行き来する町", "会員を追加する"]);
+    const sections = [...document.querySelector(".settings-page")!.children].filter((el) => el.tagName === "SECTION");
+    expect(sections.at(-1)?.id).toBe("delete");
   });
 
-  it("保存のボタンは、どの欄も同じ種類（主のボタン .btn-primary）", async () => {
+  it("農場があるときの主のボタン（.btn-primary）は、開いた鶏舎の欄の『鶏舎を保存』だけ。ほかの保存は普通のボタン", async () => {
     mount();
     await screen.findByRole("button", { name: "農場の情報を保存" });
-    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を追加する" }));
+    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を登録する" }));
+    fireEvent.click(screen.getByRole("button", { name: "地点を変える" }));
     const saves = screen.getAllByRole("button", { name: /を保存$/ });
-    expect(saves.map((b) => b.textContent)).toEqual(["地点を保存", "農場の情報を保存", "鶏舎を保存", "行き来する町を保存", "家畜保健衛生所の連絡先を保存"]);
-    for (const b of saves) expect(b.className.split(" "), b.textContent ?? "").toContain("btn-primary");
+    expect(saves.map((b) => b.textContent)).toEqual(["地点を保存", "農場の情報を保存", "鶏舎を保存", "家畜保健衛生所の連絡先を保存", "行き来する町を保存"]);
+    // 2026-11-08 レビュー: 青い主のボタンを 1 画面に並べない。農場があるときの主のボタンは、開いた鶏舎の欄の「鶏舎を保存」だけ。
+    // ほかの節ごとの保存は、どれも同じ普通のボタン（.btn だけ）
+    const primary = saves.filter((b) => b.classList.contains("btn-primary")).map((b) => b.textContent);
+    expect(primary).toEqual(["鶏舎を保存"]);
+    for (const b of saves) expect(b.className.split(" "), b.textContent ?? "").toContain("btn");
   });
 
   it("見出しは『農場の設定』を含まない（ページ見出しだけが持つ）", async () => {
@@ -210,7 +219,7 @@ describe("農場名、採卵か肉用か、鶏舎の造り、飼い方", () => {
     click("農場の情報を保存");
     await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
     expect(lastPatch()).toEqual({ name: "A 農場", production: null, housing: null, rearing: null });
-    expect(within(section("農場の情報")).getByText(/確認リストは両方を出します/)).toBeTruthy();
+    expect(within(section("農場の情報")).getByText("対策項目のうち、出荷に関わる項目の出し分けに使います。選ばないときは両方を出します。")).toBeTruthy();
   });
 
   it("農場がまだ未選択のときは、未選択の側が選ばれて開く", async () => {
@@ -239,7 +248,7 @@ describe("農場名、採卵か肉用か、鶏舎の造り、飼い方", () => {
     await screen.findByLabelText("農場名");
     const legends = within(section("農場の情報")).getAllByRole("group").map((g) => g.querySelector("legend")?.textContent);
     expect(legends).toEqual(["採卵か肉用か", "鶏舎の造り", "飼い方"]);
-    expect(within(section("農場の情報")).getByText("「AIに対策を相談」で、条件として付けられます。付けるかは、相談のたびに選びます。")).toBeTruthy();
+    expect(within(section("農場の情報")).getByText("「AIに対策を相談」で、条件として選べます。使うかは、相談のたびに選びます。")).toBeTruthy();
   });
 
   it("飼い方の項目がない前からの農場は「飼い方を選ばない」で開き、触らずに保存すると null（推測で埋めない）", async () => {
@@ -258,7 +267,7 @@ describe("農場名、採卵か肉用か、鶏舎の造り、飼い方", () => {
   it("鶏舎の造りの説明に『確かめておくとよいことの並びに使います』", async () => {
     mount();
     await screen.findByLabelText("農場名");
-    expect(within(section("農場の情報")).getByText(/確かめておくとよいことの並びに使います/)).toBeTruthy();
+    expect(within(section("農場の情報")).getByText("対策項目の「確かめておくとよいこと」の並びに使います。選ばないときは決まった並びです。")).toBeTruthy();
   });
 
   it("保存すると『最終保存』が進み、保存に失敗したら知らせる", async () => {
@@ -397,11 +406,17 @@ describe("鶏舎（§8）", () => {
     const s = form();
     expect(within(s).getByText("1 号舎")).toBeTruthy();
     expect(within(s).getByText(/採卵鶏/)).toBeTruthy();
-    expect(within(s).getByText(/1200 羽/)).toBeTruthy();
+    expect(within(s).getByText("1,200 羽")).toBeTruthy();
     expect(within(s).getByText("2 号舎")).toBeTruthy();
     expect(within(s).getByText("空舎")).toBeTruthy();
+    expect(within(s).getByText("飼育中")).toBeTruthy();
     expect(within(s).queryByRole("button", { name: /消す|削除|取り除/ })).toBeNull();
-    expect(within(s).getByText(/空舎にします/)).toBeTruthy();
+    // 表の列は 鶏舎｜鳥の種類｜飼養羽数｜状態｜操作
+    expect(within(s).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["鶏舎", "鳥の種類", "飼養羽数", "状態", "操作"]);
+    // 「空舎にします」の注記は、登録と編集の欄の中にだけ出す
+    expect(within(s).queryByText(/空舎」にします/)).toBeNull();
+    fireEvent.click(within(s).getByRole("button", { name: "1 号舎を編集" }));
+    expect(within(s).getByText(/使わなくなった鶏舎は「空舎」にします/)).toBeTruthy();
   });
 
   it("一覧の上に『合計 N 羽（空舎を除く）』を 1 行。数字は 3 桁で区切る", async () => {
@@ -412,7 +427,7 @@ describe("鶏舎（§8）", () => {
     ];
     mount();
     const total = await within(await waitFor(() => form())).findByText("合計 2,000 羽（空舎を除く）");
-    const list = within(form()).getByRole("list");
+    const list = within(form()).getByRole("table");
     expect(total.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(form()).getAllByText(/^合計/)).toHaveLength(1);
   });
@@ -453,11 +468,12 @@ describe("鶏舎（§8）", () => {
     expect((await screen.findByRole("alert")).textContent).toMatch(/鶏舎の一覧を読み込めませんでした/);
     expect(screen.queryByText(/鶏舎はまだ登録していません/)).toBeNull();
     expect(screen.queryByRole("button", { name: "鶏舎を追加する" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "鶏舎を登録する" })).toBeNull();
   });
 
   it("足す: saveHouse に {name, birdType, flockSize, empty} だけを渡す（id も入力者もない）", async () => {
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を追加する" }));
+    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を登録する" }));
     fireEvent.change(screen.getByLabelText("鶏舎の名前"), { target: { value: "1 号舎" } });
     fireEvent.change(screen.getByLabelText("鳥の種類"), { target: { value: "採卵鶏" } });
     fireEvent.change(screen.getByLabelText("飼養羽数"), { target: { value: "1200" } });
@@ -465,12 +481,12 @@ describe("鶏舎（§8）", () => {
     await waitFor(() => expect(saveHouse).toHaveBeenCalledTimes(1));
     expect(saveHouse.mock.calls[0]![0]).toEqual({ name: "1 号舎", birdType: "採卵鶏", flockSize: 1200, empty: false });
     expect(Object.keys(saveHouse.mock.calls[0]![0] as object).sort()).toEqual(["birdType", "empty", "flockSize", "name"]);
-    expect(await within(form()).findByText(/1200 羽/)).toBeTruthy();
+    expect(await within(form()).findByText("1,200 羽")).toBeTruthy();
   });
 
   it("保存の後に saveFarm({}) で updatedAt を進め、『最終保存』が進む", async () => {
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を追加する" }));
+    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を登録する" }));
     fireEvent.change(screen.getByLabelText("鶏舎の名前"), { target: { value: "A" } });
     fireEvent.change(screen.getByLabelText("鳥の種類"), { target: { value: "肉用鶏" } });
     fireEvent.change(screen.getByLabelText("飼養羽数"), { target: { value: "50" } });
@@ -483,7 +499,7 @@ describe("鶏舎（§8）", () => {
 
   it("入力が正しくなければ、理由を出して saveHouse も saveFarm も呼ばない", async () => {
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を追加する" }));
+    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を登録する" }));
     fireEvent.change(screen.getByLabelText("鶏舎の名前"), { target: { value: "A" } });
     fireEvent.change(screen.getByLabelText("鳥の種類"), { target: { value: "採卵鶏" } });
     fireEvent.change(screen.getByLabelText("飼養羽数"), { target: { value: "0" } });
@@ -548,7 +564,7 @@ describe("鶏舎（§8）", () => {
   it("保存に失敗したら知らせ、フォームを閉じない", async () => {
     saveHouse.mockRejectedValueOnce(new Error("x"));
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を追加する" }));
+    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を登録する" }));
     fireEvent.change(screen.getByLabelText("鶏舎の名前"), { target: { value: "A" } });
     fireEvent.change(screen.getByLabelText("鳥の種類"), { target: { value: "採卵鶏" } });
     fireEvent.change(screen.getByLabelText("飼養羽数"), { target: { value: "10" } });
@@ -560,7 +576,7 @@ describe("鶏舎（§8）", () => {
 
   it("羽数を変えても過去の記録は変わらないと説明する", async () => {
     mount();
-    await screen.findByRole("button", { name: "鶏舎を追加する" });
+    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を登録する" }));
     expect(within(form()).getByText(/過去の記録の羽数は変わりません/)).toBeTruthy();
   });
 });
@@ -602,7 +618,7 @@ describe("家保の連絡先（§8）", () => {
   it("県の案内を見て自分で書き写すこと、異状のときに画面へ出すことを説明する", async () => {
     mount();
     await screen.findByLabelText("家畜保健衛生所の連絡先");
-    expect(within(section("家畜保健衛生所の連絡先")).getByText(/自分で書き写/)).toBeTruthy();
+    expect(within(section("家畜保健衛生所の連絡先")).getByText(/県の案内から、窓口の名前と連絡の方法を書き写します。死亡数が届け出の基準に達した可能性があるとき、画面にこの内容を出します。/)).toBeTruthy();
   });
 });
 
@@ -699,7 +715,7 @@ describe("発生状況で決めた場所を引き継ぐ（場所は 1 回選べ�
     const gate = new Promise<void>((r) => (release = r));
     loadGate.wait = gate;
     mountWithSpot();
-    await screen.findByText("まだ地点を登録していません。");
+    await screen.findByRole("button", { name: "地点を保存" });
     fireEvent.change(screen.getByLabelText("都道府県"), { target: { value: "13" } });
     release();
     await screen.findByText("発生状況の画面で決めた場所があります");
@@ -711,7 +727,7 @@ describe("発生状況で決めた場所を引き継ぐ（場所は 1 回選べ�
 
   it("端末に場所がなければ、引き継ぎの欄を出さない", async () => {
     mountWithSpot();
-    await screen.findByText("まだ地点を登録していません。");
+    await screen.findByRole("button", { name: "地点を保存" });
     expect(screen.queryByText("発生状況の画面で決めた場所があります")).toBeNull();
     expect(screen.queryByRole("button", { name: "この場所を農場の地点にする" })).toBeNull();
   });
@@ -722,21 +738,32 @@ describe("発生状況で決めた場所を引き継ぐ（場所は 1 回選べ�
     mountWithSpot();
     await screen.findByLabelText("農場名");
     expect(screen.queryByText("発生状況の画面で決めた場所があります")).toBeNull();
+    click("地点を変える");
     expect((screen.getByLabelText("市町村") as HTMLSelectElement).value).toBe("13101");
   });
 });
 
 describe("次にすることの帯（会員になった直後から記録まで）", () => {
   const house = (over: Partial<SavedHouse> = {}): SavedHouse => ({ id: "h1", ...houseFixture(), ...over });
-  const NO_FARM = "会員になりました。まず農場の地点を決めてください。";
-  const NO_HOUSE = "次は鶏舎を追加してください。死亡数の記録は鶏舎ごとにつけます。";
-  const READY = "記録を始められます。";
+  const NO_FARM = "まず農場の地点を決めます。住所は聞きません。";
+  const NO_HOUSE = "次は鶏舎の登録です。死亡数は鶏舎ごとに記録します。";
+  const READY = "登録はそろっています。";
+  // 次にすることの 1 行は、題と 1 文、切り替え、登録の状況の札（と最終保存）の後で、どの節よりも前
+  const nextLine = (text: string) => screen.getByText(text).closest("p")!;
+  const beforeSections = (line: HTMLElement) => {
+    // 登録の状況の札は、農場があるときだけ出る（最初の画面は地点を決めることだけ）
+    const status = screen.queryByRole("list", { name: "登録の状況" });
+    if (status) expect(status.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(line.textContent).toMatch(/^次にすること:/);
+    const firstH2 = screen.getAllByRole("heading", { level: 2 })[0]!;
+    expect(line.compareDocumentPosition(firstH2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  };
 
   it("農場がない（会員になった直後）は、見出しの直下に『会員になりました。まず農場の地点を決めてください。』", async () => {
     farm = null;
     mount();
     expect(await screen.findByText(NO_FARM)).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling?.textContent).toContain(NO_FARM);
+    beforeSections(nextLine(NO_FARM));
     expect(screen.queryByText(NO_HOUSE)).toBeNull();
     expect(screen.queryByText(READY)).toBeNull();
   });
@@ -745,8 +772,8 @@ describe("次にすることの帯（会員になった直後から記録まで�
     houses = [];
     mount();
     expect(await screen.findByText(NO_HOUSE)).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling?.textContent).toContain(NO_HOUSE);
-    expect(screen.getByRole("link", { name: "鶏舎を追加する" }).getAttribute("href")).toBe("/settings/farm#houses");
+    beforeSections(nextLine(NO_HOUSE));
+    expect(within(nextLine(NO_HOUSE)).getByRole("link", { name: "鶏舎を登録する" }).getAttribute("href")).toBe("/settings/farm#houses");
     expect(screen.queryByText(NO_FARM)).toBeNull();
     expect(screen.queryByText(READY)).toBeNull();
   });
@@ -755,8 +782,9 @@ describe("次にすることの帯（会員になった直後から記録まで�
     houses = [house()];
     mount();
     expect(await screen.findByText(READY)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "死亡数を記録する" }).getAttribute("href")).toBe("/record/deaths");
-    expect(screen.getByRole("link", { name: "対策項目を見る" }).getAttribute("href")).toBe("/todo");
+    beforeSections(nextLine(READY));
+    // 1 行にリンク 1 つ（帯にしない。2026-11-07 作り直し）
+    expect(within(nextLine(READY)).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([["死亡数を記録する", "/record/deaths"]]);
     expect(screen.queryByText(NO_HOUSE)).toBeNull();
   });
 
@@ -764,7 +792,7 @@ describe("次にすることの帯（会員になった直後から記録まで�
     houses = [];
     mount();
     await screen.findByText(NO_HOUSE);
-    click("鶏舎を追加する");
+    click("鶏舎を登録する");
     fireEvent.change(screen.getByLabelText("鶏舎の名前"), { target: { value: "1 号舎" } });
     fireEvent.change(screen.getByLabelText("鳥の種類"), { target: { value: "採卵鶏" } });
     fireEvent.change(screen.getByLabelText("飼養羽数"), { target: { value: "1200" } });
@@ -817,7 +845,7 @@ describe("鶏舎の欄へ送る（#houses。死亡数の画面と帯のリンク
   it("帯の『鶏舎を追加する』を押すと、同じ画面のまま鶏舎の欄へ移る", async () => {
     houses = [];
     mount();
-    fireEvent.click(await screen.findByRole("link", { name: "鶏舎を追加する" }));
+    fireEvent.click(await screen.findByRole("link", { name: "鶏舎を登録する" }));
     const heading = screen.getByRole("heading", { name: "鶏舎" });
     await waitFor(() => expect(document.activeElement).toBe(heading));
     expect(scrolled).toHaveBeenCalled();
@@ -827,6 +855,7 @@ describe("鶏舎の欄へ送る（#houses。死亡数の画面と帯のリンク
 describe("地点の案内の文", () => {
   it("登録した後は『替えるときは、地図で別の場所を押してください。』（最初の案内を残さない）", async () => {
     mount();
+    fireEvent.click(await screen.findByRole("button", { name: "地点を変える" }));
     expect(await screen.findByText("替えるときは、地図で別の場所を押してください。")).toBeTruthy();
     expect(screen.queryByText("地図で、農場のあたりを押してください。")).toBeNull();
   });

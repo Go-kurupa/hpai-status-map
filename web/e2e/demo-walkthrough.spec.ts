@@ -197,9 +197,9 @@ test.describe("デモの筋", () => {
   test("場面 5: 報告文を作れて、届け出の基準に達する例で通報を促す", async ({ page }) => {
     await prepare(page);
     await page.goto("/sample/record/deaths");
-    await page.getByLabel("鶏舎", { exact: true }).selectOption("house-a");
-    await page.getByLabel("死亡数", { exact: true }).fill("10");
-    await page.getByRole("button", { name: "記録する" }).click();
+    // 1 鶏舎 1 行。鶏舎A の行の欄に入れ、その行の「記録する」（記録済みなら「記録し直す」）を押す
+    await page.getByLabel("鶏舎Aの死亡数", { exact: true }).fill("10");
+    await page.getByRole("button", { name: /^(記録する|記録し直す): 鶏舎A$/ }).click();
     const result = page.getByRole("region", { name: "計算の結果" });
     await expect(result).toContainText("届け出の基準に達している可能性があります");
     await expect(result).toContainText("直ちに家保へ通報してください");

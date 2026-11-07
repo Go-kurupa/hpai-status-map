@@ -12,6 +12,8 @@ import { DEFAULT_NOTIFY_FIXTURE, farmFixture } from "../../../../shared/test/hel
 import { DataSourceProvider, RecordStoreProvider } from "../../data/context";
 import type { DataSource, RecordStore } from "../../data/types";
 import { MultipleFarmsError } from "../auth/firestoreRecordStore";
+import { PRIVACY_NOTICE } from "../privacy/privacyNotice";
+import { RECORD_TEXT } from "../record/recordTexts";
 import { TEXT } from "../map/texts";
 
 // 地図（WebGL）は jsdom にないので、maplibre の入口を偽物にする。クリックは偽の地図から起こす
@@ -84,9 +86,11 @@ const authState = vi.hoisted(() => ({
 vi.mock("../auth/useAuthUser", () => ({ useAuthUser: () => authState.value }));
 
 const createInvite = vi.hoisted(() => ({ fn: vi.fn() }));
+const deleteCall = vi.hoisted(() => vi.fn<(farmId: string, confirmName: string) => Promise<void>>());
 vi.mock("../auth/callables", () => ({
   createFarmInviteCall: createInvite.fn,
   redeemInviteCall: vi.fn(),
+  deleteFarmDataCall: deleteCall,
 }));
 
 const resumeCall = vi.hoisted(() => ({ fn: vi.fn() }));
@@ -115,6 +119,8 @@ beforeEach(() => {
   nextUpdatedAt = "2026-11-06T10:30:00+09:00";
   mailStopped = false;
   createInvite.fn.mockReset();
+  deleteCall.mockReset();
+  deleteCall.mockResolvedValue(undefined);
   resumeCall.fn.mockReset();
   resumeCall.fn.mockImplementation(async () => {
     mailStopped = false;
@@ -225,6 +231,7 @@ describe("/settings/farm", () => {
 
   it("地図の欄に MAP_ATTRIBUTION の 3 つの出典がある。回転はできない", async () => {
     mount("/settings/farm");
+    fireEvent.click(await screen.findByRole("button", { name: "地点を変える" }));
     const region = await screen.findByRole("region", { name: "農場の地点を選ぶ地図" });
     expect(region).toBeTruthy();
     const page = region.closest("section")!;
@@ -237,6 +244,7 @@ describe("/settings/farm", () => {
 
   it("住所の欄がなく、『約 1km のマス目で保存します』と出す。点は描かない", async () => {
     const { container } = mount("/settings/farm");
+    fireEvent.click(await screen.findByRole("button", { name: "地点を変える" }));
     await screen.findByRole("region", { name: "農場の地点を選ぶ地図" });
     expect(screen.getByText(/約 1km のマス目で保存します/)).toBeTruthy();
     expect(screen.queryByLabelText(/住所/)).toBeNull();
@@ -294,7 +302,14 @@ describe("/settings/farm", () => {
     farm = { id: "f1", ...farmFixture("u1", { muniCode: "13101", prefCode: "13", updatedAt: "2026-11-03T09:00:00+09:00" }) };
     mount("/settings/farm");
     expect(await screen.findByText("最終保存 11月3日 09:00")).toBeTruthy();
-    expect(screen.getByText(/登録した地点: 千代田区/)).toBeTruthy();
+    expect(await screen.findByText(/登録した地点: 千代田区/)).toBeTruthy();
+    // 登録の後は地点の欄を畳む。「地点を変える」で開く（aria-expanded）
+    const toggle = screen.getByRole("button", { name: "地点を変える" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByLabelText("市町村")).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById(toggle.getAttribute("aria-controls") ?? "")).toBeTruthy();
     expect((screen.getByLabelText("市町村") as HTMLSelectElement).value).toBe("13101");
     expect((screen.getByRole("button", { name: "地点を保存" }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -333,19 +348,21 @@ describe("/settings/farm", () => {
   });
 
   it("末尾に、/settings/notify へのリンクがある", async () => {
+    // 2026-11-07 作り直し: 末尾のリンクをなくし、題の下の切り替え（農場｜通知）から開く
     mount("/settings/farm");
-    const link = await screen.findByRole("link", { name: "通知の設定を開く" });
+    const tabs = await screen.findByRole("navigation", { name: "設定の切り替え" });
+    expect(tabs.className).toContain("section-tabs");
+    const link = within(tabs).getByRole("link", { name: "通知" });
     expect(link.getAttribute("href")).toBe("/settings/notify");
-    expect(link.className).toContain("tap-link");
+    expect(link.getAttribute("aria-current")).toBeNull();
+    expect(within(tabs).getByRole("link", { name: "農場" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.queryByRole("link", { name: "通知の設定を開く" })).toBeNull();
   });
 
   it("末尾の 3 本とも .tap-link", async () => {
+    // 末尾は 2 本（近隣への説明文、プライバシーの説明）
     mount("/settings/farm");
-    const links = [
-      await screen.findByRole("link", { name: "近隣への説明文を作る" }),
-      screen.getByRole("link", { name: "プライバシーの説明" }),
-      screen.getByRole("link", { name: "通知の設定を開く" }),
-    ];
+    const links = [await screen.findByRole("link", { name: "近隣への説明文を作る" }), screen.getByRole("link", { name: "プライバシーの説明" })];
     for (const l of links) expect(l.classList.contains("tap-link")).toBe(true);
   });
 
@@ -479,12 +496,13 @@ describe("/settings/notify", () => {
     expect(screen.queryByText("保存しました")).toBeNull();
   });
 
-  it("保存のボタンは 2 つとも同じ種類（主のボタン .btn-primary）", async () => {
+  it("主のボタン（.btn-primary）は『通知の設定を保存』だけ。『期限を保存』は普通のボタン", async () => {
     mount("/settings/notify");
     await screen.findByRole("button", { name: "通知の設定を保存" });
     const saves = screen.getAllByRole("button", { name: /を保存$/ });
     expect(saves.map((b) => b.textContent)).toEqual(["通知の設定を保存", "期限を保存"]);
-    for (const b of saves) expect(b.className.split(" "), b.textContent ?? "").toContain("btn-primary");
+    expect(saves[0]!.className.split(" ")).toContain("btn-primary");
+    expect(saves[1]!.className.split(" ")).not.toContain("btn-primary");
   });
 
   it("保存に失敗したら、同じボタンの直下に『保存できませんでした』を出す", async () => {
@@ -501,10 +519,13 @@ describe("/settings/notify", () => {
   });
 
   it("通知の設定の末尾に、/settings/farm へのリンクがある", async () => {
+    // 2026-11-07 作り直し: 末尾のリンクをなくし、題の下の切り替え（農場｜通知）から開く
     mount("/settings/notify");
-    const link = await screen.findByRole("link", { name: "農場の設定を開く" });
+    const tabs = await screen.findByRole("navigation", { name: "設定の切り替え" });
+    const link = within(tabs).getByRole("link", { name: "農場" });
     expect(link.getAttribute("href")).toBe("/settings/farm");
-    expect(link.className).toContain("tap-link");
+    expect(within(tabs).getByRole("link", { name: "通知" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.queryByRole("link", { name: "農場の設定を開く" })).toBeNull();
   });
 
   const dueDay = () => screen.getByLabelText("各月の分の期限") as HTMLSelectElement;
@@ -716,5 +737,322 @@ describe("近隣への説明文への入口（M-19 レビュー指摘 1）", () 
     mount("/settings/farm");
     const link = await screen.findByRole("link", { name: /近隣への説明文/ });
     expect(link.getAttribute("href")).toBe("/settings/explainer");
+  });
+});
+
+describe("農場の設定の画面の型（2026-11-07 業務画面の作り直し）", () => {
+  const tile = (label: string) =>
+    within(screen.getByRole("list", { name: "登録の状況" }))
+      .getAllByRole("listitem")
+      .find((li) => li.querySelector(".stat-label")?.textContent === label);
+
+  it("題、この画面では…の 1 文、切り替え、登録の状況の札の順。札は押すとその節へ移る", async () => {
+    farm = { id: "f1", ...farmFixture("u1", { name: "見本農場", kahoContact: "ある家保" }) };
+    mount("/settings/farm");
+    await screen.findByText(/登録した地点: 千代田区/);
+    const h1 = screen.getByRole("heading", { level: 1, name: "農場の設定" });
+    expect(h1.nextElementSibling?.textContent).toBe("この画面では、記録と知らせに使う農場の情報を登録します。");
+    await waitFor(() => expect(tile("通知")?.textContent).toContain("届きます"));
+    expect(tile("地点")?.textContent).toContain("千代田区");
+    expect(tile("農場名")?.textContent).toContain("見本農場");
+    // 鶏舎の札は一覧を読み終えるまで「…」なので、読み終えるのを待つ（混んだ PC で揺れないように）
+    await waitFor(() => expect(tile("鶏舎")?.textContent).toContain("0件"));
+    expect(tile("鶏舎")?.className).toContain("is-alert");
+    expect(tile("家保の連絡先")?.textContent).toContain("登録済み");
+    expect(tile("地点")?.querySelector("a")?.getAttribute("href")).toBe("#point");
+    expect(tile("鶏舎")?.querySelector("a")?.getAttribute("href")).toBe("#houses");
+    expect(tile("家保の連絡先")?.querySelector("a")?.getAttribute("href")).toBe("#kaho");
+    for (const id of ["point", "houses", "kaho", "farm-info"]) expect(document.getElementById(id)?.tagName).toBe("SECTION");
+  });
+
+  it("鶏舎の札は件数と合計羽数（空舎を除く）。未登録は赤くせず、農場名と家保は『未登録』", async () => {
+    farm = { id: "f1", ...farmFixture("u1", { name: "", kahoContact: "" }) };
+    mount("/settings/farm", {
+      listHouses: vi.fn(async () => [
+        { id: "h1", name: "1 号舎", birdType: "採卵鶏", flockSize: 1200, empty: false },
+        { id: "h2", name: "2 号舎", birdType: "採卵鶏", flockSize: 0, empty: true },
+      ]),
+    });
+    await waitFor(() => expect(tile("鶏舎")?.textContent).toBe("鶏舎2件合計 1,200 羽"));
+    expect(tile("鶏舎")?.className).not.toContain("is-alert");
+    expect(tile("農場名")?.textContent).toBe("農場名未登録");
+    expect(tile("家保の連絡先")?.textContent).toBe("家保の連絡先未登録");
+  });
+
+  it("配信を止めていれば、通知の札は『止めています』で、通知の設定へのリンクを添える。確かめられなければ札を出さない", async () => {
+    mailStopped = true;
+    mount("/settings/farm");
+    await waitFor(() => expect(tile("通知")?.textContent).toContain("止めています"));
+    expect(within(tile("通知")!).getByRole("link").getAttribute("href")).toBe("/settings/notify");
+    cleanup();
+    mount("/settings/farm", { isMailStopped: vi.fn(async () => Promise.reject(new Error("x"))) });
+    await screen.findByText(/登録した地点: 千代田区/);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(tile("通知")).toBeUndefined();
+  });
+
+  it("町の名前を読めなければ、地点の札は『読み込めませんでした』、本文は『町の名前を読み込めませんでした』。5 桁の市町村コードを出さない", async () => {
+    // 町の一覧（mock）に津山市（33203）はない。読めなかったときと同じ扱い
+    farm = { id: "f1", ...farmFixture("u1", { muniCode: "33203", prefCode: "33" }) };
+    mount("/settings/farm");
+    expect(await screen.findByText("登録した地点: 町の名前を読み込めませんでした（約 1km のマス目）")).toBeTruthy();
+    expect(tile("地点")?.textContent).toBe("地点読み込めませんでした");
+    expect(tile("地点")?.className).not.toContain("is-alert");
+    expect(document.body.textContent).not.toContain("33203");
+  });
+
+  it("農場がなければ、登録の状況の札は出さず、地点の欄を一番上に開いて出す（地図を画面の上に置く）", async () => {
+    farm = null;
+    mount("/settings/farm");
+    await screen.findByRole("button", { name: "地点を保存" });
+    expect(screen.queryByRole("list", { name: "登録の状況" })).toBeNull();
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["農場の地点"]);
+    expect(screen.queryByRole("button", { name: "地点を変える" })).toBeNull();
+  });
+
+  it("地点を変えて保存すると、地点の欄を畳み直す", async () => {
+    mount("/settings/farm");
+    fireEvent.click(await screen.findByRole("button", { name: "地点を変える" }));
+    fireEvent.change(await screen.findByLabelText("都道府県"), { target: { value: "33" } });
+    fireEvent.change(await screen.findByLabelText("市町村"), { target: { value: "33100" } });
+    clickMap(34.65, 133.9);
+    const save = screen.getByRole("button", { name: "地点を保存" }) as HTMLButtonElement;
+    await waitFor(() => expect(save.disabled).toBe(false));
+    fireEvent.click(save);
+    expect(await screen.findByText(/登録した地点: 岡山市/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "地点を変える" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("button", { name: "地点を保存" })).toBeNull();
+  });
+
+  it("画面の文に『足す』『つける』『おして』がなく、日付は ISO の形で出さない", async () => {
+    const { container } = mount("/settings/farm");
+    await screen.findByText(/登録した地点/);
+    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を登録する" }));
+    const text = container.textContent ?? "";
+    expect(text).not.toMatch(/足す|足し|つけ|おして/);
+    expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+  });
+});
+
+describe("農場の設定の見出しと並び（2026-11-08 レビュー）", () => {
+  const tile = (label: string) =>
+    within(screen.getByRole("list", { name: "登録の状況" }))
+      .getAllByRole("listitem")
+      .find((li) => li.querySelector(".stat-label")?.textContent === label);
+
+  it("農場名の札は、値を『登録済み』にして折れないようにし、名前は下の小さな行に出す", async () => {
+    farm = { id: "f1", ...farmFixture("u1", { name: "とても長い名前の見本の農場" }) };
+    mount("/settings/farm");
+    await screen.findByText(/登録した地点: 千代田区/);
+    expect(tile("農場名")?.querySelector(".stat-value")?.textContent).toBe("登録済み");
+    expect(tile("農場名")?.querySelector(".stat-note")?.textContent).toBe("とても長い名前の見本の農場");
+  });
+
+  it("配信を止めているときの通知の札のリンクは短く『再開する』", async () => {
+    mailStopped = true;
+    mount("/settings/farm");
+    await waitFor(() => expect(tile("通知")?.textContent).toContain("止めています"));
+    expect(within(tile("通知")!).getByRole("link").textContent).toBe("再開する");
+  });
+
+  it("最終保存は、札の下ではなく、次にすることの行の後ろに小さく出す", async () => {
+    farm = { id: "f1", ...farmFixture("u1", { updatedAt: "2026-11-03T09:00:00+09:00" }) };
+    mount("/settings/farm");
+    const saved = await screen.findByText("最終保存 11月3日 09:00");
+    const next = await screen.findByText("次にすること:");
+    expect(saved.classList.contains("settings-saved")).toBe(true);
+    expect(next.closest("p")?.nextElementSibling).toBe(saved);
+    expect(screen.getByRole("list", { name: "登録の状況" }).nextElementSibling?.contains(saved)).toBe(true);
+  });
+
+  it("家畜保健衛生所の連絡先は、見出しだけに出し、欄の名前は読み上げに渡す", async () => {
+    mount("/settings/farm");
+    const box = await screen.findByLabelText("家畜保健衛生所の連絡先");
+    expect(box.tagName).toBe("TEXTAREA");
+    expect(screen.getAllByText("家畜保健衛生所の連絡先")).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 2, name: "家畜保健衛生所の連絡先" })).toBeTruthy();
+  });
+
+  it("近隣への説明文とプライバシーの説明は、『関連』の小さな見出しの下にまとめ、削除の前に置く", async () => {
+    mount("/settings/farm");
+    const nav = await screen.findByRole("navigation", { name: "関連" });
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["近隣への説明文を作る", "プライバシーの説明"]);
+    await screen.findByText("農場の全データを削除する", { selector: "summary" });
+    expect(nav.nextElementSibling?.id).toBe("delete");
+  });
+
+  it("農場がないときも、見出し（h2）は地点だけで、関連のリンクは出す", async () => {
+    farm = null;
+    mount("/settings/farm");
+    await screen.findByRole("button", { name: "地点を保存" });
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["農場の地点"]);
+    expect(screen.getByRole("navigation", { name: "関連" })).toBeTruthy();
+    // 農場がないときの主のボタンは「地点を保存」
+    expect(screen.getByRole("button", { name: "地点を保存" }).classList.contains("btn-primary")).toBe(true);
+  });
+});
+
+describe("農場の全データの削除（記録の画面から農場の設定の一番下へ移した）", () => {
+  beforeEach(() => {
+    farm = { id: "f1", ...farmFixture("u1", { name: "見本農場" }) };
+  });
+  // 2026-11-08 レビュー: 削除の節は h2 を置かず、畳んだ欄の summary『農場の全データを削除する』が見出しの役
+  const deleteSection = async () => (await screen.findByText("農場の全データを削除する", { selector: "summary" })).closest("section")!;
+  const openDelete = async () => {
+    const section = await deleteSection();
+    fireEvent.click(within(section).getByText("農場の全データを削除する"));
+    return section;
+  };
+  const setName = (value: string) => fireEvent.change(screen.getByLabelText(RECORD_TEXT.deleteInput), { target: { value } });
+
+  it("一番下の節で、畳んである（Fold『農場の全データを削除する』）", async () => {
+    mount("/settings/farm");
+    const section = await deleteSection();
+    expect(section.id).toBe("delete");
+    // 同じ語を h2 と summary で 2 回出さない
+    expect(screen.queryByRole("heading", { name: RECORD_TEXT.deleteHeading })).toBeNull();
+    expect(section.querySelector("h2")).toBeNull();
+    expect(section.nextElementSibling).toBeNull();
+    const details = section.querySelector("details")!;
+    expect(details.open).toBe(false);
+    expect(details.querySelector("summary")?.textContent).toBe("農場の全データを削除する");
+  });
+
+  it("削除は農場の名前を入れるまで押せない。消すものと消えないものを出す", async () => {
+    mount("/settings/farm");
+    await openDelete();
+    const button = screen.getByRole("button", { name: RECORD_TEXT.deleteButton }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.getByText(RECORD_TEXT.deleteGone)).toBeTruthy();
+    expect(screen.getByText(RECORD_TEXT.deleteKept)).toBeTruthy();
+    expect(screen.getByText(RECORD_TEXT.deleteAnyMember)).toBeTruthy();
+    setName("見本");
+    expect(button.disabled).toBe(true);
+    setName("見本農場");
+    expect(button.disabled).toBe(false);
+    fireEvent.click(button);
+    await waitFor(() => expect(deleteCall).toHaveBeenCalledWith("f1", "見本農場"));
+    expect(await screen.findByText(RECORD_TEXT.deleted)).toBeTruthy();
+    // 消した農場の保存と招待の欄を残さない
+    expect(screen.queryByRole("button", { name: /保存|招待/ })).toBeNull();
+    expect(screen.getByRole("link", { name: RECORD_TEXT.deletedTop }).getAttribute("href")).toBe("/");
+  });
+
+  it("削除に失敗したら知らせ、削除済みの表示にしない", async () => {
+    deleteCall.mockRejectedValueOnce(new Error("failed"));
+    mount("/settings/farm");
+    await openDelete();
+    setName("見本農場");
+    fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.deleteButton }));
+    expect(await screen.findByText(RECORD_TEXT.deleteFailed)).toBeTruthy();
+    expect(screen.queryByText(RECORD_TEXT.deleted)).toBeNull();
+  });
+
+  it("農場の名前が未設定なら削除できない", async () => {
+    farm = { id: "f1", ...farmFixture("u1", { name: "" }) };
+    mount("/settings/farm");
+    await openDelete();
+    expect(screen.getByText(RECORD_TEXT.deleteNameMissing)).toBeTruthy();
+    expect((screen.getByRole("button", { name: RECORD_TEXT.deleteButton }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("見本の農場には削除を出さない", async () => {
+    mount("/settings/farm", { mode: "sample" });
+    await screen.findByRole("button", { name: "農場の情報を保存" });
+    expect(screen.queryByText("農場の全データを削除する")).toBeNull();
+    expect(document.getElementById("delete")).toBeNull();
+    expect(screen.queryByRole("button", { name: RECORD_TEXT.deleteButton })).toBeNull();
+    expect(screen.queryByText(RECORD_TEXT.deleteGone)).toBeNull();
+  });
+
+  it("農場がないうちは削除を出さない", async () => {
+    farm = null;
+    mount("/settings/farm");
+    await screen.findByRole("button", { name: "地点を保存" });
+    expect(screen.queryByRole("button", { name: RECORD_TEXT.deleteButton })).toBeNull();
+  });
+
+  it("#delete で開くと、削除の欄を開き、見出しに焦点を移す（プライバシーの説明の消し方のリンクの行き先）", async () => {
+    const original = Element.prototype.scrollIntoView;
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    try {
+      mount("/settings/farm#delete");
+      // 見出しの役は畳んだ欄の summary
+      const heading = await screen.findByText("農場の全データを削除する", { selector: "summary" });
+      await waitFor(() => expect(document.activeElement).toBe(heading));
+      expect(heading.closest("section")?.id).toBe("delete");
+      expect(heading.closest("section")?.querySelector("details")?.open).toBe(true);
+      expect(scrolled).toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it("削除の説明は、プライバシーの説明（X-19）と食い違わない", () => {
+    const privacy = PRIVACY_NOTICE.flatMap((s) => s.paragraphs).join("\n");
+    expect(privacy).toContain(RECORD_TEXT.deleteAnyMember.replace("農場全体を消せます。", "農場全体を消せます"));
+    for (const word of ["農場の情報", "送った知らせの記録", "招待", "ログイン用のアカウント", "メールアドレス", "Gmail", "ブラウザの設定"]) {
+      expect(privacy).toContain(word);
+      expect(RECORD_TEXT.deleteGone + RECORD_TEXT.deleteKept).toContain(word);
+    }
+    expect(privacy).toContain("消えません");
+    expect(RECORD_TEXT.deleteKept).toContain("消えない");
+    // 消す場所の案内は、画面の置き場と同じ（農場の設定の一番下）
+    expect(privacy).toContain("農場の設定の一番下から、農場の名前を入れて削除します。");
+  });
+});
+
+describe("通知の設定の画面の型（2026-11-07 業務画面の作り直し）", () => {
+  const tile = (label: string) =>
+    within(screen.getByRole("list", { name: "通知の状況" }))
+      .getAllByRole("listitem")
+      .find((li) => li.querySelector(".stat-label")?.textContent === label);
+
+  it("題、この画面では…の 1 文、切り替え、札 3 つ（配信、メールの知らせ、自己点検の期限）", async () => {
+    mount("/settings/notify");
+    await screen.findByRole("button", { name: "通知の設定を保存" });
+    const h1 = screen.getByRole("heading", { level: 1, name: "通知の設定" });
+    expect(h1.nextElementSibling?.textContent).toBe("この画面では、メールで知らせる内容と、自己点検の期限を決めます。");
+    await waitFor(() => expect(tile("配信")?.textContent).toBe("配信届きます"));
+    expect(tile("メールの知らせ")?.textContent).toBe("メールの知らせ4 / 4種類");
+    expect(tile("自己点検の期限")?.textContent).toBe("自己点検の期限未登録");
+  });
+
+  it("札は保存済みの値。期限は『翌月の N 日』と、知らせる日数", async () => {
+    const five = Object.fromEntries(seasonMonths(2026).map((m) => [m, dueDateOf(m, 5)]));
+    farm = {
+      id: "f1",
+      ...farmFixture("u1", { selfCheckDue: five, notify: { ...DEFAULT_NOTIFY_FIXTURE, level2: false, selfCheckRemindDays: 3 } }),
+    };
+    mount("/settings/notify");
+    await screen.findByRole("button", { name: "通知の設定を保存" });
+    expect(tile("自己点検の期限")?.textContent).toBe("自己点検の期限翌月の 5 日期限の 3 日前に知らせます");
+    expect(tile("メールの知らせ")?.textContent).toBe("メールの知らせ3 / 4種類");
+    // 入力を変えただけでは札は動かない（保存してから）
+    fireEvent.click(screen.getByLabelText(/朝のまとめ/));
+    expect(tile("メールの知らせ")?.textContent).toBe("メールの知らせ3 / 4種類");
+    fireEvent.click(screen.getByRole("button", { name: "通知の設定を保存" }));
+    await waitFor(() => expect(tile("メールの知らせ")?.textContent).toBe("メールの知らせ2 / 4種類"));
+  });
+
+  it("配信を止めていれば札は『止めています』。確かめられなければ配信の札を出さない", async () => {
+    mailStopped = true;
+    mount("/settings/notify");
+    await waitFor(() => expect(tile("配信")?.textContent).toBe("配信止めています"));
+    cleanup();
+    mount("/settings/notify", { isMailStopped: vi.fn(async () => Promise.reject(new Error("x"))) });
+    await screen.findByRole("button", { name: "通知の設定を保存" });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(tile("配信")).toBeUndefined();
+  });
+
+  it("注記は 1 行ずつ。期限の注記は dueDateOf と同じ（翌月にない日は翌月の末日）", async () => {
+    mount("/settings/notify");
+    await screen.findByRole("button", { name: "通知の設定を保存" });
+    expect(screen.getByText("各月の分を出す期限を、翌月の日で選びます（県の様式に合わせてください）。")).toBeTruthy();
+    expect(screen.getByText("翌月にない日（31 日など）は翌月の末日にします。")).toBeTruthy();
+    expect(dueDateOf("2026-10", 31)).toBe("2026-11-30");
+    for (const li of document.querySelectorAll(".settings-notes li")) expect((li.textContent ?? "").split("。").filter(Boolean).length).toBeLessThanOrEqual(2);
   });
 });

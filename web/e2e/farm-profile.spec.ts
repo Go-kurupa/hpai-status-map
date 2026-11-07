@@ -67,6 +67,8 @@ async function pickTown(page: Page, prefCode: string, muniCode: string) {
   const res = await page.request.get("/geo/muni-index.json");
   const index = (await res.json()) as Record<string, { center: [number, number] }>;
   const [lng, lat] = index[muniCode]!.center;
+  // 地図の上に題・切り替え・次にすることがあり、町の中心が画面の外に出ることがあるので、地図を画面に入れてから押す
+  await page.locator(".picker-canvas").scrollIntoViewIfNeeded();
   await page.waitForFunction(() => !!(window as unknown as W).__hpaiPicker);
   // 地図の描く大きさが箱いっぱい（キャンバスの見かけの大きさが箱と同じ）
   const size = await page.evaluate(() => {
@@ -116,17 +118,18 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   // 農場がないあいだは地点の欄だけ
   await expect(page.getByLabel("農場名", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "鶏舎を追加する" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "鶏舎を登録する" })).toHaveCount(0);
 
   // 地点を津山市の center に置いて保存する
   const spot = await pickTown(page, "33", "33203");
   await page.getByRole("button", { name: "地点を保存" }).click();
   await expect(page.getByText(/最終保存/)).toBeVisible();
-  await expect(page.getByText("次は鶏舎を追加してください。死亡数の記録は鶏舎ごとにつけます。")).toBeVisible();
+  await expect(page.getByText("次は鶏舎の登録です。死亡数は鶏舎ごとに記録します。")).toBeVisible();
 
   // 鶏舎がないうちに死亡数の画面を開くと、鶏舎の欄へのリンクが出て、押すと鶏舎の見出しへ移る（題への焦点の移動に負けない）
   await page.goto("/record/deaths?emulator=1");
-  await expect(page.getByText(/^鶏舎がまだありません。/)).toBeVisible();
-  await page.getByRole("link", { name: "鶏舎を追加する" }).click();
+  await expect(page.getByText(/鶏舎がまだ登録されていません。/)).toBeVisible();
+  await page.getByRole("link", { name: "鶏舎を登録する" }).click();
   await expect(page).toHaveURL(/\/settings\/farm(\?[^#]*)?#houses$/);
   await expect(page.getByRole("heading", { name: "鶏舎", exact: true })).toBeFocused();
   // 画面の中のリンクは ?emulator=1 を持ち越さない。後の再読み込みで本番の設定を読まないよう、付けて開き直す
@@ -148,9 +151,9 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await page.getByRole("button", { name: "行き来する町を保存" }).click();
   await expect(sectionOf(page, "行き来する町").getByRole("status")).toHaveText("保存しました");
 
-  // 鶏舎を 2 つ
+  // 鶏舎を 2 つ（0 件のときのボタンは「鶏舎を登録する」、1 件以上は「鶏舎を追加する」）
   const addHouse = async (name: string, bird: string, flock: string) => {
-    await page.getByRole("button", { name: "鶏舎を追加する" }).click();
+    await page.getByRole("button", { name: /^鶏舎を(登録|追加)する$/ }).click();
     await page.getByLabel("鶏舎の名前", { exact: true }).fill(name);
     await page.getByLabel("鳥の種類", { exact: true }).selectOption(bird);
     await page.getByLabel("飼養羽数", { exact: true }).fill(flock);
@@ -161,7 +164,9 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await addHouse("2 号舎", "採卵鶏", "800");
   // 一覧の上に合計（空舎を除く、3 桁区切り）。鶏舎の欄は農場の情報のすぐ後（2026-11-07 精査 D）
   await expect(page.getByText("合計 2,000 羽（空舎を除く）", { exact: true })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("heading", { level: 2 })).toHaveText(["農場の地点", "農場の情報", "鶏舎", "行き来する町", "家畜保健衛生所の連絡先", "会員を追加する"]);
+  // 節の順は札の順（地点 → 農場名 → 鶏舎 → 家保 → 通知）。全データの削除は h2 を置かず、畳んだ欄の summary が見出しの役（2026-11-08 レビュー）
+  await expect(page.getByRole("main").getByRole("heading", { level: 2 })).toHaveText(["農場の地点", "農場の情報", "鶏舎", "家畜保健衛生所の連絡先", "行き来する町", "会員を追加する"]);
+  await expect(page.locator("section#delete summary")).toHaveText("農場の全データを削除する");
 
   // 家保の連絡先（見本の語だけ）
   await page.getByLabel("家畜保健衛生所の連絡先", { exact: true }).fill("テスト用の連絡先");
@@ -176,9 +181,9 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await expect(page.getByLabel("平飼い", { exact: true })).toBeChecked();
   await expect(page.getByRole("button", { name: "札幌市を外す" })).toBeVisible();
   await expect(page.getByText("1 号舎", { exact: true })).toBeVisible();
-  await expect(page.getByText("1200 羽")).toBeVisible();
+  await expect(page.getByText("1,200 羽", { exact: true })).toBeVisible();
   await expect(page.getByText("2 号舎", { exact: true })).toBeVisible();
-  await expect(page.getByText("800 羽")).toBeVisible();
+  await expect(page.getByText("800 羽", { exact: true })).toBeVisible();
   await expect(page.getByLabel("家畜保健衛生所の連絡先", { exact: true })).toHaveValue("テスト用の連絡先");
   await expect(page.getByText(/最終保存/)).toBeVisible();
 
@@ -186,7 +191,7 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await page.getByRole("button", { name: "2 号舎を編集" }).click();
   await page.getByLabel("飼養羽数", { exact: true }).fill("700");
   await page.getByRole("button", { name: "鶏舎を保存" }).click();
-  await expect(page.getByText("700 羽")).toBeVisible();
+  await expect(page.getByText("700 羽", { exact: true })).toBeVisible();
   await expect(page.getByText("合計 1,900 羽（空舎を除く）", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /を編集$/ })).toHaveCount(2);
 

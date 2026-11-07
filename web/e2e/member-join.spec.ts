@@ -80,6 +80,8 @@ test("招待リンクを別の文脈で開き、会員になって、地点を�
   const res = await page.request.get("/geo/muni-index.json");
   const index = (await res.json()) as Record<string, { center: [number, number] }>;
   const [lng, lat] = index["33203"]!.center;
+  // 地図の上に題・切り替え・次にすることがあり、町の中心が画面の外に出ることがあるので、地図を画面に入れてから押す
+  await page.locator(".picker-canvas").scrollIntoViewIfNeeded();
   await page.waitForFunction(() => !!window.__hpaiPicker);
   const at = await page.evaluate(([x, y]) => {
     const m = window.__hpaiPicker!;
@@ -96,8 +98,10 @@ test("招待リンクを別の文脈で開き、会員になって、地点を�
   // 再読み込みで残る（根の Provider が本物の Firestore につながっている）
   await page.reload();
   await expect(page.getByText(/最終保存/)).toBeVisible();
-  await expect(page.getByLabel("市町村")).toHaveValue("33203");
   await expect(page.getByText(/登録した地点:/)).toBeVisible();
+  // 登録の後は地点の欄を畳む。「地点を変える」で開くと、登録した町を選んだ状態（2026-11-07 作り直し）
+  await page.getByRole("button", { name: "地点を変える" }).click();
+  await expect(page.getByLabel("市町村")).toHaveValue("33203");
 
   // 緯度経度をサーバーへ送っていない
   const wire = sent.join("\n");

@@ -27,10 +27,11 @@
   border: 1px solid var(--line);
   font-weight: 700;
 }
+/* 3 タブの本文の幅をそろえる */
 .deaths-panel,
 .self-check-panel,
-.export-panel {
-  max-width: 40rem;
+.disinfection-panel {
+  max-width: 48rem;
 }
 .record-form {
   display: grid;
@@ -61,15 +62,126 @@
   padding: 12px 0;
   border-top: 1px solid var(--hair);
 }
+/* 記録した直後の結果。行の下の枠（赤い枠は基準に達した可能性のときだけ、中の .death-hit） */
 .death-result {
-  margin: 0 0 20px;
-  padding: 12px 0;
-  border-top: 1px solid var(--hair);
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-left: 4px solid var(--line);
+  background: var(--soft);
+}
+.death-result h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+.death-result p {
+  margin: 4px 0;
+}
+/* 「記録しました」は小さな 1 行（緑） */
+.death-saved,
+.record-saved {
+  margin: 0 0 4px;
+  color: var(--farm);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 .death-hit {
   margin: 8px 0;
   padding: 12px;
-  border: 4px solid var(--fg);
+  border: 4px solid var(--lv1);
+}
+.death-hit h4 {
+  margin: 0 0 8px;
+  color: var(--lv1);
+}
+/* 死亡数の画面（2026-11-07 業務画面の作り直し）。最後に記録した日、次にすること、記録する日、行の中の数の欄 */
+.record-last {
+  margin: 0 0 8px;
+}
+.death-next {
+  margin: 0 0 16px;
+  font-weight: 700;
+}
+.death-date {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 8px;
+}
+.death-date label {
+  font-weight: 700;
+}
+.death-date input,
+.death-reason select {
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.death-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.death-field input {
+  box-sizing: border-box;
+  width: 6rem;
+  min-height: var(--tap);
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 1.25rem;
+}
+/* 特段の事情の開閉。display を変えると details の印が消えるので、閉じた ▸・開いた ▾ を文字で出す */
+.death-reason summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap);
+  color: var(--accent);
+  font-size: 0.9rem;
+  cursor: pointer;
+  list-style: none;
+}
+.death-reason summary::-webkit-details-marker {
+  display: none;
+}
+.death-reason summary::before {
+  content: "▸";
+}
+.death-reason[open] > summary::before {
+  content: "▾";
+}
+.death-reason summary:hover,
+.death-reason summary:focus-visible {
+  text-decoration: underline;
+}
+.death-reason[open] {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.death-rate {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.record-table-wrap {
+  overflow-x: auto;
+}
+/* 表の規則は .record-table（下）より詳細度を上げる。同じ詳細度だと後ろの .record-table td { left } に負ける */
+.record-table.death-table td,
+.record-table.death-table th {
+  white-space: nowrap;
+}
+.record-table.death-table td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .record-list {
   margin: 0 0 20px;
@@ -80,10 +192,33 @@
   padding: 6px 0;
   border-top: 1px solid var(--hair);
 }
-.self-item {
-  margin: 0 0 12px;
-  padding: 8px 0;
-  border-top: 1px solid var(--hair);
+/* 次にすること（記録の各画面の札の下の 1 行。帯にしない） */
+.record-next {
+  font-weight: 700;
+}
+/* 表がスマホの幅を超えるときは、表の中だけ横に動かす（ページは横に動かさない） */
+.record-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+/* 自己点検の「記録する」と未記入の数を 1 行に */
+.self-save {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 8px 0;
+}
+/* 消毒の記録済みの行（押すものの代わりの文） */
+.dis-done {
+  font-weight: 700;
+}
+.record-table.dis-table td {
+  text-align: center;
+}
+/* 項目の名前を 1 文字ずつ折らない（収まらなければ .record-table-wrap が横に送る） */
+.record-table.dis-table th {
+  white-space: nowrap;
 }
 /* 自己点検の答え。「できている」「できていない」の押しボタン（.btn、高さ --tap）。押した方は塗る（対策項目の .review-status と同じ組み方） */
 .self-answer {
@@ -91,10 +226,12 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+/* 押した方は薄い塗りと太枠（主のボタンの塗りと分ける）。枠が 1px 太いぶん padding を 1px 減らし、高さを変えない */
 .self-answer .btn[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
+  padding: 7px 19px;
+  background: var(--soft);
+  border: 2px solid var(--accent);
+  color: var(--accent);
 }
 .self-answer .btn[aria-pressed="true"]:disabled {
   opacity: 0.6;
@@ -131,10 +268,25 @@
   border: 1px solid var(--line);
   text-align: left;
 }
-.delete-section {
-  margin: 32px 0 0;
-  padding: 12px;
-  border: 4px solid var(--fg);
+/* 日付と月の列（行の見出し）は折り返さない */
+.record-table tbody th {
+  white-space: nowrap;
+}
+/* スマホ（599px 以下）の死亡数の行: 「死亡数 [欄] 羽」を 1 行に固定し、ボタンは必ず次の行の全幅。
+   theme.css の .row-act（自己点検と消毒でも使う）は変えず、死亡数の画面の中だけ組み替える */
+@media (max-width: 599px) {
+  .deaths-panel .row-act {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .deaths-panel .death-field {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+  .deaths-panel .row-act > .btn {
+    width: 100%;
+    min-height: var(--tap);
+  }
 }
 @media print {
   .no-print {

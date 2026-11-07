@@ -8,7 +8,7 @@ export const TODO_TEXT = {
   noSpot: "地域を選択すると、近くの発生に合わせた確認を出せます。いまは、ふだんの確認だけを出しています",
   pickTown: "地図で地域を選択",
   /** 見回りで県の発表を確認できていないとき（段階 4 を「何もない」と読ませない） */
-  prefUnconfirmed: "この県の発表を確認できていません。県の連絡を確かめてください",
+  prefUnconfirmed: "この県の発表を確認できていません。県の連絡を確かめてください。",
   selfCheckLink: "今月の自己点検を開く",
   disinfectionLink: "消毒の記録を開く",
   doneNoUndo: "押した記録を取り消す操作はありません",
@@ -46,11 +46,6 @@ export const TODO_TEXT = {
   setFarmLink: "農場を設定する",
   loginLink: "ログインする",
   // 消毒の記録
-  panelTitle: "消毒の記録",
-  panelLead: "消毒したら「やった」を押すと、日付と項目を残します",
-  panelRecent: "最近の記録",
-  panelNone: "最近の記録はありません",
-  panelListFailed: "最近の記録を読み込めませんでした",
   panelLevelFailed: "近くの発生を読み込めなかったので、ふだんの項目だけ出しています",
   // 相談から足した見直し（会員だけ。AIに対策を相談の「対策項目に足す」で足したカード）
   reviewsHeading: "AI の相談から足した見直し",

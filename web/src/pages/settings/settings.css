@@ -5,6 +5,14 @@
 .settings-page section {
   margin: 0 0 28px;
 }
+/* 節の見出し。欄の名前（label、太字）と見分けがつくよう、大きくして下に線を引き、節の区切りを見せる。
+   説明文の画面（explainer-page）は見出しの組み方が違うので除く */
+.settings-page:not(.explainer-page) h2 {
+  font-size: 1.25rem;
+  margin-top: var(--s3);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--hair);
+}
 .settings-form {
   display: grid;
   gap: 10px;
@@ -52,24 +60,20 @@
 .settings-handover p {
   margin: 0;
 }
-/* 見出しの直下の、次にすることの帯。地図の画面の誘導の帯（map.css の .picking-bar）と同じ組み方 */
+/* 札の下の、次にすることの 1 行（帯にしない。2026-11-07 業務画面の作り直し）。
+   最終保存はその後ろに小さく。余白は包む箱に持たせ、次にすることが出ない間も最終保存の位置を崩さない */
+.settings-next-block {
+  margin: 0 0 24px;
+}
 .settings-next {
-  margin: 0 0 16px;
-  padding: 8px 16px;
-  border-left: 4px solid var(--accent);
-  background: var(--ctl);
-}
-.settings-next p {
   margin: 0;
-  font-weight: 700;
 }
-.settings-next .settings-next-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 24px;
-  font-weight: 400;
+.settings-next .tap-link {
+  margin-left: 4px;
 }
+/* 最終保存など。記録の画面の小さな注記（record-note）と同じ見た目 */
 .settings-saved {
+  font-size: 0.9rem;
   color: var(--sub);
   margin: 4px 0 0;
 }
@@ -158,7 +162,8 @@
   padding: 12px 0;
   border-top: 1px solid var(--hair);
 }
-/* 欄の中のボタンは文字の幅（欄いっぱいに伸ばさない）。保存のボタンはどの欄も主のボタン（.btn-primary）で、見た目をそろえる */
+/* 欄の中のボタンは文字の幅（欄いっぱいに伸ばさない）。主のボタン（.btn-primary、青）は 1 画面に並べないよう、
+   農場がないときの「地点を保存」と、開いた鶏舎の欄の「鶏舎を保存」だけ。ほかの節ごとの保存は普通のボタン（2026-11-08 レビュー） */
 .settings-form > .btn {
   justify-self: start;
 }
@@ -166,4 +171,117 @@
 .house-total {
   margin: 0;
   font-weight: 700;
+}
+/* 鶏舎の表。スマホの幅では横に送れるようにする（画面全体は横に広げない） */
+.settings-table-wrap {
+  overflow-x: auto;
+}
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.settings-table th,
+.settings-table td {
+  /* 「1 号舎」「採卵鶏」を語の途中で折らない（収まらなければ .settings-table-wrap が横に送る） */
+  white-space: nowrap;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--hair);
+  text-align: left;
+  vertical-align: middle;
+}
+.settings-table thead th {
+  color: var(--sub);
+  font-size: 0.9rem;
+  font-weight: 400;
+  border-bottom: 1px solid var(--line);
+}
+.settings-table tbody th {
+  font-weight: 700;
+}
+.settings-table .settings-num {
+  text-align: right;
+  white-space: nowrap;
+}
+/* 数字の欄（高齢の方にも読める大きさ）。幅は 6rem */
+.settings-form input.settings-number {
+  width: 6rem;
+  font-size: 1.25rem;
+}
+/* 読み上げだけに渡す文字（表の操作の列の見出し） */
+.settings-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+/* 登録した地点の 1 行と「地点を変える」。幅が足りないときはボタンを次の行へ送る */
+.settings-point-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.settings-point-line > p {
+  margin: 0;
+}
+/* 登録した地点を変える欄（地点を変える で開く） */
+.settings-point-edit {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.settings-point-edit > p {
+  margin: 0;
+}
+.settings-point-edit > .btn {
+  justify-self: start;
+}
+/* 通知の設定の注記。1 行に 1 つ */
+.settings-notes {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+/* 農場の全データの削除。取り消せないので赤い枠と赤いボタン（赤は削除と警告だけに使う） */
+.settings-delete {
+  margin-top: 8px;
+  padding: 12px 16px;
+  border: 2px solid var(--lv1);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.settings-delete p {
+  margin: 0;
+}
+.btn.settings-delete-button:not(:disabled) {
+  background: var(--lv1);
+  border-color: var(--lv1);
+  color: var(--on-accent);
+}
+/* 関連の画面へのリンク（近隣への説明文、プライバシーの説明）。小さな見出しの下にまとめ、削除の前に置く */
+.settings-related {
+  margin: 0 0 28px;
+  font-size: 0.9rem;
+}
+.settings-related-title {
+  margin: 0;
+  color: var(--sub);
+  font-weight: 700;
+}
+.settings-related ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* 全データの削除の節。h2 を置かず、畳んだ欄の summary を節の見出しの見た目にする */
+.settings-delete-section > .fold > summary {
+  font-size: 1.25rem;
+  margin-top: var(--s3);
+  border-bottom: 1px solid var(--hair);
 }

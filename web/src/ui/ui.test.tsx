@@ -586,7 +586,8 @@ describe("機械の検査: css", () => {
   // 地図のカードの下の端に重ねる「地図に印のない発表」の帯は、カードの下の角と同じ角丸（影は付けない）
   // 地図で押した町の事例の欄もカード（設計書 2026-11-06-ui-frame 決定 4）
   // 地図の外の野鳥の帯（2026-11-07 作者の決定 C）も、地図のカードの下の端に重ねる帯
-  const RADIUS_CARD = new Set([...SHADOW_ALLOWED, `${MAP} .near-unmarked`, `${MAP} .near-birds:last-child`, `${MAP} .town-cases`]);
+  // 状態の数字の札（ui/StatRow.tsx）はカードの角丸
+  const RADIUS_CARD = new Set([...SHADOW_ALLOWED, `${MAP} .near-unmarked`, `${MAP} .near-birds:last-child`, `${MAP} .town-cases`, "web/src/ui/theme.css .stat-tiles .stat-tile"]);
   const RADIUS_CONTROL = new Set([
     ".btn",
     ".map-home-btn",
@@ -773,7 +774,7 @@ describe("機械の検査: ソフトの質感（設計書 2-2）", () => {
     expect(body(".map-notice", MAP)).not.toMatch(/(?:^|[\s;])border:\s*(?!0)/);
   });
   it("黒い太い枠は、状態を示す名指しのものだけ", () => {
-    const allowed = new Set([".class-always", ".state-unknown", ".death-hit", ".delete-section"]);
+    const allowed = new Set([".class-always", ".state-unknown", ".death-hit"]);
     const bad = cssRules().filter(
       (r) => /(?:^|[\s;])border(?:-\w+)?:\s*[2-9]px\s+\w+\s+(?:var\(--fg\)|#000\b)/.test(r.body) && !allowed.has(r.selector),
     );

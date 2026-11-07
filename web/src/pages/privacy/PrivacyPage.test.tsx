@@ -224,7 +224,7 @@ describe("PrivacyPage", () => {
     renderPage();
     const section = screen.getByRole("heading", { level: 2, name: "消し方" }).closest("section")!;
     expect(within(section).getByRole("link", { name: /配信停止/ }).getAttribute("href")).toBe("/settings/notify");
-    expect(within(section).getByRole("link", { name: /全データの削除/ }).getAttribute("href")).toBe("/record");
+    expect(within(section).getByRole("link", { name: /全データの削除/ }).getAttribute("href")).toBe("/settings/farm#delete");
   });
 
   it("画面全体に禁句がない", () => {

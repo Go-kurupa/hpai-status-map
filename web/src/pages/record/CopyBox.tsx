@@ -25,7 +25,8 @@ export function CopyBox({ label, value }: { label: string; value: string }) {
         onFocus={(e) => e.currentTarget.select()}
       />
       <div className="no-print">
-        <Button variant="primary" onClick={() => void copy()}>
+        {/* 主のボタンは各画面の「記録する」だけ。コピーは secondary */}
+        <Button onClick={() => void copy()}>
           {RECORD_TEXT.copy}
         </Button>
         {state === "copied" ? <p role="status">{RECORD_TEXT.copied}</p> : null}

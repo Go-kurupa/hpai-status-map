@@ -722,3 +722,140 @@ button:focus-visible {
     box-shadow: none;
   }
 }
+
+/* 状態の数字の札（ui/StatRow.tsx。2026-11-07 業務画面の作り直し）。
+   地図の札（.stat-row・.stat・.stat-value・.stat-note。上の「札」）とは別の部品。class は .stat-tiles で、
+   中の規則はすべて .stat-tiles の下に絞る（地図の規則を上書きしない。地図の 64rem 以上の grid-auto-flow: column も受けない）。
+   枚数が多くても、幅が足りなければ次の行へ折り返す。札の高さは行ごとにそろう */
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--s1);
+  margin: 0 0 var(--s2);
+  padding: 0;
+  list-style: none;
+}
+.stat-tiles .stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.stat-tiles .stat-tile.is-alert {
+  border: 2px solid var(--lv1);
+}
+.stat-tiles .stat-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+.stat-tiles .stat-link:hover .stat-label,
+.stat-tiles .stat-link:focus-visible .stat-label {
+  text-decoration: underline;
+}
+.stat-tiles .stat-label {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+/* 値は 2〜6 文字の語か数字（文は note へ）。狭い札でも 2 行に収まる大きさ */
+.stat-tiles .stat-value {
+  margin: 0;
+  color: var(--navy);
+  font-size: clamp(1.2rem, 2.2vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.stat-tiles .stat-tile.is-alert .stat-value {
+  color: var(--lv1);
+}
+.stat-tiles .stat-unit {
+  margin-left: 4px;
+  font-size: 1rem;
+  font-weight: 400;
+}
+.stat-tiles .stat-failed {
+  font-size: 1rem;
+  font-weight: 400;
+}
+.stat-tiles .stat-note {
+  margin: 0;
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+
+/* 1 行 1 操作の一覧（ui/RowList.tsx） */
+.row-list {
+  margin: 0 0 var(--s2);
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hair);
+}
+.row-item {
+  display: grid;
+  grid-template-columns: 1.6em minmax(0, 1fr) auto;
+  column-gap: var(--s1);
+  align-items: center;
+  min-height: var(--tap);
+  padding: var(--s1) 0;
+  border-bottom: 1px solid var(--hair);
+}
+.row-mark {
+  font-size: 1.3rem;
+  line-height: 1;
+  text-align: center;
+}
+.row-item.is-todo .row-mark {
+  color: var(--fg);
+}
+.row-item.is-done .row-mark,
+.row-item.is-yes .row-mark {
+  color: var(--farm);
+}
+/* 赤（--lv1）は基準に達した可能性・未登録・削除だけ。できていないは茶色で、文字（×）でも示す */
+.row-item.is-no .row-mark {
+  color: var(--lv2);
+}
+.row-item.is-off .row-mark {
+  color: var(--sub);
+}
+.row-text {
+  min-width: 0;
+}
+.row-text p {
+  margin: 0;
+}
+.row-title {
+  font-weight: 700;
+}
+.row-sub {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.row-act {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  justify-content: flex-end;
+  align-items: center;
+}
+.row-more {
+  grid-column: 2 / -1;
+  margin-top: var(--s1);
+}
+@media (max-width: 599px) {
+  .row-item {
+    grid-template-columns: 1.6em minmax(0, 1fr);
+  }
+  .row-act {
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+    margin-top: 4px;
+  }
+}

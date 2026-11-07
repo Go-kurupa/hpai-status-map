@@ -287,6 +287,8 @@ test("会員: 招待で入り、町を選び、地図を押して保存すると
     await expect(page.getByRole("status").filter({ hasText: /地図で、農場のあたりを押してください/ })).toBeVisible();
     const index = (await (await page.request.get("/geo/muni-index.json")).json()) as Record<string, { center: [number, number] }>;
     const [lng, lat] = index["33203"]!.center;
+    // 地図の上に題・切り替え・次にすることがあり、町の中心が画面の外に出ることがあるので、地図を画面に入れてから押す
+    await page.locator(".picker-canvas").scrollIntoViewIfNeeded();
     await page.waitForFunction(() => !!(window as unknown as PW).__hpaiPicker);
     const at = await page.evaluate(([x, y]) => {
       const m = (window as unknown as PW).__hpaiPicker!;

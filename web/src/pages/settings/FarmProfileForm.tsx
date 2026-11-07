@@ -84,7 +84,7 @@ export function FarmBasicsForm({
           />
           用途を選ばない
         </label>
-        <p className="settings-note">出荷についての項目を出し分けるのに使います。選ばないときは、確認リストは両方を出します。</p>
+        <p className="settings-note">対策項目のうち、出荷に関わる項目の出し分けに使います。選ばないときは両方を出します。</p>
       </fieldset>
 
       <fieldset className="settings-choice">
@@ -115,7 +115,7 @@ export function FarmBasicsForm({
           />
           鶏舎の造りを選ばない
         </label>
-        <p className="settings-note">鶏舎の造りは、確かめておくとよいことの並びに使います。選ばないときは、決まった並びで出します。</p>
+        <p className="settings-note">対策項目の「確かめておくとよいこと」の並びに使います。選ばないときは決まった並びです。</p>
       </fieldset>
 
       <fieldset className="settings-choice">
@@ -146,11 +146,12 @@ export function FarmBasicsForm({
           />
           飼い方を選ばない
         </label>
-        <p className="settings-note">「AIに対策を相談」で、条件として付けられます。付けるかは、相談のたびに選びます。</p>
+        <p className="settings-note">「AIに対策を相談」で、条件として選べます。使うかは、相談のたびに選びます。</p>
       </fieldset>
 
+      {/* 主のボタン（青）は 1 画面に並べない。節ごとの保存は普通のボタン（2026-11-08 レビュー） */}
       <div>
-        <Button variant="primary" disabled={state === "saving"} onClick={() => void run()}>
+        <Button disabled={state === "saving"} onClick={() => void run()}>
           農場の情報を保存
         </Button>
       </div>
@@ -165,12 +166,14 @@ export function KahoContactForm({ farm, save }: { farm: Pick<Farm, "kahoContact"
 
   return (
     <div className="settings-form">
-      <label htmlFor="kaho-contact">家畜保健衛生所の連絡先</label>
-      <p className="settings-note">
-        県の案内を見て、窓口の名前や連絡の方法を、自分で書き写して残します。異状があって通報が必要なとき、画面にこの内容を出します。空のままでも使えます。
+      {/* 節の見出し（h2）と同じ語なので、見える label は置かず、欄の名前は aria-label で渡す */}
+      <p id="kaho-contact-note" className="settings-note">
+        県の案内から、窓口の名前と連絡の方法を書き写します。死亡数が届け出の基準に達した可能性があるとき、画面にこの内容を出します。空のままでも使えます。
       </p>
       <textarea
         id="kaho-contact"
+        aria-label="家畜保健衛生所の連絡先"
+        aria-describedby="kaho-contact-note"
         rows={4}
         value={text}
         maxLength={KAHO_CONTACT_MAX}
@@ -181,7 +184,7 @@ export function KahoContactForm({ farm, save }: { farm: Pick<Farm, "kahoContact"
         }}
       />
       <div>
-        <Button variant="primary" disabled={state === "saving"} onClick={() => void run()}>
+        <Button disabled={state === "saving"} onClick={() => void run()}>
           家畜保健衛生所の連絡先を保存
         </Button>
       </div>

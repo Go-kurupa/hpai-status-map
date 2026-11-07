@@ -64,7 +64,7 @@ export function PrivacyContent({ reviewedOn, embedded = false }: { reviewedOn: I
                 <Link to="/settings/notify" className="tap-link">配信停止と通知の設定</Link>
               </li>
               <li>
-                <Link to="/record" className="tap-link">全データの削除（記録の画面）</Link>
+                <Link to="/settings/farm#delete" className="tap-link">全データの削除（農場の設定）</Link>
               </li>
             </ul>
           ) : null}

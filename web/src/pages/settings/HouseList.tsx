@@ -1,4 +1,4 @@
-// 鶏舎の一覧と、足す、直すの欄（設計書 §8）。
+// 鶏舎の一覧（表）と、登録、直すの欄（設計書 §8。2026-11-07 業務画面の作り直しで表にした）。
 // 鶏舎は消せない。過去の死亡数の記録が鶏舎の id を指しているので、使わなくなったら空舎にする。
 // 羽数を直しても、過去の死亡数の記録の羽数（flockSizeAt）は動かさない（saveDeath は呼ばない）。
 import type { House } from "@hpai/shared/types";
@@ -9,6 +9,12 @@ import { BIRD_TYPES, HOUSE_NAME_MAX, parseHouseInput } from "./houseForm";
 
 type SavedHouse = House & { id: string };
 type Load = { state: "loading" } | { state: "error" } | { state: "ok"; houses: SavedHouse[] };
+
+/** ページの上の札と「次にすること」に渡す鶏舎のまとめ。読み込み中と読めなかったときは、0 件とは言わない */
+export type HouseSummary = { status: "loading" } | { status: "failed" } | { status: "ok"; count: number; total: number };
+
+/** 登録と編集の欄の中の注記（一覧の下には出さない） */
+export const HOUSE_NOTE = "鶏舎は消せません。使わなくなった鶏舎は「空舎」にします。羽数を直しても、過去の記録の羽数は変わりません。";
 
 interface Draft {
   /** なければ新しい鶏舎 */
@@ -24,19 +30,26 @@ const BLANK: Draft = { id: null, name: "", birdType: "", flockSize: "", empty: f
 export function HouseList({
   store,
   onSaved,
-  onCount,
+  onSummary,
 }: {
   store: Pick<RecordStore, "listHouses" | "saveHouse">;
   /** 鶏舎を保存した後に呼ぶ。農場の updatedAt を進める（失敗しても鶏舎の保存は取り消さない） */
   onSaved: () => Promise<void>;
-  /** 鶏舎の件数を親へ返す（ページの上の帯が使う）。読み込み中と読めなかったときは null（ないとは言わない） */
-  onCount?: (count: number | null) => void;
+  /** 鶏舎の件数と合計羽数（空舎を除く）を親へ返す（ページの上の札と次にすることが使う） */
+  onSummary?: (summary: HouseSummary) => void;
 }) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const count = load.state === "ok" ? load.houses.length : null;
+  const total = load.state === "ok" ? load.houses.filter((h) => !h.empty).reduce((sum, h) => sum + h.flockSize, 0) : null;
   useEffect(() => {
-    onCount?.(count);
-  }, [count, onCount]);
+    onSummary?.(
+      load.state === "loading"
+        ? { status: "loading" }
+        : load.state === "error" || count === null || total === null
+          ? { status: "failed" }
+          : { status: "ok", count, total },
+    );
+  }, [load.state, count, total, onSummary]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -115,39 +128,56 @@ export function HouseList({
 
   // 一覧の上の合計（空舎を除く）。鶏のいる鶏舎がなければ出さない（2026-11-07 精査 D）
   const stocked = load.houses.filter((h) => !h.empty);
-  const total = stocked.reduce((sum, h) => sum + h.flockSize, 0);
 
   return (
     <div className="settings-form">
-      <p>鶏舎ごとに、名前、鳥の種類、飼養羽数を登録します。死亡数の記録は、鶏舎ごとにつけます。</p>
+      <p>鶏舎ごとに、名前、鳥の種類、飼養羽数を登録します。</p>
       {load.houses.length === 0 ? (
         <p className="settings-note">鶏舎はまだ登録していません。</p>
       ) : (
         <>
-          {stocked.length > 0 ? <p className="house-total">{`合計 ${total.toLocaleString("ja-JP")} 羽（空舎を除く）`}</p> : null}
-          <ul className="settings-list">
-            {load.houses.map((h) => (
-              <li key={h.id}>
-                <span className="house-name">{h.name}</span>
-                <span>{h.birdType}</span>
-                <span>{h.empty ? "空舎" : `${h.flockSize} 羽`}</span>
-                <Button
-                  aria-label={`${h.name}を編集`}
-                  onClick={() => open({ id: h.id, name: h.name, birdType: h.birdType, flockSize: String(h.flockSize), empty: h.empty })}
-                >
-                  編集
-                </Button>
-              </li>
-            ))}
-          </ul>
+          {stocked.length > 0 ? <p className="house-total">{`合計 ${(total ?? 0).toLocaleString("ja-JP")} 羽（空舎を除く）`}</p> : null}
+          <div className="settings-table-wrap">
+            <table className="settings-table">
+              <thead>
+                <tr>
+                  <th scope="col">鶏舎</th>
+                  <th scope="col">鳥の種類</th>
+                  <th scope="col">飼養羽数</th>
+                  <th scope="col">状態</th>
+                  <th scope="col">
+                    <span className="settings-visually-hidden">操作</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {load.houses.map((h) => (
+                  <tr key={h.id}>
+                    <th scope="row" className="house-name">
+                      {h.name}
+                    </th>
+                    <td>{h.birdType}</td>
+                    <td className="settings-num">{h.empty ? "—" : `${h.flockSize.toLocaleString("ja-JP")} 羽`}</td>
+                    <td>{h.empty ? "空舎" : "飼育中"}</td>
+                    <td>
+                      <Button
+                        aria-label={`${h.name}を編集`}
+                        onClick={() => open({ id: h.id, name: h.name, birdType: h.birdType, flockSize: String(h.flockSize), empty: h.empty })}
+                      >
+                        編集
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
-      <p className="settings-note">
-        鶏舎は消せません。使わなくなったときは、空舎にします（過去の記録が残ります）。羽数を直しても、過去の記録の羽数は変わりません。
-      </p>
 
       {draft ? (
         <div className="settings-form house-form">
+          <p className="settings-note">{HOUSE_NOTE}</p>
           <label htmlFor="house-name">鶏舎の名前</label>
           <input ref={nameRef} id="house-name" type="text" value={draft.name} maxLength={HOUSE_NAME_MAX} onChange={(e) => change({ name: e.target.value })} />
           <label htmlFor="house-bird">鳥の種類</label>
@@ -162,6 +192,7 @@ export function HouseList({
           <label htmlFor="house-flock">飼養羽数</label>
           <input
             id="house-flock"
+            className="settings-number"
             type="text"
             inputMode="numeric"
             autoComplete="off"
@@ -204,7 +235,7 @@ export function HouseList({
         </div>
       ) : (
         <div>
-          <Button onClick={() => open(BLANK)}>鶏舎を追加する</Button>
+          <Button onClick={() => open(BLANK)}>{load.houses.length === 0 ? "鶏舎を登録する" : "鶏舎を追加する"}</Button>
         </div>
       )}
     </div>

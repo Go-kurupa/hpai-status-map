@@ -15,6 +15,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useDataSource, useRecordStore } from "../../data/context";
 import { DoneButton, type DisinfectionLog } from "../record/disinfectionLog";
+import { byHouseName } from "../record/houseOrder";
 import { RECORD_TEXT } from "../record/recordTexts";
 import type { ReviewItems } from "./reviewItems";
 import { reviewMark, ReviewRow } from "./ReviewsSection";
@@ -126,8 +127,8 @@ function deathRows(load: Load<DeathsValue>): Row[] {
         ),
       },
     ];
-  // 空舎にした鶏舎は記録しないので出さない
-  return houses
+  // 空舎にした鶏舎は記録しないので出さない。保存の側は順を決めないので、名前の順に並べる（死亡数の画面と同じ順）
+  return byHouseName(houses)
     .filter((h) => !h.empty)
     .map((h): Row => {
       const rec = deaths.find((d) => d.houseId === h.id);

@@ -1,7 +1,7 @@
 // 全経路をここに先に書く（契約 6.3）。他の領域は pages/<領域>/ のファイルを置き換えるだけで、このファイルを触らない
 // （W-04 が根に SpotProvider を足す例外あり）。画面は既定 export の関数で、React.lazy で読む。
 import { lazy, Suspense, useState } from "react";
-import { Outlet, type RouteObject } from "react-router";
+import { Navigate, Outlet, useLocation, type RouteObject } from "react-router";
 import { DataSourceProvider, RecordStoreProvider } from "./data/context";
 import { createDataSource } from "./data/source";
 import { SpotProvider } from "./data/spotContext";
@@ -16,7 +16,6 @@ const AreaPage = lazy(() => import("./pages/public/AreaPage"));
 const PosterPage = lazy(() => import("./pages/public/PosterPage"));
 const KnownPage = lazy(() => import("./pages/public/KnownPage"));
 const TodoPage = lazy(() => import("./pages/todo/TodoPage"));
-const RecordPage = lazy(() => import("./pages/record/RecordPage"));
 const DeathsPage = lazy(() => import("./pages/record/DeathsPage"));
 const SelfCheckPage = lazy(() => import("./pages/record/SelfCheckPage"));
 const DisinfectionPage = lazy(() => import("./pages/record/DisinfectionPage"));
@@ -55,6 +54,12 @@ function Root() {
   );
 }
 
+/** /record は死亡数の画面へ送る（2026-11-07 出力と削除のタブをなくした）。?emulator=1 などの問い合わせは持ち越す */
+function ToDeaths() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "/record/deaths", search }} replace />;
+}
+
 function NotFound() {
   return (
     <div>
@@ -83,7 +88,7 @@ export const routes: RouteObject[] = [
       { path: "poster", element: <PosterPage /> },
       { path: "known", element: <KnownPage /> },
       { path: "todo", element: <TodoPage /> },
-      { path: "record", element: <RecordPage /> },
+      { path: "record", element: <ToDeaths /> },
       { path: "record/deaths", element: <DeathsPage /> },
       { path: "record/self-check", element: <SelfCheckPage /> },
       { path: "record/disinfection", element: <DisinfectionPage /> },
@@ -104,7 +109,7 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <SamplePage /> },
           { path: "todo", element: <SampleTodoPage /> },
-          { path: "record", element: <SampleRecordPage /> },
+          { path: "record", element: <SampleRecordPage /> }, // 死亡数の画面へ送る（SampleRecordPage の中で決める）
           { path: "record/deaths", element: <SampleRecordPage /> },
           { path: "record/self-check", element: <SampleRecordPage /> },
           { path: "record/disinfection", element: <SampleRecordPage /> },

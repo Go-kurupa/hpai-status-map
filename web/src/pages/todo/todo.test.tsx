@@ -16,6 +16,7 @@ import { DataSourceProvider, RecordStoreProvider } from "../../data/context";
 import { SpotProvider } from "../../data/spotContext";
 import type { DataSource, RecordStore } from "../../data/types";
 import { DisinfectionPanel } from "../record/DisinfectionPanel";
+import { RECORD_TEXT } from "../record/recordTexts";
 import { SURVEILLANCE_NOTE } from "../map/texts";
 import { TODO_TEXT } from "./texts";
 import { resolveTodo } from "./todoModel";
@@ -271,7 +272,7 @@ describe("ふだん（段階 4）", () => {
 
   it("県の発表を確認できていないときは、何もない画面にしない。時点は主語つきの「発表の確認: 未確認」（単独の「確認できていません」にしない）", async () => {
     const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [], watch: [] }) });
-    await screen.findByText("この県の発表を確認できていません。県の連絡を確かめてください");
+    await screen.findByText("この県の発表を確認できていません。県の連絡を確かめてください。");
     expect(container.querySelector(".as-of")?.textContent).toBe("発表の確認: 未確認");
     expect(screen.queryByText("確認できていません")).toBeNull();
     cleanup();
@@ -285,7 +286,7 @@ describe("ふだん（段階 4）", () => {
     const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [] }) });
     await ready();
     expect(container.querySelector(".as-of")?.textContent).toBe("発表の確認: 1 月 5 日 8:30 時点");
-    expect(screen.queryByText("この県の発表を確認できていません。県の連絡を確かめてください")).toBeNull();
+    expect(screen.queryByText("この県の発表を確認できていません。県の連絡を確かめてください。")).toBeNull();
   });
 });
 
@@ -699,11 +700,12 @@ describe("消毒への道、段階 1 の並び、番号の注意", () => {
     expect(screen.queryByText(TODO_TEXT.doneNoUndo)).toBeNull();
   });
 
-  it("DisinfectionPanel: panelLead の次に doneNoUndo が出る", async () => {
+  it("DisinfectionPanel: 任意と取り消せない旨は、次にすることの近くに 1 回だけ出る", async () => {
     const { container } = mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
-    const lead = await screen.findByText(TODO_TEXT.panelLead);
-    expect(lead.nextElementSibling?.textContent).toBe(TODO_TEXT.doneNoUndo);
-    expect(container.textContent).toContain(TODO_TEXT.doneNoUndo);
+    const next = await screen.findByText(/^次にすること: /);
+    expect(next.nextElementSibling?.textContent).toBe(RECORD_TEXT.disNote);
+    expect(container.textContent!.split(RECORD_TEXT.disNote).length - 1).toBe(1);
+    expect(container.textContent).not.toContain(TODO_TEXT.doneNoUndo);
   });
 });
 
@@ -728,6 +730,15 @@ describe("画面の文言", () => {
 });
 
 describe("DisinfectionPanel", () => {
+  /** 直近 14 日の表の 1 行（日付の行）を、列の名前 → ☑ の有無にする */
+  function tableRow(date: string): Record<string, boolean> {
+    const table = within(screen.getByRole("region", { name: RECORD_TEXT.disTableHeading })).getByRole("table");
+    const heads = within(table).getAllByRole("columnheader").map((h) => h.textContent ?? "");
+    const row = within(table).getByRole("rowheader", { name: date }).closest("tr")!;
+    const cells = within(row).getAllByRole("cell");
+    return Object.fromEntries(cells.map((c, k) => [heads[k + 1]!, within(c).queryByRole("img", { name: RECORD_TEXT.disTableDone }) !== null]));
+  }
+
   it("農場があれば、記録できる項目だけに『やった』を出し、押すと saveCheck を同じ形で呼ぶ", async () => {
     listChecks.mockResolvedValue([{ id: "c0", kind: "disinfection", date: "2026-01-04", itemId: "always-22" }]);
     mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
@@ -736,12 +747,67 @@ describe("DisinfectionPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /やった: 衛生管理区域に入る車両/ }));
     await waitFor(() => expect(saveCheck).toHaveBeenCalledTimes(1));
     expect(saveCheck.mock.calls[0]![0]).toEqual({ kind: "disinfection", date: TODAY, itemId: "always-19" });
-    // 最近の記録に、昨日の分と今の分が新しい順で出る
-    const recent = screen.getByRole("region", { name: "最近の記録" });
-    const rows = within(recent).getAllByRole("listitem").map((l) => l.textContent);
-    expect(rows[0]).toContain("1月5日");
-    expect(rows[0]).toContain("衛生管理区域に入る車両");
-    expect(rows[1]).toContain("1月4日");
+    // 記録した行は ☑ と「今日 記録済み」になり、押すものがなくなる
+    await waitFor(() => expect(screen.queryAllByRole("button", { name: /^やった/ })).toHaveLength(2));
+    const row = screen.getByText("車両の消毒", { selector: ".row-title" }).closest("li")!;
+    expect(within(row).getByRole("img", { name: "記録済み" }).textContent).toBe("☑");
+    expect(row.textContent).toContain(RECORD_TEXT.disDoneToday);
+    // 直近 14 日の表に、今日の分と昨日の分が新しい順で出る
+    await waitFor(() => expect(tableRow("1月5日")["車両の消毒"]).toBe(true));
+    expect(tableRow("1月5日")["鶏舎の手指消毒"]).toBe(false);
+    expect(tableRow("1月4日")["鶏舎の手指消毒"]).toBe(true);
+    const dates = within(screen.getByRole("region", { name: RECORD_TEXT.disTableHeading }))
+      .getAllByRole("rowheader")
+      .map((h) => h.textContent);
+    expect(dates).toHaveLength(14);
+    expect(dates.slice(0, 2)).toEqual(["1月5日", "1月4日"]);
+    expect(dates.at(-1)).toBe("12月23日");
+  });
+
+  it("題と 1 文、札（今日の記録・直近 14 日の記録）、次にすることを、記録に合わせて出す", async () => {
+    listChecks.mockResolvedValue([
+      { id: "c0", kind: "disinfection", date: "2026-01-04", itemId: "always-22" },
+      { id: "c1", kind: "disinfection", date: TODAY, itemId: "always-17" },
+    ]);
+    mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
+    expect(screen.getByRole("heading", { level: 2, name: RECORD_TEXT.disTitle })).toBeTruthy();
+    expect(screen.getByText(RECORD_TEXT.disLead)).toBeTruthy();
+    const stats = await screen.findByRole("list", { name: RECORD_TEXT.disStatsLabel });
+    await waitFor(() => expect(within(stats).getAllByRole("listitem").map((i) => i.textContent)).toEqual(["今日の記録1 / 3項目", "直近 14 日の記録2件"]));
+    expect(screen.getByText(`次にすること: ${RECORD_TEXT.disNext(2)}`)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /やった: 衛生管理区域に入る車両/ }));
+    fireEvent.click(screen.getByRole("button", { name: /やった: 鶏舎に出入りする/ }));
+    await screen.findByText(`次にすること: ${RECORD_TEXT.disNextDone}`);
+    expect(within(stats).getAllByRole("listitem").map((i) => i.textContent)).toEqual(["今日の記録3 / 3項目", "直近 14 日の記録4件"]);
+    // 見出しは短い名前、その下に長い文と出典
+    const row = screen.getByText("入口の手指消毒", { selector: ".row-title" }).closest("li")!;
+    expect(row.textContent).toContain("衛生管理区域（消毒して入る範囲）の入口で");
+    expect(within(row).getByRole("link", { name: /^出典: / })).toBeTruthy();
+  });
+
+  it("読み込み中は札を 0 と言わず「…」、読めなければ「読み込めませんでした」", async () => {
+    let release: (v: Array<CheckRecord & { id: string }>) => void = () => {};
+    listChecks.mockImplementation(() => new Promise((r) => (release = r)));
+    mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
+    const stats = await screen.findByRole("list", { name: RECORD_TEXT.disStatsLabel });
+    expect(within(stats).getAllByRole("listitem").map((i) => i.textContent)).toEqual(["今日の記録…", "直近 14 日の記録…"]);
+    expect(screen.queryByText(/^次にすること: /)).toBeNull();
+    await waitFor(() => expect(listChecks).toHaveBeenCalled());
+    release([]);
+    await waitFor(() => expect(within(stats).getAllByRole("listitem").map((i) => i.textContent)).toEqual(["今日の記録0 / 3項目", "直近 14 日の記録0件"]));
+    cleanup();
+    listChecks.mockRejectedValue(new Error("読み込めません"));
+    mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
+    expect(await screen.findByText(RECORD_TEXT.disTableFailed)).toBeTruthy();
+    const failed = screen.getByRole("list", { name: RECORD_TEXT.disStatsLabel });
+    expect(within(failed).getAllByRole("listitem").map((i) => i.textContent)).toEqual(["今日の記録読み込めませんでした", "直近 14 日の記録読み込めませんでした"]);
+  });
+
+  it("段階が下がって出なくなった区域の項目も、直近の記録にあれば表の列に残す", async () => {
+    listChecks.mockResolvedValue([{ id: "c0", kind: "disinfection", date: "2026-01-02", itemId: "zone-lime" }]);
+    mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
+    await waitFor(() => expect(tableRow("1月2日")["消石灰の消毒"]).toBe(true));
+    expect(screen.queryAllByRole("button", { name: /^やった/ })).toHaveLength(3);
   });
 
   it("段階 1 では区域の消毒の項目も出る（見出しで義務の種類が分かる）", async () => {
@@ -756,7 +822,8 @@ describe("DisinfectionPanel", () => {
     await screen.findByText(/農場を設定すると記録できます/);
     expect(screen.queryAllByRole("button", { name: /^やった/ })).toHaveLength(0);
     expect(saveCheck).not.toHaveBeenCalled();
-    expect(screen.queryByRole("region", { name: "最近の記録" })).toBeNull();
+    expect(screen.queryByRole("region", { name: RECORD_TEXT.disTableHeading })).toBeNull();
+    expect(screen.queryByRole("list", { name: RECORD_TEXT.disStatsLabel })).toBeNull();
   });
 
   it("近くの発生を読み込めなかったときは、ふだんの項目だけと断る", async () => {
@@ -794,7 +861,7 @@ describe("会員の画面の作り（今日のやること・参照、2026-11-07
     // 今日のやることの後ろ
     const today = screen.getByRole("region", { name: TODAY_HEADING });
     expect(today.compareDocumentPosition(ref) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(ref).getByText("この県の発表を確認できていません。県の連絡を確かめてください")).toBeTruthy();
+    expect(within(ref).getByText("この県の発表を確認できていません。県の連絡を確かめてください。")).toBeTruthy();
     expect(within(ref).getByText("国の指針で確かめること（出典つき）")).toBeTruthy();
     expectRiskItem();
     // 自己点検の短い確認は、今日のやることの自己点検の行と重なるので出さない

@@ -128,7 +128,7 @@ export function MuniMultiPicker({
       </div>
 
       <div>
-        <Button variant="primary" disabled={state === "saving"} onClick={() => void run()}>
+        <Button disabled={state === "saving"} onClick={() => void run()}>
           行き来する町を保存
         </Button>
       </div>

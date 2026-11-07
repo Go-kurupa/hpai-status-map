@@ -42,7 +42,8 @@ export interface LoggedCheck {
   itemId: string;
 }
 
-const RECENT_DAYS = 14;
+/** 消毒の画面の表と札が見る日数（今日を含む） */
+export const RECENT_DAYS = 14;
 
 export interface DisinfectionLog {
   doneToday: ReadonlySet<string>;
@@ -50,6 +51,8 @@ export interface DisinfectionLog {
   failed: ReadonlySet<string>;
   /** 新しい順 */
   recent: LoggedCheck[];
+  /** 直近 14 日の記録を読み終えた。読み終えるまでは件数を 0 と言わない */
+  recentReady: boolean;
   recentFailed: boolean;
   log(itemId: string): Promise<void>;
 }
@@ -60,6 +63,7 @@ export function useDisinfectionLog(enabled: boolean): DisinfectionLog {
   const ds = useDataSource();
   const { saved: noteSaved } = useRecordSaves();
   const [recent, setRecent] = useState<LoggedCheck[]>([]);
+  const [recentReady, setRecentReady] = useState(false);
   const [recentFailed, setRecentFailed] = useState(false);
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
@@ -78,6 +82,7 @@ export function useDisinfectionLog(enabled: boolean): DisinfectionLog {
         list.sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1));
         setRecent(list);
         setDoneToday(new Set(list.filter((r) => r.date === today).map((r) => r.itemId)));
+        setRecentReady(true);
         setRecentFailed(false);
       },
       () => {
@@ -109,7 +114,7 @@ export function useDisinfectionLog(enabled: boolean): DisinfectionLog {
     [enabled, store, ds, noteSaved],
   );
 
-  return { doneToday, saving, failed, recent, recentFailed, log };
+  return { doneToday, saving, failed, recent, recentReady, recentFailed, log };
 }
 
 function without(s: ReadonlySet<string>, v: string): ReadonlySet<string> {

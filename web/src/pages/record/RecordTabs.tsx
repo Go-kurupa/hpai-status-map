@@ -1,6 +1,8 @@
-// 記録の 4 画面の上に置く行き来と、2 行の状態（最後の記録、メールが止まっているか）。
-// RecordStore と DataSource だけを使う。/sample/record の下では、リンクも /sample/record/… にする。
+// 記録の 3 画面の上に置く題（h1）、行き来のタブ、2 行の状態（最後に記録した日、メールが止まっているか）。
+// h1 は残す（AppShell が画面の替わり目に h1 へ焦点を移す）。「この画面では、〜」の 1 文は各パネルが持つ（2 回出さない）。
+// 各画面の題は h2（パネルが持つ）。RecordStore と DataSource だけを使う。/sample/record の下では、リンクも /sample/record/… にする。
 import { addDays, jstDateOf } from "@hpai/shared/dates";
+import { formatJaDate } from "@hpai/shared/jaDate";
 import type { IsoDate } from "@hpai/shared/types";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
@@ -13,8 +15,13 @@ const LOOKBACK_DAYS = 120;
 type Last = { status: "loading" } | { status: "failed" } | { status: "ok"; date: IsoDate | null };
 type Mail = { status: "loading" } | { status: "failed" } | { status: "ok"; stopped: boolean };
 
-export function jaDateWithYear(d: IsoDate): string {
-  return `${d.slice(0, 4)}年${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
+/** 「11月7日」の形。形の違う値は、そのまま出す（画面を落とさない） */
+function jaDate(d: IsoDate): string {
+  try {
+    return formatJaDate(d);
+  } catch {
+    return d;
+  }
 }
 
 export function RecordTabs() {
@@ -59,7 +66,6 @@ export function RecordTabs() {
     { to: `${base}/deaths`, label: RECORD_TEXT.tabDeaths },
     { to: `${base}/self-check`, label: RECORD_TEXT.tabSelfCheck },
     { to: `${base}/disinfection`, label: RECORD_TEXT.tabDisinfection },
-    { to: base, label: RECORD_TEXT.tabExport },
   ];
 
   const lastText =
@@ -69,10 +75,11 @@ export function RecordTabs() {
         ? RECORD_TEXT.lastRecordFailed
         : last.date === null
           ? RECORD_TEXT.lastRecordNone
-          : jaDateWithYear(last.date);
+          : jaDate(last.date);
 
   return (
     <div className="record-tabs no-print">
+      <h1>{RECORD_TEXT.pageTitle}</h1>
       <nav aria-label={RECORD_TEXT.tabsLabel}>
         <ul>
           {tabs.map((t) => (
@@ -84,7 +91,7 @@ export function RecordTabs() {
           ))}
         </ul>
       </nav>
-      {last.status === "loading" ? null : <p>{`${RECORD_TEXT.lastRecord}: ${lastText}`}</p>}
+      {last.status === "loading" ? null : <p className="record-last">{`${RECORD_TEXT.lastRecord}: ${lastText}`}</p>}
       {mail.status === "ok" && mail.stopped ? (
         <p role="status" className="record-mail-stopped">
           {RECORD_TEXT.mailStopped}

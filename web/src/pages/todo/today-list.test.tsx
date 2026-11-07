@@ -301,6 +301,14 @@ describe("1 死亡数（鶏舎ごと）", () => {
     expect(markOf(rowOf(r, "1 号舎の死亡数"))).toBe("まだ");
   });
 
+  it("鶏舎の行は名前の順（保存の側の順によらない。2 号舎は 10 号舎より前）", async () => {
+    listHouses.mockResolvedValue([house("h10", "10 号舎"), house("h2", "2 号舎"), house("h1", "1 号舎")]);
+    listDeaths.mockResolvedValue([]);
+    mount();
+    const r = await list();
+    expect(rows(r).map(titleOf).filter((t) => t.endsWith("の死亡数"))).toEqual(["1 号舎の死亡数", "2 号舎の死亡数", "10 号舎の死亡数"]);
+  });
+
   it("鶏舎がなければ ☐「鶏舎がまだありません。」と、農場の設定の鶏舎の欄（#houses）への「鶏舎を追加する」", async () => {
     listHouses.mockResolvedValue([]);
     mount();
@@ -308,7 +316,7 @@ describe("1 死亡数（鶏舎ごと）", () => {
     const row = rowOf(r, "死亡数");
     expect(markOf(row)).toBe("まだ");
     expect(subOf(row)).toBe("鶏舎がまだありません。");
-    expect(within(row).getByRole("link", { name: "鶏舎を追加する" }).getAttribute("href")).toBe("/settings/farm#houses");
+    expect(within(row).getByRole("link", { name: "鶏舎を登録する" }).getAttribute("href")).toBe("/settings/farm#houses");
     expect(within(row).queryByRole("link", { name: "記録する" })).toBeNull();
   });
 
