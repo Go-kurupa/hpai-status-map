@@ -3,7 +3,7 @@
 // maplibre の Map ではなく、必要な 3 つの操作だけの型を受けるので、偽の map で試験できる。
 import type { MuniCode, PrefCode, WildBird } from "@hpai/shared/types";
 import type { DistanceRings } from "../../geo/distanceRings";
-import type { FarmMeshFeature } from "../../geo/farmMark";
+import type { FarmMarkFeature } from "../../geo/farmMark";
 import { codeFilter, PAINT, wildBirdFilter } from "./mapStyle";
 import type { SeasonView } from "./seasonView";
 
@@ -168,7 +168,7 @@ export function applyDistanceRings(map: ViewTarget, rings: DistanceRings | null)
   map.getSource("distance-rings")?.setData(rings ?? { type: "FeatureCollection", features: [] });
 }
 
-/** 鶏舎の場所のマス目を farm-mesh の source に渡す。場所がなければ空にする */
-export function applyFarmMesh(map: ViewTarget, mesh: FarmMeshFeature | null): void {
-  map.getSource("farm-mesh")?.setData({ type: "FeatureCollection", features: mesh ? [mesh] : [] });
+/** 鶏舎の場所の印（印の大きさごとの形、farmMarkFeatures）を farm-mesh の source に渡す。場所がなければ空にする */
+export function applyFarmMesh(map: ViewTarget, features: readonly FarmMarkFeature[]): void {
+  map.getSource("farm-mesh")?.setData({ type: "FeatureCollection", features: [...features] });
 }

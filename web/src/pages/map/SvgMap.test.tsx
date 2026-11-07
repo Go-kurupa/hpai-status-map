@@ -290,6 +290,17 @@ describe("代わりの地図（SVG）", () => {
       expect((await screen.findByRole("group", { name: TEXT.svgMapAria })).querySelector(".svg-farm")).toBeNull();
     });
 
+    it("地区名と印の大きさ（2026-11-07 作者の決定）: 札は「鶏舎の場所（地区名）」。県の広さでも約 1km は 14px より小さいので、中・小も一定の大きさの四角", async () => {
+      for (const size of ["m", "s"] as const) {
+        const { unmount } = render(<SvgMap {...props({ farmMeshCode: FARM_MESH, markFarm: true, myMuniCode: "33203", farmMarkSize: size, farmOaza: "大字影石" })} />);
+        await openPref(/^岡山県/);
+        const map = await screen.findByRole("group", { name: /岡山県の市町村/ });
+        expect(map.querySelector(".svg-farm-square"), size).toBeTruthy();
+        expect(map.querySelector(".svg-farm-label")?.textContent).toBe("鶏舎の場所（大字影石）");
+        unmount();
+      }
+    });
+
     it("不正なマス目でも落ちず、輪を描かない", async () => {
       render(<SvgMap {...props({ farmMeshCode: "abc", myMuniCode: "33203" })} />);
       const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
@@ -375,4 +386,3 @@ describe("代わりの地図（SVG）", () => {
     expect(document.querySelector("[data-count-code='33203']")?.textContent).toBe("計 3 回");
   });
 });
-

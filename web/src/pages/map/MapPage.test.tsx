@@ -12,7 +12,7 @@ import historyJson from "../../../../data/history/cases.json";
 import adjacencyJson from "../../../../data/geo/adjacency.json";
 import indexJson from "../../../../data/geo/muni-index.json";
 import { DataSourceProvider, RecordStoreProvider } from "../../data/context";
-import { SPOT_KEY, TOWN_KEY } from "../../data/spot";
+import { MARK_SIZE_ITEM, OAZA_KEY, SPOT_KEY, TOWN_KEY } from "../../data/spot";
 import { SpotProvider } from "../../data/spotContext";
 import type { DataSource, RecordStore } from "../../data/types";
 import type { MapViewProps } from "./MapView";
@@ -779,6 +779,32 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(screen.getByRole("group", { name: TEXT.legendAria }).textContent).toContain(TEXT.legendFarm);
     fireEvent.click(screen.getByRole("button", { name: TEXT.mapNearFarm }));
     expect(lastProps().focus?.kind).toBe("rings");
+  });
+
+  it("鶏舎の印の大きさ（見た目だけ。2026-11-07 作者の決定）: 地図の枠に 大・中・小 を出し、押すと地図に渡して端末に覚える。地区名も地図に渡す", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
+    localStorage.setItem(OAZA_KEY, JSON.stringify({ meshCode: "52344080", name: "大字山北" }));
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    expect(lastProps().farmMarkSize).toBe("l");
+    expect(lastProps().farmOaza).toBe("大字山北");
+    const group = screen.getByRole("group", { name: TEXT.markSizeLabel });
+    expect(document.querySelector(".map-box")!.contains(group)).toBe(true);
+    const btn = (name: string) => within(group).getByRole("button", { name });
+    expect(btn("大").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(btn("小"));
+    expect(lastProps().farmMarkSize).toBe("s");
+    expect(btn("小").getAttribute("aria-pressed")).toBe("true");
+    expect(localStorage.getItem(MARK_SIZE_ITEM)).toBe("s");
+  });
+
+  it("鶏舎の場所がない（町だけ）ときは、印の大きさの切り替えを出さない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    expect(screen.queryByRole("group", { name: TEXT.markSizeLabel })).toBeNull();
   });
 
   it("段階 ①② の文は数字の後で地図の前、③④ の文は地図の後。どちらも 1 つ", async () => {
@@ -2742,4 +2768,3 @@ describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章�
     expect(has(".stat-row")).toBe(false);
   });
 });
-

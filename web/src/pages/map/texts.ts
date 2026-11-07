@@ -143,6 +143,11 @@ export const TEXT = {
   spotRegister: "この場所で農場を登録する",
   // 地図の印と、場所を決めた後の切り替えの名前（作者 11/7）
   farmMark: "鶏舎の場所",
+  /** 地区の一覧で選んで決めた場所の札（2026-11-07 作者の決定） */
+  farmMarkWith: (oaza: string) => `鶏舎の場所（${oaza}）`,
+  markSizeLabel: "印の大きさ",
+  markSizeNames: { l: "大", m: "中", s: "小" } as const,
+  markSizeNote: "印の大きさは見た目だけです。保存は約 1km のマス目のままです。",
   legendFarm: "鶏舎の場所（この端末の画面だけ）",
   // 凡例の 3 段（2026-11-07 作者の決定 ア）。赤は養鶏場の発生、墨の鳥は野鳥と読めるように見出しで分ける
   legendGroupFarm: "養鶏場などの発生",

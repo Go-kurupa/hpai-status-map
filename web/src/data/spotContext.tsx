@@ -4,7 +4,7 @@
 import type { FarmPoint, MuniCode } from "@hpai/shared/types";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useOptionalRecordStore } from "./context";
-import { clearSpot, loadSpot, loadTown, parseSpot, saveSpot, saveTown } from "./spot";
+import { clearSpot, clearSpotOaza, loadSpot, loadSpotOaza, loadTown, parseSpot, saveSpot, saveSpotOaza, saveTown } from "./spot";
 
 export type SpotSource = "fixed" | "farm" | "device";
 
@@ -18,10 +18,12 @@ export interface SpotState {
   readOnly: boolean;
   /** 端末内の地点（農場や fixed があっても持っている値） */
   deviceSpot: FarmPoint | null;
+  /** 鶏舎の場所の地区名。地区の一覧で選んで決めたときだけ、同じマス目の場所に付ける。端末の中だけで送らない（2026-11-07 作者の決定） */
+  spotOaza: string | null;
   /** 端末に保存できなかった（そのページを開いているあいだだけ使える） */
   saveFailed: boolean;
-  /** 端末内の地点を決める。町も同じ市町村にする。fixed では何もしない */
-  setDeviceSpot(spot: FarmPoint): void;
+  /** 端末内の地点を決める。町も同じ市町村にする。地区名は一覧で選んで決めたときだけ渡す（渡さなければ消す）。fixed では何もしない */
+  setDeviceSpot(spot: FarmPoint, oazaName?: string | null): void;
   clearDeviceSpot(): void;
   /** 町を選ぶ。別の市町村を選んだら前のくわしい場所を消す（古い場所が新しい町を上書きしないため） */
   setTown(code: MuniCode | null): { clearedSpot: boolean };
@@ -45,6 +47,12 @@ export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | n
   const readsDevice = fixed === null;
   const [device, setDevice] = useState<FarmPoint | null>(() => loadSpot());
   const [storedTown, setStoredTown] = useState<MuniCode | null>(() => loadTown());
+  // 地区名は、端末内の地点のマス目と組で読む（マス目が違えば付けない）
+  const [oaza, setOaza] = useState<{ meshCode: string; name: string } | null>(() => {
+    const spot = loadSpot();
+    const name = spot ? loadSpotOaza(spot.meshCode) : null;
+    return spot && name ? { meshCode: spot.meshCode, name } : null;
+  });
   const [farm, setFarm] = useState<FarmPoint | null>(null);
   const [farmRequested, setFarmRequested] = useState(false);
   const [farmVersion, setFarmVersion] = useState(0);
@@ -79,10 +87,13 @@ export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | n
   }, [fixed, farmRequested, store, farmVersion]);
 
   const setDeviceSpot = useCallback(
-    (spot: FarmPoint) => {
+    (spot: FarmPoint, oazaName?: string | null) => {
       if (!readsDevice) return;
       const clean = parseSpot(spot);
       if (!clean) return;
+      const named = oazaName ? { meshCode: clean.meshCode, name: oazaName } : null;
+      const oazaOk = named ? saveSpotOaza(named) : clearSpotOaza();
+      setOaza(named && oazaOk ? named : null);
       const ok = saveSpot(clean) && saveTown(clean.muniCode);
       setSaveFailed(!ok);
       setDevice(clean);
@@ -93,6 +104,8 @@ export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | n
 
   const clearDeviceSpot = useCallback(() => {
     if (!readsDevice) return;
+    clearSpotOaza();
+    setOaza(null);
     setSaveFailed(!clearSpot());
     setDevice(null);
   }, [readsDevice]);
@@ -106,6 +119,8 @@ export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | n
       const current = deviceRef.current;
       let ok = saveTown(code);
       if (current && current.muniCode !== code) {
+        clearSpotOaza();
+        setOaza(null);
         ok = clearSpot() && ok;
         setDevice(null);
         clearedSpot = true;
@@ -124,6 +139,8 @@ export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | n
       spot,
       source,
       town: spot?.muniCode ?? storedTown,
+      // 再現（fixed）では付けない。会員の農場でも、同じマス目なら同じ端末で決めた地区名を付ける
+      spotOaza: !fixed && oaza && spot?.meshCode === oaza.meshCode ? oaza.name : null,
       readOnly: source === "fixed" || source === "farm",
       deviceSpot: device,
       saveFailed,
@@ -133,7 +150,7 @@ export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | n
       refreshFarm,
       requestFarm,
     };
-  }, [fixed, farm, device, storedTown, readsDevice, saveFailed, setDeviceSpot, clearDeviceSpot, setTown, refreshFarm, requestFarm]);
+  }, [fixed, farm, device, storedTown, oaza, readsDevice, saveFailed, setDeviceSpot, clearDeviceSpot, setTown, refreshFarm, requestFarm]);
 
   return <SpotContext.Provider value={value}>{children}</SpotContext.Provider>;
 }

@@ -196,6 +196,49 @@ test("公開: 町と地点を指定しても、全要求に緯度経度がなく
   expect(await page.evaluate(() => window.localStorage.getItem("hpai.spot.v1"))).toBe(saved);
 });
 
+test("公開: 地区の一覧で選んで決めた地区名は、この端末の中（hpai.spot-oaza.v1）だけに保存し、どの通信にも乗らない（2026-11-07 作者の決定）", async ({ page }) => {
+  const { wire, sockets } = recordWire(page);
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.route("https://cyberjapandata.gsi.go.jp/**", (route) =>
+    route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG_1PX }),
+  );
+  await installFixture(page, { now: "2026-11-10T09:00:00+09:00", cases: [TSUYAMA_CASE], wildBirds: [], watch: WATCH_OK });
+  await page.goto("/");
+  await page.waitForFunction(() => !!(window as unknown as W).__hpaiMap, undefined, { timeout: 20_000 });
+  await page.getByRole("button", { name: "地域を選択", exact: true }).click();
+  await page.getByLabel("都道府県").selectOption("33");
+  await page.getByLabel("市町村").selectOption("33203");
+  await page.getByRole("button", { name: "この地域にする" }).click();
+
+  // 十字を出し、地区の一覧の 1 つ目を選ぶ（地図がその地区の目安の点へ寄る）。寄り終わってから決める
+  await page.getByRole("button", { name: "地図で場所を合わせる" }).click();
+  const select = page.getByLabel("地区（大字）で地図を寄せる");
+  await expect(select.locator("option").nth(1)).toBeAttached({ timeout: 15_000 });
+  await select.selectOption({ index: 1 });
+  const oaza = (await select.locator("option:checked").textContent())!.trim();
+  expect(oaza.length).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => !(window as unknown as W).__hpaiMap!.isMoving()), { timeout: 15_000 }).toBe(true);
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "ここに決める" }).click();
+  await page.getByRole("button", { name: "決める", exact: true }).click();
+  await expect(page.getByText(new RegExp(`津山市 ${oaza}の約 1km のマス目`))).toBeVisible();
+
+  // 地区名は、マス目と組で hpai.spot-oaza.v1 にだけ。場所（hpai.spot.v1）のキーは 3 つのまま
+  const saved = JSON.parse((await page.evaluate(() => window.localStorage.getItem("hpai.spot-oaza.v1")))!) as { meshCode: string; name: string };
+  expect(saved.name).toBe(oaza);
+  const spot = JSON.parse((await page.evaluate(() => window.localStorage.getItem("hpai.spot.v1")))!) as Record<string, unknown>;
+  expect(Object.keys(spot).sort()).toEqual(["frequentMuniCodes", "meshCode", "muniCode"]);
+  expect(spot["meshCode"]).toBe(saved.meshCode);
+
+  // 再読み込みしても地区名が出て、決める前後と再読み込みの全要求と WebSocket の送信に、地区名がない（URL の符号化も解いて調べる）
+  await page.reload();
+  await expect(page.getByText(new RegExp(`津山市 ${oaza}の約 1km のマス目`))).toBeVisible();
+  expect(wire.length).toBeGreaterThan(5);
+  const sent = [...wire.flatMap((w) => [...decoded(w.url), ...decoded(w.body)]), ...sockets];
+  expect(sent.filter((t) => t.includes(oaza))).toEqual([]);
+  expect(leaks(wire)).toEqual([]);
+});
+
 // ── 会員の画面 ──
 
 type PickerHandle = {

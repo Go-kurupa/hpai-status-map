@@ -6,7 +6,7 @@ import { feature, mesh } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import { interiorPoint } from "../../geo/interiorPoint";
 import { distanceRingsAt, distanceRingsOf, pxPerKmAtZoom, ringLabel, ringTop, visibleRingKms } from "../../geo/distanceRings";
-import { FARM_MARK_PX, farmMeshFeature, farmSquareShown } from "../../geo/farmMark";
+import { FARM_MARK_PX, farmMarkFeatures, farmSquareShown, type FarmMarkSize } from "../../geo/farmMark";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { Marker, MlMap } from "../../geo/maplibre";
 import { applyDistanceRings, applyFarmMesh, applyLatest, applyOverlay, applyView, applyWildBirds, type LatestState, type OverlayState, type ViewTarget } from "./applyView";
@@ -27,6 +27,10 @@ export interface MapViewProps {
   farmMeshCode?: MeshCode | null;
   /** farmMeshCode に「鶏舎の場所」の印を描く（本人の端末の場所か会員の農場のとき。再現や見本の仮の地点には描かない） */
   markFarm?: boolean;
+  /** 印の大きさ（見た目だけ。既定は l）。中・小でも約 1km の範囲は点線の枠で残す（2026-11-07 作者の決定） */
+  farmMarkSize?: FarmMarkSize;
+  /** 鶏舎の場所の地区名（地区の一覧で選んで決めたときだけ）。札を「鶏舎の場所（地区名）」にする */
+  farmOaza?: string | null;
   /** 地点がないときの距離の輪の中心（町の中心、[経度, 緯度]）。地点があればそちらを使う（設計書 2026-11-06-ui-frame 決定 6） */
   ringCenter?: [number, number] | null;
   /** rings は距離の輪の全体が入る広さ（輪がなければ codes の町）。代わりの地図は codes の町の県を出す */
@@ -267,12 +271,14 @@ export default function MapView(props: MapViewProps) {
 
   // 鶏舎の場所（作者 11/7）。寄ったときは本当の約 1km のマス目を塗り、マス目が 14px より小さく見える広さでは一定の大きさの赤い四角に替える。
   // 「鶏舎の場所」の札はどちらでも添える。この端末の画面だけで描き、送らない
-  const farmMesh = useMemo(() => (props.markFarm ? farmMeshFeature(props.farmMeshCode) : null), [props.markFarm, props.farmMeshCode]);
+  const markSize = props.farmMarkSize ?? "l";
+  const farmShapes = useMemo(() => (props.markFarm ? farmMarkFeatures(props.farmMeshCode, markSize) : []), [props.markFarm, props.farmMeshCode, markSize]);
+  const farmLabel = props.farmOaza ? TEXT.farmMarkWith(props.farmOaza) : TEXT.farmMark;
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
-    applyFarmMesh(map as unknown as ViewTarget, farmMesh);
-    if (!farmMesh || !props.farmMeshCode) return;
+    applyFarmMesh(map as unknown as ViewTarget, farmShapes);
+    if (farmShapes.length === 0 || !props.farmMeshCode) return;
     const { lat, lng } = mesh3Center(props.farmMeshCode);
     const el = document.createElement("div");
     el.className = "farm-mark";
@@ -281,14 +287,15 @@ export default function MapView(props: MapViewProps) {
     square.className = "farm-mark-square";
     const label = document.createElement("span");
     label.className = "farm-mark-label";
-    label.textContent = TEXT.farmMark;
+    label.textContent = farmLabel;
     el.append(square, label);
     const marker = new Marker({ element: el, anchor: "left", offset: [-FARM_MARK_PX / 2, 0] }).setLngLat([lng, lat]).addTo(map);
     // 3 次メッシュの幅は経度 45 秒。札は、四角のときは四角の右に、マス目のときはマス目の右の外に置く（マス目に重ねない）
     const halfWidthKm = (((45 / 3600) * Math.PI) / 180) * 6371 * Math.cos((lat * Math.PI) / 180) / 2;
     const update = () => {
       const pxPerKm = pxPerKmAtZoom(map.getZoom(), lat);
-      const small = farmSquareShown(pxPerKm);
+      // 小は、寄っても一定の大きさの四角（約 1km の範囲は点線の枠で描く）
+      const small = markSize === "s" || farmSquareShown(pxPerKm);
       square.hidden = !small;
       // 札の左端は、印の左端から四角の幅（14px、隠しても場所を取る）と間（4px）の先。マス目のときはマス目の右端から 4px 空ける
       marker.setOffset(small ? [-FARM_MARK_PX / 2, 0] : [halfWidthKm * pxPerKm + 4 - (FARM_MARK_PX + 4), 0]);
@@ -299,9 +306,9 @@ export default function MapView(props: MapViewProps) {
       map.off("zoom", update);
       marker.remove();
     };
-    // farmMesh は farmMeshCode から作るので、コードの変化は farmMesh で拾える
+    // farmShapes は farmMeshCode と印の大きさから作るので、それらの変化は farmShapes で拾える
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, farmMesh]);
+  }, [ready, farmShapes, farmLabel]);
 
   // 3 つ以上の比べ（設計書 2026-11-06-data-explore E12、作者 11/7）: 2 つ以上のシーズンで発生した町に、発生したシーズンの数の札を町の中心に出す。
   // 全国の広さでは札が重なるので、COUNT_ZOOM より寄ったときだけ出す
@@ -445,6 +452,8 @@ export default function MapView(props: MapViewProps) {
             nearMuniCodes={props.nearMuniCodes}
             farmMeshCode={props.farmMeshCode}
             markFarm={props.markFarm}
+            farmMarkSize={props.farmMarkSize}
+            farmOaza={props.farmOaza}
             focus={props.focus}
             onSelectMuni={props.onSelectMuni}
             onInspectMuni={props.onInspectMuni}

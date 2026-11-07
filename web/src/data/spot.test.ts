@@ -2,6 +2,13 @@ import type { FarmPoint } from "@hpai/shared/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clearSpot,
+  clearSpotOaza,
+  loadMarkSize,
+  loadSpotOaza,
+  MARK_SIZE_ITEM,
+  OAZA_KEY,
+  saveMarkSize,
+  saveSpotOaza,
   loadSpot,
   loadTown,
   parseSpot,
@@ -136,5 +143,37 @@ describe("保存と読み出し", () => {
     expect(loadTown(st)).toBeNull();
     expect(saveTown("33", st)).toBe(false);
     expect(loadTown(memoryStorage({ [TOWN_KEY]: "津山市" }))).toBeNull();
+  });
+});
+
+describe("鶏舎の場所の地区名と印の大きさ（端末の中だけ。2026-11-07 作者の決定）", () => {
+  it("地区名はマス目と組で hpai.spot-oaza.v1 に保存し、マス目が同じときだけ返す", () => {
+    const st = memoryStorage();
+    expect(OAZA_KEY).toBe("hpai.spot-oaza.v1");
+    expect(saveSpotOaza({ meshCode: "53394611", name: "影石" }, st)).toBe(true);
+    expect(JSON.parse(st.map.get(OAZA_KEY)!)).toEqual({ meshCode: "53394611", name: "影石" });
+    expect(loadSpotOaza("53394611", st)).toBe("影石");
+    expect(loadSpotOaza("53394612", st)).toBeNull(); // 別のマス目の場所には付けない
+    expect(loadSpotOaza(null, st)).toBeNull();
+    expect(clearSpotOaza(st)).toBe(true);
+    expect(loadSpotOaza("53394611", st)).toBeNull();
+  });
+
+  it("形の違う値は読まない（名前は 1〜40 字、マス目は 8 桁）", () => {
+    for (const raw of ["x", JSON.stringify({ meshCode: "5339", name: "影石" }), JSON.stringify({ meshCode: "53394611", name: "" }), JSON.stringify({ meshCode: "53394611", name: "あ".repeat(41) })]) {
+      expect(loadSpotOaza("53394611", memoryStorage({ [OAZA_KEY]: raw }))).toBeNull();
+    }
+    expect(saveSpotOaza({ meshCode: "53394611", name: "" }, memoryStorage())).toBe(false);
+  });
+
+  it("印の大きさは l・m・s だけを hpai.farm-mark-size.v1 に保存し、ないときと形の違うときは l", () => {
+    const st = memoryStorage();
+    expect(MARK_SIZE_ITEM).toBe("hpai.farm-mark-size.v1");
+    expect(loadMarkSize(st)).toBe("l");
+    expect(saveMarkSize("s", st)).toBe(true);
+    expect(loadMarkSize(st)).toBe("s");
+    expect(loadMarkSize(memoryStorage({ [MARK_SIZE_ITEM]: "xl" }))).toBe("l");
+    expect(loadMarkSize(null)).toBe("l");
+    expect(saveMarkSize("m", null)).toBe(false);
   });
 });

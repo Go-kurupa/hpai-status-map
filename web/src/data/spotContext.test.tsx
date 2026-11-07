@@ -2,7 +2,7 @@ import type { FarmPoint } from "@hpai/shared/types";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecordStoreProvider } from "./context";
-import { SPOT_KEY, TOWN_KEY } from "./spot";
+import { OAZA_KEY, SPOT_KEY, TOWN_KEY } from "./spot";
 import { SpotProvider, useOptionalSpotState, useSpot, useSpotState, useTown } from "./spotContext";
 import type { RecordStore } from "./types";
 
@@ -304,5 +304,71 @@ describe("農場の読み直し（場所は 1 回選べば済む。作者 11/7�
     await flush();
     expect(screen.getByTestId("o").textContent).toBe("device:13101");
     expect(getFarm).not.toHaveBeenCalled();
+  });
+});
+
+describe("鶏舎の場所の地区名（端末の中だけ。2026-11-07 作者の決定）", () => {
+  function Oaza() {
+    const s = useSpotState();
+    return (
+      <>
+        <p data-testid="oaza">{s.spotOaza ?? "なし"}</p>
+        <button type="button" onClick={() => s.setDeviceSpot(DEVICE, "影石")}>地区つき</button>
+        <button type="button" onClick={() => s.setDeviceSpot({ ...DEVICE, meshCode: "53394612" })}>地区なし</button>
+        <button type="button" onClick={() => s.clearDeviceSpot()}>消す</button>
+        <button type="button" onClick={() => s.setTown("13102")}>別の町</button>
+      </>
+    );
+  }
+  const mount = () =>
+    render(
+      <SpotProvider>
+        <Oaza />
+      </SpotProvider>,
+    );
+
+  it("地区名を渡して決めると、マス目と組で端末に保存して出す。地区名なしで決め直すと消す", () => {
+    mount();
+    expect(screen.getByTestId("oaza").textContent).toBe("なし");
+    act(() => screen.getByRole("button", { name: "地区つき" }).click());
+    expect(screen.getByTestId("oaza").textContent).toBe("影石");
+    expect(JSON.parse(localStorage.getItem(OAZA_KEY)!)).toEqual({ meshCode: DEVICE.meshCode, name: "影石" });
+    act(() => screen.getByRole("button", { name: "地区なし" }).click());
+    expect(screen.getByTestId("oaza").textContent).toBe("なし");
+    expect(localStorage.getItem(OAZA_KEY)).toBeNull();
+  });
+
+  it("場所を消すと、別の町を選ぶと、地区名も消す", () => {
+    mount();
+    act(() => screen.getByRole("button", { name: "地区つき" }).click());
+    act(() => screen.getByRole("button", { name: "消す" }).click());
+    expect(screen.getByTestId("oaza").textContent).toBe("なし");
+    expect(localStorage.getItem(OAZA_KEY)).toBeNull();
+    act(() => screen.getByRole("button", { name: "地区つき" }).click());
+    act(() => screen.getByRole("button", { name: "別の町" }).click());
+    expect(screen.getByTestId("oaza").textContent).toBe("なし");
+    expect(localStorage.getItem(OAZA_KEY)).toBeNull();
+  });
+
+  it("開き直しても、保存した場所と同じマス目なら地区名を出す。マス目が違えば出さない", () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
+    localStorage.setItem(OAZA_KEY, JSON.stringify({ meshCode: DEVICE.meshCode, name: "影石" }));
+    const { unmount } = mount();
+    expect(screen.getByTestId("oaza").textContent).toBe("影石");
+    unmount();
+    localStorage.setItem(OAZA_KEY, JSON.stringify({ meshCode: "53394699", name: "影石" }));
+    mount();
+    expect(screen.getByTestId("oaza").textContent).toBe("なし");
+  });
+
+  it("再現（fixed）では地区名を出さない", () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
+    localStorage.setItem(OAZA_KEY, JSON.stringify({ meshCode: DEVICE.meshCode, name: "影石" }));
+    render(
+      <SpotProvider fixed={DEVICE}>
+        <Oaza />
+      </SpotProvider>,
+    );
+    expect(screen.getByTestId("oaza").textContent).toBe("なし");
   });
 });

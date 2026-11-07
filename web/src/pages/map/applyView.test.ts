@@ -2,7 +2,7 @@ import type { Case, HistoryCase, WildBird } from "@hpai/shared/types";
 import { describe, expect, it, vi } from "vitest";
 import historyJson from "../../../../data/history/cases.json";
 import { distanceRingsOf } from "../../geo/distanceRings";
-import { farmMeshFeature } from "../../geo/farmMark";
+import { farmMarkFeatures } from "../../geo/farmMark";
 import { applyDistanceRings, applyFarmMesh, applyLatest, applyOverlay, applyView, applyWildBirds, overlayStyle, wildBirdFeatures, type ViewTarget } from "./applyView";
 import { PAINT } from "./mapStyle";
 import { buildSeasonView } from "./seasonView";
@@ -185,10 +185,10 @@ describe("applyDistanceRings", () => {
 describe("applyFarmMesh（鶏舎の場所のマス目、作者 11/7）", () => {
   it("マス目があれば farm-mesh の source に渡し、なければ空にする（場所を消したら印も消える）", () => {
     const { map, setData } = fakeMap();
-    const f = farmMeshFeature("53394611")!;
-    applyFarmMesh(map, f);
-    expect(setData).toHaveBeenLastCalledWith({ type: "FeatureCollection", features: [f] });
-    applyFarmMesh(map, null);
+    const fs = farmMarkFeatures("53394611", "m");
+    applyFarmMesh(map, fs);
+    expect(setData).toHaveBeenLastCalledWith({ type: "FeatureCollection", features: fs });
+    applyFarmMesh(map, []);
     expect(setData).toHaveBeenLastCalledWith({ type: "FeatureCollection", features: [] });
   });
 });
@@ -230,4 +230,3 @@ describe("3 つ以上の比べ（設計書 2026-11-06-data-explore E12）", () =
     expect(((filters.get("cmp-latest") as unknown[])[2] as unknown[])[1]).toEqual([]);
   });
 });
-

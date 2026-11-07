@@ -10,7 +10,7 @@ import { feature, merge } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { distanceRingsAt, distanceRingsOf, ringLabel, ringTop, visibleRingKms, type DistanceRings } from "../../geo/distanceRings";
-import { FARM_MARK_PX, farmMeshFeature, farmSquareShown, type FarmMeshFeature } from "../../geo/farmMark";
+import { FARM_MARK_PX, farmMeshFeature, farmSquareShown, type FarmMarkSize, type FarmMeshFeature } from "../../geo/farmMark";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { overlayStyle, viewStyle, wildBirdFeatures, type WildBirdFeature } from "./applyView";
 import { CMP_TEXT } from "./compareTexts";
@@ -22,7 +22,7 @@ import { badgeStates, JAPAN_BOUNDS } from "./seasonView";
 import { TEXT } from "./texts";
 
 export interface SvgMapProps
-  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "markFarm" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni" | "overlay" | "latest" | "pickedMuni"> {
+  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "markFarm" | "farmMarkSize" | "farmOaza" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni" | "overlay" | "latest" | "pickedMuni"> {
   /** 場所が分からず置けなかった野鳥の数（注記は MapView が出す） */
   onUnplaced?: (n: number) => void;
   /** 形を読めなかった（知らせは MapView が出す） */
@@ -242,24 +242,42 @@ const CMP_COLOR = { "cmp-one": PAINT.cmpOne, "cmp-two": PAINT.cmpTwo, "cmp-both"
 
 /**
  * 鶏舎の場所（作者 11/7）。約 1km のマス目を薄い赤で塗って赤い線で囲む。マス目が 14px より小さく見える広さでは、
- * 一定の大きさの赤い四角に替える（MapView と同じ）。「鶏舎の場所」の札を添える。scale は viewBox の 1 単位が画面の何 px か
+ * 一定の大きさの赤い四角に替える（MapView と同じ）。「鶏舎の場所」の札を添える。scale は viewBox の 1 単位が画面の何 px か。
+ * 印の大きさ（2026-11-07 作者の決定）: 中は約 1km の点線の枠と縦横半分の塗り、小は点線の枠と一定の大きさの四角。札は地区名があれば添える
  */
-function FarmMark({ mesh, proj, scale }: { mesh: FarmMeshFeature; proj: Projection; scale: number }) {
+function FarmMark({ mesh, proj, scale, size, label }: { mesh: FarmMeshFeature; proj: Projection; scale: number; size: FarmMarkSize; label: string }) {
   const unitsPerKm = (proj.at(0, 0)[1] - proj.at(0, 1)[1]) / KM_PER_LAT_DEG;
   const ring = mesh.geometry.coordinates[0]!;
   const [x0, y0] = proj.at(ring[0]![0]!, ring[0]![1]!);
   const [x1, y1] = proj.at(ring[2]![0]!, ring[2]![1]!);
   const [cx, cy] = [(x0 + x1) / 2, (y0 + y1) / 2];
   const half = FARM_MARK_PX / scale / 2;
+  const far = farmSquareShown(unitsPerKm * scale);
+  const square = (
+    <rect className="svg-farm-square" x={cx - half} y={cy - half} width={half * 2} height={half * 2} fill={PAINT.current} fillOpacity={0.6} stroke={PAINT.current} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+  );
+  const frame = <path className="svg-farm-frame" d={pathOf(mesh.geometry, proj)} fill="none" stroke={PAINT.current} strokeWidth={2} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />;
+  let body;
+  if (size === "s") body = far ? square : <>{frame}{square}</>;
+  else if (far) body = square;
+  else if (size === "m") {
+    // 中心の縦横半分の四角（farmMarkFeatures の core と同じ形）
+    const [[w0, s0], , [e0, n0]] = ring as [number[], number[], number[]];
+    const [dx, dy] = [(e0! - w0!) / 4, (n0! - s0!) / 4];
+    const [w, sth, e, n] = [w0! + dx, s0! + dy, e0! - dx, n0! - dy];
+    const coreGeom: GeoJSON.Polygon = { type: "Polygon", coordinates: [[[w, sth], [e, sth], [e, n], [w, n], [w, sth]]] };
+    body = (
+      <>
+        {frame}
+        <path className="svg-farm-core" d={pathOf(coreGeom, proj)} fill={PAINT.current} fillOpacity={0.45} stroke={PAINT.current} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      </>
+    );
+  } else body = <path className="svg-farm-mesh" d={pathOf(mesh.geometry, proj)} fill={PAINT.current} fillOpacity={0.45} stroke={PAINT.current} strokeWidth={2} vectorEffect="non-scaling-stroke" />;
   return (
     <g className="svg-farm" aria-hidden="true">
-      {farmSquareShown(unitsPerKm * scale) ? (
-        <rect className="svg-farm-square" x={cx - half} y={cy - half} width={half * 2} height={half * 2} fill={PAINT.current} fillOpacity={0.6} stroke={PAINT.current} strokeWidth={2} vectorEffect="non-scaling-stroke" />
-      ) : (
-        <path className="svg-farm-mesh" d={pathOf(mesh.geometry, proj)} fill={PAINT.current} fillOpacity={0.45} stroke={PAINT.current} strokeWidth={2} vectorEffect="non-scaling-stroke" />
-      )}
+      {body}
       <text className="svg-farm-label" x={cx + half + 4 / scale} y={cy} fontSize={RING_LABEL_PX / scale}>
-        {TEXT.farmMark}
+        {label}
       </text>
     </g>
   );
@@ -323,6 +341,7 @@ export default function SvgMap(props: SvgMapProps) {
     [props.farmMeshCode, ringLng, ringLat],
   );
   const farmMesh = useMemo(() => (props.markFarm ? farmMeshFeature(props.farmMeshCode) : null), [props.markFarm, props.farmMeshCode]);
+  const farmLabel = props.farmOaza ? TEXT.farmMarkWith(props.farmOaza) : TEXT.farmMark;
 
   // 1) 全国の形、索引、県の代表の位置を読む（1 度だけ）
   useEffect(() => {
@@ -530,7 +549,7 @@ export default function SvgMap(props: SvgMapProps) {
               <path key={i} className="svg-mine-line" d={d} fill="none" {...LINE.mine} />
             ))}
             {rings ? <RingMarks rings={rings} proj={japan.proj} scale={scale} /> : null}
-            {farmMesh ? <FarmMark mesh={farmMesh} proj={japan.proj} scale={scale} /> : null}
+            {farmMesh ? <FarmMark mesh={farmMesh} proj={japan.proj} scale={scale} size={props.farmMarkSize ?? "l"} label={farmLabel} /> : null}
             {style.showWildBirds ? birds?.features.map((f) => <BirdMark key={f.properties.id} f={f} proj={japan.proj} scale={scale} />) : null}
             {japan.prefs
               .filter((s) => badges.has(s.code))
@@ -660,7 +679,7 @@ export default function SvgMap(props: SvgMapProps) {
                     <path key={s.code} className="svg-mine-line" d={s.d} fill="none" {...LINE.mine} />
                   ))}
                 {rings ? <RingMarks rings={rings} proj={pref.proj} scale={scale} /> : null}
-                {farmMesh ? <FarmMark mesh={farmMesh} proj={pref.proj} scale={scale} /> : null}
+                {farmMesh ? <FarmMark mesh={farmMesh} proj={pref.proj} scale={scale} size={props.farmMarkSize ?? "l"} label={farmLabel} /> : null}
                 {style.showWildBirds && store
                   ? birds?.features
                       .filter((f) => props.wildBirds.find((b) => b.id === f.properties.id)?.prefCode === prefCode)

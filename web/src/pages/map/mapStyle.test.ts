@@ -20,6 +20,23 @@ describe("鶏舎の場所のマス目（作者 11/7）", () => {
   });
 });
 
+describe("鶏舎の印の大きさ（見た目だけ。2026-11-07 作者の決定）", () => {
+  const by = Object.fromEntries(layers.map((l) => [l.id, l])) as Record<string, { filter?: unknown; paint?: Record<string, unknown>; source?: string }>;
+  const hits = (id: string, kind: string) => featureFilter(by[id]!.filter as never, "layers[0].filter").filter({ zoom: 12 } as never, { type: 3, properties: { kind } } as never);
+  it("塗りと実線は、大のマス目（full）と中の中心（core）だけ。点線の枠（farm-mesh-frame）は frame だけ", () => {
+    for (const id of ["farm-mesh-fill", "farm-mesh-line"]) {
+      expect(hits(id, "full"), id).toBe(true);
+      expect(hits(id, "core"), id).toBe(true);
+      expect(hits(id, "frame"), id).toBe(false);
+    }
+    expect(by["farm-mesh-frame"]!.source).toBe("farm-mesh");
+    expect(hits("farm-mesh-frame", "frame")).toBe(true);
+    expect(hits("farm-mesh-frame", "full")).toBe(false);
+    expect(by["farm-mesh-frame"]!.paint!["line-color"]).toBe(PAINT.current);
+    expect(by["farm-mesh-frame"]!.paint!["line-dasharray"]).toBeTruthy();
+  });
+});
+
 describe("地図の層", () => {
   it("下から gsi-pale、muni-fill、pref-unwatched、case-suspected、case-confirmed、muni-line、near-line、pref-line、my-town、距離の輪、野鳥 2 層", () => {
     const base = baseStyle().layers.map((l) => l.id);
@@ -46,6 +63,7 @@ describe("地図の層", () => {
       "distance-rings",
       "farm-mesh-fill",
       "farm-mesh-line",
+      "farm-mesh-frame",
       "wild-bird-screening",
       "wild-bird-confirmed",
     ]);

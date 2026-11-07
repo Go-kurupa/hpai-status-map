@@ -1,4 +1,5 @@
 import type { GeoStore } from "@hpai/shared/geo";
+import { mesh3Center } from "@hpai/shared/mesh";
 import { PREFS } from "@hpai/shared/pref";
 import type { FarmPoint, MuniCode } from "@hpai/shared/types";
 import { useEffect, useState } from "react";
@@ -15,13 +16,16 @@ export interface SpotPickerProps {
   geo: Pick<GeoStore, "index"> | null;
   /** 端末内の地点（行き来する町を引き継ぎ、消せるようにする） */
   deviceSpot: FarmPoint | null;
+  /** 端末内の地点の地区名（地区の一覧で選んで決めたときだけ。端末の中だけ） */
+  deviceOaza?: string | null;
   /** 会員の農場や再現の場所を使っている。ここでは何も出さない */
   readOnly: boolean;
   saveFailed: boolean;
   /** 十字を合わせている（地図の上に十字を出すのは親） */
   aiming: boolean;
   onAimingChange(on: boolean): void;
-  onSet(spot: FarmPoint): void;
+  /** 地区名は、地区の一覧で選び、その目安の点の近く（約 3km 以内）で決めたときだけ。ほかは null */
+  onSet(spot: FarmPoint, oazaName: string | null): void;
   onClear(): void;
   /** 地図が描けない端末（WebGL2 がない）。十字の代わりに、町の中心あたりのマス目を使うボタンを出す */
   mapless?: boolean;
@@ -37,12 +41,23 @@ export interface SpotPickerProps {
 
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 
+/** 選んだ地区の目安の点から、決めたマス目の中心までがこれより遠ければ、地区名を付けない（違う地区名を出さないため。2026-11-07 作者の了承） */
+const OAZA_NEAR_KM = 3;
+
+function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const rad = Math.PI / 180;
+  const x = (b.lng - a.lng) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
+  const y = (b.lat - a.lat) * rad;
+  return Math.hypot(x, y) * 6371;
+}
+
 /**
  * 鶏舎の場所を約 1km のマス目まで決める（任意）。中央の十字の位置を町にして、町の名前で確かめてから保存する。
  * 選択地域の行のすぐ下に置く（2026-11-07 作者の決定 A）。緯度経度はここでも持たない（pickFromMap が捨てる）。
  */
 export function SpotPicker(p: SpotPickerProps) {
   const [candidate, setCandidateState] = useState<FarmPoint | null>(null);
+  const [candidateOaza, setCandidateOaza] = useState<string | null>(null);
   // 候補の有無は、候補を入れるのと同じ更新の中で親に知らせる（描いた後に知らせると、その間に親の置き場の固定が外れる）
   const setCandidate = (c: FarmPoint | null) => {
     setCandidateState(c);
@@ -65,12 +80,14 @@ export function SpotPicker(p: SpotPickerProps) {
   function start() {
     setMessage(null);
     setCandidate(null);
+    setCandidateOaza(null);
     setOazaPick("");
     p.onAimingChange(true);
   }
   function stop() {
     setMessage(null);
     setCandidate(null);
+    setCandidateOaza(null);
     setOazaPick("");
     p.onAimingChange(false);
   }
@@ -87,6 +104,7 @@ export function SpotPicker(p: SpotPickerProps) {
     const e = p.town ? p.geo?.index[p.town] : undefined;
     if (!e) return;
     setMessage(null);
+    setCandidateOaza(null);
     setCandidate(spotFromPick(e.center[1], e.center[0], e.code, p.deviceSpot?.frequentMuniCodes ?? []));
   }
   const canUseCenter = !!(p.town && p.geo?.index[p.town]);
@@ -102,6 +120,10 @@ export function SpotPicker(p: SpotPickerProps) {
       return;
     }
     setMessage(null);
+    // 地区の一覧で選んだ地区があり、その目安の点の近くで決めたときだけ、地区名を添える
+    const row = oazaPick === "" ? undefined : oazaRows[Number(oazaPick)];
+    const near = row && r.spot.muniCode === p.town && distanceKm({ lat: row[1], lng: row[2] }, mesh3Center(r.spot.meshCode)) <= OAZA_NEAR_KM;
+    setCandidateOaza(near ? row[0] : null);
     setCandidate(r.spot);
     p.onAimingChange(false);
   }
@@ -113,7 +135,8 @@ export function SpotPicker(p: SpotPickerProps) {
       {!p.aiming && !candidate ? (
         p.deviceSpot ? (
           <p>
-            {nameOf(p.deviceSpot.muniCode)}の約 1km のマス目。{TEXT.spotSavedNoSend}
+            {nameOf(p.deviceSpot.muniCode)}
+            {p.deviceOaza ? ` ${p.deviceOaza}` : ""}の約 1km のマス目。{TEXT.spotSavedNoSend}
           </p>
         ) : (
           <p className="map-note">{TEXT.spotNone}</p>
@@ -133,13 +156,13 @@ export function SpotPicker(p: SpotPickerProps) {
       {candidate ? (
         <div>
           <p>
-            <strong>{nameOf(candidate.muniCode)}</strong>の上です。{TEXT.spotConfirm}
+            <strong>{candidateOaza ? `${nameOf(candidate.muniCode)} ${candidateOaza}` : nameOf(candidate.muniCode)}</strong>の上です。{TEXT.spotConfirm}
           </p>
           <div className="town-actions">
             <Button
               variant="primary"
               onClick={() => {
-                p.onSet(candidate);
+                p.onSet(candidate, candidateOaza);
                 stop();
               }}
             >

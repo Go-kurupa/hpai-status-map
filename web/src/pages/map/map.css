@@ -1737,3 +1737,36 @@
   color: var(--navy);
   font-variant-numeric: tabular-nums;
 }
+
+/* 鶏舎の印の大きさの切り替え（見た目だけ。2026-11-07 作者の決定）。地図の右上に置く（右下の全国のボタンと下の帯に重ねない） */
+.mark-size {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.mark-size button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.mark-size button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}

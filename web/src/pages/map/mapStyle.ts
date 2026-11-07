@@ -65,6 +65,7 @@ export const LAYER_IDS = [
   "distance-rings",
   "farm-mesh-fill",
   "farm-mesh-line",
+  "farm-mesh-frame",
   "wild-bird-screening",
   "wild-bird-confirmed",
 ] as const;
@@ -193,17 +194,27 @@ export function overlayLayers(): LayerSpecification[] {
       paint: { "line-color": PAINT.ink, "line-width": 1.5, "line-dasharray": [2, 2] },
     },
     // 鶏舎の場所の約 1km のマス目（作者 11/7）。この端末の画面だけで描き、送らない。全国の広さでは MapView が一定の大きさの四角に替える
+    // 印の大きさ（見た目だけ。2026-11-07 作者の決定）: 塗りと実線は大のマス目（full）と中の中心（core）。中・小の約 1km は点線の枠（frame）
     {
       id: "farm-mesh-fill",
       type: "fill",
       source: "farm-mesh",
+      filter: ["in", ["get", "kind"], ["literal", ["full", "core"]]],
       paint: { "fill-color": PAINT.current, "fill-opacity": 0.45 },
     },
     {
       id: "farm-mesh-line",
       type: "line",
       source: "farm-mesh",
+      filter: ["in", ["get", "kind"], ["literal", ["full", "core"]]],
       paint: { "line-color": PAINT.current, "line-width": 2 },
+    },
+    {
+      id: "farm-mesh-frame",
+      type: "line",
+      source: "farm-mesh",
+      filter: ["==", ["get", "kind"], "frame"],
+      paint: { "line-color": PAINT.current, "line-width": 2, "line-dasharray": [2, 1.5] },
     },
     {
       id: "wild-bird-screening",

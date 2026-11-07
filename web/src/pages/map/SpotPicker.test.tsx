@@ -82,7 +82,7 @@ describe("SpotPicker", () => {
     expect(screen.getByText(/東京都 千代田区/)).toBeTruthy();
     expect(onSet).not.toHaveBeenCalled(); // 確かめるまで保存しない
     fireEvent.click(screen.getByRole("button", { name: "決める" }));
-    expect(onSet).toHaveBeenCalledWith({ meshCode: "53394611", muniCode: "13101", frequentMuniCodes: [] });
+    expect(onSet).toHaveBeenCalledWith({ meshCode: "53394611", muniCode: "13101", frequentMuniCodes: [] }, null);
     expect(JSON.stringify(onSet.mock.calls)).not.toMatch(/lat|lng|35\.68|139\.76/);
   });
 
@@ -170,7 +170,7 @@ describe("SpotPicker（WebGL2 が使えない端末、mapless）", () => {
     expect(onSet).not.toHaveBeenCalled(); // 確かめるまで保存しない
     expect(screen.getByText(/西粟倉村/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: TEXT.spotDecide }));
-    expect(onSet).toHaveBeenCalledWith({ meshCode: latLngToMesh3(35.17, 134.33), muniCode: "33643", frequentMuniCodes: [] });
+    expect(onSet).toHaveBeenCalledWith({ meshCode: latLngToMesh3(35.17, 134.33), muniCode: "33643", frequentMuniCodes: [] }, null);
     expect(onAimingChange).not.toHaveBeenCalledWith(true); // 十字は出さない
     expect(findWordingViolations(TEXT.spotNoMap + TEXT.meshUseCenter)).toEqual([]);
   });
@@ -289,5 +289,56 @@ describe("農場の設定への案内（場所は 1 回選べば済む。作者 
 
   it("案内の文は禁止の言い回しを含まない", () => {
     expect(findWordingViolations(`${TEXT.spotRegisterNote}${TEXT.spotRegister}`)).toEqual([]);
+  });
+});
+
+// 地区名（2026-11-07 作者の決定）: 地区の一覧で選んで決めたときだけ付ける。選んだ地区の目安の点から約 3km より遠くで決めたら付けない
+describe("SpotPicker: 地区名を添える", () => {
+  const geo = { index: { "33643": entry("33643", "西粟倉村", "33") } } as unknown as Pick<GeoStore, "index">;
+  const PREF33 = { "33643": [["大字筏津", 35.1511, 134.3236], ["大字影石", 35.187, 134.3223]] };
+  afterEach(() => {
+    clearOazaCache();
+    vi.unstubAllGlobals();
+  });
+  const mapAt = (lat: number, lng: number): PickTarget => ({
+    getZoom: () => 12,
+    getCenter: () => ({ lat, lng }),
+    project: () => ({ x: 1, y: 1 }),
+    queryRenderedFeatures: () => [{ properties: { c: "33643" } }],
+  });
+  async function pickOazaAndDecide(map: PickTarget, oaza: string | null) {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(PREF33), { status: 200 })));
+    const onSet = vi.fn();
+    render(<Harness geo={geo} town="33643" onAimAt={vi.fn()} map={map} onSet={onSet} />);
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotStart }));
+    if (oaza !== null) fireEvent.change(await screen.findByLabelText(TEXT.oazaLabel), { target: { value: oaza } });
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotSet }));
+    return onSet;
+  }
+
+  it("地区を選び、その目安の点の近くで決めると、候補に地区名を添え、決めると地区名を渡す", async () => {
+    const onSet = await pickOazaAndDecide(mapAt(35.188, 134.323), "1");
+    expect(screen.getByText("岡山県 西粟倉村 大字影石")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotDecide }));
+    expect(onSet).toHaveBeenCalledWith(expect.objectContaining({ muniCode: "33643", meshCode: latLngToMesh3(35.188, 134.323) }), "大字影石");
+  });
+
+  it("選んだ地区の目安の点から約 3km より遠くで決めたら、地区名を付けない", async () => {
+    const onSet = await pickOazaAndDecide(mapAt(35.187 + 0.04, 134.3223), "1"); // 北へ約 4.4km
+    expect(screen.getByText("岡山県 西粟倉村")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotDecide }));
+    expect(onSet).toHaveBeenCalledWith(expect.anything(), null);
+  });
+
+  it("地区を選ばずに十字だけで決めたら、地区名を付けない", async () => {
+    const onSet = await pickOazaAndDecide(mapAt(35.188, 134.323), null);
+    fireEvent.click(screen.getByRole("button", { name: TEXT.spotDecide }));
+    expect(onSet).toHaveBeenCalledWith(expect.anything(), null);
+  });
+
+  it("保存した場所に地区名があれば、町の名前の後ろに添える", () => {
+    const device: FarmPoint = { meshCode: latLngToMesh3(35.188, 134.323), muniCode: "33643", frequentMuniCodes: [] };
+    render(<Harness geo={geo} deviceSpot={device} deviceOaza="大字影石" />);
+    expect(screen.getByText("岡山県 西粟倉村 大字影石の約 1km のマス目。この端末に保存しています（送信はしません）")).toBeTruthy();
   });
 });

@@ -42,7 +42,10 @@ const REVIEW_R1_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
   { heading: "消し方", phrase: "同じ農場の会員なら、だれでも農場全体を消せます" },
   { heading: "消し方", phrase: "ログイン用のアカウント（メールアドレス）はこの操作では消えません" },
   { heading: "消し方", phrase: "送ったメールの控えは Gmail に残ります" },
-  { heading: "消し方", phrase: "端末の中の保存は、その端末のブラウザの設定で消してください" },];
+  { heading: "消し方", phrase: "端末の中の保存は、その端末のブラウザの設定で消してください" },
+  // 鶏舎の場所の地区名と印の大きさ（2026-11-07 作者の決定）。端末の中だけ
+  { heading: "保存場所", phrase: "その地区名を、約 1km のマス目と組にして、この端末のブラウザの中（hpai.spot-oaza.v1）に保存し、サーバーには送りません" },
+  { heading: "保存場所", phrase: "地図の印の大きさの選び方（hpai.farm-mark-size.v1）も、この端末の中だけに保存します" },];
 
 // N-6（X-23 のセキュリティ確認）: 運営者に見えるものと、メールの控えに残るものを、ありのままに書く
 const N6_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [

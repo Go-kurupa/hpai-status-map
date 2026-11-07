@@ -115,3 +115,68 @@ export function saveTown(town: MuniCode | null, storage: StorageLike | null = de
     return false;
   }
 }
+
+// 鶏舎の場所の地区名（2026-11-07 作者の決定）。地区の一覧で選んで決めたときだけ、マス目と組で端末に保存する。送らない。
+// マス目が今の場所と同じときだけ使う（場所を変えたら付けない）
+export const OAZA_KEY = "hpai.spot-oaza.v1";
+const OAZA_NAME_MAX = 40;
+
+export function saveSpotOaza(v: { meshCode: string; name: string }, storage: StorageLike | null = defaultStorage()): boolean {
+  if (!storage || !validMesh(v.meshCode) || v.name.length === 0 || v.name.length > OAZA_NAME_MAX) return false;
+  try {
+    storage.setItem(OAZA_KEY, JSON.stringify({ meshCode: v.meshCode, name: v.name }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** meshCode の場所に付けた地区名。ない、形が違う、別のマス目なら null */
+export function loadSpotOaza(meshCode: string | null, storage: StorageLike | null = defaultStorage()): string | null {
+  if (!storage || !meshCode) return null;
+  try {
+    const raw = storage.getItem(OAZA_KEY);
+    if (raw === null) return null;
+    const v = JSON.parse(raw) as unknown;
+    if (typeof v !== "object" || v === null) return null;
+    const { meshCode: m, name } = v as Record<string, unknown>;
+    if (m !== meshCode || !validMesh(m)) return null;
+    return typeof name === "string" && name.length > 0 && name.length <= OAZA_NAME_MAX ? name : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearSpotOaza(storage: StorageLike | null = defaultStorage()): boolean {
+  if (!storage) return false;
+  try {
+    storage.removeItem(OAZA_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 地図の鶏舎の印の大きさ（見た目だけ。保存と距離は約 1km のマス目のまま。2026-11-07 作者の決定）
+export type MarkSize = "l" | "m" | "s";
+export const MARK_SIZE_ITEM = "hpai.farm-mark-size.v1";
+
+export function loadMarkSize(storage: StorageLike | null = defaultStorage()): MarkSize {
+  if (!storage) return "l";
+  try {
+    const v = storage.getItem(MARK_SIZE_ITEM);
+    return v === "m" || v === "s" ? v : "l";
+  } catch {
+    return "l";
+  }
+}
+
+export function saveMarkSize(size: MarkSize, storage: StorageLike | null = defaultStorage()): boolean {
+  if (!storage) return false;
+  try {
+    storage.setItem(MARK_SIZE_ITEM, size);
+    return true;
+  } catch {
+    return false;
+  }
+}

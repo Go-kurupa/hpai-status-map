@@ -8,6 +8,7 @@ import { Link, useSearchParams } from "react-router";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { useDataSource } from "../../data/context";
 import { useFormatAsOf } from "../../ui/AsOf";
+import { loadMarkSize, saveMarkSize, type MarkSize } from "../../data/spot";
 import { useSpotState } from "../../data/spotContext";
 import type { MapViewProps } from "./MapView";
 import { CaseListSheet } from "./CaseListSheet";
@@ -204,6 +205,12 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   // 選ぶ画面を開いた時の、町の欄の置き場（地図の後ろか）。開いている間に置き場が変わると選ぶ画面が作り直され、入力が消えるので固定する
   const [pickSlot, setPickSlot] = useState<boolean | null>(null);
   const [aiming, setAiming] = useState(false);
+  // 鶏舎の印の大きさ（見た目だけ。保存は約 1km のマス目のまま。2026-11-07 作者の決定）。端末に覚える
+  const [markSize, setMarkSize] = useState<MarkSize>(() => loadMarkSize());
+  const pickMarkSize = (size: MarkSize) => {
+    setMarkSize(size);
+    saveMarkSize(size);
+  };
   // 鶏舎の場所の候補を確かめている間（SpotPicker が知らせる）。この間と十字を合わせている間は、町の欄の置き場を地図の後ろに固定する
   const [spotCandidate, setSpotCandidate] = useState(false);
   // 合わせ始めた時の町の欄の置き場（地図の後ろなら true）。合わせている間と候補を確かめている間はこれに固定する。
@@ -449,12 +456,13 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       getMap={() => mapRef.current}
       geo={geo}
       deviceSpot={spotState.deviceSpot}
+      deviceOaza={spotState.spotOaza}
       readOnly={spotState.readOnly}
       saveFailed={spotState.saveFailed}
       aiming={aiming}
       onAimingChange={aim}
-      onSet={(spot) => {
-        spotState.setDeviceSpot(spot);
+      onSet={(spot, oaza) => {
+        spotState.setDeviceSpot(spot, oaza);
         setNotice(null);
       }}
       onClear={spotState.clearDeviceSpot}
@@ -797,6 +805,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
               nearMuniCodes={townLine.nearMuniCodes}
               farmMeshCode={farmMeshCode}
               markFarm={ownFarm}
+              farmMarkSize={markSize}
+              farmOaza={spotState.spotOaza}
               ringCenter={ringCenter}
               onInspectMuni={section === "now" && !(picking && canEdit) && !aiming ? setInspected : undefined}
               focus={focus}
@@ -813,6 +823,19 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           </Suspense>
         </MapChunkBoundary>
         {aiming && canEdit && !mapless ? <div className="crosshair" aria-hidden="true" /> : null}
+        {/* 鶏舎の印の大きさ（見た目だけ）。地図に印があるときだけ、地図の右上に置く */}
+        {ownFarm && !mapless ? (
+          <div className="mark-size" role="group" aria-label={TEXT.markSizeLabel}>
+            <span className="mark-size-label" aria-hidden="true">
+              {TEXT.markSizeLabel}
+            </span>
+            {(["l", "m", "s"] as const).map((k) => (
+              <button key={k} type="button" aria-pressed={markSize === k} onClick={() => pickMarkSize(k)}>
+                {TEXT.markSizeNames[k]}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {/* 町を選ぶ前は切り替えがないので、拡大の後に全国へ戻る口を地図の隅に置く */}
         {narrow && town === null && !mapless ? (
           <button type="button" className="map-home-btn" onClick={() => moveTo("japan", [])}>
