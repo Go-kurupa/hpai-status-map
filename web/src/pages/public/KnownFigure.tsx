@@ -2,28 +2,35 @@ import type { KnownFigure } from "./knownFindings";
 
 /**
  * 知見の本文の数を図にする（設計書 2026-11-06-public-known-redesign §6）。
- * share: whole 個のます目のうち part 個を塗る（同じ分母の記録）。groups: 比べた農場の数を棒の長さで並べる。
+ * share: whole 事例のうち part 事例の内訳を 1 本の帯で示す（同じ分母の記録）。groups: 比べた農場の数を棒の長さで並べる。
  * 数字は図の横に文字でも書く。色だけで意味を持たせない。
  */
 export function KnownFigureView({ figure }: { figure: KnownFigure }) {
   if (figure.kind === "share") {
-    const { part, whole, caption } = figure;
+    // 1 本の帯で内訳を示す（2026-11-07 作者の決定 案 A）。見出しで分母を先に言い、数は帯の下に文字でも書く。
+    // 2 / 24 のように細い区切りもあるので、数は帯の中に入れない。説明は数を先に置く（スマホで「8 / 事例」と折らない）
+    const { part, whole, title, partLabel, restLabel } = figure;
     return (
       <figure className="known-figure" data-figure="share">
-        <div className="known-share" role="img" aria-label={`${whole} 事例のうち ${part} 事例`}>
-          {Array.from({ length: whole }, (_, i) => (
-            <span key={i} className={i < part ? "on" : "off"} />
-          ))}
+        <figcaption className="known-share-title">{title}</figcaption>
+        <div className="known-share" role="img" aria-label={`${whole} 事例のうち、${partLabel} ${part} 事例、${restLabel} ${whole - part} 事例`}>
+          <span className="on" style={{ flexGrow: part }} />
+          <span className="off" style={{ flexGrow: whole - part }} />
         </div>
-        <p className="known-share-legend">
-          1 マスが 1 事例です（全 {whole} マス）。塗ったマスが当てはまる {part} 事例、白いマスがそれ以外です。
-        </p>
-        <figcaption>
-          <strong className="known-share-count">
-            {part} / {whole} 事例
-          </strong>{" "}
-          {caption}
-        </figcaption>
+        <ul className="known-share-legend" aria-hidden="true">
+          <li>
+            <span className="known-share-swatch on" />
+            <span>
+              <strong>{part} 事例</strong> {partLabel}
+            </span>
+          </li>
+          <li>
+            <span className="known-share-swatch off" />
+            <span>
+              <strong>{whole - part} 事例</strong> {restLabel}
+            </span>
+          </li>
+        </ul>
       </figure>
     );
   }

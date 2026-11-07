@@ -187,6 +187,8 @@
   align-items: center;
   gap: 6px;
   font-weight: 700;
+  /* 「強／い」「中く／らい」と折らない（作者 11/7） */
+  white-space: nowrap;
 }
 .known-certainty-mark {
   display: inline-flex;
@@ -293,24 +295,48 @@
 .known-figure {
   margin: 0 0 12px;
 }
+/* 内訳の帯（2026-11-07 作者の決定 案 A）。長さは数に比例する。数は帯の下に文字で書く */
 .known-share {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 3px;
-  max-width: 20rem;
-  margin: 0 0 6px;
-}
-.known-share span {
-  aspect-ratio: 1;
+  display: flex;
+  height: 28px;
+  max-width: 40rem;
   border: 1px solid var(--navy);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 0 6px;
 }
 .known-share .on {
   background: var(--navy);
+  border-right: 1px solid var(--navy);
 }
-.known-share-legend {
+.known-share .off {
+  background: var(--surface);
+}
+/* .guidance-notes ul の字下げを受けないよう、図の中の説明は親を付けて指す */
+.known-figure .known-share-legend {
+  list-style: none;
   margin: 0 0 4px;
-  font-size: 0.9rem;
-  color: var(--sub);
+  padding: 0;
+}
+.known-figure .known-share-legend li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+.known-share-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 1px solid var(--navy);
+}
+.known-share-swatch.on {
+  background: var(--navy);
+}
+.known-share-title {
+  font-weight: 700;
 }
 .known-figure figcaption {
   margin: 0 0 6px;

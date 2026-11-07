@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link, useLocation } from "react-router";
 import { KnownFigureView } from "./KnownFigure";
 import { Illust, ILLUST_NAMES, type IllustName } from "./Illust";
-import { AUDIENCE_LABEL, KNOWN_FINDINGS, PAST_BASIS, type Audience, type KnownFinding } from "./knownFindings";
+import { AUDIENCE_LABEL, KNOWN_FINDINGS, PAST_BASIS, STRENGTH_LABEL, type Audience, type KnownFinding } from "./knownFindings";
 import "./public.css";
 
 /** "2026-11-04" → "2026 年 11 月 4 日"（PosterPage、CaseListSheet と同じ書き方） */
@@ -14,7 +14,7 @@ function formatVerifiedOn(iso: string): string {
 /** 農場に求められている決まり（飼養衛生管理基準）の原本 */
 const LAW_URL = "https://laws.e-gov.go.jp/law/326M50010000035";
 
-/** 確からしさを形でも示す（色だけに頼らない）。読み上げは文字の「高い」などで足りるので、形は隠す */
+/** 根拠の強さを形でも示す（色だけに頼らない）。読み上げは文字の「強い」などで足りるので、形は隠す */
 const CERTAINTY_STEPS: Record<KnownFinding["certainty"], number> = { 高い: 3, 中くらい: 2, 低い: 1 };
 
 function CertaintyMark({ certainty }: { certainty: KnownFinding["certainty"] }) {
@@ -28,10 +28,8 @@ function CertaintyMark({ certainty }: { certainty: KnownFinding["certainty"] }) 
   );
 }
 
-/** 3 つの四角が何かを文字でも書く（作者の指摘: 分母が分からない） */
-function CertaintyScale() {
-  return <span className="known-certainty-scale">（高い・中くらい・低いの 3 段階）</span>;
-}
+/** 3 つの四角が何かを文字でも書く（作者の指摘: 分母が分からない）。一覧では欄の見出しに 1 回だけ書く（2026-11-07 作者の決定） */
+const STRENGTH_SCALE = "強い・中くらい・弱いの 3 段階";
 
 const AUDIENCES: readonly Audience[] = ["farm", "small", "neighbor"];
 
@@ -67,11 +65,11 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
       {shown.length > 0 ? (
         <nav aria-label="もくじ" className="guidance-toc known-toc">
           <table className="known-overview">
-            <caption>研究や国の報告書で分かっていること（{shown.length} 件）と、その確からしさ</caption>
+            <caption>研究や国の報告書で分かっていること（{shown.length} 件）と、その根拠の強さ</caption>
             <thead>
               <tr>
                 <th scope="col">分かっていること</th>
-                <th scope="col">確からしさ</th>
+                <th scope="col">根拠の強さ（{STRENGTH_SCALE}）</th>
               </tr>
             </thead>
             <tbody>
@@ -83,10 +81,9 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
                   <td>
                     <span className="known-certainty">
                       <CertaintyMark certainty={f.certainty} />
-                      {f.certainty}
-                      <CertaintyScale />
+                      {STRENGTH_LABEL[f.certainty]}
                     </span>
-                    <span className="known-scope">評価の対象: {f.scope}</span>
+                    <span className="known-scope">何についての強さか: {f.scope}</span>
                   </td>
                 </tr>
               ))}
@@ -134,7 +131,7 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
         </section>
       ) : null}
       <p>
-        このページは、鳥インフルエンザについて、研究や国の報告書で分かっていることを、研究した地域と時期、確からしさ、言えないこととあわせて示したものです。
+        このページは、鳥インフルエンザについて、研究や国の報告書で分かっていることを、研究した地域と時期、根拠の強さ、言えないこととあわせて示したものです。
       </p>
       <p>
         質問に答える機能はありません。文章は固定で、出典と、原本を確かめた日を、それぞれ付けています。このページの内容は、これからの発生を予測するものではありません。
@@ -181,10 +178,10 @@ function FindingItem({ f }: { f: KnownFinding }) {
       <p className="known-badge">
         <span className="known-certainty">
           <CertaintyMark certainty={f.certainty} />
-          確からしさ: {f.certainty}
-          <CertaintyScale />
+          根拠の強さ: {STRENGTH_LABEL[f.certainty]}
         </span>
-        <span className="known-scope">評価の対象: {f.scope}</span>
+        <span className="known-certainty-scale">（{STRENGTH_SCALE}）</span>
+        <span className="known-scope">何についての強さか: {f.scope}</span>
       </p>
       {f.figure ? <KnownFigureView figure={f.figure} /> : null}
       {f.text.split("\n").map((para) => (
@@ -198,7 +195,7 @@ function FindingItem({ f }: { f: KnownFinding }) {
         <dt>研究の時期</dt>
         <dd>{f.period}</dd>
       </dl>
-      {f.certaintyNote ? <p className="known-meta">確からしさの補足: {f.certaintyNote}</p> : null}
+      {f.certaintyNote ? <p className="known-meta">根拠の強さの補足: {f.certaintyNote}</p> : null}
       <div className="known-limit">
         <h3>言えないこと、限界</h3>
         <ul>

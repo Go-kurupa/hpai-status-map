@@ -51,9 +51,18 @@ export const AUDIENCE_LABEL: Record<Audience, string> = {
   neighbor: "近所にお住まいの方",
 };
 
+/**
+ * 画面での「確からしさ」の言い方。画面では「根拠の強さ（強い・中くらい・弱い）」と言う（2026-11-07 作者の決定 案 A）。
+ * 値（certainty）は今のまま持ち、表示だけを替える
+ */
+export const STRENGTH_LABEL: Record<KnownFinding["certainty"], string> = { 高い: "強い", 中くらい: "中くらい", 低い: "弱い" };
+
 export type KnownFigure =
-  /** whole 事例のうち part 事例。本文に同じ数が書いてあること（試験で確かめる） */
-  | { kind: "share"; part: number; whole: number; caption: string }
+  /**
+   * whole 事例のうち part 事例の内訳を 1 本の帯で示す（2026-11-07 作者の決定 案 A。24 マスは何の 24 か分かりにくかった）。
+   * title は分母を先に言う見出し。本文に同じ数が書いてあること（試験で確かめる）
+   */
+  | { kind: "share"; part: number; whole: number; title: string; partLabel: string; restLabel: string }
   /** 比べた農場の数。棒の長さは数に比例する */
   | { kind: "groups"; caption: string; groups: ReadonlyArray<{ name: string; bars: ReadonlyArray<{ label: string; count: number }> }> };
 
@@ -130,7 +139,9 @@ export const KNOWN_FINDINGS: readonly KnownFinding[] = [
       kind: "share",
       part: 8,
       whole: 24,
-      caption: "2025/26 シーズンに農場で発生した 24 事例のうち、過去にも発生した農場での再発 8 事例",
+      title: "2025/26 シーズンに農場で発生した 24 事例の内訳",
+      partLabel: "過去にも発生した農場での再発",
+      restLabel: "それ以外",
     },
     related: [TO_COMPARE, TO_TRENDS],
   },
@@ -203,7 +214,14 @@ export const KNOWN_FINDINGS: readonly KnownFinding[] = [
     scope: "発生した事実。発生しやすさは分からない",
     audiences: ["small", "farm"],
     leadLimit: 0,
-    figure: { kind: "share", part: 2, whole: 24, caption: "2025/26 シーズンの 24 事例のうち、約 6,000 羽の農場 2 事例" },
+    figure: {
+      kind: "share",
+      part: 2,
+      whole: 24,
+      title: "2025/26 シーズンに農場で発生した 24 事例の内訳",
+      partLabel: "約 6,000 羽の農場",
+      restLabel: "それ以外の羽数の農場",
+    },
     related: [{ to: "/public#small_flock", label: "数羽飼っている方へ（国の文）" }, TO_EXPLORE],
   },
   {

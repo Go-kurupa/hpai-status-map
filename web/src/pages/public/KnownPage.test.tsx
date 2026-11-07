@@ -5,7 +5,7 @@ import path from "node:path";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
 import KnownPage, { KnownView } from "./KnownPage";
-import { KNOWN_FINDINGS, PAST_BASIS, type KnownFinding } from "./knownFindings";
+import { KNOWN_FINDINGS, PAST_BASIS, STRENGTH_LABEL, type KnownFinding } from "./knownFindings";
 
 // 「分かっていること」（§11）。研究の知見を、決まり（公式の文）と分けて示す固定のページ。AI は答えない。
 // 文の元は、原本（論文の DOI、国の文書）で確かめた日（verifiedOn）を持つ。確かめていない行は画面に出さない。
@@ -279,7 +279,7 @@ describe("KNOWN_FINDINGS（画面のための欄）", () => {
   it("評価の対象の語、図の説明、リンクの名前にも、禁止語がない", () => {
     for (const f of KNOWN_FINDINGS) {
       const extra = [f.scope, ...f.related.map((r) => r.label)];
-      if (f.figure?.kind === "share") extra.push(f.figure.caption);
+      if (f.figure?.kind === "share") extra.push(f.figure.title, f.figure.partLabel, f.figure.restLabel);
       if (f.figure?.kind === "groups") extra.push(f.figure.caption, ...f.figure.groups.map((g) => g.name));
       for (const t of extra) {
         expect(t, f.id).not.toMatch(FORBIDDEN);
@@ -316,7 +316,9 @@ describe("KnownPage（画面）", () => {
       for (const para of f.text.split("\n")) expect(el.textContent, f.id).toContain(para);
       expect(el.textContent, f.id).toContain(f.region);
       expect(el.textContent, f.id).toContain(f.period);
-      expect(el.textContent, f.id).toContain(`確からしさ: ${f.certainty}`);
+      // 「確からしさ」は「根拠の強さ（強い・中くらい・弱い）」と言う（2026-11-07 作者の決定 案 A）
+      expect(el.textContent, f.id).toContain(`根拠の強さ: ${STRENGTH_LABEL[f.certainty]}`);
+      expect(el.textContent, f.id).not.toContain("確からしさ");
       for (const line of f.limit.split("\n")) expect(el.textContent, f.id).toContain(line);
       expect(el.textContent, f.id).toContain(`確認日 ${toJa(f.verifiedOn as string)}`);
       for (const s of f.sources) {
@@ -452,15 +454,18 @@ describe("KnownPage（画面）", () => {
     for (const d of container.querySelectorAll("details.known-more")) expect((d as HTMLDetailsElement).open).toBe(true);
   });
 
-  it("もくじの表は、確からしさの隣に、何についての評価かを同じ行に出す（「低い＝効かない」と読ませない）", () => {
+  it("もくじの表は、根拠の強さの隣に、何についての強さかを同じ行に出す（「弱い＝効かない」と読ませない）。3 段階の断りは欄の見出しに 1 回だけ", () => {
     show();
     const nav = screen.getByRole("navigation", { name: "もくじ" });
+    expect(within(nav).getAllByRole("columnheader")[1]!.textContent).toBe("根拠の強さ（強い・中くらい・弱いの 3 段階）");
+    expect(nav.querySelectorAll("tbody .known-certainty-scale")).toHaveLength(0);
+    expect(nav.textContent).not.toContain("確からしさ");
     const rows = within(nav).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(KNOWN_FINDINGS.length);
     KNOWN_FINDINGS.forEach((f, i) => {
       const row = rows[i] as HTMLElement;
-      expect(row.textContent, f.id).toContain(f.certainty);
-      expect(row.textContent, f.id).toContain(`評価の対象: ${f.scope}`);
+      expect(row.querySelector(".known-certainty")!.textContent, f.id).toBe(STRENGTH_LABEL[f.certainty]);
+      expect(row.textContent, f.id).toContain(`何についての強さか: ${f.scope}`);
     });
   });
 
@@ -497,7 +502,7 @@ describe("KnownPage（画面）", () => {
     }
   });
 
-  it("図: ます目は分母の数だけあり、塗ったます目の数と文字の数が合う", () => {
+  it("図: 内訳の帯は、見出しに分母を書き、当てはまる数とそれ以外の数を文字でも書く（2026-11-07 作者の決定 案 A。24 マスをやめた）", () => {
     const { container } = show();
     for (const f of KNOWN_FINDINGS) {
       const fig = container.querySelector(`li#${f.id} .known-figure`);
@@ -507,9 +512,16 @@ describe("KnownPage（画面）", () => {
       }
       expect(fig, f.id).not.toBeNull();
       if (f.figure.kind === "share") {
-        expect(fig?.querySelectorAll(".known-share span")).toHaveLength(f.figure.whole);
-        expect(fig?.querySelectorAll(".known-share .on")).toHaveLength(f.figure.part);
-        expect(fig?.textContent).toContain(`${f.figure.part} / ${f.figure.whole} 事例`);
+        const { part, whole, title, partLabel, restLabel } = f.figure;
+        expect(fig?.querySelector("figcaption")?.textContent, f.id).toBe(title);
+        expect(title, f.id).toContain(`${whole} 事例`);
+        const bar = fig?.querySelector(".known-share") as HTMLElement;
+        expect(bar.getAttribute("aria-label"), f.id).toBe(`${whole} 事例のうち、${partLabel} ${part} 事例、${restLabel} ${whole - part} 事例`);
+        // 帯の長さは数に比例する
+        expect((bar.querySelector(".on") as HTMLElement).style.flexGrow, f.id).toBe(String(part));
+        expect((bar.querySelector(".off") as HTMLElement).style.flexGrow, f.id).toBe(String(whole - part));
+        const legend = [...(fig?.querySelectorAll(".known-share-legend li") ?? [])].map((li) => li.textContent);
+        expect(legend, f.id).toEqual([`${part} 事例 ${partLabel}`, `${whole - part} 事例 ${restLabel}`]);
       } else {
         for (const g of f.figure.groups) for (const b of g.bars) expect(fig?.textContent).toContain(`${b.label}${b.count}`);
       }
