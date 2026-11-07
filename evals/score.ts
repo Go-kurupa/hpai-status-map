@@ -198,8 +198,8 @@ export function summarize(scores: readonly DocScore[], tamper: Tamper, detection
   const m = (name: EvalMetricName, value: number, denominator: number | null, unit: string, note: string | null = null) => ({ name, value, denominator, unit, note });
   const metrics: EvalSummary["metrics"] = [
     m("documents", documents, null, "文書", "試みた全文書"),
-    m("read_refusals", count(scores, (s) => s.primaryFailure === "refusal") + count(scores, (s) => s.secondFailure === "refusal"), documents * 2, "件", "主と別の読み手の呼び出しの合計"),
-    m("format_errors", count(scores, (s) => s.primaryFailure === "format_error") + count(scores, (s) => s.secondFailure === "format_error"), documents * 2, "件", "主と別の読み手の呼び出しの合計"),
+    m("read_refusals", count(scores, (s) => s.primaryFailure === "refusal") + count(scores, (s) => s.secondFailure === "refusal"), documents * 2, "件", "主の AI と確かめ役の AI の呼び出しの合計"),
+    m("format_errors", count(scores, (s) => s.primaryFailure === "format_error") + count(scores, (s) => s.secondFailure === "format_error"), documents * 2, "件", "主の AI と確かめ役の AI の呼び出しの合計"),
     m("primary_muni_errors", count(scores, (s) => s.errors.muni), readCount, "文書", "読めた文書のうち、市町村の読み違い"),
     m("primary_stage_errors", count(scores, (s) => s.errors.stage), readCount, "文書", `読めた文書のうち、段階の読み違い。種類の取り違え ${count(scores, (s) => s.errors.kindClass)} 件（家きんの事例、野鳥、対象外の区別、否定かどうか）は合否に入れない`),
     m("primary_date_errors", count(scores, (s) => s.errors.date), readCount, "文書", "読めた文書のうち、日付の読み違い"),
@@ -208,7 +208,7 @@ export function summarize(scores: readonly DocScore[], tamper: Tamper, detection
     m("published_headcount_errors", count(scores, (s) => s.publishedHeadcountError), published, "文書", "自動で載せると決めた文書の、羽数の誤り"),
     m("auto_published_documents", published, documents, "文書", "自動で載せる設定を入にして測った"),
     m("review_documents", count(scores, (s) => s.decision.action === "review_public" || s.decision.action === "review_private"), documents, "文書", "人の確認に回った"),
-    m("second_reader_mismatches", count(scores, (s) => s.compare !== null && !s.compare.match), both, "文書", "主と別の読み手の食い違い"),
+    m("second_reader_mismatches", count(scores, (s) => s.compare !== null && !s.compare.match), both, "文書", "主の AI と確かめ役の AI の食い違い"),
     m("tamper_rejected", tamper.rejected, tamper.total, "件", "わざと入れ替えた結果と誤った読み手のうち、載らずに落ちた数"),
   ];
   const unmeasured: string[] = [];

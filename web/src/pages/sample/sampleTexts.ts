@@ -25,7 +25,7 @@ export const SAMPLE_TEXT = {
   entryTodoNote: "近くの発生に合わせた確認と、解除の見込み、働く人への声かけ文",
   entryRecord: "死亡・消毒の記録",
   entryRecordNote: "鶏舎ごとの死亡数と基準の計算、週と自己点検の報告文、消毒の記録",
-  entryExamples: "死亡数の例: 鶏舎Aは基準に当たる例、鶏舎Bは当たらない例、鶏舎Cは記録が 21 日に満たない例です",
+  entryExamples: "死亡数の例: 鶏舎Aは届け出の基準に達する例、鶏舎Bは達しない例、鶏舎Cは記録が 21 日に満たない例です",
   entryReplay: "去年の再現へ",
   entryPublic: "鶏を飼っていない方へ",
   asOf: (day: string) => `見本の時点: ${day}（去年の再現の時計を、この日に合わせています）`,

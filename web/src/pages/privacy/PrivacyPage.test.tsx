@@ -50,7 +50,7 @@ const REVIEW_R1_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
 // N-6（X-23 のセキュリティ確認）: 運営者に見えるものと、メールの控えに残るものを、ありのままに書く
 const N6_PHRASES: ReadonlyArray<{ heading: string; phrase: string }> = [
   { heading: "保存場所", phrase: "基準の知らせが 1 日の上限で止まったときは、運営者の確認画面に日付つきの知らせが出ます" },
-  { heading: "保存場所", phrase: "送ったメールの控えには、会員のアドレスと、死亡率が基準に当たる可能性があることが残ります" },
+  { heading: "保存場所", phrase: "送ったメールの控えには、会員のアドレスと、死亡率が届け出の基準に達している可能性があることが残ります" },
   { heading: "保存場所", phrase: "死亡数そのものは、運営者に見えません" },
 ];
 
@@ -183,7 +183,7 @@ describe("PRIVACY_NOTICE（文の正）", () => {
 
   it("AIに対策を相談で足した見直しの記録（カードの番号、足した日時、足した人）と実施の記録（状態・メモ・更新した日時と会員）が、集める情報に出る", () => {
     const phrase =
-      "「AIに対策を相談」で『対策項目に足す』を押した見直しの記録（カードの番号、足した日時、足した人）と、その実施の状態（まだ・後でやる・やった）、40 字までのメモ、更新した日時と更新した会員。";
+      "「AIに対策を相談」で『対策項目に追加する』を押した見直しの記録（カードの番号、追加した日時、追加した人）と、その実施の状態（まだ・後でやる・やった）、40 字までのメモ、更新した日時と更新した会員。";
     expect(PRIVACY_NOTICE.find((s) => s.heading === "集める情報")!.paragraphs.join("")).toContain(phrase);
     renderPage();
     expect(pageText()).toContain(phrase);

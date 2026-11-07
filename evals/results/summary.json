@@ -13,14 +13,14 @@
       "value": 0,
       "denominator": 108,
       "unit": "件",
-      "note": "主と別の読み手の呼び出しの合計"
+      "note": "主の AI と確かめ役の AI の呼び出しの合計"
     },
     {
       "name": "format_errors",
       "value": 0,
       "denominator": 108,
       "unit": "件",
-      "note": "主と別の読み手の呼び出しの合計"
+      "note": "主の AI と確かめ役の AI の呼び出しの合計"
     },
     {
       "name": "primary_muni_errors",
@@ -83,7 +83,7 @@
       "value": 19,
       "denominator": 54,
       "unit": "文書",
-      "note": "主と別の読み手の食い違い"
+      "note": "主の AI と確かめ役の AI の食い違い"
     },
     {
       "name": "tamper_rejected",
