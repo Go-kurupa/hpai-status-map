@@ -171,6 +171,7 @@ function FindingItem({ f }: { f: KnownFinding }) {
         {(ILLUST_NAMES as readonly string[]).includes(f.id) ? <Illust name={f.id as IllustName} /> : null}
         <span>{f.heading}</span>
       </h2>
+      <p className="known-summary">{f.summary}</p>
       <p className="known-badge">
         <span className="known-certainty">
           <CertaintyMark certainty={f.certainty} />

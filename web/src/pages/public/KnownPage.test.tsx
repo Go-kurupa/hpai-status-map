@@ -231,6 +231,24 @@ describe("KNOWN_FINDINGS（データ）", () => {
 describe("KNOWN_FINDINGS（画面のための欄）", () => {
   const ROUTES = ["/", "/compare", "/trends", "/todo", "/explore", "/public#small_flock"];
 
+  it("結論 1 文: 禁止語がなく、本文と限界にない数字を書かない", () => {
+    for (const f of KNOWN_FINDINGS) {
+      expect(f.summary.length, f.id).toBeGreaterThan(10);
+      expect(f.summary, f.id).not.toMatch(FORBIDDEN);
+      expect(findForbiddenPhrases(f.summary), f.id).toEqual([]);
+      const nums = f.summary.match(/[\d,]+(?:\/\d+)?/gu) ?? [];
+      for (const n of nums) expect(whole(f), `${f.id} ${n}`).toContain(n);
+    }
+  });
+
+  it("結論 1 文は、見出しの直後に出る", () => {
+    const { container } = show();
+    for (const f of KNOWN_FINDINGS) {
+      const h2 = container.querySelector(`li#${f.id} h2`) as HTMLElement;
+      expect(h2.nextElementSibling?.textContent, f.id).toBe(f.summary);
+    }
+  });
+
   it("図の数は、本文か限界に書かれた数と同じ（新しい数を作らない）", () => {
     for (const f of KNOWN_FINDINGS) {
       if (f.figure === null) continue;

@@ -6,7 +6,7 @@ import { Illust } from "./Illust";
 import type { StatementNote } from "./pageNotes";
 
 export const NOTES_HEADING = "このページからのお願い";
-export const LEAD_HEADING = "要点（作品側のまとめ。国の文ではありません）";
+export const LEAD_HEADING = "要点（作品側）";
 
 /**
  * 「鶏を飼っていない方へ」の 1 つの節（§11）。国の機関の文は出典と確認日つきで、県のページはリンクだけで示す。

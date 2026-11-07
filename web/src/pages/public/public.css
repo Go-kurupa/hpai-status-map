@@ -482,3 +482,9 @@
     height: 40px;
   }
 }
+
+/* 各知見の結論 1 文。見出しの直下に太字で置き、確からしさと本文はその後ろ */
+.known-summary {
+  margin: 0 0 10px;
+  font-weight: 700;
+}
