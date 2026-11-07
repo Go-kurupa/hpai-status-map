@@ -52,6 +52,23 @@
 .settings-handover p {
   margin: 0;
 }
+/* 見出しの直下の、次にすることの帯。地図の画面の誘導の帯（map.css の .picking-bar）と同じ組み方 */
+.settings-next {
+  margin: 0 0 16px;
+  padding: 8px 16px;
+  border-left: 4px solid var(--accent);
+  background: var(--ctl);
+}
+.settings-next p {
+  margin: 0;
+  font-weight: 700;
+}
+.settings-next .settings-next-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
+  font-weight: 400;
+}
 .settings-saved {
   color: var(--sub);
   margin: 4px 0 0;

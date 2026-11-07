@@ -2,7 +2,7 @@ import type { GeoStore, MuniEntry } from "@hpai/shared/geo";
 import { PREFS } from "@hpai/shared/pref";
 import type { Farm } from "@hpai/shared/types";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { useRecordStore } from "../../data/context";
 import { useOptionalSpotState } from "../../data/spotContext";
 import { loadWebGeoStore } from "../../geo/loadGeo";
@@ -20,6 +20,46 @@ import "./settings.css";
 
 type Saved = Farm & { id: string };
 type Load = { state: "loading" } | { state: "error"; message: string | null } | { state: "ok"; farm: Saved | null };
+
+/**
+ * 見出しの直下の、次にすることの帯。農場がない（会員になった直後）→ 鶏舎が 0 件 → 鶏舎が 1 件以上の 3 段階。
+ * 鶏舎の件数が分からない間（読み込み中、読めなかった）は出さない（ないと思って重ねて足さないため）。
+ */
+function NextStep({ farm, houseCount }: { farm: Saved | null; houseCount: number | null }) {
+  if (!farm) {
+    return (
+      <div className="settings-next">
+        <p>会員になりました。まず農場の地点を決めてください。</p>
+      </div>
+    );
+  }
+  if (houseCount === null) return null;
+  if (houseCount === 0) {
+    return (
+      <div className="settings-next">
+        <p>次は鶏舎を足してください。死亡数の記録は鶏舎ごとにつけます。</p>
+        <p className="settings-next-links">
+          <Link to="/settings/farm#houses" className="tap-link">
+            鶏舎を足す
+          </Link>
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="settings-next">
+      <p>記録を始められます。</p>
+      <p className="settings-next-links">
+        <Link to="/record/deaths" className="tap-link">
+          死亡数を記録する
+        </Link>
+        <Link to="/todo" className="tap-link">
+          対策項目を見る
+        </Link>
+      </p>
+    </div>
+  );
+}
 
 /**
  * 農場の設定。地点、農場名、採卵か肉用か、飼い方、行き来する町、鶏舎、家保の連絡先、招待の順。
@@ -42,6 +82,11 @@ function FarmSettings() {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteFailed, setInviteFailed] = useState(false);
   const [inviting, setInviting] = useState(false);
+  // 鶏舎の件数（上の帯の段階に使う）。HouseList が読んだ数を受け取る。読み込み中と読めなかったときは null
+  const [houseCount, setHouseCount] = useState<number | null>(null);
+  const location = useLocation();
+  const housesRef = useRef<HTMLElement>(null);
+  const housesHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +146,19 @@ function FarmSettings() {
     [geo, prefCode],
   );
   const muni: MuniEntry | null = geo && muniCode ? (geo.index[muniCode] ?? null) : null;
+
+  // #houses で開いたら（死亡数の画面と上の帯のリンク）、鶏舎の欄へ送り、見出しに焦点を移す。
+  // 上の欄（行き来する町）は町の一覧を読んでから高さが決まるので、それも待つ
+  const housesShown = load.state === "ok" && load.farm !== null && (geo !== null || geoFailed);
+  useEffect(() => {
+    if (location.hash !== "#houses" || !housesShown) return;
+    // 画面の替わり目に、骨格（AppShell）が題（h1）へ焦点を移す。その後に送るため少し待つ（AboutPage と同じ）
+    const id = window.setTimeout(() => {
+      housesRef.current?.scrollIntoView({ block: "start" });
+      housesHeadingRef.current?.focus({ preventScroll: true });
+    }, 150);
+    return () => window.clearTimeout(id);
+  }, [location.hash, location.key, housesShown]);
 
   if (load.state === "loading") return <p role="status">読み込んでいます</p>;
   if (load.state === "error") {
@@ -166,6 +224,7 @@ function FarmSettings() {
   return (
     <div className="settings-page">
       <h1>農場の設定</h1>
+      <NextStep farm={farm} houseCount={houseCount} />
       {saved ? <p className="settings-saved">{saved}</p> : null}
 
       <section>
@@ -241,7 +300,9 @@ function FarmSettings() {
                 ? TEXT.meshPressCenter
                 : TEXT.meshPickMuniFirst
               : muni
-                ? "地図で、農場のあたりをおしてください。"
+                ? farm
+                  ? "替えるときは、地図で別の場所をおしてください。"
+                  : "地図で、農場のあたりをおしてください。"
                 : "市町村を選ぶと、地図がその町に寄ります。"}
         </p>
         <Button variant="primary" disabled={!pick || saving} onClick={() => void save()}>
@@ -272,9 +333,11 @@ function FarmSettings() {
             />
           </section>
 
-          <section>
-            <h2>鶏舎</h2>
-            <HouseList store={store} onSaved={() => saveProfile({})} />
+          <section id="houses" ref={housesRef}>
+            <h2 ref={housesHeadingRef} tabIndex={-1}>
+              鶏舎
+            </h2>
+            <HouseList store={store} onSaved={() => saveProfile({})} onCount={setHouseCount} />
           </section>
 
           <section>

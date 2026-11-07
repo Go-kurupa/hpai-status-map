@@ -24,12 +24,19 @@ const BLANK: Draft = { id: null, name: "", birdType: "", flockSize: "", empty: f
 export function HouseList({
   store,
   onSaved,
+  onCount,
 }: {
   store: Pick<RecordStore, "listHouses" | "saveHouse">;
   /** 鶏舎を保存した後に呼ぶ。農場の updatedAt を進める（失敗しても鶏舎の保存は取り消さない） */
   onSaved: () => Promise<void>;
+  /** 鶏舎の件数を親へ返す（ページの上の帯が使う）。読み込み中と読めなかったときは null（ないとは言わない） */
+  onCount?: (count: number | null) => void;
 }) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  const count = load.state === "ok" ? load.houses.length : null;
+  useEffect(() => {
+    onCount?.(count);
+  }, [count, onCount]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);

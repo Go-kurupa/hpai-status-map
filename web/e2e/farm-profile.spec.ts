@@ -66,6 +66,13 @@ async function pickTown(page: Page, prefCode: string, muniCode: string) {
   const index = (await res.json()) as Record<string, { center: [number, number] }>;
   const [lng, lat] = index[muniCode]!.center;
   await page.waitForFunction(() => !!(window as unknown as W).__hpaiPicker);
+  // 地図の描く大きさが箱いっぱい（キャンバスの見かけの大きさが箱と同じ）
+  const size = await page.evaluate(() => {
+    const c = (window as unknown as W).__hpaiPicker!.getCanvas();
+    const box = document.querySelector<HTMLElement>(".picker-canvas")!;
+    return { canvas: [c.clientWidth, c.clientHeight], box: [box.clientWidth, box.clientHeight] };
+  });
+  expect(size.canvas).toEqual(size.box);
   const at = await page.evaluate(
     ([x, y]) => {
       const m = (window as unknown as W).__hpaiPicker!;
@@ -112,6 +119,17 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   const spot = await pickTown(page, "33", "33203");
   await page.getByRole("button", { name: "地点を保存" }).click();
   await expect(page.getByText(/最終保存/)).toBeVisible();
+  await expect(page.getByText("次は鶏舎を足してください。死亡数の記録は鶏舎ごとにつけます。")).toBeVisible();
+
+  // 鶏舎がないうちに死亡数の画面を開くと、鶏舎の欄へのリンクが出て、押すと鶏舎の見出しへ移る（題への焦点の移動に負けない）
+  await page.goto("/record/deaths?emulator=1");
+  await expect(page.getByText(/^鶏舎がまだありません。/)).toBeVisible();
+  await page.getByRole("link", { name: "鶏舎を足す" }).click();
+  await expect(page).toHaveURL(/\/settings\/farm(\?[^#]*)?#houses$/);
+  await expect(page.getByRole("heading", { name: "鶏舎", exact: true })).toBeFocused();
+  // 画面の中のリンクは ?emulator=1 を持ち越さない。後の再読み込みで本番の設定を読まないよう、付けて開き直す
+  await page.goto("/settings/farm?emulator=1");
+  await expect(page.getByLabel("農場名", { exact: true })).toBeVisible();
 
   // 農場名、採卵、開放的
   await page.getByLabel("農場名", { exact: true }).fill("テスト農場");

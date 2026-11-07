@@ -26,7 +26,9 @@ export const RECORD_TEXT = {
   deathsNotNumber: "死亡数は 0 以上の整数で入れてください",
   deathsOverFlock: (n: number) => `死亡数が飼養羽数（${n} 羽）を超えています`,
   deathsExisting: (n: number) => `この日は ${n} 羽で記録済みです。入れ直すと置き換わります`,
-  noHouses: "鶏舎がまだありません。農場の設定で鶏舎を登録してください",
+  noHouses: "鶏舎がまだありません。農場の設定で鶏舎を登録してください", // 見本の農場（sample）だけ
+  noHousesYet: "鶏舎がまだありません。",
+  addHouseLink: "鶏舎を足す",
   flockZero: "この鶏舎の羽数が 0 です。農場の設定で羽数を入れてください（鶏舎が空なら『空舎』にしてください）",
   houseEmpty: "この鶏舎は空舎です。空舎の日として記録します（死亡数は 0）",
   houseLabel: "鶏舎",

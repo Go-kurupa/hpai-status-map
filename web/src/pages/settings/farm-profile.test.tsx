@@ -109,7 +109,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-function mount(over: Partial<RecordStore> = {}) {
+function mount(over: Partial<RecordStore> = {}, at = "/settings/farm") {
   const routes: RouteObject[] = [
     {
       path: "/settings/farm",
@@ -122,7 +122,7 @@ function mount(over: Partial<RecordStore> = {}) {
       ),
     },
   ];
-  return render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ["/settings/farm"] })} />);
+  return render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: [at] })} />);
 }
 
 const click = (name: string | RegExp) => fireEvent.click(screen.getByRole("button", { name }));
@@ -636,5 +636,120 @@ describe("発生状況で決めた場所を引き継ぐ（場所は 1 回選べ�
     await screen.findByLabelText("農場名");
     expect(screen.queryByText("発生状況の画面で決めた場所があります")).toBeNull();
     expect((screen.getByLabelText("市町村") as HTMLSelectElement).value).toBe("13101");
+  });
+});
+
+describe("次にすることの帯（会員になった直後から記録まで）", () => {
+  const house = (over: Partial<SavedHouse> = {}): SavedHouse => ({ id: "h1", ...houseFixture(), ...over });
+  const NO_FARM = "会員になりました。まず農場の地点を決めてください。";
+  const NO_HOUSE = "次は鶏舎を足してください。死亡数の記録は鶏舎ごとにつけます。";
+  const READY = "記録を始められます。";
+
+  it("農場がない（会員になった直後）は、見出しの直下に『会員になりました。まず農場の地点を決めてください。』", async () => {
+    farm = null;
+    mount();
+    expect(await screen.findByText(NO_FARM)).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling?.textContent).toContain(NO_FARM);
+    expect(screen.queryByText(NO_HOUSE)).toBeNull();
+    expect(screen.queryByText(READY)).toBeNull();
+  });
+
+  it("地点を保存済みで鶏舎が 0 件なら、鶏舎を足す案内と、鶏舎の欄（#houses）へのリンク", async () => {
+    houses = [];
+    mount();
+    expect(await screen.findByText(NO_HOUSE)).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling?.textContent).toContain(NO_HOUSE);
+    expect(screen.getByRole("link", { name: "鶏舎を足す" }).getAttribute("href")).toBe("/settings/farm#houses");
+    expect(screen.queryByText(NO_FARM)).toBeNull();
+    expect(screen.queryByText(READY)).toBeNull();
+  });
+
+  it("鶏舎が 1 件以上なら『記録を始められます。』と、死亡数の記録と対策項目へのリンク", async () => {
+    houses = [house()];
+    mount();
+    expect(await screen.findByText(READY)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "死亡数を記録する" }).getAttribute("href")).toBe("/record/deaths");
+    expect(screen.getByRole("link", { name: "対策項目を見る" }).getAttribute("href")).toBe("/todo");
+    expect(screen.queryByText(NO_HOUSE)).toBeNull();
+  });
+
+  it("鶏舎を足すと、帯が『記録を始められます。』に替わる", async () => {
+    houses = [];
+    mount();
+    await screen.findByText(NO_HOUSE);
+    click("鶏舎を足す");
+    fireEvent.change(screen.getByLabelText("鶏舎の名前"), { target: { value: "1 号舎" } });
+    fireEvent.change(screen.getByLabelText("鳥の種類"), { target: { value: "採卵鶏" } });
+    fireEvent.change(screen.getByLabelText("飼養羽数"), { target: { value: "1200" } });
+    click("鶏舎を保存");
+    expect(await screen.findByText(READY)).toBeTruthy();
+    expect(screen.queryByText(NO_HOUSE)).toBeNull();
+  });
+
+  it("鶏舎の一覧を読めなかったときは、鶏舎の段の帯を出さない（ないと思って重ねて足さないため）", async () => {
+    listHouses.mockRejectedValue(new Error("permission-denied"));
+    mount();
+    await screen.findByText(/鶏舎の一覧を読めませんでした/);
+    expect(screen.queryByText(NO_HOUSE)).toBeNull();
+    expect(screen.queryByText(READY)).toBeNull();
+  });
+
+  it("帯の文に禁止語がない", () => {
+    expect(findForbiddenPhrases([NO_FARM, NO_HOUSE, READY].join("\n"))).toEqual([]);
+  });
+});
+
+describe("鶏舎の欄へ送る（#houses。死亡数の画面と帯のリンクの行き先）", () => {
+  const scrolled = vi.fn();
+  const original = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    scrolled.mockReset();
+    // jsdom には scrollIntoView がない
+    Element.prototype.scrollIntoView = scrolled;
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = original;
+  });
+
+  it("#houses で開くと、読み込みの後に鶏舎の欄（id=houses）へ送り、見出し『鶏舎』に焦点を移す", async () => {
+    mount({}, "/settings/farm#houses");
+    const heading = await screen.findByRole("heading", { name: "鶏舎" });
+    expect(heading.closest("section")?.id).toBe("houses");
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(scrolled).toHaveBeenCalled();
+  });
+
+  it("#houses がなければ、鶏舎の欄へ送らない", async () => {
+    mount();
+    const heading = await screen.findByRole("heading", { name: "鶏舎" });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(document.activeElement).not.toBe(heading);
+    expect(scrolled).not.toHaveBeenCalled();
+  });
+
+  it("帯の『鶏舎を足す』を押すと、同じ画面のまま鶏舎の欄へ移る", async () => {
+    houses = [];
+    mount();
+    fireEvent.click(await screen.findByRole("link", { name: "鶏舎を足す" }));
+    const heading = screen.getByRole("heading", { name: "鶏舎" });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(scrolled).toHaveBeenCalled();
+  });
+});
+
+describe("地点の案内の文", () => {
+  it("登録した後は『替えるときは、地図で別の場所をおしてください。』（最初の案内を残さない）", async () => {
+    mount();
+    expect(await screen.findByText("替えるときは、地図で別の場所をおしてください。")).toBeTruthy();
+    expect(screen.queryByText("地図で、農場のあたりをおしてください。")).toBeNull();
+  });
+
+  it("農場がない間は『地図で、農場のあたりをおしてください。』のまま", async () => {
+    farm = null;
+    mount();
+    fireEvent.change(await screen.findByLabelText("都道府県"), { target: { value: "13" } });
+    fireEvent.change(await screen.findByLabelText("市町村"), { target: { value: "13101" } });
+    expect(await screen.findByText("地図で、農場のあたりをおしてください。")).toBeTruthy();
+    expect(screen.queryByText("替えるときは、地図で別の場所をおしてください。")).toBeNull();
   });
 });

@@ -333,12 +333,22 @@ describe("DeathsPanel 入力", () => {
     expect(saveDeath).not.toHaveBeenCalled();
   });
 
-  it("鶏舎がなければ /settings/farm へ案内し、保存を出さない", async () => {
+  it("鶏舎がなければ『鶏舎がまだありません。』と、農場の設定の鶏舎の欄（#houses）へのリンク。保存を出さない", async () => {
     houses = [];
     mount(<DeathsPanel />);
-    await screen.findByText(new RegExp(RECORD_TEXT.noHouses));
-    expect(screen.getByRole("link", { name: /農場を設定する|農場の設定/ }).getAttribute("href")).toBe("/settings/farm");
+    await screen.findByText(/^鶏舎がまだありません。/);
+    expect(screen.queryByText(/。。/)).toBeNull();
+    expect(screen.getByRole("link", { name: "鶏舎を足す" }).getAttribute("href")).toBe("/settings/farm#houses");
     expect(screen.queryByRole("button", { name: RECORD_TEXT.save })).toBeNull();
+  });
+
+  it("見本の農場（sample）で鶏舎がなければ、今までの文とリンクのまま", async () => {
+    houses = [];
+    const sample = { ...store, mode: "sample" } as RecordStore;
+    mount(<DeathsPanel />, { path: "/sample/record/deaths", store: sample });
+    await screen.findByText(new RegExp(RECORD_TEXT.noHouses));
+    expect(screen.getByRole("link", { name: RECORD_TEXT.setFarmLink }).getAttribute("href")).toBe("/settings/farm");
+    expect(screen.queryByRole("link", { name: "鶏舎を足す" })).toBeNull();
   });
 
   it("農場がなければ /settings/farm へ案内し、保存を出さない", async () => {

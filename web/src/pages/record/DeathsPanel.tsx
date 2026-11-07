@@ -266,9 +266,14 @@ function DeathsBody({ farm }: { farm: FarmWithId }) {
   if (loadFailed) return <p role="alert">{RECORD_TEXT.readFailed}</p>;
   if (houses === null) return <p role="status">{RECORD_TEXT.loading}</p>;
   if (houses.length === 0) {
-    return (
+    // 見本の農場（sample）は今までの文とリンクのまま。会員は農場の設定の鶏舎の欄（#houses）へ直に送る
+    return store.mode === "sample" ? (
       <p>
         {RECORD_TEXT.noHouses}。 <Link to="/settings/farm">{RECORD_TEXT.setFarmLink}</Link>
+      </p>
+    ) : (
+      <p>
+        {RECORD_TEXT.noHousesYet} <Link to="/settings/farm#houses">{RECORD_TEXT.addHouseLink}</Link>
       </p>
     );
   }
