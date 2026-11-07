@@ -345,6 +345,42 @@ export function selfCheckDueNotice(farmId: string, uid: string, month: string, d
   return { farmId, uid, subjectId: month, event: "self_check_due", timing: "immediate", level: null, relationKind: null, facts: healthNoticeFacts(date), isCorrection: false };
 }
 
+/**
+ * 次の自己点検の期限（対策項目の「けさの確認」）。selfCheckDue の値のうち、今日以降でいちばん近い日。
+ * daysLeft は今日からの日数（0 は今日）。日付でない値・実在しない日は読み飛ばし、壊れた欄で例外にしない。
+ * 同じ日が 2 つあれば月のキーの早い方。なければ null（登録なし、または登録した期限がすべて過ぎた。分けるときは hasSelfCheckDue）。
+ */
+export function nextSelfCheckDue(due: unknown, today: IsoDate): { month: string; date: IsoDate; daysLeft: number } | null {
+  if (typeof due !== "object" || due === null || Array.isArray(due)) return null;
+  let best: { month: string; date: IsoDate; daysLeft: number } | null = null;
+  for (const [month, date] of Object.entries(due as Record<string, unknown>)) {
+    if (!isIsoDay(date)) continue;
+    const daysLeft = diffDays(date, today);
+    if (daysLeft < 0) continue;
+    if (best === null || date < best.date || (date === best.date && month < best.month)) best = { month, date, daysLeft };
+  }
+  return best;
+}
+
+/**
+ * 自己点検の期限の登録が 1 件でもあるか（過ぎた期限も数える）。nextSelfCheckDue が null のとき、
+ * 「登録なし」と「登録した期限がすべて過ぎた」を分けるために使う。日付でない値・実在しない日は数えない（nextSelfCheckDue とそろえる）。
+ */
+/** 登録した期限のうち、いちばん遅い日（過ぎた期限も数える）。正しい日付がなければ null。期限がすべて過ぎたときに日付で示すため */
+export function latestSelfCheckDue(due: unknown): IsoDate | null {
+  if (typeof due !== "object" || due === null || Array.isArray(due)) return null;
+  let last: IsoDate | null = null;
+  for (const date of Object.values(due as Record<string, unknown>)) {
+    if (isIsoDay(date) && (last === null || date > last)) last = date;
+  }
+  return last;
+}
+
+export function hasSelfCheckDue(due: unknown): boolean {
+  if (typeof due !== "object" || due === null || Array.isArray(due)) return false;
+  return Object.values(due as Record<string, unknown>).some((date) => isIsoDay(date));
+}
+
 /** 画面の選択肢は 1、2、3、5、7 日前。最大はその 7。 */
 export const SELF_CHECK_REMIND_MAX_DAYS = 7;
 /** 値が壊れているときの日数（画面の既定と同じ 3 日前）。 */

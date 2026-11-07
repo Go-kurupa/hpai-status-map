@@ -62,6 +62,65 @@ export const TODO_TEXT = {
   reviewsLoadFailed: "足した見直しを読めませんでした。ページを読み込み直してください。",
   reviewsRemoveFailed: "外せませんでした。もう一度お試しください。",
   reviewsGone: "このカードは今の資料にありません。",
+  // 実施の記録（人が付ける。AI は付けない）。状態の名前は shared/src/consult/review.ts の REVIEW_STATUS_LABEL
+  /** 記録のない対策（前に足したまま）があるときだけ、一覧の上に 1 回出す */
+  reviewsUnrecordedLead: "「まだ」には、やったかどうかをまだ記録していない対策も入ります。",
+  /** 状態のボタンのまとまりの名前（読み上げ用。後ろに対策の文を付ける） */
+  reviewsStatusGroup: "実施の状態",
+  reviewsNoRecord: "記録なし",
+  reviewsUpdated: "更新: ",
+  reviewsByMe: "（あなた）",
+  reviewsByMember: "（同じ農場の会員）",
+  reviewsNoteLabel: "メモ（40 字まで）",
+  reviewsNoteSave: "メモを保存",
+  reviewsSaving: "保存しています",
+  reviewsSaveDenied: "保存できませんでした。この対策が外されたか、権限がありません。ページを読み込み直してください。",
+  reviewsSaveFailed: "保存できませんでした。通信を確かめて、もう一度お試しください。",
+  reviewsNoteNewline: "メモに改行は入れられません。",
+  reviewsNoteTooLong: "メモは 40 字までです。",
+} as const;
+
+/**
+ * けさの確認（会員だけ。対策項目の見出しの直下）。朝に探し回らずに見るための入口と、記録の状況だけを並べる。
+ * 前回との比べ、安全・危険の判定は書かない。読めないを「変化なし」、未入力を「0 羽」と書かない。
+ */
+export const MORNING_TEXT = {
+  heading: "けさの確認",
+  loading: "読み込んでいます",
+  failed: "読めませんでした",
+  // 1 最新の発生
+  outbreakHeading: "最新の発生",
+  outbreakLink: "発生の地図を見る",
+  // 確認できた時点がないとき。ページの上の時点の行（「確認できていません」）とそろえる
+  outbreakUnchecked: "確認できていません",
+  // 時点は見回り（発生の確認）の時点。発生の時刻と読まれないよう「…時点の確認」と書く
+  outbreakAsOf: (asOf: string): string => `${asOf}の確認`,
+  // 2 今日の死亡数
+  deathsHeading: "今日の死亡数",
+  deathsRecorded: (n: number): string => `記録済み（${n} 羽）`,
+  deathsMissing: "未入力",
+  // 空舎にした鶏舎は記録しないので「未入力」と出さない
+  deathsVacant: "空舎",
+  deathsLink: "死亡数を記録する",
+  // 3 後でやる・まだの対策（相談から足した見直し）
+  reviewsHeading: "後でやる・まだの対策",
+  reviewsCount: (label: string, n: number): string => `${label} ${n} 件`,
+  // 「まだ」のうち、状態を一度も記録していないもの（「まだ」と記録したものと分ける）。0 件なら出さない
+  reviewsUnrecorded: (n: number): string => `（うち記録なし ${n} 件）`,
+  reviewsNote: (note: string): string => `（メモ: ${note}）`,
+  reviewsMore: (n: number): string => `ほか ${n} 件`,
+  reviewsNone: "「後でやる」「まだ」の対策はありません",
+  reviewsLink: "足した対策の一覧へ",
+  // 4 次の報告期限
+  dueHeading: "次の報告期限",
+  dueLine: (date: string, daysLeft: number): string => `次の自己点検の期限: ${date}（${daysLeft === 0 ? "今日" : `あと ${daysLeft} 日`}）`,
+  dueNone: "期限は登録されていません",
+  // 登録はあるが、今日以降の期限がない（期限は 10〜5 月だけ入れられる）
+  // 「今季」と書かず日付で示す（前の季の日付だけが残っていることがある）
+  dueAllPast: (lastDate: string): string => `登録した期限（最後は ${lastDate}）はすべて過ぎました`,
+  dueRecordLink: "自己点検を記録する",
+  dueChangeLink: "期限を変える",
+  dueSetLink: "通知の設定で期限を入れる",
 } as const;
 
 /** 働く人への声かけ文（M-18）。「安全」「安心」「区域の外です」は書かない。人の健康を断定しない。 */

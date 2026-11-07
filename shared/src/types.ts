@@ -165,7 +165,10 @@ export interface EvalSummary {
 
 // ── 2.3 会員のデータ ──
 export type Production = "layer" | "broiler";
+// 鶏舎の造り（画面の見出し「鶏舎の造り」）。対策項目の並び替えに使う。
 export type FarmHousing = "windowless" | "open" | "free_range";
+// 飼い方（ケージ飼い・平飼い。国の事例一覧 data/history/cases.json の語と同じ）。相談の条件に使う。
+export type FarmRearing = "cage" | "floor";
 export interface NotifySettings {
   level1: boolean;
   level2: boolean;
@@ -183,7 +186,9 @@ export interface Farm {
   prefCode: PrefCode;
   frequentMuniCodes: MuniCode[];
   production: Production | null;
-  housing: FarmHousing | null; // M-05 で入れる。null は未設定
+  housing: FarmHousing | null; // M-05 で入れる。null は未設定。画面の見出しは「鶏舎の造り」
+  // 飼い方。null は未設定。この項目ができる前に登録した農場にはない（未登録として扱い、推測で埋めない）
+  rearing?: FarmRearing | null;
   kahoContact: string;
   notify: NotifySettings;
   selfCheckDue: Record<string, IsoDate>; // "YYYY-MM" → 期限日（§8）

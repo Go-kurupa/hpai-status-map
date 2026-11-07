@@ -771,13 +771,147 @@ describe("対策項目に足した相談のカード（farms/{farmId}/reviews/{c
     }
   });
 
-  it("上書き（update）はできない。足すか消すかだけ。消してから足し直せる", async () => {
+  it("足し直し（同じ id への setDoc）と、足した日時・人の書き換えはできない。消してから足し直せる", async () => {
     const db = alice();
     await assertSucceeds(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice")));
     await assertFails(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice")));
     await assertFails(updateDoc(doc(db, "farms/f1/reviews/card-001"), { addedAt: serverTimestamp() }));
+    // 実施の記録（status・note）でも、更新の日時と人を付けない上書きはできない
     await assertFails(updateDoc(doc(db, "farms/f1/reviews/card-001"), { note: "x" }));
     await assertSucceeds(deleteDoc(doc(db, "farms/f1/reviews/card-001")));
     await assertSucceeds(setDoc(doc(db, "farms/f1/reviews/card-001"), review("alice")));
+  });
+});
+
+describe("足した対策の実施の記録（farms/{farmId}/reviews/{cardId} の status・note・updatedAt・updatedBy）", () => {
+  // 状態は「まだ」（pending）「後でやる」（later）「やった」（done）。無い文書は記録なし（足したときのまま）。
+  // メモは 40 字まで、改行なし。足す（create）ときは状態を付けられない（AI や画面が実施済みにして足せない）
+  const PATH = "farms/f1/reviews/card-001";
+  const review = (uid: string, over: Record<string, unknown> = {}) => ({ addedAt: serverTimestamp(), addedBy: uid, ...over });
+  const mark = (uid: string, over: Record<string, unknown> = {}) => ({ updatedAt: serverTimestamp(), updatedBy: uid, ...over });
+  const seedOld = async (over: Record<string, unknown> = {}) => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), PATH), { addedAt: Timestamp.now(), addedBy: "alice", ...over });
+    });
+  };
+  const read = async () => {
+    let data: Record<string, unknown> | undefined;
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      data = (await getDoc(doc(ctx.firestore(), PATH))).data();
+    });
+    return data;
+  };
+
+  it("その農場の会員は、状態とメモを更新でき、戻す（pending）ことも、状態の無い前の文書に状態を足すこともできる", async () => {
+    await seedOld();
+    const db = alice();
+    await assertSucceeds(updateDoc(doc(db, PATH), mark("alice", { status: "later" })));
+    await assertSucceeds(updateDoc(doc(db, PATH), mark("alice", { note: "資材を用意してから再確認" })));
+    await assertSucceeds(updateDoc(doc(db, PATH), mark("alice", { status: "done" })));
+    await assertSucceeds(updateDoc(doc(db, PATH), mark("alice", { status: "pending" })));
+    await assertSucceeds(updateDoc(doc(db, PATH), mark("alice", { note: "" })));
+    const d = await read();
+    expect(d?.["status"]).toBe("pending");
+    expect(d?.["note"]).toBe("");
+    expect(d?.["addedBy"]).toBe("alice");
+    expect(d?.["updatedBy"]).toBe("alice");
+  });
+
+  it("同じ農場の別の会員も更新できる（更新した人は自分の uid）。足した人は変わらない", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "farms/f1"), farm("alice", { memberUids: ["alice", "dave"] }));
+    });
+    await seedOld();
+    const dave = env.authenticatedContext("dave", { member: true }).firestore();
+    await assertSucceeds(updateDoc(doc(dave, PATH), mark("dave", { status: "done" })));
+    await assertFails(updateDoc(doc(dave, PATH), mark("alice", { status: "later" })));
+    const d = await read();
+    expect(d?.["addedBy"]).toBe("alice");
+    expect(d?.["updatedBy"]).toBe("dave");
+  });
+
+  it("他の農場の会員、農場の会員でない member、operator、未ログインは更新できない", async () => {
+    await seedOld();
+    for (const [db, uid] of [[bob(), "bob"], [memberOnly(), "carol"], [operator(), "op"], [operatorMember(), "op"], [anon(), "x"]] as const) {
+      await assertFails(updateDoc(doc(db, PATH), mark(uid, { status: "done" })));
+    }
+    expect((await read())?.["status"]).toBeUndefined();
+  });
+
+  it("足した日時・人を変える更新は拒否される（状態と一緒でも）", async () => {
+    await seedOld();
+    const db = alice();
+    await assertFails(updateDoc(doc(db, PATH), mark("alice", { status: "done", addedBy: "dave" })));
+    await assertFails(updateDoc(doc(db, PATH), mark("alice", { status: "done", addedAt: serverTimestamp() })));
+    await assertFails(updateDoc(doc(db, PATH), mark("alice", { status: "done", extra: "x" })));
+  });
+
+  it("状態は pending・later・done だけ（ほかの文字、真偽、数は拒否）", async () => {
+    await seedOld();
+    const db = alice();
+    for (const bad of ["finished", "DONE", "", true, 1, null]) {
+      await assertFails(updateDoc(doc(db, PATH), mark("alice", { status: bad })));
+    }
+  });
+
+  it("メモは文字で 40 字まで（日本語 40 字は通り、41 字は拒否）。改行（\\n・\\r）は拒否", async () => {
+    await seedOld();
+    const db = alice();
+    await assertSucceeds(updateDoc(doc(db, PATH), mark("alice", { note: "あ".repeat(40) })));
+    await assertFails(updateDoc(doc(db, PATH), mark("alice", { note: "あ".repeat(41) })));
+    await assertSucceeds(updateDoc(doc(db, PATH), mark("alice", { note: "a".repeat(40) })));
+    await assertFails(updateDoc(doc(db, PATH), mark("alice", { note: "a".repeat(41) })));
+    for (const bad of ["資材を用意\nしてから", "資材を用意\rしてから", "\n", "資材\r\n"]) {
+      await assertFails(updateDoc(doc(db, PATH), mark("alice", { note: bad })));
+    }
+    for (const bad of [1, null, true, ["x"]]) {
+      await assertFails(updateDoc(doc(db, PATH), mark("alice", { note: bad })));
+    }
+    expect((await read())?.["note"]).toBe("a".repeat(40));
+  });
+
+  it("更新の日時はサーバーの時刻、更新した人は自分。どちらかが欠けても拒否", async () => {
+    await seedOld();
+    const db = alice();
+    await assertFails(updateDoc(doc(db, PATH), { status: "done" }));
+    await assertFails(updateDoc(doc(db, PATH), { status: "done", updatedBy: "alice" }));
+    await assertFails(updateDoc(doc(db, PATH), { status: "done", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db, PATH), mark("alice", { status: "done", updatedAt: Timestamp.fromDate(new Date("2020-01-01T00:00:00Z")) })));
+    await assertFails(updateDoc(doc(db, PATH), mark("alice", { status: "done", updatedAt: "2026-11-08T06:30:00+09:00" })));
+    await assertFails(updateDoc(doc(db, PATH), mark("bob", { status: "done" })));
+    await assertFails(updateDoc(doc(db, PATH), mark("alice", { status: "done", updatedBy: null })));
+  });
+
+  it("足す（create）ときは状態・メモ・更新の項目を付けられない（足したときは記録なし）", async () => {
+    const db = alice();
+    for (const over of [{ status: "done" }, { status: "pending" }, { note: "" }, { updatedAt: serverTimestamp(), updatedBy: "alice" }]) {
+      await assertFails(setDoc(doc(db, PATH), review("alice", over)));
+    }
+    await assertSucceeds(setDoc(doc(db, PATH), review("alice")));
+  });
+
+  it("状態のある文書にも、ない文書にも、相談の画面からの足し直し（setDoc）は拒否され、状態は消えない", async () => {
+    const db = alice();
+    await seedOld({ status: "done", note: "点検した", updatedAt: Timestamp.now(), updatedBy: "alice" });
+    await assertFails(setDoc(doc(db, PATH), review("alice")));
+    expect((await read())?.["status"]).toBe("done");
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "farms/f1/reviews/card-002"), { addedAt: Timestamp.now(), addedBy: "alice" });
+    });
+    await assertFails(setDoc(doc(db, "farms/f1/reviews/card-002"), review("alice")));
+  });
+
+  it("状態を付けた後も、外す（delete）ことができる", async () => {
+    await seedOld();
+    const db = alice();
+    await assertSucceeds(updateDoc(doc(db, PATH), mark("alice", { status: "done", note: "点検した" })));
+    await assertSucceeds(deleteDoc(doc(db, PATH)));
+    expect(await read()).toBeUndefined();
+  });
+
+  it("外された（無い）文書への更新は拒否される（作り直さない）", async () => {
+    const db = alice();
+    await assertFails(updateDoc(doc(db, PATH), mark("alice", { status: "done" })));
+    expect(await read()).toBeUndefined();
   });
 });

@@ -377,6 +377,52 @@
   border: 2px solid var(--lv1);
   background: var(--surface);
 }
+/* 質問の欄の前の、登録した飼い方の欄（会員だけ） */
+.consult-condition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--s2);
+  font-size: 0.9rem;
+}
+.consult-condition p {
+  margin: 0;
+}
+.consult-condition-head {
+  font-weight: 700;
+}
+.consult-condition-use {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap);
+  cursor: pointer;
+}
+.consult-condition-use input {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+/* 質問の文と登録の食い違い。送らずに本人に選んでもらう */
+.consult-conflict {
+  padding: 8px 12px;
+  border: 2px solid var(--lv1);
+  background: var(--surface);
+}
+.consult-conflict p {
+  margin: 0;
+}
+.consult-conflict .consult-conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  margin-top: 6px;
+}
+/* 答えの近くの「今回の条件」 */
+.consult-condition-used {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
 .consult-visually-hidden {
   position: absolute;
   width: 1px;

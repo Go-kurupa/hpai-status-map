@@ -74,7 +74,7 @@ service cloud.firestore {
         let d = request.resource.data;
         return d.keys().hasOnly([
             'name', 'memberUids', 'unsubscribedUids', 'meshCode', 'muniCode', 'prefCode',
-            'frequentMuniCodes', 'production', 'housing', 'kahoContact', 'notify',
+            'frequentMuniCodes', 'production', 'housing', 'rearing', 'kahoContact', 'notify',
             'selfCheckDue', 'updatedAt'
           ])
           && d.keys().hasAll(['memberUids', 'unsubscribedUids', 'meshCode', 'muniCode', 'prefCode', 'notify', 'selfCheckDue'])
@@ -92,6 +92,8 @@ service cloud.firestore {
           && (d.get('production', null) == null || (d.production is string && d.production in ['layer', 'broiler']))
           && (d.get('housing', null) == null
               || (d.housing is string && d.housing in ['windowless', 'open', 'free_range']))
+          // 飼い方（ケージ飼い・平飼い）。任意。項目がない前からの農場は未登録のまま通す
+          && (d.get('rearing', null) == null || (d.rearing is string && d.rearing in ['cage', 'floor']))
           && notifyOk(d.notify)
           // 画面は今季と前季の 16 件に絞って保存する。余裕を見て 40 件まで。キーは YYYY-MM、値は YYYY-MM-DD だけ（C-1）。
           // キーと値の join は、文字列でない値があると評価の誤りになり、拒否される
@@ -189,9 +191,10 @@ service cloud.firestore {
       }
 
       // 対策の見直し相談で「対策項目に足す」とした結果の行。文書の id がカードの id。
-      // 保存するのは足した日時と足した人だけで、自由な文は入れない。
+      // 足す（create）ときに保存するのは足した日時と足した人だけ。
       // addedAt は書いた時刻（serverTimestamp）と一致する値だけ。日時をさかのぼって書けない。
-      // 足すか消すかだけで、上書き（update）は許さない
+      // 上書き（update）は、実施の記録の 4 項目（状態・メモ・更新の日時と人）だけを許す（下の reviewMarkOk）。
+      // 自由な文はメモだけで、40 字まで、改行なし
       match /reviews/{cardId} {
         function reviewOk() {
           let r = request.resource.data;
@@ -200,8 +203,21 @@ service cloud.firestore {
             && r.addedAt is timestamp && r.addedAt == request.time
             && r.addedBy is string && r.addedBy == request.auth.uid;
         }
+        // 実施の記録（F1）。会員が変えてよいのは状態・メモ・更新の日時と人だけ。足した日時と人は変えない。
+        // 状態は「まだ」「後でやる」「やった」。無い文書は記録なし。メモは 40 字まで、改行なし。
+        // 足す（create）ときは状態を付けられない（reviewOk が addedAt・addedBy だけを許す）
+        function reviewMarkOk() {
+          let r = request.resource.data;
+          return r.diff(resource.data).affectedKeys().hasOnly(['status', 'note', 'updatedAt', 'updatedBy'])
+            && r.keys().hasOnly(['addedAt', 'addedBy', 'status', 'note', 'updatedAt', 'updatedBy'])
+            && r.updatedAt is timestamp && r.updatedAt == request.time
+            && r.updatedBy is string && r.updatedBy == request.auth.uid
+            && (!('status' in r) || r.status in ['pending', 'later', 'done'])
+            && (!('note' in r) || (r.note is string && r.note.size() <= 40 && !r.note.matches('(?s).*[\\r\\n].*')));
+        }
         allow read: if isFarmMember(farmId);
         allow create: if isFarmMember(farmId) && cardId.matches('^[a-zA-Z0-9-]{1,64}$') && reviewOk();
+        allow update: if isFarmMember(farmId) && reviewMarkOk();
         allow delete: if isFarmMember(farmId);
       }
     }

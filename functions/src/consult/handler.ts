@@ -2,10 +2,12 @@
 // 画面に出すカードの内容は、カードのデータから出す。Claude の返事（答えの文とカードの id）は検査に通ったものだけを使う。
 // 返事の検査に落ちたとき、Claude が拒否したとき、予算が止まっているときは、決まった文（OUT_OF_SCOPE_TEXT）に戻す。
 // Claude の呼び出しが失敗したとき（鍵を読めない、通信の失敗、途中で切れた、形の違い）は決まった文を出さず、notice: "unavailable"（答えは空）を返す。
-// 順序: 入力の検査（question か topicId、前の往復 history の形）→ 範囲外の問い → 資料 → 予算 → 回数の確保 → 鍵を読んで client を作る → Claude → 使用量を積む → 返事の検査。
+// 順序: 入力の検査（question か topicId、前の往復 history の形、農場の条件 farm の形）→ 範囲外の問い → 資料 → 予算 → 回数の確保 → 鍵を読んで client を作る → Claude → 使用量を積む → 返事の検査。
 // 前の往復（history）は Claude に問いの意味を読む材料として渡すだけ。問いが範囲外の語に当たる前の往復は渡さず、答えだけが当たるときは答えを空にする（新しい問いが当たれば決まった文）。数字の検査に使うのは、相談者が書いた問い（新しい問いと前の問いを文ごとに。前の答えは入れない）。
 // 発生の件数の問いは、Claude が選んだ数え方（stats）でプログラムが過去の事例を数え、表を付ける。件数だけの問いは、対策の答えなしで表だけを返す。
-// 入力の問いの文はログにも、エラーの文にも出さない。農場の名前、位置、記録は読まない。
+// 農場の条件（farm）は、本人が登録して「この飼い方で相談する」を選んだ飼育目的と飼い方だけ。形を検査して Claude にカードを選ぶ材料として渡し、
+// 返事に使った条件を付ける（画面が答えの近くに出す）。条件がなければ今までどおり（Claude にも返事にも farm の項目を作らない）。
+// 入力の問いの文はログにも、エラーの文にも出さない。農場の名前、位置、記録は読まない（条件も Firestore から読まず、送られてきたものだけ）。
 // このファイルは db を受け取らない。予算と回数の読み書きは deps の関数（index.ts が usage/ を差し込む）。
 import type Anthropic from "@anthropic-ai/sdk";
 import { logger } from "firebase-functions";
@@ -16,8 +18,9 @@ import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { computeStats, parseStatsQuery } from "@hpai/shared/consult/stats";
 import { jstDateOf } from "@hpai/shared/dates";
 import { findTopic } from "@hpai/shared/consult/topics";
+import { parseFarmCondition } from "@hpai/shared/consult/farmCondition";
 import { CONSULT_DAILY_LIMIT, CONSULT_HISTORY_ANSWER_MAX, CONSULT_MAX_HISTORY, CONSULT_MAX_QUESTION } from "@hpai/shared/consult/types";
-import type { ConsultAnswerCard, ConsultAskResponse, ConsultCard, ConsultNotice, ConsultSource, ConsultTurn } from "@hpai/shared/consult/types";
+import type { ConsultAnswerCard, ConsultAskResponse, ConsultCard, ConsultFarmCondition, ConsultNotice, ConsultSource, ConsultTurn } from "@hpai/shared/consult/types";
 import { OUT_OF_SCOPE_TEXT, validateAsk, validateFollowUps } from "@hpai/shared/consult/validate";
 import type { RuntimeSettings } from "@hpai/shared/types";
 import type { ReadAttempt } from "../read/claude";
@@ -111,6 +114,15 @@ function parseHistory(data: unknown): ConsultTurn[] {
     .map((t) => (isOutOfScopeQuestion(t.answer) ? { question: t.question, answer: "" } : t));
 }
 
+/**
+ * 農場の条件。項目がない／null は条件なし（null）。列挙の外の値、型の違い、余計な項目、空の条件は invalid-argument（エラーの文に入力を入れない）。
+ */
+function parseFarm(data: unknown): ConsultFarmCondition | null {
+  const r = parseFarmCondition(isRecord(data) ? data["farm"] : undefined);
+  if (!r.ok) throw new HttpsError("invalid-argument", "飼い方の条件の形が違います");
+  return r.value;
+}
+
 async function loadData(deps: ConsultDeps): Promise<ConsultData> {
   try {
     return await deps.data();
@@ -167,15 +179,21 @@ function answerCardOf(card: ConsultCard | undefined, sources: ReadonlyMap<string
   return [{ ...card, source: { id: s.id, title: s.title, publisher: s.publisher, url: s.url, domestic: s.domestic, license: s.license } }];
 }
 
-/** `{question | topicId, judge?}` → おすすめの文と引いたカード。会員だけ（judge: true のときはログインなし）。 */
+/** `{question | topicId, judge?, history?, farm?}` → おすすめの文と引いたカード。会員だけ（judge: true のときはログインなし）。 */
 export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller | null, data: unknown): Promise<ConsultAskResponse> {
   const who = authorize(caller, data);
   const question = parseAsk(data);
   const history = parseHistory(data);
+  // 審査員の入口（judge: true）には農場がない。条件が送られてきても捨てる（Claude に渡さず、返事にも付けない）。
+  // 拒むと審査員の画面が壊れるおそれがあるので、検査もしない
+  const farm = who.judge ? null : parseFarm(data);
+  // 条件を付けた相談で、Claude に渡そうとしたときだけ、返事に使った条件を付ける（付けない相談の返事の形は今までどおり）
+  const withFarm = (r: ConsultAskResponse): ConsultAskResponse => (farm ? { ...r, farm } : r);
   const unavailable = (w: Who, kind: string): ConsultAskResponse => {
-    logger.info("対策の相談(ask)", { outOfScope: false, notice: "unavailable", judge: w.judge, failureKinds: [kind] });
-    return { answer: "", cards: [], outOfScope: false, notice: "unavailable", followUps: [], stats: null };
+    logger.info("対策の相談(ask)", { outOfScope: false, notice: "unavailable", judge: w.judge, withFarm: farm !== null, failureKinds: [kind] });
+    return withFarm({ answer: "", cards: [], outOfScope: false, notice: "unavailable", followUps: [], stats: null });
   };
+  // Claude を呼ぶ前に決まった文で返すとき（範囲外の語、カードなし、予算・回数）は、条件を使っていないので付けない
   const fixed = (notice: ConsultNotice): ConsultAskResponse => ({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: true, notice, followUps: [], stats: null });
 
   // 健康・区域・診断の問いは、Claude を呼ばず、回数も費用も使わずに決まった文を返す
@@ -203,7 +221,7 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
   // 鍵を読む処理も、回数を確保した後の try の中。失敗は Claude の呼び出しの失敗と同じ（unavailable）
   let attempt: ReadAttempt<AskOutput>;
   try {
-    attempt = await callAsk(deps.client(), buildAskRequest(allowed, question, history, jstDateOf(now)));
+    attempt = await callAsk(deps.client(), buildAskRequest(allowed, question, history, jstDateOf(now), farm));
   } catch (e) {
     logger.error("対策の相談: Claude の準備に失敗しました", { error: e instanceof Error ? e.name : "unknown" });
     return unavailable(who, "client_unavailable");
@@ -224,6 +242,7 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
     notice: null,
     judge: who.judge,
     historyTurns: history.length,
+    withFarm: farm !== null,
     stats: statsQuery?.groupBy ?? null,
     // 落ちた理由の符号だけ（数字は落とす。答えの文と相談の文は入れない）
     failureKinds: [...new Set([...(attempt.ok ? [] : [`claude:${attempt.reason}`]), ...result.failures.map(failureKind)])],
@@ -231,14 +250,14 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
   const followUps = attempt.ok ? validateFollowUps(attempt.value.followUps) : [];
   if (result.outOfScope && stats) {
     // 件数の問いだけ（対策の答えがない、または答えが検査に落ちた）: 件数の表だけを返す。検査に落ちた答えの文は出さない
-    return { answer: "", cards: [], outOfScope: false, notice: null, followUps, stats };
+    return withFarm({ answer: "", cards: [], outOfScope: false, notice: null, followUps, stats });
   }
-  return {
+  return withFarm({
     answer: result.answer,
     cards: result.cardIds.flatMap((id) => answerCardOf(byId.get(id), sources)),
     outOfScope: result.outOfScope,
     notice: null,
     followUps: !result.outOfScope && result.cardIds.length > 0 ? followUps : [],
     stats: result.outOfScope ? null : stats,
-  };
+  });
 }

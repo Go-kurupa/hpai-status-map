@@ -1,5 +1,6 @@
 // AIに対策を相談の画面の文言。「安全」「安心」は書かない（shared/src/wording.ts）。
 import { CONSULT_DAILY_LIMIT, type ConsultSourceInfo } from "@hpai/shared/consult/types";
+import type { FarmConflict } from "@hpai/shared/consult/farmCondition";
 import { OUT_OF_SCOPE_TEXT } from "@hpai/shared/consult/validate";
 
 export const CONSULT_TEXT = {
@@ -77,6 +78,27 @@ export const CONSULT_TEXT = {
   /** 入力欄の近く。農場を特定する情報を送らせない */
   inputHint: "農場の名前や場所は書かないでください。続けて聞くと、この相談の前のやりとりも AI に渡ります。",
   failed: "相談を送れませんでした。もう一度お試しください。",
+  /** 登録した条件（飼育目的と飼い方）を相談に付ける欄。質問の欄の前に出す。付けるのは本人が選んだときだけ。
+   * 見出しは「条件」。中の「飼い方は未登録」と「飼い方」が重ならないように */
+  conditionHead: (label: string) => `登録した条件: ${label}`,
+  conditionUse: "この飼い方で相談する",
+  /** 選んだときに出す、条件として送る内容（質問の文と前のやりとりのことは入力欄の下の案内が言う） */
+  conditionSends: (label: string) => `条件として送るのは「${label}」だけです。鶏舎の造り・農場名・場所・記録は送りません。`,
+  /** 未登録のとき。「農場の設定」はリンクにする */
+  conditionNoneBefore: "登録した条件: 未登録。",
+  conditionSettingsLink: "農場の設定",
+  conditionNoneAfter: "で登録すると、条件を付けて相談できます。",
+  conditionLoadFailed: "登録した条件を読めませんでした。条件を付けずに相談できます。",
+  /** 答えの近くに出す、今回使った条件 */
+  conditionUsed: (label: string) => `今回の条件: ${label}`,
+  /** 質問の文と登録が食い違うとき（食い違い 1 つごとの文と、最後の 1 文）。送らずに、本人に選んでもらう（直す・このまま付けて送る・付けずに送る・やめる） */
+  conflictItem: (inQuestion: string, registered: string) => `質問では${inQuestion}、登録は${registered}です。`,
+  conflictAsk: "登録を直すか、送り方を選んでください。",
+  conflictFix: "登録を直す",
+  /** 食い違いを承知で、登録した条件を付けたまま送る（押すのは本人。主のボタンにしない） */
+  conflictSendWith: "このまま条件を付けて送る",
+  conflictSendWithout: "条件を付けずに送る",
+  conflictCancel: "やめる",
   foreign: "日本と飼い方が違う可能性があります。",
   add: "対策項目に足す",
   adding: "足しています…",
@@ -92,6 +114,11 @@ export const CONSULT_TEXT = {
   footer:
     "根拠は、農林水産省・岡山県・論文・海外の公的機関の資料だけです。人の健康、区域、鶏の診断には答えません。迷ったら管轄の家畜保健衛生所へ。",
 } as const;
+
+/** 食い違いの確認の文（「質問では平飼い、登録はケージ飼いです。登録を直すか、条件を付けずに相談してください。」） */
+export function conflictText(conflicts: readonly FarmConflict[]): string {
+  return `${conflicts.map((c) => CONSULT_TEXT.conflictItem(c.inQuestion, c.registered)).join("")}${CONSULT_TEXT.conflictAsk}`;
+}
 
 /** カードの資料の行に添える、許可証ごとの短い帰属の文（文面は作者が確認する）。 */
 export function attributionText(source: ConsultSourceInfo): string {

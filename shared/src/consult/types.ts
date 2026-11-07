@@ -1,5 +1,6 @@
 // 対策の見直し相談の型。型と定数だけを置く。カードの JSON の形は設計書 6 章に合わせる。
 
+import type { FarmRearing, Production } from "../types";
 import type { ConsultStats } from "./stats";
 
 // 根拠の強さ（画面では EVIDENCE_LABEL の札で出す）。
@@ -101,6 +102,21 @@ export interface ConsultAskResponse {
    * 古い関数の返事にはないので、画面は無いものとして扱う。
    */
   stats?: ConsultStats | null;
+  /**
+   * 今回の相談に付けた農場の条件（関数が検査して Claude に渡したもの）。条件を付けなかった相談にはない。
+   * 古い関数の返事と、この項目ができる前の記録にもないので、画面は無いものとして扱う。
+   */
+  farm?: ConsultFarmCondition;
+}
+
+/**
+ * 相談に付ける農場の条件。本人が農場の設定に登録し、その相談で「この飼い方で相談する」を選んだときだけ送る。
+ * 飼育目的（production）と飼い方（rearing）だけ。登録のない側の項目は入れない（推測で埋めない）。鶏舎の造り（housing）は入れない。
+ * Claude にはカードを選ぶ材料として渡し、根拠にはしない（根拠はカードだけ）。
+ */
+export interface ConsultFarmCondition {
+  production?: Production;
+  rearing?: FarmRearing;
 }
 
 /** 続けて聞くときに、画面が関数へ渡す前の往復（同じ相談の直前の分だけ）。根拠にはしない。問いの意味を読む材料。 */

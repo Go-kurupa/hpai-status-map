@@ -165,50 +165,88 @@ describe("並び（農場がないあいだは地点だけ）", () => {
   });
 });
 
-describe("農場名、採卵か肉用か、飼い方", () => {
-  it("saveFarm に name、production、housing だけを渡す（toEqual）", async () => {
+describe("農場名、採卵か肉用か、鶏舎の造り、飼い方", () => {
+  it("saveFarm に name、production、housing、rearing だけを渡す（toEqual）", async () => {
     mount();
     fireEvent.change(await screen.findByLabelText("農場名"), { target: { value: "テスト農場" } });
     fireEvent.click(screen.getByLabelText("採卵"));
     fireEvent.click(screen.getByLabelText("開放的な鶏舎"));
     click("農場の情報を保存");
     await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
-    expect(lastPatch()).toEqual({ name: "テスト農場", production: "layer", housing: "open" });
+    expect(lastPatch()).toEqual({ name: "テスト農場", production: "layer", housing: "open", rearing: null });
   });
 
-  it("肉用は broiler、窓のない鶏舎は windowless、屋外に出す飼い方は free_range", async () => {
+  it("肉用は broiler、窓のない鶏舎は windowless、屋外にも出す（放し飼い）は free_range", async () => {
     mount();
     await screen.findByLabelText("農場名");
     fireEvent.click(screen.getByLabelText("肉用"));
     fireEvent.click(screen.getByLabelText("窓のない鶏舎"));
     click("農場の情報を保存");
     await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
-    expect(lastPatch()).toEqual({ name: "", production: "broiler", housing: "windowless" });
-    fireEvent.click(screen.getByLabelText("屋外に出す飼い方"));
+    expect(lastPatch()).toEqual({ name: "", production: "broiler", housing: "windowless", rearing: null });
+    fireEvent.click(screen.getByLabelText("屋外にも出す（放し飼い）"));
     click("農場の情報を保存");
     await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(2));
-    expect(lastPatch()).toEqual({ name: "", production: "broiler", housing: "free_range" });
+    expect(lastPatch()).toEqual({ name: "", production: "broiler", housing: "free_range", rearing: null });
   });
 
   it("未選択は null で保存でき、確認リストは両方を出すと説明する", async () => {
-    farm = { id: "f1", ...farmFixture("u1", { name: "A 農場", production: "layer", housing: "open" }) };
+    farm = { id: "f1", ...farmFixture("u1", { name: "A 農場", production: "layer", housing: "open", rearing: "floor" }) };
     mount();
     expect((await screen.findByLabelText("採卵")) as HTMLInputElement).toHaveProperty("checked", true);
+    expect((screen.getByLabelText("平飼い") as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByLabelText("用途を選ばない"));
+    fireEvent.click(screen.getByLabelText("鶏舎の造りを選ばない"));
     fireEvent.click(screen.getByLabelText("飼い方を選ばない"));
     click("農場の情報を保存");
     await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
-    expect(lastPatch()).toEqual({ name: "A 農場", production: null, housing: null });
+    expect(lastPatch()).toEqual({ name: "A 農場", production: null, housing: null, rearing: null });
     expect(within(section("農場の情報")).getByText(/確認リストは両方を出します/)).toBeTruthy();
   });
 
   it("農場がまだ未選択のときは、未選択の側が選ばれて開く", async () => {
     mount();
     expect((await screen.findByLabelText("用途を選ばない")) as HTMLInputElement).toHaveProperty("checked", true);
+    expect((screen.getByLabelText("鶏舎の造りを選ばない") as HTMLInputElement).checked).toBe(true);
     expect((screen.getByLabelText("飼い方を選ばない") as HTMLInputElement).checked).toBe(true);
   });
 
-  it("飼い方の説明に『確かめておくとよいことの並びに使います』", async () => {
+  it("飼い方（ケージ飼い・平飼い）を選べ、cage・floor で保存する。鶏舎の造りとは別の項目", async () => {
+    mount();
+    await screen.findByLabelText("農場名");
+    fireEvent.click(screen.getByLabelText("ケージ飼い"));
+    click("農場の情報を保存");
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    expect(lastPatch()).toEqual({ name: "", production: null, housing: null, rearing: "cage" });
+    fireEvent.click(screen.getByLabelText("平飼い"));
+    fireEvent.click(screen.getByLabelText("開放的な鶏舎"));
+    click("農場の情報を保存");
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(2));
+    expect(lastPatch()).toEqual({ name: "", production: null, housing: "open", rearing: "floor" });
+  });
+
+  it("見出しは「鶏舎の造り」と「飼い方」に分かれ、飼い方の説明に相談で使うこと（使うかは相談のたびに選ぶ）が出る", async () => {
+    mount();
+    await screen.findByLabelText("農場名");
+    const legends = within(section("農場の情報")).getAllByRole("group").map((g) => g.querySelector("legend")?.textContent);
+    expect(legends).toEqual(["採卵か肉用か", "鶏舎の造り", "飼い方"]);
+    expect(within(section("農場の情報")).getByText("「AIに対策を相談」で、条件として付けられます。付けるかは、相談のたびに選びます。")).toBeTruthy();
+  });
+
+  it("飼い方の項目がない前からの農場は「飼い方を選ばない」で開き、触らずに保存すると null（推測で埋めない）", async () => {
+    const old = farmFixture("u1", { name: "A 農場", production: "layer", housing: "open" }) as Farm;
+    delete (old as Partial<Farm>).rearing;
+    farm = { id: "f1", ...old };
+    mount();
+    expect((await screen.findByLabelText("飼い方を選ばない")) as HTMLInputElement).toHaveProperty("checked", true);
+    expect((screen.getByLabelText("ケージ飼い") as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText("平飼い") as HTMLInputElement).checked).toBe(false);
+    click("農場の情報を保存");
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    expect(lastPatch()).toEqual({ name: "A 農場", production: "layer", housing: "open", rearing: null });
+  });
+
+  it("鶏舎の造りの説明に『確かめておくとよいことの並びに使います』", async () => {
     mount();
     await screen.findByLabelText("農場名");
     expect(within(section("農場の情報")).getByText(/確かめておくとよいことの並びに使います/)).toBeTruthy();

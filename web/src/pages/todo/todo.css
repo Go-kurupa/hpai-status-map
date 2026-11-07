@@ -25,9 +25,98 @@
   color: var(--sub);
   font-size: 1rem;
 }
+/* けさの確認（会員だけ。見出しの直下）。4 項目を 1 つの枠に並べる。広い画面では 2 列、狭い画面では 1 列。
+   色は既存の変数だけ。押せる入口は .tap-link（48px） */
+.morning-check {
+  margin: 0 0 var(--s3);
+  padding: var(--s2);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.morning-check > h2 {
+  margin-top: 0;
+}
+.morning-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--s2) var(--s3);
+}
+.morning-item {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.morning-item h3 {
+  margin: 0 0 4px;
+}
+.morning-item p {
+  margin: 0;
+}
+.morning-list {
+  margin: 0;
+  padding: 0 0 0 1.2em;
+}
+.morning-count {
+  font-weight: 700;
+}
+.morning-list + .morning-count {
+  margin-top: var(--s1);
+}
+.morning-links {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--s2);
+}
 /* AI の相談から足した見直し。「確認リストを開く」のボタンの直後に見出しが詰まらないよう、上を空ける（2026-11-07 精査 T3） */
 .todo-reviews {
   margin-top: var(--s3);
+}
+/* 足した対策の実施の記録。状態の 3 つのボタンとメモ。押せるものは 48px 以上（.btn と --tap）。色は既存の変数だけ */
+.review-mark {
+  margin: var(--s1) 0;
+}
+.review-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+.review-status .btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.review-status .btn[aria-pressed="true"]:disabled {
+  opacity: 0.6;
+}
+.review-updated {
+  margin: 4px 0 var(--s1);
+}
+.review-note {
+  display: grid;
+  gap: 4px;
+}
+.review-note label {
+  font-weight: 700;
+}
+.review-note-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+.review-note-row input {
+  flex: 1 1 12em;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.review-mark .btn:focus-visible,
+.review-note-row input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 .lift-region {
   margin: 0 0 16px;

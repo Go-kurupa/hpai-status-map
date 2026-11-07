@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { latestSignInLink, seedInvite } from "./helpers/seedInvite";
 
-// 農場の設定（農場名、採卵か肉用か、飼い方、行き来する町、鶏舎、家保の連絡先）を保存し、再読み込みで残り、
+// 農場の設定（農場名、採卵か肉用か、鶏舎の造り、飼い方、行き来する町、鶏舎、家保の連絡先）を保存し、再読み込みで残り、
 // 登録した町の発生が『登録した町で発生しました』として出ることを確かめる通し（M-05）。M-01 の member-join と同じ形。
+// 登録した飼い方は「AIに対策を相談」で、本人が選んだときだけ条件として送られる（F2）。模擬環境の Claude の鍵は見本なので、答えは「答えを作れませんでした」。
 // 模擬環境（Auth、Firestore、Functions）が動いていること。実行の例（リポジトリの根から）:
 //   npm run build && firebase emulators:exec --only auth,firestore,functions --project demo-hpai \
 //     "cd web && browser-guard run -- npx playwright test farm-profile"
@@ -10,6 +11,7 @@ import { latestSignInLink, seedInvite } from "./helpers/seedInvite";
 // 連絡先の文字は見本の語だけ。実在の連絡先は書かない。
 
 const EMAIL = "farm-profile@example.test";
+const UNAVAILABLE = "答えを作れませんでした。時間をおいて、もう一度お試しください。";
 const EMULATOR = process.env["FIRESTORE_EMULATOR_HOST"] ?? "127.0.0.1:8080";
 
 type PickerHandle = {
@@ -131,10 +133,11 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await page.goto("/settings/farm?emulator=1");
   await expect(page.getByLabel("農場名", { exact: true })).toBeVisible();
 
-  // 農場名、採卵、開放的
+  // 農場名、採卵、開放的、平飼い
   await page.getByLabel("農場名", { exact: true }).fill("テスト農場");
   await page.getByLabel("採卵", { exact: true }).check();
   await page.getByLabel("開放的な鶏舎", { exact: true }).check();
+  await page.getByLabel("平飼い", { exact: true }).check();
   await page.getByRole("button", { name: "農場の情報を保存" }).click();
   await expect(sectionOf(page, "農場の情報").getByRole("status")).toHaveText("保存しました");
 
@@ -167,6 +170,7 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await expect(page.getByLabel("農場名", { exact: true })).toHaveValue("テスト農場");
   await expect(page.getByLabel("採卵", { exact: true })).toBeChecked();
   await expect(page.getByLabel("開放的な鶏舎", { exact: true })).toBeChecked();
+  await expect(page.getByLabel("平飼い", { exact: true })).toBeChecked();
   await expect(page.getByRole("button", { name: "札幌市を外す" })).toBeVisible();
   await expect(page.getByText("1 号舎", { exact: true })).toBeVisible();
   await expect(page.getByText("1200 羽")).toBeVisible();
@@ -181,6 +185,35 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await page.getByRole("button", { name: "鶏舎を保存" }).click();
   await expect(page.getByText("700 羽")).toBeVisible();
   await expect(page.getByRole("button", { name: /を編集$/ })).toHaveCount(2);
+
+  // 登録した飼い方で相談する（F2）。選んだときだけ条件を送り、質問の文と登録が食い違えば送らずに訂正を促す
+  const asks: Record<string, unknown>[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().includes("consultAsk")) asks.push((r.postDataJSON() as { data: Record<string, unknown> }).data);
+  });
+  await page.goto("/consult?emulator=1");
+  await expect(page.getByText("登録した条件: 採卵鶏・平飼い")).toBeVisible();
+  const useIt = page.getByRole("checkbox", { name: "この飼い方で相談する" });
+  await expect(useIt).not.toBeChecked();
+  await useIt.check();
+  await expect(page.getByText("条件として送るのは「採卵鶏・平飼い」だけです。鶏舎の造り・農場名・場所・記録は送りません。")).toBeVisible();
+  await page.getByLabel("聞きたいこと").fill("ケージ飼いの網の穴は？");
+  await page.getByRole("button", { name: "送る" }).click();
+  await expect(page.getByTestId("consult-conflict")).toContainText("質問ではケージ飼い、登録は平飼いです。登録を直すか、送り方を選んでください。");
+  // 送り方は本人が選ぶ（このまま条件を付けて送る・条件を付けずに送る）。押さなければ送らない
+  await expect(page.getByTestId("consult-conflict").getByRole("button", { name: "このまま条件を付けて送る" })).toBeVisible();
+  await expect(page.getByTestId("consult-conflict").getByRole("button", { name: "条件を付けずに送る" })).toBeVisible();
+  await page.getByRole("button", { name: "やめる" }).click();
+  await expect(page.getByTestId("consult-conflict")).toHaveCount(0);
+  await page.getByLabel("聞きたいこと").fill("長靴の消毒で、まず見直すことは？");
+  await page.getByRole("button", { name: "送る" }).click();
+  await expect(page.getByText(UNAVAILABLE)).toBeVisible({ timeout: 120_000 });
+  // 送ったのは食い違いのない 1 回だけで、条件は飼育目的と飼い方だけ（鶏舎の造り・農場名・場所は送らない）
+  expect(asks).toHaveLength(1);
+  expect(asks[0]!["farm"]).toEqual({ production: "layer", rearing: "floor" });
+  expect(JSON.stringify(asks[0])).not.toMatch(/open|テスト農場|33203|meshCode/);
+  // スマホ幅で横にはみ出さない
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 
   // 緯度経度をサーバーへ送っていない
   const wire = sent.join("\n");

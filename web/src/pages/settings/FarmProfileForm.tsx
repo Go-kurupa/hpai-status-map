@@ -1,6 +1,7 @@
-// 農場の情報（農場名、採卵か肉用か、飼い方）と、家畜保健衛生所の連絡先の欄。設計書 §8。
+// 農場の情報（農場名、採卵か肉用か、鶏舎の造り、飼い方）と、家畜保健衛生所の連絡先の欄。設計書 §8。
+// 鶏舎の造り（housing）は対策項目の並びに使う。飼い方（rearing: ケージ飼い・平飼い）は、相談の条件に本人が選んだときだけ使う（2026-11-07 作者の決定 B）。
 // どちらも、保存は欄ごとに saveFarm へ渡す項目だけにする（ほかの項目を巻き込まない）。
-import type { Farm, FarmHousing, Production } from "@hpai/shared/types";
+import type { Farm, FarmHousing, FarmRearing, Production } from "@hpai/shared/types";
 import { useState } from "react";
 import { Button } from "../../ui/Button";
 import { SaveStatus, useSectionSave } from "./sectionSave";
@@ -17,20 +18,27 @@ const PRODUCTION_OPTIONS: ReadonlyArray<{ value: Production; label: string }> = 
 const HOUSING_OPTIONS: ReadonlyArray<{ value: FarmHousing; label: string }> = [
   { value: "windowless", label: "窓のない鶏舎" },
   { value: "open", label: "開放的な鶏舎" },
-  { value: "free_range", label: "屋外に出す飼い方" },
+  { value: "free_range", label: "屋外にも出す（放し飼い）" },
+];
+// 国の事例一覧（data/history/cases.json）と同じ語
+const REARING_OPTIONS: ReadonlyArray<{ value: FarmRearing; label: string }> = [
+  { value: "cage", label: "ケージ飼い" },
+  { value: "floor", label: "平飼い" },
 ];
 
 export function FarmBasicsForm({
   farm,
   save,
 }: {
-  farm: Pick<Farm, "name" | "production" | "housing">;
+  farm: Pick<Farm, "name" | "production" | "housing" | "rearing">;
   save: SaveFarmPatch;
 }) {
   const [name, setName] = useState(farm.name);
   const [production, setProduction] = useState<Production | null>(farm.production);
   const [housing, setHousing] = useState<FarmHousing | null>(farm.housing);
-  const { state, run, reset } = useSectionSave(() => save({ name: name.trim(), production, housing }));
+  // 項目がない前からの農場は未登録（選ばない）として開く
+  const [rearing, setRearing] = useState<FarmRearing | null>(farm.rearing ?? null);
+  const { state, run, reset } = useSectionSave(() => save({ name: name.trim(), production, housing, rearing }));
 
   return (
     <div className="settings-form">
@@ -80,7 +88,7 @@ export function FarmBasicsForm({
       </fieldset>
 
       <fieldset className="settings-choice">
-        <legend>飼い方</legend>
+        <legend>鶏舎の造り</legend>
         {HOUSING_OPTIONS.map((o) => (
           <label key={o.value} className="settings-check">
             <input
@@ -105,9 +113,40 @@ export function FarmBasicsForm({
               reset();
             }}
           />
+          鶏舎の造りを選ばない
+        </label>
+        <p className="settings-note">鶏舎の造りは、確かめておくとよいことの並びに使います。選ばないときは、決まった並びで出します。</p>
+      </fieldset>
+
+      <fieldset className="settings-choice">
+        <legend>飼い方</legend>
+        {REARING_OPTIONS.map((o) => (
+          <label key={o.value} className="settings-check">
+            <input
+              type="radio"
+              name="rearing"
+              checked={rearing === o.value}
+              onChange={() => {
+                setRearing(o.value);
+                reset();
+              }}
+            />
+            {o.label}
+          </label>
+        ))}
+        <label className="settings-check">
+          <input
+            type="radio"
+            name="rearing"
+            checked={rearing === null}
+            onChange={() => {
+              setRearing(null);
+              reset();
+            }}
+          />
           飼い方を選ばない
         </label>
-        <p className="settings-note">飼い方は、確かめておくとよいことの並びに使います。選ばないときは、決まった並びで出します。</p>
+        <p className="settings-note">「AIに対策を相談」で、条件として付けられます。付けるかは、相談のたびに選びます。</p>
       </fieldset>
 
       <div>

@@ -1,14 +1,20 @@
 // AIに対策を相談（設計書 2026-11-06-consult-design 14 章、2026-11-07 チャットの形へ。見本 private/requirements/consult-chat-mock.html）。
 // 話題を押すか文で聞くと、集めた資料のカードから、短いおすすめと根拠が返る。続けて聞くと、同じ相談の前の往復も関数へ渡す。
 // おすすめの文と続けて聞く候補は Claude の下書き。引用・資料・根拠の札・注意書きは、カードのデータをそのまま出す（Claude は書き換えない）。
-// 資料の行は、応答のカードに付いた source から出す（静的な /consult/cards.json は、対策項目の欄でだけ使う）。
+// 資料の行は、応答のカードに付いた source から出す（静的な /consult/cards.json は、足し済みの判定で、足したカードの id から対策の文を引くのにだけ使う）。
 // これまでの相談は、会員の分だけ、この端末のブラウザに残す（consultHistory.ts）。審査員の入口（?judge=1）は残さず、会員の確認も通さない。
+// 会員は、農場の設定に登録した飼育目的と飼い方を、質問の欄の前で確かめて「この飼い方で相談する」を選んだときだけ、条件として送れる。
+// 条件を付けて送る前に、質問の文と登録が食い違えば送らずに訂正を促す（送るかは本人が選ぶ）。答えの近くに今回使った条件を出す。
+// 審査員の入口は農場を読まず、条件の欄を出さない。
+import { conditionLabel, conditionOfFarm, findFarmConflicts, registeredLabel, type FarmConflict } from "@hpai/shared/consult/farmCondition";
 import { CONSULT_TOPICS, type ConsultTopic } from "@hpai/shared/consult/topics";
 import { STATS_SOURCE, type ConsultStats } from "@hpai/shared/consult/stats";
-import { CONSULT_MAX_QUESTION, EVIDENCE_LABEL, type ConsultAnswerCard } from "@hpai/shared/consult/types";
+import { CONSULT_MAX_QUESTION, EVIDENCE_LABEL, type ConsultAnswerCard, type ConsultFarmCondition } from "@hpai/shared/consult/types";
+import type { Farm } from "@hpai/shared/types";
 import { FIXED_TEXT } from "@hpai/shared/wording";
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useLocation } from "react-router";
+import { useRecordStore } from "../../data/context";
 import { Button } from "../../ui/Button";
 import { RiskLine } from "../../ui/RiskLine";
 import { RequireMember } from "../auth/RequireMember";
@@ -33,7 +39,8 @@ import {
   type ConsultHistoryTurn,
   type DayGroup,
 } from "./consultHistory";
-import { CONSULT_TEXT, attributionText } from "./consultTexts";
+import { loadConsultCatalog, type ConsultCatalog } from "./cardsData";
+import { CONSULT_TEXT, attributionText, conflictText } from "./consultTexts";
 import { useReviewStore } from "./reviewStore";
 import "./consult.css";
 
@@ -54,8 +61,17 @@ function isPermissionDenied(e: unknown): boolean {
   return typeof code === "string" && code.endsWith("permission-denied");
 }
 
-interface AddState {
+/** 足し済みの判定に使うもの。同じ対策の文の別のカード（M02a と M02b など）は、どれかを足していれば足し済み */
+interface AddedState {
+  /** 対策項目に足したカードの id */
   reviews: ReadonlySet<string>;
+  /** 足したカードの対策の文（カードの一覧から引く。一覧を読めなければ空で、id だけで判定する） */
+  actions: ReadonlySet<string>;
+  /** カードの id から一覧の対策の文を引く（一覧にない・読めないときは undefined） */
+  actionOf: (cardId: string) => string | undefined;
+}
+
+interface AddState extends AddedState {
   failedIds: ReadonlySet<string>;
   noFarmIds: ReadonlySet<string>;
   addingIds: ReadonlySet<string>;
@@ -114,16 +130,21 @@ export function groupActions(cards: readonly ConsultAnswerCard[]): { action: str
   return groups;
 }
 
+/** 対策のまとまりが足し済みか。id が足してあるか、同じ文のカードのどれかが足してあれば足し済み */
+function isAdded(g: { action: string; ids: readonly string[] }, added: AddedState): boolean {
+  return g.ids.some((id) => added.reviews.has(id) || added.actions.has(added.actionOf(id) ?? g.action));
+}
+
 /** 答えのすぐ下の「この答えの対策」。その場で対策項目に足せる（会員だけ）。足したら対策項目への道を出す */
 function ActionsView({ cards, canAdd, add, onAdd }: { cards: readonly ConsultAnswerCard[]; canAdd: boolean; add: AddState; onAdd: (cardId: string) => void }) {
   const groups = groupActions(cards);
-  const anyAdded = groups.some((g) => g.ids.some((id) => add.reviews.has(id)));
+  const anyAdded = groups.some((g) => isAdded(g, add));
   return (
     <div className="consult-actions" data-testid="consult-actions">
       <p className="consult-actions-head">{CONSULT_TEXT.actionsHead}</p>
       <ul>
         {groups.map((g) => {
-          const added = g.ids.some((id) => add.reviews.has(id));
+          const added = isAdded(g, add);
           const adding = g.ids.some((id) => add.addingIds.has(id));
           const failed = g.ids.some((id) => add.failedIds.has(id));
           const noFarm = g.ids.some((id) => add.noFarmIds.has(id));
@@ -277,6 +298,7 @@ function AnswerView({ turn, judge, add, onAdd }: { turn: ConsultHistoryTurn; jud
       <span className="consult-who consult-advice-head">{advice ? CONSULT_TEXT.advice : CONSULT_TEXT.statsWho}</span>
       {advice ? (
         <>
+          {result.farm ? <p className="consult-condition-used">{CONSULT_TEXT.conditionUsed(conditionLabel(result.farm))}</p> : null}
           <p className="consult-answer">{result.answer}</p>
           <ActionsView cards={result.cards} canAdd={!judge} add={add} onAdd={onAdd} />
         </>
@@ -323,10 +345,64 @@ function TurnView({
   );
 }
 
+/** 会員の農場の登録（飼育目的と飼い方）。読めなかったときは「未登録」と言わない */
+type FarmLoad =
+  | { status: "loading" }
+  | { status: "failed" }
+  | { status: "ready"; farm: Pick<Farm, "production" | "rearing"> | null };
+
+/** 自分の農場を読む（会員の画面だけ）。会員（uid）が替わったら読み直す。reject を「農場なし」に丸めない */
+function useFarmLoad(uid: string | null): FarmLoad {
+  const records = useRecordStore();
+  const [state, setState] = useState<FarmLoad>({ status: "loading" });
+  useEffect(() => {
+    let off = false;
+    setState({ status: "loading" });
+    Promise.resolve()
+      .then(() => records.getFarm())
+      .then(
+        (farm) => !off && setState({ status: "ready", farm: farm ?? null }),
+        () => !off && setState({ status: "failed" }),
+      );
+    return () => {
+      off = true;
+    };
+  }, [records, uid]);
+  return state;
+}
+
+/** 質問の欄の前の、登録した条件（飼育目的と飼い方）の欄。登録があれば「この飼い方で相談する」を選べる。未登録・読めないときは選べない */
+function ConditionPanel({ load, use, onUse }: { load: FarmLoad; use: boolean; onUse: (v: boolean) => void }) {
+  if (load.status === "loading") return null;
+  const condition = load.status === "ready" && load.farm ? conditionOfFarm(load.farm) : null;
+  return (
+    <div className="consult-condition" data-testid="consult-condition">
+      {load.status === "failed" ? (
+        <p className="consult-note">{CONSULT_TEXT.conditionLoadFailed}</p>
+      ) : condition && load.farm ? (
+        <>
+          <p className="consult-condition-head">{CONSULT_TEXT.conditionHead(registeredLabel(load.farm))}</p>
+          <label className="consult-condition-use">
+            <input type="checkbox" checked={use} onChange={(e) => onUse(e.target.checked)} />
+            {CONSULT_TEXT.conditionUse}
+          </label>
+          {use ? <p className="consult-note">{CONSULT_TEXT.conditionSends(conditionLabel(condition))}</p> : null}
+        </>
+      ) : (
+        <p className="consult-note">
+          {CONSULT_TEXT.conditionNoneBefore}
+          <Link to="/settings/farm">{CONSULT_TEXT.conditionSettingsLink}</Link>
+          {CONSULT_TEXT.conditionNoneAfter}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** その相談の答えに出た対策のうち、対策項目に足したものの数（同じ対策の別の引用は 1 つと数える） */
-function addedCount(c: ConsultConversation, reviews: ReadonlySet<string>): number {
+function addedCount(c: ConsultConversation, added: AddedState): number {
   const groups = groupActions(c.turns.flatMap((t) => t.result.cards));
-  return groups.filter((g) => g.ids.some((id) => reviews.has(id))).length;
+  return groups.filter((g) => isAdded(g, added)).length;
 }
 
 const GROUPS: readonly { key: DayGroup; label: string }[] = [
@@ -365,11 +441,11 @@ function HistoryPanel({
   onRemove,
   onRemoveAll,
   headingRef,
-  reviews,
+  added,
 }: {
   headingRef: React.Ref<HTMLHeadingElement>;
-  /** 対策項目に足したカードの id（会員だけ。審査員の入口は null） */
-  reviews: ReadonlySet<string> | null;
+  /** 対策項目に足したもの（会員だけ。審査員の入口は null） */
+  added: AddedState | null;
   conversations: readonly ConsultConversation[];
   currentId: string | null;
   now: number;
@@ -443,7 +519,7 @@ function HistoryPanel({
                     <span className="consult-history-name">{c.title}</span>
                     <span className="consult-history-meta">
                       {CONSULT_TEXT.turns(c.turns.length)} · {whenLabel(c.updatedAt, now)}
-                      {reviews && addedCount(c, reviews) > 0 ? ` · ${CONSULT_TEXT.addedCount(addedCount(c, reviews))}` : ""}
+                      {added && addedCount(c, added) > 0 ? ` · ${CONSULT_TEXT.addedCount(addedCount(c, added))}` : ""}
                     </span>
                   </button>
                   <button type="button" className="consult-history-remove" aria-label={`「${c.title}」を${CONSULT_TEXT.remove}`} onClick={() => onRemove(c.id)}>
@@ -480,7 +556,34 @@ function HistoryPanel({
   );
 }
 
-function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid: string | null; initialQuestion?: string }) {
+type AskInput = { question: string } | { topicId: string };
+/**
+ * 選んだ条件の付け方。check: 付けるときは送る前に食い違いを見る（ふだん）。
+ * keep: 食い違いの確認で「このまま条件を付けて送る」を選んだ（確かめずに付ける）。
+ * without: 「条件を付けずに送る」を選んだ
+ */
+type ConditionMode = "check" | "keep" | "without";
+/** 食い違いで送らずに止めた相談（本人が「このまま条件を付けて送る」か「条件を付けずに送る」を選べば、これを送る） */
+interface PendingConflict {
+  input: AskInput;
+  shown: string;
+  typed: boolean;
+  title: string;
+  conflicts: FarmConflict[];
+}
+
+function ConsultBody({
+  judge,
+  uid,
+  initialQuestion = "",
+  farmLoad = null,
+}: {
+  judge: boolean;
+  uid: string | null;
+  initialQuestion?: string;
+  /** 会員の農場の登録。審査員の入口は null（条件の欄を出さない） */
+  farmLoad?: FarmLoad | null;
+}) {
   const id = useId();
   const store = useReviewStore();
   // 会員の分だけ、この端末に残す。審査員の入口と、uid が分からないとき（見本）は残さない
@@ -494,8 +597,14 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  // 「この飼い方で相談する」。最初は選ばない（本人が選んだときだけ条件を送る）
+  const [useCondition, setUseCondition] = useState(false);
+  const [conflict, setConflict] = useState<PendingConflict | null>(null);
+  const condition: ConsultFarmCondition | null = farmLoad?.status === "ready" && farmLoad.farm ? conditionOfFarm(farmLoad.farm) : null;
   const [reviews, setReviews] = useState<ReadonlySet<string>>(new Set());
   const [reviewsFailed, setReviewsFailed] = useState(false);
+  // カードの一覧。足したカードの id から対策の文を引く。読めなければ null のまま（id だけで判定する）
+  const [catalog, setCatalog] = useState<ConsultCatalog | null>(null);
   const [addFailed, setAddFailed] = useState<ReadonlySet<string>>(new Set());
   const [noFarmIds, setNoFarmIds] = useState<ReadonlySet<string>>(new Set());
   const [adding, setAdding] = useState<ReadonlySet<string>>(new Set());
@@ -515,6 +624,9 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
     loadedKey.current = key;
     setConversations(key ? loadConversations(key) : []);
     setCurrentId(null);
+    // 前の会員の選択と食い違いの確認を持ち越さない（条件は会員ごとの登録から選び直す）
+    setUseCondition(false);
+    setConflict(null);
   }, [key]);
 
   useEffect(() => {
@@ -523,6 +635,10 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
     store.listReviews().then(
       (ids) => !off && setReviews(new Set(ids)),
       () => !off && setReviewsFailed(true),
+    );
+    loadConsultCatalog().then(
+      (c) => !off && setCatalog(c),
+      () => undefined, // 読めなければ、今までどおりカードの id だけで判定する
     );
     return () => {
       off = true;
@@ -563,8 +679,18 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
 
   // typed: 入力欄の文を送るとき true。話題や候補のボタンのときは、書きかけの文を消さない
   // title: 新しい相談の一覧の題（話題のときは話題の短い名前。それ以外は聞いた文）
-  const ask = async (input: { question: string } | { topicId: string }, shown: string, typed: boolean, title: string = shown) => {
+  // mode: 選んだ条件の付け方（ConditionMode。食い違いの確認で本人が選んだ道）
+  const ask = async (input: AskInput, shown: string, typed: boolean, title: string = shown, mode: ConditionMode = "check") => {
     if (busyRef.current) return;
+    const farm = mode !== "without" && useCondition ? condition : null;
+    // 条件を付けるときは、送る前に質問の文と登録の食い違いを見る。あれば送らずに本人に選んでもらう
+    // （本人が「このまま条件を付けて送る」を選んだときは、もう見ない）
+    const conflicts = farm && mode === "check" ? findFarmConflicts(shown, farm) : [];
+    if (conflicts.length > 0) {
+      setConflict({ input, shown, typed, title, conflicts });
+      return;
+    }
+    setConflict(null);
     busyRef.current = true;
     setBusy(true);
     setFailed(false);
@@ -575,7 +701,9 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
     const sentKey = key;
     try {
       const { consultAskCall } = await import("../auth/callables");
-      const result = await consultAskCall(input, judge, base ? historyForAsk(base.turns) : []);
+      const past = base ? historyForAsk(base.turns) : [];
+      // 条件がなければ今までどおり（条件の引数を渡さない）
+      const result = farm ? await consultAskCall(input, judge, past, farm) : await consultAskCall(input, judge, past);
       // 待っている間に会員が替わったら、前の会員の一覧を今の画面と置き場所に混ぜない。
       // 送った時点で会員が未定（ログインの状態を読み込み中）だったなら同じ人なので、今の置き場所に入れる
       if (sentKey !== null && loadedKey.current !== sentKey) return;
@@ -607,8 +735,21 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
     void ask({ topicId: t.id }, t.question, false, t.label);
   };
 
+  const actionOf = (cardId: string): string | undefined => catalog?.cards.get(cardId)?.action;
+  const addedActions = useMemo(() => {
+    const out = new Set<string>();
+    for (const id of reviews) {
+      const a = catalog?.cards.get(id)?.action;
+      if (a !== undefined) out.add(a);
+    }
+    return out;
+  }, [reviews, catalog]);
+
   const add = async (cardId: string) => {
     if (addingRef.current.has(cardId) || reviews.has(cardId)) return;
+    // 同じ対策の文が足し済み・足している最中なら書かない（同じ文が対策項目に 2 行並ばないように）
+    const action = actionOf(cardId);
+    if (action !== undefined && (addedActions.has(action) || [...addingRef.current].some((id) => actionOf(id) === action))) return;
     addingRef.current.add(cardId);
     setAdding(new Set(addingRef.current));
     setAddFailed((prev) => {
@@ -643,13 +784,17 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
     setAdding(new Set(addingRef.current));
   };
 
-  const addState: AddState = { reviews, failedIds: addFailed, noFarmIds, addingIds: adding };
+  const addedState: AddedState = { reviews, actions: addedActions, actionOf };
+  const addState: AddState = { ...addedState, failedIds: addFailed, noFarmIds, addingIds: adding };
   const onAdd = (cardId: string) => void add(cardId);
 
+  // 「この飼い方で相談する」は相談のたびに選ぶ（設定の画面の案内のとおり）。新しい相談・別の相談を開くときは外す
   const startNew = () => {
     if (busy) return;
     setCurrentId(null);
     setFailed(false);
+    setConflict(null);
+    setUseCondition(false);
     setText("");
     setView("chat");
   };
@@ -657,6 +802,8 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
     if (busy) return;
     setCurrentId(cid);
     setFailed(false);
+    setConflict(null);
+    setUseCondition(false);
     setText("");
     setView("chat");
     focusNext.current = "log";
@@ -724,7 +871,7 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
           onRemove={removeConversation}
           onRemoveAll={removeAll}
           headingRef={historyHeading}
-          reviews={judge ? null : reviews}
+          added={judge ? null : addedState}
         />
       ) : null}
       {showChat ? (
@@ -781,6 +928,43 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
             ) : null}
             {reviewsFailed ? <p className="consult-note">{CONSULT_TEXT.reviewsLoadFailed}</p> : null}
             {saveFailed ? <p className="consult-note">{CONSULT_TEXT.historySaveFailed}</p> : null}
+            {farmLoad ? (
+              <ConditionPanel
+                load={farmLoad}
+                use={useCondition}
+                onUse={(v) => {
+                  setUseCondition(v);
+                  setConflict(null);
+                }}
+              />
+            ) : null}
+            {conflict ? (
+              <div role="alert" className="consult-conflict" data-testid="consult-conflict">
+                <p>{conflictText(conflict.conflicts)}</p>
+                <p className="consult-conflict-actions">
+                  <Link to="/settings/farm">{CONSULT_TEXT.conflictFix}</Link>
+                  <Button
+                    onClick={() => {
+                      const c = conflict;
+                      setConflict(null);
+                      void ask(c.input, c.shown, c.typed, c.title, "keep");
+                    }}
+                  >
+                    {CONSULT_TEXT.conflictSendWith}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const c = conflict;
+                      setConflict(null);
+                      void ask(c.input, c.shown, c.typed, c.title, "without");
+                    }}
+                  >
+                    {CONSULT_TEXT.conflictSendWithout}
+                  </Button>
+                  <Button onClick={() => setConflict(null)}>{CONSULT_TEXT.conflictCancel}</Button>
+                </p>
+              </div>
+            ) : null}
             <label htmlFor={`${id}-q`} className="consult-visually-hidden">
               {CONSULT_TEXT.questionLabel}
             </label>
@@ -792,7 +976,11 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
                 aria-describedby={`${id}-hint`}
                 placeholder={turns.length > 0 ? CONSULT_TEXT.followPlaceholder : CONSULT_TEXT.placeholder}
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  // 書き直したら、前の文の食い違いの確認は消す（送るときにもう一度見る）
+                  setConflict(null);
+                }}
               />
               <Button variant="primary" disabled={!canAsk} onClick={() => void ask({ question }, question, true)}>
                 {busy ? CONSULT_TEXT.asking : CONSULT_TEXT.ask}
@@ -815,7 +1003,9 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
 /** 会員の画面。uid でこの端末の記録の置き場所を分ける */
 function MemberConsult({ initialQuestion }: { initialQuestion: string }) {
   const auth = useAuthUser();
-  return <ConsultBody judge={false} uid={auth.user?.uid ?? null} initialQuestion={initialQuestion} />;
+  const uid = auth.user?.uid ?? null;
+  const farmLoad = useFarmLoad(uid);
+  return <ConsultBody judge={false} uid={uid} initialQuestion={initialQuestion} farmLoad={farmLoad} />;
 }
 
 /** ?q= の文（前後の空白を除き、上限の字数まで）。対策項目からの入口が使う */

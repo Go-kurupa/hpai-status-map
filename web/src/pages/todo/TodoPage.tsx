@@ -14,6 +14,8 @@ import { SourceLine } from "../../ui/SourceLine";
 import { TextItem } from "../../ui/RiskLine";
 import { DoneButton, FarmGuide, useDisinfectionLog, useFarmRecord } from "../record/disinfectionLog";
 import { LiftEstimateBlock } from "./LiftEstimateBlock";
+import { MorningCheck } from "./MorningCheck";
+import { useReviewItems } from "./reviewItems";
 import { ReviewsSection } from "./ReviewsSection";
 import { TODO_TEXT } from "./texts";
 import { levelOf, useTodoData } from "./useTodoData";
@@ -59,6 +61,10 @@ export default function TodoPage() {
   const open = openedByUser ?? level === 1;
 
   const farmInfo = farm.status === "ready" ? farm.farm : null;
+  // 会員の農場だけ。見本の農場には Firebase の保存先がない（けさの確認と、相談から足した見直しの欄）
+  const memberFarm = farm.status === "ready" && recordMode === "firestore" ? farm.farm : null;
+  // 足した見直しは 1 度だけ読み、けさの確認と下の欄が同じ状態を見る（下で状態を変えると上の数も変わる）
+  const reviews = useReviewItems(memberFarm?.id ?? null);
   const sections = orderSections(level, buildChecklist({ level, production: farmInfo?.production ?? null, housing: farmInfo?.housing ?? null }));
   const itemCount = sections.reduce((n, s) => n + s.items.length, 0);
   const lifts = state.status === "ready" ? state.result.lifts : [];
@@ -68,6 +74,7 @@ export default function TodoPage() {
     <div className="todo-page">
       <h1>{TODO_TEXT.title}</h1>
       <AsOf iso={data.asOf} />
+      {memberFarm ? <MorningCheck asOf={data.asOf} asOfLoading={data.asOfLoading} farm={memberFarm} reviews={reviews} /> : null}
 
       {state.status === "loading" ? <p role="status">{TODO_TEXT.loading}</p> : null}
       {state.status === "failed" ? <p role="alert">{TODO_TEXT.loadFailed}</p> : null}
@@ -137,8 +144,7 @@ export default function TodoPage() {
         </>
       ) : null}
 
-      {/* 会員の農場だけ。見本の農場には Firebase の保存先がない */}
-      {farm.status === "ready" && recordMode === "firestore" ? <ReviewsSection farmId={farm.farm.id} /> : null}
+      {memberFarm ? <ReviewsSection reviews={reviews} /> : null}
     </div>
   );
 }

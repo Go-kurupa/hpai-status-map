@@ -181,3 +181,36 @@ describe("一覧の札と検索", () => {
   });
 });
 
+
+describe("今回使った条件（farm）の記録", () => {
+  it("条件の付いた答えは、条件ごと保存して読み戻せる。条件のない古い記録もそのまま読める", () => {
+    const key = historyKey("u1");
+    const withFarm = { ...answered("答え"), farm: { production: "layer", rearing: "floor" } } as ConsultAskResponse;
+    saveConversations(key, [conv("条件あり", 2, [turn("平飼いの長靴は？", withFarm)]), conv("古い", 1)]);
+    const back = loadConversations(key);
+    expect(back.find((c) => c.id === "条件あり")!.turns[0]!.result.farm).toEqual({ production: "layer", rearing: "floor" });
+    expect("farm" in back.find((c) => c.id === "古い")!.turns[0]!.result).toBe(false);
+  });
+
+  it("片方だけの条件も読める。形の違う条件（列挙の外、余計な項目、空）の往復は捨てる", () => {
+    const key = historyKey("u1");
+    const r = (farm: unknown) => ({ ...answered("答え"), farm }) as unknown as ConsultAskResponse;
+    localStorage.setItem(
+      key,
+      JSON.stringify([
+        conv("片方", 5, [turn("q", r({ rearing: "cage" }))]),
+        conv("列挙の外", 4, [turn("q", r({ rearing: "open" }))]),
+        conv("余計な項目", 3, [turn("q", r({ production: "layer", name: "A 農場" }))]),
+        conv("空", 2, [turn("q", r({}))]),
+      ]),
+    );
+    const back = loadConversations(key);
+    expect(back.map((c) => c.id)).toEqual(["片方"]);
+    expect(back[0]!.turns[0]!.result.farm).toEqual({ rearing: "cage" });
+  });
+
+  it("続けて聞くときに渡す前の往復には、条件を入れない（問いと答えだけ）", () => {
+    const withFarm = { ...answered("a1"), farm: { production: "layer" } } as ConsultAskResponse;
+    expect(historyForAsk([turn("1", withFarm)])).toEqual([{ question: "1", answer: "a1" }]);
+  });
+});

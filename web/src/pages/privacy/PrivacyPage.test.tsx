@@ -144,8 +144,45 @@ describe("PRIVACY_NOTICE（文の正）", () => {
     expect(pageText()).toContain(line);
   });
 
-  it("AIに対策を相談で足した見直しの記録（カードの番号、足した日時、足した人）が、集める情報に出る", () => {
-    const phrase = "「AIに対策を相談」で『対策項目に足す』を押した見直しの記録（カードの番号、足した日時、足した人）";
+  it("登録した飼い方を相談に渡すのは本人が選んだときだけで、鶏舎の造りは渡さないことが、保存場所と目的と画面に出る", () => {
+    const line =
+      "「AIに対策を相談」で『この飼い方で相談する』を選んだときだけ、農場の設定に登録した採卵か肉用かと飼い方（例: 採卵鶏・平飼い）も Claude に渡します。鶏舎の造りは渡しません。今回使った条件は、答えの近くに出し、この端末のこれまでの相談にも残します。";
+    expect(PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs).toContain(line);
+    const purpose = "採卵か肉用かと飼い方（ケージ飼いか平飼いか）は、「AIに対策を相談」で本人が『この飼い方で相談する』を選んだときだけ、答えに使う資料を選ぶ条件にも使います。";
+    const purposes = PRIVACY_NOTICE.find((s) => s.heading === "目的")!.paragraphs;
+    expect(purposes).toContain(purpose);
+    // 「ここに書いた目的のほかには使いません」より前に書く
+    expect(purposes.indexOf(purpose)).toBeLessThan(purposes.indexOf("ここに書いた目的のほかには使いません。"));
+    renderPage();
+    expect(pageText()).toContain(line);
+    expect(pageText()).toContain(purpose);
+  });
+
+  it("採卵か肉用かと鶏舎の造りを対策項目の「確かめておくとよいこと」に使うことが、相談の目的と分けて目的に出る（相談だけに使うと読ませない）", () => {
+    const purpose = "採卵か肉用かと鶏舎の造りは、対策項目の「確かめておくとよいこと」に出す項目と並びに使います。";
+    const purposes = PRIVACY_NOTICE.find((s) => s.heading === "目的")!.paragraphs;
+    expect(purposes).toContain(purpose);
+    expect(purposes.indexOf(purpose)).toBeLessThan(purposes.indexOf("ここに書いた目的のほかには使いません。"));
+    renderPage();
+    expect(pageText()).toContain(purpose);
+  });
+
+  it("相談から足した対策の実施の記録（状態・メモ・更新した日時と会員）を、同じ農場の会員と共有する目的が出る", () => {
+    const purpose = "見直しの記録と、その実施の状態とメモは、対策の実施の記録を、同じ農場の会員と共有するために使います。";
+    const purposes = PRIVACY_NOTICE.find((s) => s.heading === "目的")!.paragraphs;
+    expect(purposes).toContain(purpose);
+    expect(purposes.indexOf(purpose)).toBeLessThan(purposes.indexOf("ここに書いた目的のほかには使いません。"));
+    renderPage();
+    expect(pageText()).toContain(purpose);
+  });
+
+  it("集める情報に、鶏舎の造りと飼い方（ケージ飼いか平飼いか）が分けて出る", () => {
+    expect(PRIVACY_NOTICE.find((s) => s.heading === "集める情報")!.paragraphs.join("")).toContain("採卵か肉用か、鶏舎の造り、飼い方（ケージ飼いか平飼いか）、");
+  });
+
+  it("AIに対策を相談で足した見直しの記録（カードの番号、足した日時、足した人）と実施の記録（状態・メモ・更新した日時と会員）が、集める情報に出る", () => {
+    const phrase =
+      "「AIに対策を相談」で『対策項目に足す』を押した見直しの記録（カードの番号、足した日時、足した人）と、その実施の状態（まだ・後でやる・やった）、40 字までのメモ、更新した日時と更新した会員。";
     expect(PRIVACY_NOTICE.find((s) => s.heading === "集める情報")!.paragraphs.join("")).toContain(phrase);
     renderPage();
     expect(pageText()).toContain(phrase);

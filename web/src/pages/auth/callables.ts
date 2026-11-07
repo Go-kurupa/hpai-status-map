@@ -1,5 +1,5 @@
 // 会員の画面から呼ぶ Cloud Functions（onCall）。lazy の chunk だけが import する。
-import type { ConsultAskResponse, ConsultTurn } from "@hpai/shared/consult/types";
+import type { ConsultAskResponse, ConsultFarmCondition, ConsultTurn } from "@hpai/shared/consult/types";
 import type { NeighborAudience, NeighborDraftResult } from "@hpai/shared/drafts";
 import { httpsCallable } from "firebase/functions";
 import { getFirebase } from "../../firebase";
@@ -47,13 +47,15 @@ export async function consultAskCall(
   input: { question: string } | { topicId: string },
   judge: boolean,
   history: ConsultTurn[] = [],
+  // 本人が「この飼い方で相談する」を選んだときだけ渡す、登録した飼育目的と飼い方。なければ送らない
+  farm: ConsultFarmCondition | null = null,
 ): Promise<ConsultAskResponse> {
   const { functions } = await getFirebase();
-  const res = await httpsCallable<{ question?: string; topicId?: string; judge?: boolean; history?: ConsultTurn[] }, ConsultAskResponse>(
+  const res = await httpsCallable<{ question?: string; topicId?: string; judge?: boolean; history?: ConsultTurn[]; farm?: ConsultFarmCondition }, ConsultAskResponse>(
     functions,
     "consultAsk",
     // 既定は 70 秒。サーバーは Claude を待つので、返しまで待つ（draftNeighborExplainerCall と同じ）
     { timeout: 130_000 },
-  )({ ...input, ...(judge ? { judge: true } : {}), ...(history.length > 0 ? { history } : {}) });
+  )({ ...input, ...(judge ? { judge: true } : {}), ...(history.length > 0 ? { history } : {}), ...(farm ? { farm } : {}) });
   return res.data;
 }

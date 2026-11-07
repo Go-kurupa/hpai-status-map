@@ -35,7 +35,8 @@ const callerOf = (auth: CallableRequest["auth"]): ConsultCaller | null => (auth 
 const OPTIONS = { timeoutSeconds: 120, memory: "256MiB" as const, maxInstances: 3, secrets: [ANTHROPIC_API_KEY] };
 
 /**
- * `{question | topicId, judge?}` → `{answer, cards, outOfScope, notice}`。会員だけ。judge: true は、ログインなしで使える審査員の入口。
+ * `{question | topicId, judge?, history?, farm?}` → `{answer, cards, outOfScope, notice, followUps, stats, farm?}`。会員だけ。judge: true は、ログインなしで使える審査員の入口。
+ * farm は本人が選んだときだけ付く飼育目的と飼い方（handler.ts が形を検査する。judge: true のときは捨てる）。
  * 会員 1 人は 1 日 10 回まで、審査員の入口は全体で 1 日 30 回まで。月の費用は soft の上限で止める。
  */
 export const consultAsk = onCall(OPTIONS, (request) => handleConsultAsk(deps, callerOf(request.auth), request.data));

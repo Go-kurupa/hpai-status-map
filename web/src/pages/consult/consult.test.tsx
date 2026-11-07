@@ -20,9 +20,13 @@ const box = vi.hoisted(() => ({
   ask: vi.fn(),
   reviews: { addReview: vi.fn(), listReviews: vi.fn(), removeReview: vi.fn() },
   auth: { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} } as unknown,
+  getFarm: vi.fn(),
+  // カードの一覧（/consult/cards.json）。足し済みの判定で、足したカードの id から対策の文を引くのに使う
+  loadCatalog: vi.fn(),
 }));
 vi.mock("../auth/callables", () => ({ consultAskCall: (...a: unknown[]) => box.ask(...a) }));
 vi.mock("./reviewStore", () => ({ useReviewStore: () => box.reviews }));
+vi.mock("./cardsData", () => ({ loadConsultCatalog: () => box.loadCatalog() }));
 vi.mock("../auth/useAuthUser", () => ({ useAuthUser: () => box.auth }));
 
 import ConsultPage from "./ConsultPage";
@@ -48,6 +52,12 @@ const CARD_US: ConsultCard = {
   caveats: [], conditionTags: [], approved: true,
 };
 
+// 同じ対策の文を持つ別のカード（本物の一覧の maff-M02a と maff-M02b のような組）
+const CARD_JP_TWIN: ConsultCard = { ...CARD_JP, id: "maff-M07b", origin: "M07b", quote: "別の引用" };
+function catalogOf(cards: ConsultCard[] = [CARD_JP, CARD_JP_TWIN, CARD_US], sources: ConsultSource[] = SOURCES) {
+  return { cards: new Map(cards.map((c) => [c.id, c] as const)), sources: new Map(sources.map((x) => [x.id, x] as const)) };
+}
+
 // 応答のカードは、カードのデータに資料の情報が付いたもの（画面は静的な cards.json を読まない）
 function ans(card: ConsultCard, src: ConsultSource | undefined = SOURCES.find((x) => x.id === card.sourceId)): ConsultAnswerCard {
   const s = src!;
@@ -58,7 +68,8 @@ function reply(over: Partial<ConsultAskResponse> = {}): ConsultAskResponse {
   return { answer: "履き替えの前後で動線を分けてください。", cards: [ans(CARD_JP), ans(CARD_US)], outOfScope: false, notice: null, ...over };
 }
 
-const store = { mode: "firestore" } as unknown as RecordStore;
+// 農場の登録（飼育目的と飼い方）は getFarm で読む。既定は農場なし
+const store = { mode: "firestore", getFarm: (...a: unknown[]) => box.getFarm(...a) } as unknown as RecordStore;
 function renderPage(url = "/consult") {
   return render(
     <RecordStoreProvider value={store}>
@@ -88,6 +99,8 @@ beforeEach(() => {
   box.reviews.listReviews.mockReset().mockResolvedValue([]);
   box.reviews.removeReview.mockReset().mockResolvedValue(undefined);
   box.auth = { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} };
+  box.getFarm.mockReset().mockResolvedValue(null);
+  box.loadCatalog.mockReset().mockResolvedValue(catalogOf());
   Element.prototype.scrollIntoView = vi.fn();
   localStorage.clear();
 });
@@ -466,20 +479,122 @@ describe("AIに対策を相談の画面", () => {
     expect(screen.queryByLabelText(CONSULT_TEXT.questionLabel)).toBeNull();
   });
 
-  it("資料の行は応答の source から出す。静的なカードの一覧（/consult/cards.json）は読まない", async () => {
-    const fetchSpy = vi.fn(() => Promise.reject(new Error("読まないはず")));
-    vi.stubGlobal("fetch", fetchSpy);
+  it("資料の行は応答の source から出す。静的なカードの一覧（/consult/cards.json）の資料は使わない（一覧は足し済みの判定にだけ使う）", async () => {
+    box.loadCatalog.mockResolvedValue(catalogOf(undefined, [{ ...SOURCES[0]!, title: "一覧の側の別の題" }, SOURCES[1]!]));
     box.ask.mockResolvedValue(reply());
     renderPage();
     fireEvent.change(input(), { target: { value: "長靴は？" } });
     fireEvent.click(askButton());
     await screen.findByText(CONSULT_TEXT.advice);
+    await waitFor(() => expect(box.loadCatalog).toHaveBeenCalled());
     openSources();
     const first = within(screen.getAllByTestId("consult-card")[0]!);
     expect(first.getByText(CARD_JP.action)).toBeTruthy();
     expect(first.getByRole("link", { name: /飼養衛生管理基準遵守指導の手引き/ })).toBeTruthy();
-    expect(fetchSpy).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
+    expect(screen.queryByText(/一覧の側の別の題/u)).toBeNull();
+  });
+
+  describe("同じ対策の文の別のカード（maff-M02a と maff-M02b など）は、どれかを足していれば足し済み", () => {
+    const historyOpen = () => fireEvent.click(screen.getByRole("button", { name: CONSULT_TEXT.historyOpen }));
+
+    it("足し済みが maff-M07 だけでも、答えに同じ文の maff-M07b が出たら「足しました」の押せないボタンで、押しても足さない", async () => {
+      box.reviews.listReviews.mockResolvedValue(["maff-M07"]);
+      box.ask.mockResolvedValue(reply({ cards: [ans(CARD_JP_TWIN), ans(CARD_US)] }));
+      renderPage();
+      await askText();
+      const twin = within(screen.getAllByTestId("consult-action")[0]!);
+      const btn = await twin.findByRole("button", { name: "対策項目に足しました" });
+      expect((btn as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(btn);
+      // 別の文のカードは足していない
+      expect(within(screen.getAllByTestId("consult-action")[1]!).getByRole("button", { name: CONSULT_TEXT.add })).toBeTruthy();
+      expect(screen.getByRole("link", { name: CONSULT_TEXT.toTodo })).toBeTruthy();
+      expect(box.reviews.addReview).not.toHaveBeenCalled();
+    });
+
+    it("答え 1 の文を足したら、答え 2 に出た同じ文の別のカードも「足しました」になり、二重に足さない", async () => {
+      box.ask.mockResolvedValueOnce(reply({ cards: [ans(CARD_JP)] })).mockResolvedValueOnce(reply({ cards: [ans(CARD_JP_TWIN)] }));
+      renderPage();
+      await askText();
+      await waitFor(() => expect(box.loadCatalog).toHaveBeenCalled());
+      fireEvent.click(within(screen.getAllByTestId("consult-action")[0]!).getByRole("button", { name: CONSULT_TEXT.add }));
+      await waitFor(() => expect(box.reviews.addReview).toHaveBeenCalledWith("maff-M07"));
+      fireEvent.change(input(), { target: { value: "裏口は？" } });
+      fireEvent.click(askButton());
+      await waitFor(() => expect(screen.getAllByTestId("consult-action")).toHaveLength(2));
+      const second = within(screen.getAllByTestId("consult-action")[1]!);
+      expect((second.getByRole("button", { name: "対策項目に足しました" }) as HTMLButtonElement).disabled).toBe(true);
+      expect(box.reviews.addReview).toHaveBeenCalledTimes(1);
+    });
+
+    it("同じ文の別のカードを足している最中に、もう一方を押しても、足すのは 1 回だけ", async () => {
+      let done: () => void = () => {};
+      box.reviews.addReview.mockReturnValue(new Promise<void>((r) => (done = r)));
+      box.ask.mockResolvedValueOnce(reply({ cards: [ans(CARD_JP)] })).mockResolvedValueOnce(reply({ cards: [ans(CARD_JP_TWIN)] }));
+      renderPage();
+      await askText();
+      await waitFor(() => expect(box.loadCatalog).toHaveBeenCalled());
+      fireEvent.change(input(), { target: { value: "裏口は？" } });
+      fireEvent.click(askButton());
+      await waitFor(() => expect(screen.getAllByTestId("consult-action")).toHaveLength(2));
+      const rows = screen.getAllByTestId("consult-action");
+      fireEvent.click(within(rows[0]!).getByRole("button", { name: CONSULT_TEXT.add }));
+      await within(rows[0]!).findByRole("button", { name: "足しています…" });
+      // もう一方の答えの行は、まだ「足す」のまま（足している最中の印は押したカードの行だけ）。押しても書かない
+      fireEvent.click(within(rows[1]!).getByRole("button", { name: CONSULT_TEXT.add }));
+      done();
+      await waitFor(() => expect(within(rows[1]!).getByRole("button", { name: "対策項目に足しました" })).toBeTruthy());
+      expect(box.reviews.addReview).toHaveBeenCalledTimes(1);
+      expect(box.reviews.addReview).toHaveBeenCalledWith("maff-M07");
+    });
+
+    it("カードの一覧を読めないときは、今までどおりカードの id だけで判定する（足せなくはしない）", async () => {
+      box.loadCatalog.mockRejectedValue(new Error("読めません"));
+      box.reviews.listReviews.mockResolvedValue(["maff-M07"]);
+      box.ask.mockResolvedValue(reply({ cards: [ans(CARD_JP_TWIN), ans(CARD_US)] }));
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: CONSULT_TOPICS[0]!.label }));
+      await screen.findByText(CONSULT_TEXT.advice);
+      await waitFor(() => expect(box.loadCatalog).toHaveBeenCalled());
+      expect(screen.queryByRole("link", { name: CONSULT_TEXT.toTodo })).toBeNull();
+      historyOpen();
+      const item = screen.getByRole("button", { name: new RegExp(`^${CONSULT_TOPICS[0]!.label}\\s*1 往復`, "u") });
+      expect(item.textContent).not.toContain(CONSULT_TEXT.addedCount(1));
+      fireEvent.click(screen.getByRole("button", { name: CONSULT_TEXT.historyClose }));
+      fireEvent.click(within(screen.getAllByTestId("consult-action")[0]!).getByRole("button", { name: CONSULT_TEXT.add }));
+      await waitFor(() => expect(box.reviews.addReview).toHaveBeenCalledWith("maff-M07b"));
+    });
+
+    it("一覧の「足した対策の数」も、同じ文のカードは 1 つと数える（maff-M07 を足し、答えには maff-M07b）", async () => {
+      box.reviews.listReviews.mockResolvedValue(["maff-M07"]);
+      box.ask.mockResolvedValue(reply({ cards: [ans(CARD_JP_TWIN), ans(CARD_US)] }));
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: CONSULT_TOPICS[0]!.label }));
+      await screen.findByText(CONSULT_TEXT.advice);
+      historyOpen();
+      const item = () => screen.getByRole("button", { name: new RegExp(`^${CONSULT_TOPICS[0]!.label}\\s*1 往復`, "u") });
+      await waitFor(() => expect(item().textContent).toContain(CONSULT_TEXT.addedCount(1)));
+    });
+
+    it("古いデータで同じ文のカードが 2 件とも足してあっても、数えるのは 1 つ", async () => {
+      box.reviews.listReviews.mockResolvedValue(["maff-M07", "maff-M07b"]);
+      box.ask.mockResolvedValue(reply({ cards: [ans(CARD_JP_TWIN), ans(CARD_US)] }));
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: CONSULT_TOPICS[0]!.label }));
+      await screen.findByText(CONSULT_TEXT.advice);
+      expect((await screen.findByRole("button", { name: "対策項目に足しました" }) as HTMLButtonElement).disabled).toBe(true);
+      historyOpen();
+      const item = screen.getByRole("button", { name: new RegExp(`^${CONSULT_TOPICS[0]!.label}\\s*1 往復`, "u") });
+      expect(item.textContent).toContain(CONSULT_TEXT.addedCount(1));
+    });
+
+    it("審査員の入口は、カードの一覧を読まない", async () => {
+      box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
+      box.ask.mockResolvedValue(reply());
+      renderPage("/consult?judge=1");
+      await askText();
+      expect(box.loadCatalog).not.toHaveBeenCalled();
+    });
   });
 
   it("notice: unavailable は「答えを作れませんでした…」を出す。回数を使ったことは書かず、決まった文もおすすめの枠もカードも出さない", async () => {
@@ -1116,5 +1231,315 @@ describe("AIに対策を相談の画面", () => {
       done(reply());
       await screen.findByText(CONSULT_TEXT.advice);
     });
+  });
+});
+
+describe("登録した飼い方で相談する（飼育目的と飼い方。本人が選んだときだけ送る）", () => {
+  const FARM_BASE = {
+    id: "f1", name: "A 農場", memberUids: ["u1"], unsubscribedUids: [], meshCode: "53394611", muniCode: "33203", prefCode: "33",
+    frequentMuniCodes: [], housing: "open", kahoContact: "", notify: { level1: true, level2: true, level3: true, morningDigest: true, selfCheckRemindDays: null },
+    selfCheckDue: {}, updatedAt: "2026-11-07T10:00:00+09:00",
+  };
+  const withFarm = (over: Record<string, unknown>) => box.getFarm.mockResolvedValue({ ...FARM_BASE, production: null, ...over });
+  const condition = () => screen.getByTestId("consult-condition");
+  const useIt = () => screen.findByRole("checkbox", { name: CONSULT_TEXT.conditionUse });
+
+  it("登録があれば、質問の欄の前に「登録した条件: 採卵鶏・平飼い」と、選ぶ欄（最初は選ばれていない）が出る", async () => {
+    withFarm({ production: "layer", rearing: "floor" });
+    renderPage();
+    expect(((await useIt()) as HTMLInputElement).checked).toBe(false);
+    expect(within(condition()).getByText("登録した条件: 採卵鶏・平飼い")).toBeTruthy();
+    // 見出しは「飼い方」と重ねない（選ぶ欄の名前「この飼い方で相談する」はそのまま）
+    expect(within(condition()).queryByText(/登録した飼い方/)).toBeNull();
+    // 欄は入力欄より前にある
+    expect(condition().compareDocumentPosition(input()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("選ばずに送ると、今までどおり条件なしで呼ぶ（3 つの引数だけ）。答えの近くに条件は出ない", async () => {
+    withFarm({ production: "layer", rearing: "floor" });
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    await useIt();
+    await askText("長靴は？");
+    expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, false, []);
+    expect(box.ask.mock.calls[0]).toHaveLength(3);
+    expect(screen.queryByText(/今回の条件/)).toBeNull();
+  });
+
+  it("選ぶと送る内容が先に出て、条件 { production, rearing } を付けて呼ぶ。答えの近くに「今回の条件: 採卵鶏・平飼い」が出て、記録にも残る", async () => {
+    withFarm({ production: "layer", rearing: "floor" });
+    box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor" } }));
+    renderPage();
+    fireEvent.click(await useIt());
+    expect(within(condition()).getByText("条件として送るのは「採卵鶏・平飼い」だけです。鶏舎の造り・農場名・場所・記録は送りません。")).toBeTruthy();
+    await askText("長靴は？");
+    expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, false, [], { production: "layer", rearing: "floor" });
+    const advice = screen.getByTestId("consult-advice");
+    expect(within(advice).getByText("今回の条件: 採卵鶏・平飼い")).toBeTruthy();
+    const stored = JSON.parse(localStorage.getItem("hpai.consult.history.v1:u1") ?? "[]") as { turns: { result: { farm?: unknown } }[] }[];
+    expect(stored[0]!.turns[0]!.result.farm).toEqual({ production: "layer", rearing: "floor" });
+  });
+
+  it("話題のボタンも、選んでいれば条件を付けて呼ぶ", async () => {
+    withFarm({ production: "broiler", rearing: "cage" });
+    box.ask.mockResolvedValue(reply({ farm: { production: "broiler", rearing: "cage" } }));
+    renderPage();
+    fireEvent.click(await useIt());
+    fireEvent.click(screen.getByRole("button", { name: CONSULT_TOPICS[0]!.label }));
+    await waitFor(() => expect(box.ask).toHaveBeenCalledWith({ topicId: CONSULT_TOPICS[0]!.id }, false, [], { production: "broiler", rearing: "cage" }));
+    expect(await screen.findByText("今回の条件: 肉用鶏・ケージ飼い")).toBeTruthy();
+  });
+
+  it("片方だけの登録は、未登録の側を「未登録」と出し、登録した側だけを送る（推測で埋めない）", async () => {
+    withFarm({ production: "layer", rearing: null });
+    box.ask.mockResolvedValue(reply({ farm: { production: "layer" } }));
+    renderPage();
+    fireEvent.click(await useIt());
+    expect(within(condition()).getByText("登録した条件: 採卵鶏・飼い方は未登録")).toBeTruthy();
+    expect(within(condition()).getByText("条件として送るのは「採卵鶏」だけです。鶏舎の造り・農場名・場所・記録は送りません。")).toBeTruthy();
+    await askText("長靴は？");
+    expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, false, [], { production: "layer" });
+    expect(screen.getByText("今回の条件: 採卵鶏")).toBeTruthy();
+  });
+
+  it("未登録（どちらも未設定・飼い方の項目がない前からの農場・農場なし）は「未登録」と出し、選ぶ欄を出さない。条件なしで相談できる", async () => {
+    for (const setFarm of [() => withFarm({ production: null, rearing: null }), () => withFarm({}), () => box.getFarm.mockResolvedValue(null)]) {
+      setFarm();
+      box.ask.mockReset().mockResolvedValue(reply());
+      renderPage();
+      expect(await within(await screen.findByTestId("consult-condition")).findByText(/^登録した条件: 未登録。/)).toBeTruthy();
+      expect(screen.queryByRole("checkbox", { name: CONSULT_TEXT.conditionUse })).toBeNull();
+      expect(within(condition()).getByRole("link", { name: CONSULT_TEXT.conditionSettingsLink }).getAttribute("href")).toBe("/settings/farm");
+      await askText("長靴は？");
+      expect(box.ask.mock.calls[0]).toHaveLength(3);
+      cleanup();
+      localStorage.clear();
+    }
+  });
+
+  it("登録を読めないときは、読めなかったと出し、選ぶ欄を出さない（未登録とは言わない）", async () => {
+    box.getFarm.mockRejectedValue(new Error("offline"));
+    renderPage();
+    expect(await screen.findByText(CONSULT_TEXT.conditionLoadFailed)).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: CONSULT_TEXT.conditionUse })).toBeNull();
+    expect(screen.queryByText(/未登録/)).toBeNull();
+  });
+
+  it("食い違い: 登録はケージ飼いなのに質問に「平飼い」 → 送らずに訂正を促す。文は残る", async () => {
+    withFarm({ production: "layer", rearing: "cage" });
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    fireEvent.click(await useIt());
+    fireEvent.change(input(), { target: { value: "平飼いで長靴は？" } });
+    fireEvent.click(askButton());
+    const alert = await screen.findByTestId("consult-conflict");
+    expect(within(alert).getByText("質問では平飼い、登録はケージ飼いです。登録を直すか、送り方を選んでください。")).toBeTruthy();
+    expect(within(alert).getByRole("link", { name: CONSULT_TEXT.conflictFix }).getAttribute("href")).toBe("/settings/farm");
+    expect(box.ask).not.toHaveBeenCalled();
+    expect(input().value).toBe("平飼いで長靴は？");
+  });
+
+  it("食い違い: 「条件を付けずに送る」を選んだときだけ、条件なしで送る", async () => {
+    withFarm({ production: "broiler", rearing: null });
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    fireEvent.click(await useIt());
+    fireEvent.change(input(), { target: { value: "卵の出荷の消毒は？" } });
+    fireEvent.click(askButton());
+    const alert = await screen.findByTestId("consult-conflict");
+    expect(within(alert).getByText("質問では採卵、登録は肉用鶏です。登録を直すか、送り方を選んでください。")).toBeTruthy();
+    fireEvent.click(within(alert).getByRole("button", { name: CONSULT_TEXT.conflictSendWithout }));
+    await screen.findByText(CONSULT_TEXT.advice);
+    expect(box.ask).toHaveBeenCalledTimes(1);
+    expect(box.ask.mock.calls[0]).toEqual([{ question: "卵の出荷の消毒は？" }, false, []]);
+    expect(screen.queryByTestId("consult-conflict")).toBeNull();
+    expect(screen.queryByText(/今回の条件/)).toBeNull();
+  });
+
+  it("食い違い: 確認には「登録を直す（リンク）」「このまま条件を付けて送る」「条件を付けずに送る」「やめる」がこの順で並び、主のボタンはない", async () => {
+    withFarm({ production: "layer", rearing: "cage" });
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    fireEvent.click(await useIt());
+    fireEvent.change(input(), { target: { value: "平飼いで長靴は？" } });
+    fireEvent.click(askButton());
+    const alert = await screen.findByTestId("consult-conflict");
+    const actions = Array.from(alert.querySelectorAll("a, button"));
+    expect(actions.map((el) => [el.tagName, el.textContent])).toEqual([
+      ["A", CONSULT_TEXT.conflictFix],
+      ["BUTTON", CONSULT_TEXT.conflictSendWith],
+      ["BUTTON", CONSULT_TEXT.conflictSendWithout],
+      ["BUTTON", CONSULT_TEXT.conflictCancel],
+    ]);
+    expect(CONSULT_TEXT.conflictSendWith).toBe("このまま条件を付けて送る");
+    for (const el of actions) expect(el.classList.contains("btn-primary"), el.textContent ?? "").toBe(false);
+    // 押さなければ送らない
+    expect(box.ask).not.toHaveBeenCalled();
+  });
+
+  it("食い違い: 「このまま条件を付けて送る」を押すと、登録した条件を付けて 1 回だけ送り、確認が消える", async () => {
+    withFarm({ production: "layer", rearing: "cage" });
+    box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "cage" } }));
+    renderPage();
+    fireEvent.click(await useIt());
+    fireEvent.change(input(), { target: { value: "平飼いで長靴は？" } });
+    fireEvent.click(askButton());
+    const alert = await screen.findByTestId("consult-conflict");
+    expect(box.ask).not.toHaveBeenCalled();
+    fireEvent.click(within(alert).getByRole("button", { name: CONSULT_TEXT.conflictSendWith }));
+    await screen.findByText(CONSULT_TEXT.advice);
+    expect(box.ask.mock.calls).toEqual([[{ question: "平飼いで長靴は？" }, false, [], { production: "layer", rearing: "cage" }]]);
+    expect(screen.queryByTestId("consult-conflict")).toBeNull();
+    expect(screen.getByText("今回の条件: 採卵鶏・ケージ飼い")).toBeTruthy();
+    // 選んだ状態は残る（次の相談でも本人が外すまで条件を付ける）
+    expect(((await useIt()) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("食い違い: 続けて聞く候補の文で食い違っても、同じ 4 つの確認が出て、押すまで送らない。「このまま条件を付けて送る」で条件を付けて送る", async () => {
+    withFarm({ production: "layer", rearing: "cage" });
+    box.ask
+      .mockResolvedValueOnce(reply({ answer: "一つ目の答え", followUps: ["平飼いの鶏舎では？"], farm: { production: "layer", rearing: "cage" } }))
+      .mockResolvedValueOnce(reply({ answer: "二つ目の答え", followUps: [], farm: { production: "layer", rearing: "cage" } }));
+    renderPage();
+    fireEvent.click(await useIt());
+    await askText("長靴は？");
+    const group = screen.getByRole("group", { name: CONSULT_TEXT.followUpsLabel });
+    fireEvent.click(within(group).getByRole("button", { name: "平飼いの鶏舎では？" }));
+    const alert = await screen.findByTestId("consult-conflict");
+    expect(within(alert).getByText("質問では平飼い、登録はケージ飼いです。登録を直すか、送り方を選んでください。")).toBeTruthy();
+    expect(Array.from(alert.querySelectorAll("a, button")).map((el) => el.textContent)).toEqual([
+      CONSULT_TEXT.conflictFix,
+      CONSULT_TEXT.conflictSendWith,
+      CONSULT_TEXT.conflictSendWithout,
+      CONSULT_TEXT.conflictCancel,
+    ]);
+    expect(box.ask).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(alert).getByRole("button", { name: CONSULT_TEXT.conflictSendWith }));
+    await screen.findByText("二つ目の答え");
+    expect(box.ask).toHaveBeenCalledTimes(2);
+    expect(box.ask.mock.calls[1]![0]).toEqual({ question: "平飼いの鶏舎では？" });
+    expect(box.ask.mock.calls[1]![3]).toEqual({ production: "layer", rearing: "cage" });
+    expect(screen.queryByTestId("consult-conflict")).toBeNull();
+  });
+
+  it("「新しい相談」を始めると「この飼い方で相談する」は外れる（付けるかは相談のたびに選ぶ）", async () => {
+    withFarm({ production: "layer", rearing: "floor" });
+    box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor" } }));
+    renderPage();
+    fireEvent.click(await useIt());
+    await askText("長靴は？");
+    expect(((await useIt()) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: CONSULT_TEXT.newChat }));
+    expect(((await useIt()) as HTMLInputElement).checked).toBe(false);
+    await askText("網は？");
+    expect(box.ask.mock.calls[1]).toEqual([{ question: "網は？" }, false, []]);
+  });
+
+  it("一覧から別の相談を開くと「この飼い方で相談する」は外れる", async () => {
+    const at = Date.now();
+    localStorage.setItem(
+      "hpai.consult.history.v1:u1",
+      JSON.stringify([{ id: "old", title: "前の相談", createdAt: at, updatedAt: at, turns: [{ question: "前の相談", at, result: reply() }] }]),
+    );
+    withFarm({ production: "layer", rearing: "floor" });
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    fireEvent.click(await useIt());
+    expect(((await useIt()) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: CONSULT_TEXT.historyOpen }));
+    fireEvent.click(screen.getByRole("button", { name: /^前の相談/u }));
+    expect(((await useIt()) as HTMLInputElement).checked).toBe(false);
+    await askText("続きは？");
+    expect(box.ask.mock.calls[0]![3]).toBeUndefined();
+    expect(box.ask.mock.calls[0]).toHaveLength(3);
+  });
+
+  it("食い違い: 「やめる」や、質問を書き直すと、確認が消えて送らない", async () => {
+    withFarm({ production: "layer", rearing: "floor" });
+    box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor" } }));
+    renderPage();
+    fireEvent.click(await useIt());
+    fireEvent.change(input(), { target: { value: "ケージ飼いの網は？" } });
+    fireEvent.click(askButton());
+    fireEvent.click(within(await screen.findByTestId("consult-conflict")).getByRole("button", { name: CONSULT_TEXT.conflictCancel }));
+    expect(screen.queryByTestId("consult-conflict")).toBeNull();
+    expect(input().value).toBe("ケージ飼いの網は？");
+    fireEvent.click(askButton());
+    await screen.findByTestId("consult-conflict");
+    // 書き直すと消え、食い違いのない文は条件を付けて送れる
+    fireEvent.change(input(), { target: { value: "網の穴は？" } });
+    expect(screen.queryByTestId("consult-conflict")).toBeNull();
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    expect(box.ask.mock.calls).toEqual([[{ question: "網の穴は？" }, false, [], { production: "layer", rearing: "floor" }]]);
+  });
+
+  it("選ばなければ、質問の文と登録が食い違っても確かめない（条件を送らないので）", async () => {
+    withFarm({ rearing: "cage" });
+    box.ask.mockResolvedValue(reply());
+    renderPage();
+    await useIt();
+    await askText("平飼いで長靴は？");
+    expect(screen.queryByTestId("consult-conflict")).toBeNull();
+    expect(box.ask.mock.calls[0]).toEqual([{ question: "平飼いで長靴は？" }, false, []]);
+  });
+
+  it("件数だけの答えには、条件を付けて聞いても「今回の条件」を出さない（表は条件で絞っていない）", async () => {
+    withFarm({ production: "layer", rearing: "floor" });
+    const stats = computeStats([], { groupBy: "season", season: null, prefCode: null });
+    box.ask.mockResolvedValue({ answer: "", cards: [], outOfScope: false, notice: null, stats, farm: { production: "layer", rearing: "floor" } });
+    renderPage();
+    fireEvent.click(await useIt());
+    fireEvent.change(input(), { target: { value: "件数は？" } });
+    fireEvent.click(askButton());
+    await screen.findByTestId("consult-stats");
+    expect(screen.queryByText(/今回の条件/)).toBeNull();
+  });
+
+  it("会員が替わったら、その会員の登録を読み直し、選んだ状態と食い違いの確認を戻す（前の会員の条件を送らない）", async () => {
+    box.getFarm.mockResolvedValue({ ...FARM_BASE, production: "layer", rearing: "cage" });
+    box.ask.mockResolvedValue(reply());
+    const view = renderPage();
+    fireEvent.click(await useIt());
+    fireEvent.change(input(), { target: { value: "平飼いは？" } });
+    fireEvent.click(askButton());
+    await screen.findByTestId("consult-conflict");
+    // u2 に替わる。u2 の農場は肉用・平飼い
+    box.getFarm.mockResolvedValue({ ...FARM_BASE, id: "f2", production: "broiler", rearing: "floor" });
+    box.auth = { user: { uid: "u2" }, member: true, loading: false, error: false, refresh: async () => {} };
+    view.rerender(
+      <RecordStoreProvider value={store}>
+        <MemoryRouter initialEntries={["/consult"]}>
+          <ConsultPage />
+        </MemoryRouter>
+      </RecordStoreProvider>,
+    );
+    expect(await screen.findByText("登録した条件: 肉用鶏・平飼い")).toBeTruthy();
+    expect(screen.queryByText(/採卵鶏・ケージ飼い/)).toBeNull();
+    expect(((await useIt()) as HTMLInputElement).checked).toBe(false);
+    expect(screen.queryByTestId("consult-conflict")).toBeNull();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    await screen.findByText(CONSULT_TEXT.advice);
+    expect(box.ask.mock.calls).toEqual([[{ question: "長靴は？" }, false, []]]);
+  });
+
+  it("審査員の入口は、農場を読まず、条件の欄を出さない", async () => {
+    box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
+    renderPage("/consult?judge=1");
+    expect(screen.getByText("審査員の方向けの試しの画面です。1 日の回数に上限があり、相談は保存しません。")).toBeTruthy();
+    expect(screen.queryByTestId("consult-condition")).toBeNull();
+    expect(box.getFarm).not.toHaveBeenCalled();
+  });
+
+  it("条件の欄と食い違いの確認の文に禁止語がない", async () => {
+    withFarm({ production: "layer", rearing: "cage" });
+    renderPage();
+    fireEvent.click(await useIt());
+    fireEvent.change(input(), { target: { value: "平飼いは？" } });
+    fireEvent.click(askButton());
+    await screen.findByTestId("consult-conflict");
+    expect(findWordingViolations(condition().textContent ?? "")).toEqual([]);
+    expect(findWordingViolations(screen.getByTestId("consult-conflict").textContent ?? "")).toEqual([]);
   });
 });

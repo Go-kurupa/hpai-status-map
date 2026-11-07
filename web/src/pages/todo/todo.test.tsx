@@ -39,7 +39,7 @@ vi.mock("../auth/useAuthUser", () => ({ useAuthUser: () => authState.value }));
 
 // 相談から足した見直しの欄。足した項目の口とカードの一覧は偽物に差し替える（Firebase とネットワークに出ない）
 const reviewBox = vi.hoisted(() => ({
-  store: { addReview: vi.fn(), listReviews: vi.fn(), removeReview: vi.fn() },
+  store: { addReview: vi.fn(), listReviews: vi.fn(), listReviewItems: vi.fn(), markReview: vi.fn(), removeReview: vi.fn() },
   catalog: null as unknown,
   catalogFail: false,
 }));
@@ -162,12 +162,16 @@ beforeEach(() => {
   saveCheck.mockResolvedValue(undefined);
   reviewBox.store.addReview.mockReset();
   reviewBox.store.listReviews.mockReset().mockResolvedValue([]);
+  reviewBox.store.listReviewItems.mockReset().mockResolvedValue([]);
+  reviewBox.store.markReview.mockReset().mockResolvedValue(undefined);
   reviewBox.store.removeReview.mockReset().mockResolvedValue(undefined);
   reviewBox.catalogFail = false;
   reviewBox.catalog = {
     cards: new Map([
       ["maff-M07", { id: "maff-M07", action: "着替え・履き替えの前後の動線を分ける", evidence: "obligation", sourceId: "maff-s1" }],
       ["aphis-A01", { id: "aphis-A01", action: "鶏舎の入口で専用の靴に履き替える", evidence: "study-association", sourceId: "aphis-s1" }],
+      ["maff-M02", { id: "maff-M02", action: "防鳥ネットの破れを点検する", evidence: "obligation", sourceId: "maff-s1" }],
+      ["maff-M12", { id: "maff-M12", action: "敷地の除草をする", evidence: "obligation", sourceId: "maff-s1" }],
     ]),
     sources: new Map([
       ["maff-s1", { id: "maff-s1", title: "飼養衛生管理基準遵守指導の手引き", publisher: "農林水産省", url: "https://www.maff.go.jp/x.pdf", domestic: true }],
@@ -185,8 +189,13 @@ beforeEach(() => {
     }),
     saveCheck,
     listChecks,
+    // けさの確認（会員だけ）が読む今日の死亡数。既定は鶏舎なし
+    listHouses: vi.fn(async () => []),
+    listDeaths: vi.fn(async () => []),
   } as unknown as RecordStore;
 });
+/** 見本の道筋（/sample）の記録の口。本物では SampleLayout が mode: sample の口を渡す */
+const sampleStore = () => ({ ...store, mode: "sample" }) as unknown as RecordStore;
 afterEach(cleanup);
 
 function mount(
@@ -255,10 +264,10 @@ describe("ふだん（段階 4）", () => {
   });
 
   it("県の発表を確認できていないときは、何もない画面にしない", async () => {
-    mount(<TodoPage />, { ds: makeDs({ cases: [], watch: [] }) });
+    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [], watch: [] }) });
     await screen.findByText("今月の自己点検を確かめましょう");
     expect(screen.getByText("この県の発表を確認できていません。県の連絡を確かめてください")).toBeTruthy();
-    expect(screen.getByText("確認できていません")).toBeTruthy(); // いつ時点か
+    expect(container.querySelector(".as-of")?.textContent).toBe("確認できていません"); // いつ時点か（けさの確認にも同じ文が出る）
   });
 
   it("確認できていれば、いつ時点かを出す", async () => {
@@ -593,7 +602,7 @@ describe("リンク", () => {
   });
 
   it("/sample/todo では /sample/record/self-check。/record で始まる href がない", async () => {
-    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }), path: "/sample/todo" });
+    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }), path: "/sample/todo", store: sampleStore() });
     const link = await screen.findByRole("link", { name: "今月の自己点検を開く" });
     expect(link.getAttribute("href")).toBe("/sample/record/self-check");
     await screen.findByRole("region", { name: "解除の見込み" });
@@ -609,7 +618,7 @@ describe("消毒への道、段階 1 の並び、番号の注意", () => {
     expect(link.className).toContain("tap-link");
     expect(screen.getByRole("link", { name: "今月の自己点検を開く" }).className).toContain("tap-link");
     cleanup();
-    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }), path: "/sample/todo" });
+    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }), path: "/sample/todo", store: sampleStore() });
     const sample = await screen.findByRole("link", { name: "消毒の記録を開く" });
     expect(sample.getAttribute("href")).toBe("/sample/record/disinfection");
     await screen.findByRole("region", { name: "解除の見込み" });
@@ -744,11 +753,16 @@ describe("DisinfectionPanel", () => {
   });
 });
 
+/** 足した項目（店の読み出しの形）。既定は前に足したまま（記録なし） */
+type ReviewItemFixture = { id: string; status: "pending" | "later" | "done" | null; note: string; updatedAt: Date | null; mine: boolean | null };
+const reviewItem = (id: string, over: Partial<ReviewItemFixture> = {}): ReviewItemFixture => ({ id, status: null, note: "", updatedAt: null, mine: null, ...over });
+const items = (...ids: string[]) => ids.map((id) => reviewItem(id));
+
 describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   const section = () => screen.findByRole("region", { name: TODO_TEXT.reviewsHeading });
 
   it("欄は「確認リストを開く」のボタンの直後に詰めず、上を 24px（--s3）空ける（2026-11-07 精査 T3）", async () => {
-    reviewBox.store.listReviews.mockResolvedValue([]);
+    reviewBox.store.listReviewItems.mockResolvedValue(items());
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     expect((await section()).classList.contains("todo-reviews")).toBe(true);
     // jsdom は css を当てないので、規則を読んで確かめる
@@ -757,7 +771,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   });
 
   it("足したカードが 1 行ずつ、対策・根拠の札・資料名と、「外す」のボタンで並ぶ", async () => {
-    reviewBox.store.listReviews.mockResolvedValue(["maff-M07", "aphis-A01"]);
+    reviewBox.store.listReviewItems.mockResolvedValue(items("maff-M07", "aphis-A01"));
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
     expect(sec.getByRole("heading", { name: "AI の相談から足した見直し" })).toBeTruthy();
@@ -771,7 +785,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   });
 
   it("各項目の「この対策を AI に聞く」は、その対策の名前を入れた相談の画面へ。一覧の下にも相談へのリンクを出す", async () => {
-    reviewBox.store.listReviews.mockResolvedValue(["maff-M07"]);
+    reviewBox.store.listReviewItems.mockResolvedValue(items("maff-M07"));
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
     await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(1));
@@ -781,7 +795,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   });
 
   it("今の資料にないカードには「この対策を AI に聞く」を出さない", async () => {
-    reviewBox.store.listReviews.mockResolvedValue(["gone-X99"]);
+    reviewBox.store.listReviewItems.mockResolvedValue(items("gone-X99"));
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
     await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(1));
@@ -789,7 +803,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   });
 
   it("「外す」を押すと消して、その行がなくなる", async () => {
-    reviewBox.store.listReviews.mockResolvedValue(["maff-M07", "aphis-A01"]);
+    reviewBox.store.listReviewItems.mockResolvedValue(items("maff-M07", "aphis-A01"));
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
     await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(2));
@@ -799,8 +813,22 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
     expect(sec.queryByText("着替え・履き替えの前後の動線を分ける")).toBeNull();
   });
 
+  it("前に同じ対策の文のカードが 2 件とも足してあっても（相談の画面が二重に足すのを止める前の古いデータ）、落ちずに 2 行出て、記録はそれぞれの id に付く", async () => {
+    const cat = reviewBox.catalog as { cards: Map<string, unknown> };
+    cat.cards.set("maff-M07b", { id: "maff-M07b", action: "着替え・履き替えの前後の動線を分ける", evidence: "obligation", sourceId: "maff-s1" });
+    reviewBox.store.listReviewItems.mockResolvedValue(items("maff-M07", "maff-M07b"));
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = within(await section());
+    await waitFor(() => expect(sec.getAllByText("着替え・履き替えの前後の動線を分ける")).toHaveLength(2));
+    const rows = sec.getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    fireEvent.click(within(rows[1]!).getByRole("button", { name: "やった" }));
+    expect(reviewBox.store.markReview).toHaveBeenCalledWith("maff-M07b", { status: "done" });
+    expect(reviewBox.store.markReview).toHaveBeenCalledTimes(1);
+  });
+
   it("外すのに失敗したら、行は残り、失敗の文が出る", async () => {
-    reviewBox.store.listReviews.mockResolvedValue(["maff-M07"]);
+    reviewBox.store.listReviewItems.mockResolvedValue(items("maff-M07"));
     reviewBox.store.removeReview.mockRejectedValue(new Error("permission-denied"));
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
@@ -819,7 +847,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   });
 
   it("今の資料にないカードの id は、その旨と「外す」だけ出す", async () => {
-    reviewBox.store.listReviews.mockResolvedValue(["gone-X99"]);
+    reviewBox.store.listReviewItems.mockResolvedValue(items("gone-X99"));
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
     await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(1));
@@ -828,7 +856,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   });
 
   it("足した項目を読めなかったときは、読めなかった旨を出す（0 件と読ませない）", async () => {
-    reviewBox.store.listReviews.mockRejectedValue(new Error("permission-denied"));
+    reviewBox.store.listReviewItems.mockRejectedValue(new Error("permission-denied"));
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
     expect((await sec.findByRole("alert")).textContent).toBe("足した見直しを読めませんでした。ページを読み込み直してください。");
@@ -840,6 +868,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText("今月の自己点検を確かめましょう");
     expect(screen.queryByRole("region", { name: "AI の相談から足した見直し" })).toBeNull();
+    expect(reviewBox.store.listReviewItems).not.toHaveBeenCalled();
     expect(reviewBox.store.listReviews).not.toHaveBeenCalled();
   });
 
@@ -848,6 +877,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }), store: sample });
     await screen.findByText("今月の自己点検を確かめましょう");
     expect(screen.queryByRole("region", { name: "AI の相談から足した見直し" })).toBeNull();
+    expect(reviewBox.store.listReviewItems).not.toHaveBeenCalled();
     expect(reviewBox.store.listReviews).not.toHaveBeenCalled();
   });
 
@@ -855,5 +885,153 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
     const joined = Object.entries(TODO_TEXT).filter(([k]) => k.startsWith("reviews")).map(([, v]) => v).join("\n");
     expect(joined).not.toBe("");
     expect(findForbiddenPhrases(joined)).toEqual([]);
+  });
+});
+
+describe("足した対策の実施の記録（まだ・後でやる・やった、メモ）", () => {
+  const section = async () => within(await screen.findByRole("region", { name: TODO_TEXT.reviewsHeading }));
+  const rowOf = (sec: ReturnType<typeof within>, action: string) =>
+    sec.getAllByRole("listitem").find((li: HTMLElement) => li.textContent?.includes(action))!;
+  const pressed = (row: HTMLElement) =>
+    within(row)
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-pressed") === "true")
+      .map((b) => b.textContent);
+  const NET = "防鳥ネットの破れを点検する";
+  async function mountWith(list: ReviewItemFixture[]) {
+    reviewBox.store.listReviewItems.mockResolvedValue(list);
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = await section();
+    await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(list.length));
+    return sec;
+  }
+
+  it("各対策に「まだ」「後でやる」「やった」の 3 つのボタンが並び、押されている状態は aria-pressed", async () => {
+    const sec = await mountWith([reviewItem("maff-M02", { status: "later", updatedAt: new Date("2026-11-07T21:30:00Z"), mine: true })]);
+    const row = rowOf(sec, NET);
+    const group = within(row).getByRole("group", { name: `実施の状態: ${NET}` });
+    expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual(["まだ", "後でやる", "やった"]);
+    expect(pressed(row)).toEqual(["後でやる"]);
+  });
+
+  it("前に足した対策（状態なし）は消さずに出し、「まだ」を押した形で「記録なし」と出す。断りは一覧の上に 1 回だけ", async () => {
+    const sec = await mountWith(items("maff-M02", "maff-M07"));
+    for (const row of sec.getAllByRole("listitem")) {
+      expect(pressed(row)).toEqual(["まだ"]);
+      expect(row.textContent).toContain("記録なし");
+      expect(row.textContent).not.toContain("更新:");
+    }
+    expect(sec.getAllByText("「まだ」には、やったかどうかをまだ記録していない対策も入ります。")).toHaveLength(1);
+  });
+
+  it("「やった」を押すと、その対策の状態だけを保存し（メモは送らない）、押した形と「更新: 日時（あなた）」に変わる。保存中は押せない", async () => {
+    let finish: () => void = () => undefined;
+    reviewBox.store.markReview.mockImplementation(() => new Promise<void>((r) => (finish = r)));
+    const sec = await mountWith(items("maff-M02"));
+    const row = rowOf(sec, NET);
+    fireEvent.change(within(row).getByLabelText("メモ（40 字まで）"), { target: { value: "未保存のメモ" } });
+    fireEvent.click(within(row).getByRole("button", { name: "やった" }));
+    expect(reviewBox.store.markReview).toHaveBeenCalledWith("maff-M02", { status: "done" });
+    await waitFor(() => expect(within(row).getByRole("button", { name: "まだ" }).hasAttribute("disabled")).toBe(true));
+    expect(within(row).getByRole("button", { name: "メモを保存" }).hasAttribute("disabled")).toBe(true);
+    finish();
+    await waitFor(() => expect(pressed(row)).toEqual(["やった"]));
+    expect(row.textContent).toMatch(/更新: \d{1,2} 月 \d{1,2} 日 \d{1,2}:\d{2}（あなた）/);
+    expect(within(row).getByRole("button", { name: "やった" }).hasAttribute("disabled")).toBe(false);
+    expect(reviewBox.store.markReview).toHaveBeenCalledTimes(1);
+  });
+
+  it("「まだ」を押すと戻す（pending を保存）。メモは残る", async () => {
+    const sec = await mountWith([reviewItem("maff-M02", { status: "done", note: "点検した", updatedAt: new Date(), mine: true })]);
+    const row = rowOf(sec, NET);
+    fireEvent.click(within(row).getByRole("button", { name: "まだ" }));
+    await waitFor(() => expect(pressed(row)).toEqual(["まだ"]));
+    expect(reviewBox.store.markReview).toHaveBeenCalledWith("maff-M02", { status: "pending" });
+    expect((within(row).getByLabelText("メモ（40 字まで）") as HTMLInputElement).value).toBe("点検した");
+    expect(row.textContent).not.toContain("記録なし");
+  });
+
+  it("押されている状態をもう一度押しても保存しない", async () => {
+    const sec = await mountWith([reviewItem("maff-M02", { status: "done", updatedAt: new Date(), mine: true })]);
+    fireEvent.click(within(rowOf(sec, NET)).getByRole("button", { name: "やった" }));
+    expect(reviewBox.store.markReview).not.toHaveBeenCalled();
+  });
+
+  it("メモは 40 字まで・1 行で、「メモを保存」でメモだけを保存する（状態は送らない）", async () => {
+    const sec = await mountWith([reviewItem("maff-M02", { status: "later", updatedAt: new Date(), mine: true })]);
+    const row = rowOf(sec, NET);
+    const input = within(row).getByLabelText("メモ（40 字まで）") as HTMLInputElement;
+    expect(input.getAttribute("maxlength")).toBe("40");
+    expect(input.tagName).toBe("INPUT");
+    // 変えていないうちは押せない
+    expect(within(row).getByRole("button", { name: "メモを保存" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(input, { target: { value: "資材を用意してから再確認" } });
+    fireEvent.click(within(row).getByRole("button", { name: "メモを保存" }));
+    await waitFor(() => expect(reviewBox.store.markReview).toHaveBeenCalledWith("maff-M02", { note: "資材を用意してから再確認" }));
+    await waitFor(() => expect(within(row).getByRole("button", { name: "メモを保存" }).hasAttribute("disabled")).toBe(true));
+    expect(pressed(row)).toEqual(["後でやる"]);
+    expect(input.value).toBe("資材を用意してから再確認");
+  });
+
+  it("メモの欄は 1 行の入力で、貼り付けた改行は入らない。前後の空白は除いて保存する", async () => {
+    const sec = await mountWith(items("maff-M02"));
+    const row = rowOf(sec, NET);
+    fireEvent.change(within(row).getByLabelText("メモ（40 字まで）"), { target: { value: " 資材\n再確認 " } });
+    fireEvent.click(within(row).getByRole("button", { name: "メモを保存" }));
+    await waitFor(() => expect(reviewBox.store.markReview).toHaveBeenCalledWith("maff-M02", { note: "資材再確認" }));
+  });
+
+  it("保存に失敗したら、理由を短く出して元の表示に戻す（権限・外された、と、通信）", async () => {
+    reviewBox.store.markReview.mockRejectedValueOnce(Object.assign(new Error("x"), { code: "permission-denied" }));
+    const sec = await mountWith([reviewItem("maff-M02", { status: "later", updatedAt: new Date(), mine: true })]);
+    const row = rowOf(sec, NET);
+    fireEvent.click(within(row).getByRole("button", { name: "やった" }));
+    expect((await within(row).findByRole("alert")).textContent).toBe(
+      "保存できませんでした。この対策が外されたか、権限がありません。ページを読み込み直してください。",
+    );
+    expect(pressed(row)).toEqual(["後でやる"]);
+    expect(within(row).getByRole("button", { name: "やった" }).hasAttribute("disabled")).toBe(false);
+
+    reviewBox.store.markReview.mockRejectedValueOnce(Object.assign(new Error("x"), { code: "unavailable" }));
+    fireEvent.click(within(row).getByRole("button", { name: "やった" }));
+    await waitFor(() =>
+      expect(within(row).getByRole("alert").textContent).toBe("保存できませんでした。通信を確かめて、もう一度お試しください。"),
+    );
+    expect(pressed(row)).toEqual(["後でやる"]);
+  });
+
+  it("並びは「後でやる」「まだ」（記録なしを含む）が上、「やった」が下。押しても並べ替えない（読み込んだときだけ）", async () => {
+    const at = new Date();
+    const sec = await mountWith([
+      reviewItem("maff-M07", { status: "done", updatedAt: at, mine: true }),
+      reviewItem("aphis-A01"),
+      reviewItem("maff-M02", { status: "later", updatedAt: at, mine: true }),
+      reviewItem("maff-M12", { status: "pending", updatedAt: at, mine: true }),
+    ]);
+    const order = () => sec.getAllByRole("listitem").map((li) => li.querySelector("p")?.textContent);
+    expect(order()).toEqual([NET, "鶏舎の入口で専用の靴に履き替える", "敷地の除草をする", "着替え・履き替えの前後の動線を分ける"]);
+    fireEvent.click(within(rowOf(sec, NET)).getByRole("button", { name: "やった" }));
+    await waitFor(() => expect(pressed(rowOf(sec, NET))).toEqual(["やった"]));
+    expect(order()[0]).toBe(NET);
+  });
+
+  it("更新した人は、自分なら「（あなた）」、ほかの会員なら「（同じ農場の会員）」。時刻は日本時間", async () => {
+    const sec = await mountWith([
+      reviewItem("maff-M02", { status: "later", updatedAt: new Date("2026-11-07T21:30:00Z"), mine: true }),
+      reviewItem("maff-M12", { status: "later", updatedAt: new Date("2026-11-08T00:05:00Z"), mine: false }),
+    ]);
+    expect(rowOf(sec, NET).textContent).toContain("更新: 11 月 8 日 6:30（あなた）");
+    expect(rowOf(sec, "敷地の除草をする").textContent).toContain("更新: 11 月 8 日 9:05（同じ農場の会員）");
+  });
+
+  it("既存の操作（この対策を AI に聞く、外す）はそのまま。今の資料にないカードは状態のボタンを出さない", async () => {
+    const sec = await mountWith([reviewItem("maff-M02", { status: "done", updatedAt: new Date(), mine: true }), reviewItem("gone-X99")]);
+    const row = rowOf(sec, NET);
+    expect(within(row).getByRole("link", { name: "この対策を AI に聞く" }).getAttribute("href")).toBe(`/consult?q=${encodeURIComponent(NET)}`);
+    const gone = rowOf(sec, "このカードは今の資料にありません。");
+    expect(within(gone).queryByRole("group")).toBeNull();
+    fireEvent.click(within(row).getByRole("button", { name: "外す" }));
+    await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(1));
+    expect(reviewBox.store.removeReview).toHaveBeenCalledWith("maff-M02");
   });
 });

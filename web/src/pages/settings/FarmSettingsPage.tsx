@@ -62,7 +62,7 @@ function NextStep({ farm, houseCount }: { farm: Saved | null; houseCount: number
 }
 
 /**
- * 農場の設定。地点、農場名、採卵か肉用か、飼い方、行き来する町、鶏舎、家保の連絡先、招待の順。
+ * 農場の設定。地点、農場名、採卵か肉用か、鶏舎の造り、飼い方、行き来する町、鶏舎、家保の連絡先、招待の順。
  * 農場がない間（地点を保存する前）は地点の欄だけ。ほかの欄は農場がないと保存できない（ルールが meshCode を要る）。
  */
 function FarmSettings() {

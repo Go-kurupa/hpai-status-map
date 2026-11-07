@@ -22,6 +22,8 @@ export interface TodoData {
   spot: FarmPoint | null;
   /** 直近の確認の時刻。確認できた県がなければ null */
   asOf: IsoDateTime | null;
+  /** 見回りの結果がまだ届いていない（asOf の null を「読めなかった」と分ける） */
+  asOfLoading: boolean;
   /** 地点の県の発表を確認できていない（見回りの結果がまだ、またはその県が確認できていない） */
   prefUnconfirmed: boolean;
 }
@@ -103,5 +105,5 @@ export function useTodoData(): TodoData {
   else if (res === null || res.input !== input) state = { status: "loading" }; // 入力が変わった直後は古い結果を出さない
   else state = res.value === null ? { status: "failed" } : { status: "ready", result: res.value };
 
-  return { state, spot, asOf, prefUnconfirmed };
+  return { state, spot, asOf, asOfLoading: watch === null, prefUnconfirmed };
 }
