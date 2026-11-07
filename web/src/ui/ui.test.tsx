@@ -506,13 +506,15 @@ describe("機械の検査: css", () => {
     `${CMP} .cmp-swatch.is-two`,
     `${CMP} .cmp-swatch.is-both`,
   ]);
-  const RADIUS_ALLOWED = new Set([`${MAP} .pref-badge`, `${MAP} .swatch-ring`]);
+  // 県のバッジと、凡例のその見本（2026-11-07 凡例を 3 段にしたとき、野鳥の輪の見本は鳥の形の SVG になり .swatch-ring はなくなった）
+  const RADIUS_ALLOWED = new Set([`${MAP} .pref-badge`, `${MAP} .swatch-badge`]);
   // 影は地図のカードだけ（設計書 2-2）。今の画面に地図のポップアップはない
   const SHADOW_ALLOWED = new Set([`${MAP} .map-canvas, .svg-map`, "web/src/pages/settings/settings.css .picker-canvas"]);
   // 角丸の上限を上げてよいものを名指しする。カードは 12px、押す部品と入力は 8px、ほかは 4px
   // 地図のカードの下の端に重ねる「地図に印のない発表」の帯は、カードの下の角と同じ角丸（影は付けない）
   // 地図で押した町の事例の欄もカード（設計書 2026-11-06-ui-frame 決定 4）
-  const RADIUS_CARD = new Set([...SHADOW_ALLOWED, `${MAP} .near-unmarked`, `${MAP} .town-cases`]);
+  // 地図の外の野鳥の帯（2026-11-07 作者の決定 C）も、地図のカードの下の端に重ねる帯
+  const RADIUS_CARD = new Set([...SHADOW_ALLOWED, `${MAP} .near-unmarked`, `${MAP} .near-birds:last-child`, `${MAP} .town-cases`]);
   const RADIUS_CONTROL = new Set([
     ".btn",
     ".map-home-btn",
@@ -587,7 +589,7 @@ describe("機械の検査: css", () => {
     const all = [...css.matchAll(printed)].map((m) => m[0]).join("\n");
     expect(all).toMatch(/\.map-canvas[^{]*\{[^}]*box-shadow:\s*none/);
   });
-  it("角丸はカード 12px、押す部品と入力 8px、ほかは 4px まで。例外は県のバッジと凡例の輪の 2 つ", () => {
+  it("角丸はカード 12px、押す部品と入力 8px、ほかは 4px まで。例外は県のバッジとその凡例の見本の 2 つ", () => {
     expect(css).toMatch(/--radius-card:\s*12px/);
     expect(css).toMatch(/--radius-control:\s*8px/);
     const bad: string[] = [];
@@ -700,7 +702,7 @@ describe("機械の検査: ソフトの質感（設計書 2-2）", () => {
     expect(body(".map-notice", MAP)).not.toMatch(/(?:^|[\s;])border:\s*(?!0)/);
   });
   it("黒い太い枠は、状態を示す名指しのものだけ", () => {
-    const allowed = new Set([".class-always", ".state-unknown", ".death-hit", ".delete-section", ".swatch-ring"]);
+    const allowed = new Set([".class-always", ".state-unknown", ".death-hit", ".delete-section"]);
     const bad = cssRules().filter(
       (r) => /(?:^|[\s;])border(?:-\w+)?:\s*[2-9]px\s+\w+\s+(?:var\(--fg\)|#000\b)/.test(r.body) && !allowed.has(r.selector),
     );

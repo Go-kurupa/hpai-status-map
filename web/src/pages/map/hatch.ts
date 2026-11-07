@@ -1,4 +1,4 @@
-// 地図に載せる小さな画像（斜線と野鳥の印）を、画素から直に作る。canvas も外部の画像ファイルも使わない。
+// 地図に載せる小さな画像（斜線）を、画素から直に作る。canvas も外部の画像ファイルも使わない。
 // maplibre の addImage に渡せる形（RGBA、straight alpha）。
 export type Rgb = readonly [number, number, number];
 
@@ -79,39 +79,6 @@ export function crossHatchImage(color: Rgb, period = HATCH_PERIOD, stripe = HATC
   return img;
 }
 
-function shape(size: number, paint: (dx: number, dy: number) => Rgb | null): RgbaImage {
-  const img = blank(size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const c = paint(x + 0.5 - size / 2, y + 0.5 - size / 2);
-      if (c) put(img, x, y, c);
-    }
-  }
-  return img;
-}
-
-/** 野鳥の「検査中」の印。輪（中は抜ける）。白い縁で地図の上でも見える */
-export function ringImage(color: Rgb, size = 24): RgbaImage {
-  const outer = size * 0.3;
-  const inner = size * 0.18;
-  return shape(size, (dx, dy) => {
-    const d = Math.hypot(dx, dy);
-    if (d >= inner && d <= outer) return color;
-    if ((d >= inner - 1.5 && d < inner) || (d > outer && d <= outer + 1.5)) return WHITE;
-    return null;
-  });
-}
-
-/** 野鳥の「高病原性の確定」の印。塗りつぶした四角。白い縁つき */
-export function squareImage(color: Rgb, size = 24): RgbaImage {
-  const half = size * 0.26;
-  return shape(size, (dx, dy) => {
-    const d = Math.max(Math.abs(dx), Math.abs(dy));
-    if (d <= half) return color;
-    if (d <= half + 1.5) return WHITE;
-    return null;
-  });
-}
 
 /** "#b3261e" → [179, 38, 30] */
 export function hexToRgb(hex: string): Rgb {

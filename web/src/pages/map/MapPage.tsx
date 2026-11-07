@@ -12,6 +12,8 @@ import { useSpotState } from "../../data/spotContext";
 import type { MapViewProps } from "./MapView";
 import { CaseListSheet } from "./CaseListSheet";
 import { Legend } from "./Legend";
+import { mesh3Center } from "@hpai/shared/mesh";
+import { birdsFarText, usePrefAnchors } from "./birdOutside";
 import { listRows, wildBirdRows } from "./listRows";
 import { MapChunkBoundary } from "./MapChunkBoundary";
 import { SectionTabs } from "../../ui/SectionTabs";
@@ -143,6 +145,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const ds = useDataSource();
   const spotState = useSpotState();
   const { geo, failed: geoFailed } = useGeoStore();
+  // 野鳥の印の位置（町の中心、なければ県の代表の位置）を地図と同じに決めるため（約 60 km より遠い野鳥の帯）
+  const prefAnchors = usePrefAnchors();
   const narrow = useNarrow();
 
   // 自分の町の 1 文は、選んだシーズンではなく今季の事例で計算する（棒を押しても色が変わらない）
@@ -560,6 +564,12 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     return `${p.name} ${parts.filter((s) => s !== null).join("・")}`;
   });
   const showUnmarked = narrow && town !== null && showingNear && !mapless && view.loaded && unmarked.length > 0;
+  // 約 60 km より遠い野鳥の陽性（2026-11-07 作者の決定 C）。鶏舎の付近・選択地域付近で、輪の中心（鶏舎のマス目の中心か町の中心）から
+  // 約 60 km より遠い野鳥の陽性を県名で知らせる。印の位置は地図と同じ決め方（birdOutside.ts）。再現では出さない
+  const nearCenter: [number, number] | null =
+    farmMeshCode !== null ? ((c) => [c.lng, c.lat] as [number, number])(mesh3Center(farmMeshCode)) : town !== null && geo ? (geo.index[town]?.center ?? null) : null;
+  const birdsFar = nearCenter === null || geo === null || !d.wildBirdsLoaded ? null : birdsFarText(d.wildBirds, nearCenter, geo.index, prefAnchors, DISTANCE_BAND_KM);
+  const showBirdsFar = section === "now" && ds.mode !== "replay" && town !== null && showingNear && !mapless && birdsFar !== null;
   // 「選択地域付近」で、約 60 km 以内に今季の発生がないときだけ「確認されていません」と出す（2026-11-06 作者の決定）。
   // 1 件以上あるとき、全国の見方、再現、数えられないとき（町の分からない発表がある、まだ読めていない）は出さない
   const nowCountable = d.currentCases === null ? null : d.currentCases.filter((c) => c.season === d.current && isCountable(c));
@@ -647,13 +657,14 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
             </p>
           ) : null}
           <div className={currentBar.unchecked && !currentBar.allUnchecked ? "stat stat-wide stat-national" : "stat stat-national"}>
-            <p className="stat-title">発生した件数</p>
+            <p className="stat-title">{TEXT.statNational}</p>
             <StatCount text={countText(currentBar)} />
             {whenLine(casesSource)}
           </div>
           {repeatsHead(recentText) ? null : (
             <div className={needsWide ? "stat stat-wide stat-recent" : "stat stat-recent"}>
               <p className="stat-title">
+                <span className="stat-long">{TEXT.statFarmLead}</span>
                 {TEXT.statRecent.slice(0, -TEXT.statRecentTail.length)}
                 <span className="stat-long">{TEXT.statRecentTail}</span>
               </p>
@@ -808,6 +819,19 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
             {TEXT.japan}
           </button>
         ) : null}
+        {showBirdsFar || showUnmarked ? (
+          <div className="map-bands">
+            {showBirdsFar ? (
+              <div className="near-birds">
+                <p>
+                  {TEXT.nearBirdsLead}
+                  <span className="near-birds-prefs">{birdsFar}</span>
+                </p>
+                <button type="button" onClick={() => moveTo("japan", [])}>
+                  {TEXT.nearUnmarkedJapan}
+                </button>
+              </div>
+            ) : null}
         {showUnmarked ? (
           <div className="near-unmarked">
             <p>
@@ -824,6 +848,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
             <button type="button" onClick={() => moveTo("japan", [])}>
               {TEXT.nearUnmarkedJapan}
             </button>
+          </div>
+        ) : null}
           </div>
         ) : null}
       </div>

@@ -100,6 +100,9 @@ export const TEXT = {
   nearUnmarkedUnplaced: (n: number): string => `${n} 件（町名なし）`,
   nearUnmarkedMore: (n: number): string => `、ほか ${n} 県`,
   nearUnmarkedJapan: "全国で見る",
+  // 約 60 km より遠い野鳥の陽性（2026-11-07 作者の決定 C）。地図は輪が入る広さに寄せるので、60 km より遠くても見えることがある。
+  // 「地図の外」とは書かず、距離で言う
+  nearBirdsLead: "約 60 km より遠い野鳥の陽性: ",
   prefLabel: "都道府県",
   muniLabel: "市町村",
   prefPlaceholder: "県を選んでください",
@@ -131,6 +134,11 @@ export const TEXT = {
   // 地図の印と、場所を決めた後の切り替えの名前（作者 11/7）
   farmMark: "鶏舎の場所",
   legendFarm: "鶏舎の場所（この端末の画面だけ）",
+  // 凡例の 3 段（2026-11-07 作者の決定 ア）。赤は養鶏場の発生、墨の鳥は野鳥と読めるように見出しで分ける
+  legendGroupFarm: "養鶏場などの発生",
+  legendGroupBird: "野鳥（養鶏場の発生ではありません）",
+  legendGroupOther: "そのほか",
+  legendPrefCount: "県ごとの件数（全国の広さ）",
   mapNearFarm: "鶏舎の付近",
   bandTitle: (km: number): string => `鶏舎から約 ${km} km 以内`,
   spotHint: "地図を動かして、中央の十字を自分の鶏舎のある場所に合わせてください",
@@ -154,8 +162,12 @@ export const TEXT = {
   // 距離の輪（発表の区域と別物であることを、地図の下に常に出す）
   ringNote: "※ 輪は距離の目安で、発表の区域ではありません。",
   // 毎朝の札。多い少ないを書かない。題に「時点」を入れない（E2E が時刻の表示を「時点」で確かめている）
-  // スマホの見出しの題。札の題（発生した件数）は PC の札に残す
-  statHeadline: "今季の発生（全国）",
+  // スマホの見出しの題。札の題（養鶏場などの発生）は PC の札に残す。
+  // 隣の野鳥の札と分けて読めるよう、養鶏場の数だと題に書く（2026-11-07 作者の決定 イ）
+  statHeadline: "今季の養鶏場などの発生（全国）",
+  statNational: "養鶏場などの発生",
+  // PC の直近 14 日の札の題の頭（スマホは見出しが養鶏場と言うので省く）
+  statFarmLead: "養鶏場など ",
   statRecent: "直近 14 日の件数",
   // 札の題のうち、スマホの 1 行で隠す語尾
   statRecentTail: "の件数",

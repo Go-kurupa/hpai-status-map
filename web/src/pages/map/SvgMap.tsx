@@ -16,6 +16,7 @@ import { overlayStyle, viewStyle, wildBirdFeatures, type WildBirdFeature } from 
 import { CMP_TEXT } from "./compareTexts";
 import { HATCH_PERIOD, HATCH_PIXEL_RATIO, HATCH_STRIPE } from "./hatch";
 import { HATCH_COLORS, overlayLayers, PAINT } from "./mapStyle";
+import { BIRD_BOX, BIRD_ICON_PX, BIRD_POINTS, BIRD_R } from "./birdIcon";
 import type { MapViewProps } from "./MapView";
 import { badgeStates, JAPAN_BOUNDS } from "./seasonView";
 import { TEXT } from "./texts";
@@ -287,14 +288,18 @@ function RingMarks({ rings, proj, scale }: { rings: DistanceRings; proj: Project
   );
 }
 
-function BirdMark({ f, proj }: { f: WildBirdFeature; proj: Projection }) {
+/** 野鳥の印（作者 11/7 の決定 A）。地図と同じ鳥の形と大きさ（画面の BIRD_ICON_PX）。確定は墨の丸に白い鳥、検査中は白地の丸に墨の縁と鳥 */
+function BirdMark({ f, proj, scale }: { f: WildBirdFeature; proj: Projection; scale: number }) {
   const [lng, lat] = f.geometry.coordinates;
   const [x, y] = proj.at(lng, lat);
-  const r = W * 0.009;
-  return f.properties.t === "hpai_confirmed" ? (
-    <rect data-bird={f.properties.t} x={x - r} y={y - r} width={r * 2} height={r * 2} fill={PAINT.ink} stroke="#ffffff" strokeWidth={r * 0.4} />
-  ) : (
-    <circle data-bird={f.properties.t} cx={x} cy={y} r={r} fill="none" stroke={PAINT.ink} strokeWidth={r * 0.55} />
+  const s = BIRD_ICON_PX / scale / BIRD_BOX; // 枠 28 を画面の BIRD_ICON_PX にする
+  const confirmed = f.properties.t === "hpai_confirmed";
+  return (
+    <g data-bird={f.properties.t} transform={`translate(${x - (BIRD_BOX * s) / 2} ${y - (BIRD_BOX * s) / 2}) scale(${s})`}>
+      <circle cx={BIRD_BOX / 2} cy={BIRD_BOX / 2} r={BIRD_R + 0.65} fill="#ffffff" />
+      <circle cx={BIRD_BOX / 2} cy={BIRD_BOX / 2} r={confirmed ? BIRD_R : BIRD_R - 0.9} fill={confirmed ? PAINT.ink : "#ffffff"} stroke={confirmed ? "none" : PAINT.ink} strokeWidth={1.8} />
+      <polygon points={BIRD_POINTS} fill={confirmed ? "#ffffff" : PAINT.ink} />
+    </g>
   );
 }
 
@@ -417,10 +422,10 @@ export default function SvgMap(props: SvgMapProps) {
     if (unplaced !== undefined) latest.current.onUnplaced?.(unplaced);
   }, [unplaced]);
 
-  // 輪のラベルの大きさと、出すかどうかは画面の px で決める。図の縮尺は幅と、図の切り替えで変わる
+  // 輪のラベル、鶏舎の印、野鳥の印の大きさは画面の px で決める。図の縮尺は幅と、図の切り替えで変わる
   const shownSvg = prefCode === null ? (japan ? "japan" : null) : pref ? prefCode : null;
   useEffect(() => {
-    if (!rings || shownSvg === null) return;
+    if (shownSvg === null) return;
     const measure = () => {
       const k = wrapRef.current?.querySelector<SVGSVGElement>("svg.svg-map")?.getScreenCTM?.()?.a;
       if (k) setScale(k);
@@ -428,7 +433,7 @@ export default function SvgMap(props: SvgMapProps) {
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [rings, shownSvg]);
+  }, [shownSvg]);
 
   const hatchId = (id: string) => `${uid}-${id}`;
   const defs = (
@@ -526,7 +531,7 @@ export default function SvgMap(props: SvgMapProps) {
             ))}
             {rings ? <RingMarks rings={rings} proj={japan.proj} scale={scale} /> : null}
             {farmMesh ? <FarmMark mesh={farmMesh} proj={japan.proj} scale={scale} /> : null}
-            {style.showWildBirds ? birds?.features.map((f) => <BirdMark key={f.properties.id} f={f} proj={japan.proj} />) : null}
+            {style.showWildBirds ? birds?.features.map((f) => <BirdMark key={f.properties.id} f={f} proj={japan.proj} scale={scale} />) : null}
             {japan.prefs
               .filter((s) => badges.has(s.code))
               .map((s) => {
@@ -659,7 +664,7 @@ export default function SvgMap(props: SvgMapProps) {
                 {style.showWildBirds && store
                   ? birds?.features
                       .filter((f) => props.wildBirds.find((b) => b.id === f.properties.id)?.prefCode === prefCode)
-                      .map((f) => <BirdMark key={f.properties.id} f={f} proj={pref.proj} />)
+                      .map((f) => <BirdMark key={f.properties.id} f={f} proj={pref.proj} scale={scale} />)
                   : null}
               </g>
               {select

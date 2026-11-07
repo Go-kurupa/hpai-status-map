@@ -121,14 +121,14 @@ test.describe("デモの筋", () => {
 
     // まだ輪の外の発生。全国の件数だけが増える
     await (await replayItem(page, /12 月 2 日.*米子市/)).click();
-    await expect(statText("発生した件数")).toContainText("6 件");
+    await expect(statText("養鶏場などの発生")).toContainText("6 件");
     await expect(statText("約 60 km 以内")).toContainText("今季 確認できた範囲では 0 件");
     await expect(page.locator(".replay-now")).toHaveText("12 月 2 日 米子市 確定");
     await filterHas(page, "case-confirmed", "31202");
 
     // 姫路市が輪に入る
     await (await replayItem(page, /12 月 16 日.*姫路市/)).click();
-    await expect(statText("発生した件数")).toContainText("7 件");
+    await expect(statText("養鶏場などの発生")).toContainText("7 件");
     await expect(statText("約 60 km 以内")).toContainText("今季 確認できた範囲では 1 件");
     await expect(page.locator(".replay-now")).toHaveText("12 月 16 日 姫路市 確定。農場（仮の地点）から約 28 km");
     await expect(page.getByText("約 28 km 先で発生しました", { exact: true })).toBeVisible();
@@ -136,7 +136,7 @@ test.describe("デモの筋", () => {
 
     // 津山市が輪に入る。輪の中でも段階 ① にはしない
     await (await replayItem(page, /12 月 20 日.*津山市/)).click();
-    await expect(statText("発生した件数")).toContainText("8 件");
+    await expect(statText("養鶏場などの発生")).toContainText("8 件");
     await expect(statText("約 60 km 以内")).toContainText("今季 確認できた範囲では 2 件");
     await expect(page.locator(".replay-now")).toContainText("農場（仮の地点）から約 16 km");
     await expect(page.getByText("約 16 km 先で発生しました", { exact: true })).toBeVisible();

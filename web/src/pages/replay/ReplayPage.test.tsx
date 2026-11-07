@@ -430,16 +430,16 @@ describe("ReplayPage: 全国の流れ", () => {
   it("進めると件数の札が増え、札の時点は再現の時計に従う。60km の外の発生には距離を書かない", async () => {
     await openNational();
     fireEvent.click(item(/12 月 2 日.*米子市/)); // 仮の地点から約 83km で、輪の外
-    await waitFor(() => expect(card("発生した件数")).toContain("では 6 件"));
+    await waitFor(() => expect(card("養鶏場などの発生")).toContain("では 6 件"));
     await waitFor(() => expect(card("農場から約 60 km 以内")).toContain("今季 確認できた範囲では 0 件"));
-    expect(card("直近 14 日の件数")).toContain("では 2 件"); // 日向市（11/22）と米子市
+    expect(card("養鶏場など 直近 14 日の件数")).toContain("では 2 件"); // 日向市（11/22）と米子市
     expect(card("時刻")).toContain("12 月 2 日 時点");
     expect(nowLine()).toBe("12 月 2 日 米子市 確定");
 
     fireEvent.click(item(/12 月 16 日.*姫路市/)); // 約 28km で、輪の中
     await waitFor(() => expect(card("農場から約 60 km 以内")).toContain("今季 確認できた範囲では 1 件"));
-    expect(card("発生した件数")).toContain("では 7 件");
-    expect(card("直近 14 日の件数")).toContain("では 1 件"); // 米子市（12/2）は 14 日の外
+    expect(card("養鶏場などの発生")).toContain("では 7 件");
+    expect(card("養鶏場など 直近 14 日の件数")).toContain("では 1 件"); // 米子市（12/2）は 14 日の外
     expect(card("時刻")).toContain("12 月 16 日 時点");
     await waitFor(() => expect(nowLine()).toBe("12 月 16 日 姫路市 確定。農場（仮の地点）から約 28 km"));
     expect(await screen.findByText("約 28 km 先で発生しました")).toBeTruthy();
@@ -476,7 +476,7 @@ describe("ReplayPage: 全国の流れ", () => {
       expect(document.body.textContent).not.toMatch(/23:59/);
     }
     expect((next as HTMLButtonElement).disabled).toBe(true);
-    expect(card("発生した件数")).toContain(`では ${TOTAL} 件`);
+    expect(card("養鶏場などの発生")).toContain(`では ${TOTAL} 件`);
   });
 
   it("4 事例へ戻すと札と注記が戻り、4 事例の位置はそのまま", async () => {

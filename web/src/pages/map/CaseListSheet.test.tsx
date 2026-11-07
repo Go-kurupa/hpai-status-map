@@ -138,19 +138,39 @@ describe("CaseListSheet", () => {
 });
 
 describe("Legend", () => {
-  it("疑い（斜線）、確定（単色）、野鳥の検査中、野鳥の確定、確認できていない県の 5 つ", () => {
+  it("養鶏場などの発生・野鳥・そのほかの 3 段に分ける（2026-11-07 作者の決定 ア）", () => {
     render(<Legend isCurrent={true} />);
-    const items = within(screen.getByRole("list", { name: "地図の見方" })).getAllByRole("listitem");
-    expect(items.map((li) => li.textContent)).toEqual(["疑い", "確定", "野鳥の検査中", "野鳥の確定", "確認できていない県"]);
-    expect(items[0]!.querySelector(".swatch-hatch")).not.toBeNull();
-    expect(items[1]!.querySelector(".swatch-solid")).not.toBeNull();
-    expect(items[4]!.querySelector(".swatch-unwatched")).not.toBeNull();
+    const group = screen.getByRole("group", { name: "地図の見方" });
+    const lists = within(group).getAllByRole("list");
+    expect(lists.map((l) => l.getAttribute("aria-labelledby") && document.getElementById(l.getAttribute("aria-labelledby")!)!.textContent)).toEqual([
+      "養鶏場などの発生",
+      "野鳥（養鶏場の発生ではありません）",
+      "そのほか",
+    ]);
+    const items = (i: number) => within(lists[i]!).getAllByRole("listitem");
+    expect(items(0).map((li) => li.textContent)).toEqual(["疑い", "確定", "3県ごとの件数（全国の広さ）"]);
+    expect(items(1).map((li) => li.textContent)).toEqual(["検査中", "高病原性の確定"]);
+    expect(items(2).map((li) => li.textContent)).toEqual(["確認できていない県"]);
+    expect(items(0)[0]!.querySelector(".swatch-hatch")).not.toBeNull();
+    expect(items(0)[1]!.querySelector(".swatch-solid")).not.toBeNull();
+    expect(items(0)[2]!.querySelector(".swatch-badge")).not.toBeNull();
+    // 野鳥の見本は地図と同じ鳥の形。確定は塗り、検査中は白地
+    expect(items(1)[0]!.querySelector("svg.swatch-bird:not(.is-confirmed) polygon")).not.toBeNull();
+    expect(items(1)[1]!.querySelector("svg.swatch-bird.is-confirmed polygon")).not.toBeNull();
+    expect(items(2)[0]!.querySelector(".swatch-unwatched")).not.toBeNull();
+  });
+
+  it("鶏舎の場所を決めていれば「そのほか」の段に載せる", () => {
+    render(<Legend isCurrent={true} hasFarm />);
+    const other = screen.getByRole("list", { name: "そのほか" });
+    expect(within(other).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["確認できていない県", "鶏舎の場所（この端末の画面だけ）"]);
   });
 
   it("過去のシーズンでは、疑いと確定の見本が過去の色になる", () => {
     render(<Legend isCurrent={false} />);
     expect(document.querySelector(".swatch-solid.is-past")).not.toBeNull();
     expect(document.querySelector(".swatch-hatch.is-past")).not.toBeNull();
+    expect(document.querySelector(".swatch-badge.is-past")).not.toBeNull();
   });
 });
 

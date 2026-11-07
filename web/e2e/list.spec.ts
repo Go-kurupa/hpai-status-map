@@ -130,7 +130,7 @@ test.describe("確認状況", () => {
       undefined,
       { timeout: 10_000 },
     );
-    await expect(page.getByRole("list", { name: "地図の見方" })).toContainText("確認できていない県");
+    await expect(page.getByRole("group", { name: "地図の見方" })).toContainText("確認できていない県");
   });
 
   test("全県が確認できていれば、確認の行を出さない（2026-11-06 作者の決定）", async ({ page }) => {

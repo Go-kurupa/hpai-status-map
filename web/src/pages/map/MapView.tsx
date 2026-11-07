@@ -10,7 +10,8 @@ import { FARM_MARK_PX, farmMeshFeature, farmSquareShown } from "../../geo/farmMa
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { Marker, MlMap } from "../../geo/maplibre";
 import { applyDistanceRings, applyFarmMesh, applyLatest, applyOverlay, applyView, applyWildBirds, type LatestState, type OverlayState, type ViewTarget } from "./applyView";
-import { filledHatchImage, HATCH_PIXEL_RATIO, hatchImage, hexToRgb, ringImage, squareImage } from "./hatch";
+import { filledHatchImage, HATCH_PIXEL_RATIO, hatchImage, hexToRgb } from "./hatch";
+import { BIRD_ICON_PX, birdImage } from "./birdIcon";
 import { baseStyle, codeFilter, HATCH_COLORS, IMAGE_IDS, overlayLayers, PAINT } from "./mapStyle";
 import { CMP_TEXT } from "./compareTexts";
 import { TEXT } from "./texts";
@@ -141,8 +142,9 @@ export default function MapView(props: MapViewProps) {
         map.addImage(PAINT.hatchCmpOne, filledHatchImage(hexToRgb(PAINT.cmpOne), "up"), { pixelRatio: HATCH_PIXEL_RATIO });
         map.addImage(PAINT.hatchCmpTwo, filledHatchImage(hexToRgb(PAINT.cmpTwo), "down"), { pixelRatio: HATCH_PIXEL_RATIO });
         map.addImage(PAINT.hatchCmpBoth, filledHatchImage(hexToRgb(PAINT.cmpBoth), "cross"), { pixelRatio: HATCH_PIXEL_RATIO });
-        map.addImage(IMAGE_IDS.birdScreening, ringImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
-        map.addImage(IMAGE_IDS.birdConfirmed, squareImage(hexToRgb(PAINT.ink)), { pixelRatio: 2 });
+        // 野鳥の印（作者 11/7 の決定 A）。BIRD_ICON_PX の CSS px で、どの倍率でも同じ大きさ
+        map.addImage(IMAGE_IDS.birdScreening, birdImage("screening", hexToRgb(PAINT.ink), BIRD_ICON_PX * 2), { pixelRatio: 2 });
+        map.addImage(IMAGE_IDS.birdConfirmed, birdImage("confirmed", hexToRgb(PAINT.ink), BIRD_ICON_PX * 2), { pixelRatio: 2 });
         map.addSource("muni", { type: "geojson", data: munis, tolerance: 0.3 });
         map.addSource("pref", { type: "geojson", data: { type: "Feature", properties: {}, geometry: prefBorders } });
         map.addSource("wild-birds", { type: "geojson", data: { type: "FeatureCollection", features: [] } });

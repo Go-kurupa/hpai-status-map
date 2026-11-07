@@ -746,7 +746,7 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       // 約 60 km 以内の件数は札の列ではなく町の欄の鶏舎の場所の下（2026-11-07 作者の決定 A）。野鳥の陽性は列の最後（2026-11-07 作者の決定）
       await expect(cards).toHaveCount(4);
       await expect(cards.last().locator(".stat-title")).toContainText("野鳥の陽性（今季）");
-      await expect(cards.first().locator(".stat-title")).toContainText("発生した件数");
+      await expect(cards.first().locator(".stat-title")).toContainText("養鶏場などの発生");
       const boxes = await Promise.all((await cards.all()).map(async (c) => (await c.boundingBox())!));
       const top = (await canvas.boundingBox())!.y;
       for (const b of boxes) {

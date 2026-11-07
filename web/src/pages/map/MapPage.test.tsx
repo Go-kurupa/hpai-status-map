@@ -38,7 +38,9 @@ vi.mock("../../geo/loadGeo", () => {
     },
     __releaseGeo: () => gate?.release(),
     loadWebGeoStore: () => gate?.promise ?? Promise.resolve(store),
-    loadJapanTopo: () => Promise.reject(new Error("unused")), loadPrefAnchors: () => Promise.reject(new Error("unused")) };
+    loadJapanTopo: () => Promise.reject(new Error("unused")),
+    // 野鳥の印の位置（約 60 km より遠い野鳥の帯）に使う。地図と同じ実物の県の代表の位置
+    loadPrefAnchors: () => Promise.resolve(JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../../../../data/geo/pref-anchors.json"), "utf8")) as unknown) };
 });
 
 // MapView は maplibre（WebGL）を使うので、jsdom では差し替える。渡された props を控える
@@ -774,7 +776,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(screen.queryByRole("button", { name: TEXT.mapNear })).toBeNull();
     // 本人の端末の場所なので、地図に鶏舎の場所の印を描き、凡例にも載せる
     expect(lastProps().markFarm).toBe(true);
-    expect(screen.getByRole("list", { name: TEXT.legendAria }).textContent).toContain(TEXT.legendFarm);
+    expect(screen.getByRole("group", { name: TEXT.legendAria }).textContent).toContain(TEXT.legendFarm);
     fireEvent.click(screen.getByRole("button", { name: TEXT.mapNearFarm }));
     expect(lastProps().focus?.kind).toBe("rings");
   });
@@ -888,11 +890,11 @@ describe("MapPage: 確認状況", () => {
     expect(screen.queryByTestId("watch-line")).toBeNull();
   });
 
-  it("凡例は 疑い、確定、野鳥の検査中、野鳥の確定、確認できていない県", async () => {
+  it("凡例は 養鶏場などの発生（疑い、確定、県ごとの件数）、野鳥（検査中、高病原性の確定）、そのほか（確認できていない県）", async () => {
     show(rig());
     await screen.findByTestId("map");
-    const items = within(screen.getByRole("list", { name: "地図の見方" })).getAllByRole("listitem");
-    expect(items.map((li) => li.textContent)).toEqual(["疑い", "確定", "野鳥の検査中", "野鳥の確定", "確認できていない県"]);
+    const items = within(screen.getByRole("group", { name: "地図の見方" })).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual(["疑い", "確定", "3県ごとの件数（全国の広さ）", "検査中", "高病原性の確定", "確認できていない県"]);
   });
 });
 
@@ -1303,7 +1305,7 @@ describe("MapPage: 平面の札（T12）", () => {
     ]);
     r.deliverWatch(okWatch());
     expect(stats()).toHaveLength(5);
-    expect(titles()).toEqual(["発生した件数", "直近 14 日の件数", "時刻", "過去 6 シーズンの 11 月 4 日まで", "野鳥の陽性（今季）"]);
+    expect(titles()).toEqual(["養鶏場などの発生", "養鶏場など 直近 14 日の件数", "時刻", "過去 6 シーズンの 11 月 4 日まで", "野鳥の陽性（今季）"]);
     const row = document.querySelector(".stat-row")!;
     expect(row.querySelectorAll(".stat")).toHaveLength(5); // 野鳥の札も数字の列に入れる（2026-11-07 作者の決定）
     const box = document.querySelector(".map-box")!;
@@ -1459,7 +1461,7 @@ describe("MapPage: 平面の札（T12）", () => {
     await screen.findByTestId("map");
     r.deliverWatch(okWatch());
     r.deliverCases([tsuyamaCase({ muniCode: null, muniName: null })]);
-    await waitFor(() => expect(titles()[0]).toBe("発生した件数"));
+    await waitFor(() => expect(titles()[0]).toBe("養鶏場などの発生"));
     const band = () => document.querySelector(".town-banner .farm-band")?.textContent;
     await waitFor(() => expect(band()).toContain(TEXT.statBandUnplaced(1)));
     expect(band()).toContain(TEXT.statBandRelated);
@@ -1528,7 +1530,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       const t = e.querySelector(".stat-title")?.textContent ?? "";
       return typeof title === "string" ? t === title : title.test(t);
     });
-  const recentValue = () => card("直近 14 日の件数")!.querySelector(".stat-value")!.textContent;
+  const recentValue = () => card("養鶏場など 直近 14 日の件数")!.querySelector(".stat-value")!.textContent;
   // 鶏舎から約 60 km 以内の件数は、町の欄の鶏舎の場所のすぐ下にまとめる（2026-11-07 作者の決定 A）
   const bandCard = () => (document.querySelector<HTMLElement>(".town-banner .farm-band") ?? undefined);
   const bandText = () => bandCard()!.textContent ?? "";
@@ -1673,7 +1675,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       r.deliverCases([tsuyamaCase({ stages: onDate("2026-11-02") }), tsuyamaCase({ id: "old", stages: onDate("2026-10-01") })]);
       r.deliverWatch(failedWatch(["33"]));
       expect(recentValue()).toBe("確認できた範囲では 1 件（1 県は確認できていません）");
-      expect(card("直近 14 日の件数")!.classList.contains("stat-wide")).toBe(true);
+      expect(card("養鶏場など 直近 14 日の件数")!.classList.contains("stat-wide")).toBe(true);
     });
 
     it("全県を確認できていれば件数だけ。広い札にしない", async () => {
@@ -1683,7 +1685,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       r.deliverCases([tsuyamaCase({ stages: onDate("2026-11-02") })]);
       r.deliverWatch(okWatch());
       expect(recentValue()).toBe("1 件");
-      expect(card("直近 14 日の件数")!.classList.contains("stat-wide")).toBe(false);
+      expect(card("養鶏場など 直近 14 日の件数")!.classList.contains("stat-wide")).toBe(false);
     });
 
     it("今季に発生があっても直近 14 日が 0 件なら、riskAnywhere を札のすぐ前に出す", async () => {
@@ -1986,10 +1988,10 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
     });
     // 2026-11-07 作者の決定: 最初の画面（/）の数字の欄にも野鳥の札を並べる。数は全国、地図の外でも分かるよう県名を添える
     const threeBirds = () => [
-      bird({ id: "wb-1", prefCode: "05", date: "2026-11-02", test: "hpai_confirmed" }),
-      bird({ id: "wb-2", prefCode: "01", date: "2026-11-02", test: "hpai_confirmed" }),
-      bird({ id: "wb-3", prefCode: "46", date: "2026-11-02", test: "hpai_confirmed" }),
-      bird({ id: "wb-x", prefCode: "04", date: "2026-10-27", test: "negative" }),
+      bird({ id: "wb-1", prefCode: "05", muniCode: "05210", muniName: "由利本荘市", date: "2026-11-02", test: "hpai_confirmed" }),
+      bird({ id: "wb-2", prefCode: "01", muniCode: "01631", muniName: "音更町", date: "2026-11-02", test: "hpai_confirmed" }),
+      bird({ id: "wb-3", prefCode: "46", muniCode: "46208", muniName: "出水市", date: "2026-11-02", test: "hpai_confirmed" }),
+      bird({ id: "wb-x", prefCode: "04", muniCode: "04213", muniName: "栗原市", date: "2026-10-27", test: "negative" }),
     ];
     const allBirdCards = () => [...document.querySelectorAll(".stat")].filter((e) => e.querySelector(".stat-title")?.textContent === TEXT.statBirds);
 
@@ -2142,6 +2144,114 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       replay.deliverWatch(okWatch());
       await waitFor(() => expect(document.querySelector(".stat-row")).not.toBeNull());
       expect(allBirdCards()).toHaveLength(0);
+    });
+
+    // 地図の外の野鳥の陽性の帯（2026-11-07 作者の決定 C）。輪の中心から約 60 km より遠い陽性を県名で出す
+    describe("地図の外の野鳥の帯", () => {
+      const band = () => document.querySelector<HTMLElement>(".near-birds");
+      const withBirds = (r: ReturnType<typeof rig>, birds = threeBirds()) => {
+        r.ds.subscribeWildBirds = (_s, c) => {
+          c(birds);
+          return () => {};
+        };
+      };
+
+      it("鶏舎の付近（西粟倉村）では、秋田・北海道・鹿児島の 3 県を出し、押すと全国へ。帯に鳥の印は付けない（凡例と取り違えない）", async () => {
+        // 作品の見本の地点（作者の村の中心のマス目。shared/src/replay.ts の NATIONAL_FLOW_SPOT）
+        localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52346237", muniCode: "33643", frequentMuniCodes: [] }));
+        const r = rig();
+        withBirds(r);
+        show(r, { section: "now" });
+        await screen.findByTestId("map");
+        r.deliverCases([]);
+        r.deliverWatch(okWatch());
+        expect(await screen.findByRole("button", { name: TEXT.mapNearFarm, pressed: true })).toBeTruthy();
+        await waitFor(() => expect(band()).not.toBeNull());
+        expect(band()!.textContent).toContain(TEXT.nearBirdsLead + "北海道・秋田県・鹿児島県");
+        expect(band()!.querySelector("svg")).toBeNull();
+        fireEvent.click(within(band()!).getByRole("button", { name: TEXT.nearUnmarkedJapan }));
+        await waitFor(() => expect(band()).toBeNull());
+      });
+
+      it("選択地域が由利本荘市なら、町の中の秋田の件は地図に印があるので帯に出さない", async () => {
+        localStorage.setItem(TOWN_KEY, "05210");
+        const r = rig();
+        withBirds(r);
+        show(r, { section: "now" });
+        await screen.findByTestId("map");
+        r.deliverCases([]);
+        r.deliverWatch(okWatch());
+        await waitFor(() => expect(band()).not.toBeNull());
+        expect(band()!.textContent).toContain("北海道・鹿児島県");
+        expect(band()!.textContent).not.toContain("秋田県");
+      });
+
+      it("市町村の分からない陽性は、地図と同じく県の代表の位置で測る（秋田の代表の位置は由利本荘市から 60 km 以内なので出さない）", async () => {
+        localStorage.setItem(TOWN_KEY, "05210");
+        const r = rig();
+        withBirds(r, [threeBirds()[0]!, bird({ id: "wb-u", prefCode: "05", test: "screening_positive" })]);
+        show(r, { section: "now" });
+        await screen.findByTestId("map");
+        r.deliverCases([]);
+        r.deliverWatch(okWatch());
+        await waitFor(() => expect(document.querySelector(".stat-row .stat-birds")).not.toBeNull());
+        await new Promise((ok) => setTimeout(ok, 50));
+        expect(band()).toBeNull();
+      });
+
+      it("出さない: 遠い陽性がない、町を選んでいない（全国）、陰性だけ、/ 以外の見方、再現", async () => {
+        localStorage.setItem(TOWN_KEY, "05210");
+        const near = rig();
+        withBirds(near, [threeBirds()[0]!, threeBirds()[3]!]); // 由利本荘市の確定と栗原市の陰性
+        show(near, { section: "now" });
+        await screen.findByTestId("map");
+        near.deliverCases([]);
+        near.deliverWatch(okWatch());
+        await waitFor(() => expect(document.querySelector(".stat-row .stat-birds")).not.toBeNull());
+        expect(band()).toBeNull();
+        cleanup();
+        localStorage.clear();
+
+        const japan = rig();
+        withBirds(japan);
+        show(japan, { section: "now" });
+        await screen.findByTestId("map");
+        japan.deliverCases([]);
+        japan.deliverWatch(okWatch());
+        await waitFor(() => expect(document.querySelector(".stat-row .stat-birds")).not.toBeNull());
+        expect(band()).toBeNull();
+        cleanup();
+
+        localStorage.setItem(TOWN_KEY, "05210");
+        const all = rig();
+        withBirds(all);
+        show(all, { section: "all" });
+        await screen.findByTestId("map");
+        all.deliverCases([]);
+        all.deliverWatch(okWatch());
+        await waitFor(() => expect(document.querySelector(".stat-row .stat-birds")).not.toBeNull());
+        expect(band()).toBeNull();
+        cleanup();
+        localStorage.clear();
+
+        localStorage.setItem(TOWN_KEY, "05210");
+        const replay = rig();
+        withBirds(replay);
+        render(
+          <MemoryRouter>
+            <DataSourceProvider value={{ ...replay.ds, mode: "replay" }}>
+              <SpotProvider>
+                <MapPage replayStats section="now" />
+              </SpotProvider>
+            </DataSourceProvider>
+          </MemoryRouter>,
+        );
+        await screen.findByTestId("map");
+        replay.deliverCases([]);
+        replay.deliverWatch(okWatch());
+        await waitFor(() => expect(document.querySelector(".stat-row")).not.toBeNull());
+        expect(band()).toBeNull();
+      });
     });
   });
 
