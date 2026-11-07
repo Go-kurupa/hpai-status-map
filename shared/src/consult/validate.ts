@@ -2,13 +2,14 @@
 // 画面に出すものはカードのデータから出す。Claude の返事（答えの文とカードの id）は、検査に通ったものだけを使う。
 // 落ちたら決まった文（OUT_OF_SCOPE_TEXT）を返す。
 import { normalizeForMatch } from "../text";
-import { findForbiddenPhrases } from "../wording";
-import { OUT_OF_SCOPE_TEXT } from "./scope";
+import { REASSURANCE_WORDS, SENSATIONAL_WORDS, findForbiddenPhrases, findWordingViolations } from "../wording";
+import { OUT_OF_SCOPE_TEXT, isOutOfScopeQuestion } from "./scope";
+import { CONSULT_FOLLOW_UP_MAX_CHARS, CONSULT_MAX_FOLLOW_UPS } from "./types";
 import type { ConsultCard } from "./types";
 
 export { OUT_OF_SCOPE_TEXT };
 
-// 答えの字数の上限。指示（CONSULT_SYSTEM）は 400 字だが、わずかな超過で答えを捨てないよう、検査は 500 字まで。
+// 答えの字数の上限。指示（CONSULT_SYSTEM）は 150 字ほどだが、わずかな超過で答えを捨てないよう、検査は 500 字まで。
 const ANSWER_MAX_CHARS = 500;
 
 export interface AskResult {
@@ -71,8 +72,10 @@ function numbersOf(s: string): string[] {
 }
 
 // 書いてよい数字: 引いたカードの quote、appliesTo、action、evidenceNote にある数字と、相談の文（extraText）に書かれた数字。
-function allowedNumbers(cards: ConsultCard[], extraText: string): Set<string> {
-  const set = new Set<string>(numbersOf(extraText));
+// extraText が配列なら、文ごとに数字を拾う（つないでから拾うと、前の文の末尾と次の文の先頭の数字が 1 つにくっつく）。
+function allowedNumbers(cards: ConsultCard[], extraText: string | readonly string[]): Set<string> {
+  const texts = typeof extraText === "string" ? [extraText] : extraText;
+  const set = new Set<string>(texts.flatMap((t) => numbersOf(t)));
   for (const card of cards) {
     for (const text of [card.quote, card.appliesTo, card.action, card.evidenceNote]) {
       for (const n of numbersOf(text)) set.add(n);
@@ -139,14 +142,14 @@ const fallbackOf = (failures: string[]): AskResult => ({ answer: OUT_OF_SCOPE_TE
 
 // cards は数字の検査に使う。渡さないときは数字を確かめられないので、数字を含む答えは通さない。
 // maxCards は使うカードの上限。許された id に絞り、重なりを除いた後の先頭の maxCards 枚だけを使う（数字の検査もその分だけ）。
-// extraText は相談の文。相談者が書いた数字（「300 羽の平飼い」の 300）は、答えにそのまま書いてよい。
+// extraText は相談の文（続けて聞くときは、前の問いと新しい問いの配列）。相談者が書いた数字（「300 羽の平飼い」の 300）は、答えにそのまま書いてよい。
 // 落ちたときの failures の符号: shape / claude_out_of_scope / no_valid_id / too_long / url / unknown_number:<数字> / unsupported_quantity:<語> / empty / forbidden_phrase。通ったときは空。
 export function validateAsk(
   raw: unknown,
   allowedIds: string[],
   cards: ConsultCard[] = [],
   maxCards: number = Infinity,
-  extraText: string = "",
+  extraText: string | readonly string[] = "",
 ): AskResult {
   if (!isRecord(raw) || typeof raw.answer !== "string" || !Array.isArray(raw.cardIds)) return fallbackOf(["shape"]);
   if (raw.outOfScope === true) return fallbackOf(["claude_out_of_scope"]);
@@ -170,4 +173,32 @@ export function validateAsk(
   if (failures.length > 0) return fallbackOf(failures);
 
   return { answer, cardIds, outOfScope: false, failures: [] };
+}
+
+/**
+ * 続けて聞く候補の検査。通ったものだけを、重なりを除いて CONSULT_MAX_FOLLOW_UPS 個まで返す。
+ * 捨てるもの: 文字でない、空、CONSULT_FOLLOW_UP_MAX_CHARS 字を超える、URL、数字（候補の数字は検査できない）、
+ * 画面の文の決まり（wording.ts）に当たる語、あおる語・請け合う語、範囲外の問い、カードの id の書き込み。
+ */
+export function validateFollowUps(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const t = item.trim();
+    const len = Array.from(t).length;
+    if (len < 1 || len > CONSULT_FOLLOW_UP_MAX_CHARS) continue;
+    if (looksLikeUrl(t)) continue;
+    // 漢数字の数量（「三百羽」「二割」）も数字の検査（numbersOf）と同じに見て捨てる。候補は押すと次の問いになり、その数字が答えに書いてよい数字になるため
+    if (/\d/u.test(normalizeForMatch(t)) || /[0-9０-９]/u.test(t) || numbersOf(t).length > 0) continue;
+    if (findWordingViolations(t).length > 0) continue;
+    // あおる語・請け合う語（下書きの検査と同じ語）も、押せる候補には出さない
+    if ([...SENSATIONAL_WORDS, ...REASSURANCE_WORDS].some((w) => t.includes(w))) continue;
+    if (isOutOfScopeQuestion(t)) continue;
+    if (stripCardRefs(t) !== t) continue;
+    if (out.includes(t)) continue;
+    out.push(t);
+    if (out.length >= CONSULT_MAX_FOLLOW_UPS) break;
+  }
+  return out;
 }

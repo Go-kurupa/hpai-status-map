@@ -14,15 +14,17 @@ afterAll(() => {
 });
 
 describe("bundle のあと（対策の相談のカード）", () => {
-  it("lib/data/consult/cards.json があり、loadConsultData で読め、確認済みのカードだけが入っている", async () => {
+  it("lib/data/consult/cards.json と lib/data/history/cases.json があり、loadConsultData で読め、確認済みのカードだけが入っている", async () => {
     const outdir = fs.mkdtempSync(path.join(os.tmpdir(), "hpai-bundle-consult-"));
     tmpDirs.push(outdir);
     const r = spawnSync("node", [BUNDLE, "--outdir", outdir, "--data-root", path.join(ROOT, "data")], { encoding: "utf8" });
     expect(r.status, r.stderr).toBe(0);
     expect(fs.existsSync(path.join(outdir, "data", "consult", "cards.json"))).toBe(true);
     expect(fs.existsSync(path.join(outdir, "data", "consult", "verify.json"))).toBe(false);
-    const { cards } = await loadConsultData(path.join(outdir, "data", "consult"));
+    const { cards, history } = await loadConsultData(path.join(outdir, "data", "consult"), path.join(outdir, "data", "history", "cases.json"));
     expect(cards.cards.length).toBeGreaterThan(0);
+    // 発生の件数の表のために、過去の事例も同梱されている
+    expect(history.length).toBeGreaterThan(0);
     expect(cards.cards.every((c) => c.approved)).toBe(true);
   }, 60_000);
 });

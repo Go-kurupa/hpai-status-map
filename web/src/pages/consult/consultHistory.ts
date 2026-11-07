@@ -1,0 +1,203 @@
+// これまでの相談（1 つの相談 = 続けて聞いた往復のまとまり）。会員の分は、この端末のブラウザ（localStorage）にだけ残す。
+// 作品のサーバーには送らない。審査員の入口は残さない（呼び手が保存しない）。
+// 読み書きは失敗しても画面を止めない（非公開のウィンドウ、容量の上限、壊れた中身）。読めない中身は捨てる。
+import type { ConsultAskResponse, ConsultTurn } from "@hpai/shared/consult/types";
+import { STATS_GROUP_BYS } from "@hpai/shared/consult/stats";
+import { CONSULT_MAX_HISTORY, EVIDENCE_LABEL } from "@hpai/shared/consult/types";
+
+export interface ConsultHistoryTurn {
+  /** 画面に出した聞く文（話題のときは話題の文） */
+  question: string;
+  result: ConsultAskResponse;
+  /** 聞いた時刻（ミリ秒） */
+  at: number;
+}
+
+export interface ConsultConversation {
+  id: string;
+  /** 一覧の題。最初の聞く文 */
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  turns: ConsultHistoryTurn[];
+}
+
+/** 残す相談の数。古いもの（最後に聞いた時刻が古い順）から捨てる */
+export const MAX_CONVERSATIONS = 20;
+/** 1 つの相談に残す往復の数。古い往復から捨てる */
+export const MAX_TURNS = 10;
+
+const KEY_PREFIX = "hpai.consult.history.v1:";
+
+/** 会員ごとの置き場所。同じ端末をほかの会員が使っても混ざらない */
+export function historyKey(uid: string): string {
+  return `${KEY_PREFIX}${uid}`;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
+const NOTICES = new Set([null, "daily_limit", "budget_stop", "unavailable"]);
+
+/** 画面が読む項目だけを確かめる（形の違うカードで画面を落とさない） */
+function isCard(v: unknown): boolean {
+  if (!isRecord(v)) return false;
+  const { id, action, quote, caveats, evidence, source } = v;
+  if (typeof id !== "string" || typeof action !== "string" || typeof quote !== "string" || !isStringArray(caveats)) return false;
+  if (typeof evidence !== "string" || !Object.hasOwn(EVIDENCE_LABEL, evidence)) return false;
+  if (source === undefined) return true;
+  return (
+    isRecord(source) &&
+    typeof source["title"] === "string" &&
+    typeof source["publisher"] === "string" &&
+    typeof source["url"] === "string" &&
+    typeof source["domestic"] === "boolean" &&
+    typeof source["license"] === "string"
+  );
+}
+
+/** 件数の表。画面が読む項目だけを確かめる */
+function isStats(v: unknown): boolean {
+  if (!isRecord(v)) return false;
+  const { query, title, summary, labelHeader, rows, rest, total, outOfRange } = v;
+  // 画面は query.prefCode を読む（県の表にだけリスクの文を出す）。query のない古い形・壊れた中身は捨てる
+  if (!isRecord(query) || !STATS_GROUP_BYS.includes(query["groupBy"] as never)) return false;
+  if (query["prefCode"] !== null && typeof query["prefCode"] !== "string") return false;
+  if (query["season"] !== null && typeof query["season"] !== "number") return false;
+  if (typeof title !== "string" || typeof summary !== "string" || typeof labelHeader !== "string") return false;
+  if (typeof total !== "number" || typeof outOfRange !== "boolean") return false;
+  if (!Array.isArray(rows) || !rows.every((r) => isRecord(r) && typeof r["label"] === "string" && typeof r["count"] === "number")) return false;
+  return rest === null || (isRecord(rest) && typeof rest["rows"] === "number" && typeof rest["count"] === "number");
+}
+
+function isResult(v: unknown): v is ConsultAskResponse {
+  return (
+    isRecord(v) &&
+    typeof v["answer"] === "string" &&
+    Array.isArray(v["cards"]) &&
+    v["cards"].every(isCard) &&
+    typeof v["outOfScope"] === "boolean" &&
+    NOTICES.has(v["notice"] as string | null) &&
+    (v["followUps"] === undefined || isStringArray(v["followUps"])) &&
+    (v["stats"] === undefined || v["stats"] === null || isStats(v["stats"]))
+  );
+}
+
+function isTurn(v: unknown): v is ConsultHistoryTurn {
+  return isRecord(v) && typeof v["question"] === "string" && typeof v["at"] === "number" && isResult(v["result"]);
+}
+
+function parseConversation(v: unknown): ConsultConversation | null {
+  if (!isRecord(v)) return null;
+  const { id, title, createdAt, updatedAt, turns } = v;
+  if (typeof id !== "string" || typeof title !== "string" || typeof createdAt !== "number" || typeof updatedAt !== "number") return null;
+  if (!Array.isArray(turns)) return null;
+  const good = turns.filter(isTurn);
+  if (good.length === 0) return null;
+  return { id, title, createdAt, updatedAt, turns: good };
+}
+
+/** 新しい順（最後に聞いた時刻）。読めなければ空 */
+export function loadConversations(key: string): ConsultConversation[] {
+  let raw: string | null;
+  try {
+    raw = localStorage.getItem(key);
+  } catch {
+    return [];
+  }
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(parseConversation)
+      .filter((c): c is ConsultConversation => c !== null)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  } catch {
+    return [];
+  }
+}
+
+/** 上限まで詰めて書く。容量の上限で書けなければ、古い相談を減らしてやり直す。書けなかったら false */
+export function saveConversations(key: string, list: readonly ConsultConversation[]): boolean {
+  let rest = trimConversations(list);
+  for (;;) {
+    try {
+      if (rest.length === 0) localStorage.removeItem(key);
+      else localStorage.setItem(key, JSON.stringify(rest));
+      return true;
+    } catch {
+      if (rest.length <= 1) return false;
+      rest = rest.slice(0, Math.ceil(rest.length / 2));
+    }
+  }
+}
+
+/** 新しい順に並べ、相談の数と往復の数の上限で切る */
+export function trimConversations(list: readonly ConsultConversation[]): ConsultConversation[] {
+  return [...list]
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, MAX_CONVERSATIONS)
+    .map((c) => (c.turns.length > MAX_TURNS ? { ...c, turns: c.turns.slice(-MAX_TURNS) } : c));
+}
+
+/** 対策の答えがあったか（答えの文とカード） */
+export function hasAdvice(r: ConsultAskResponse): boolean {
+  return r.cards.length > 0 && r.answer.trim() !== "";
+}
+
+/** 答えがあった往復か（対策の答えか、発生の件数の表。決まった文、回数の知らせ、答えを作れなかったときは除く） */
+export function isAnswered(t: ConsultHistoryTurn): boolean {
+  const r = t.result;
+  return r.notice === null && !r.outOfScope && (hasAdvice(r) || Boolean(r.stats));
+}
+
+/** 続けて聞くときに関数へ渡す前の往復。答えがあった往復のうち、直前の CONSULT_MAX_HISTORY 往復 */
+export function historyForAsk(turns: readonly ConsultHistoryTurn[]): ConsultTurn[] {
+  return turns
+    .filter(isAnswered)
+    .slice(-CONSULT_MAX_HISTORY)
+    // 件数だけの往復は、表のまとめの文を答えとして渡す（「では鳥取県は？」の意味を読めるように）
+    .map((t) => ({ question: t.question, answer: hasAdvice(t.result) ? t.result.answer : (t.result.stats?.summary ?? "") }));
+}
+
+export type DayGroup = "today" | "yesterday" | "earlier";
+
+function startOfDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** 最後に聞いた時刻で、今日・昨日・それより前に分ける（端末の時計の日付） */
+export function dayGroupOf(updatedAt: number, now: number): DayGroup {
+  const today = startOfDay(now);
+  if (updatedAt >= today) return "today";
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (updatedAt >= yesterday.getTime()) return "yesterday";
+  return "earlier";
+}
+
+/** 今日と昨日は時刻（13:05）、それより前は日付（11/2） */
+export function whenLabel(ms: number, now: number): string {
+  const d = new Date(ms);
+  if (dayGroupOf(ms, now) === "earlier") return `${d.getMonth() + 1}/${d.getDate()}`;
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** 往復の吹き出しの時刻。今日は時刻（13:05）、それより前は日付も（11/6 18:12） */
+export function turnTimeLabel(ms: number, now: number): string {
+  const d = new Date(ms);
+  const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return dayGroupOf(ms, now) === "today" ? time : `${d.getMonth() + 1}/${d.getDate()} ${time}`;
+}
+
+let seq = 0;
+/** 相談の id。端末の中で重ならなければよい */
+export function newConversationId(now: number): string {
+  seq += 1;
+  return `c${now.toString(36)}${seq.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}

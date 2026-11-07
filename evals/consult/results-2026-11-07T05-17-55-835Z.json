@@ -1,0 +1,132 @@
+{
+  "model": "claude-opus-5-5",
+  "kind": "stats",
+  "at": "2026-11-07T05:18:16.888Z",
+  "results": [
+    {
+      "id": "st-okayama",
+      "kind": "stats",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [
+        "no_valid_id"
+      ],
+      "cardIds": [],
+      "answerChars": 0,
+      "passed": true,
+      "ms": 5265,
+      "usage": {
+        "input_tokens": 17937,
+        "output_tokens": 61,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.072968,
+      "stats": {
+        "groupBy": "season",
+        "season": null,
+        "prefCode": "33"
+      }
+    },
+    {
+      "id": "st-last-season",
+      "kind": "stats",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [
+        "no_valid_id"
+      ],
+      "cardIds": [],
+      "answerChars": 0,
+      "passed": true,
+      "ms": 2523,
+      "usage": {
+        "input_tokens": 17940,
+        "output_tokens": 61,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.07298,
+      "stats": {
+        "groupBy": "pref",
+        "season": 2025,
+        "prefCode": null
+      }
+    },
+    {
+      "id": "st-month",
+      "kind": "stats",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [
+        "no_valid_id"
+      ],
+      "cardIds": [],
+      "answerChars": 0,
+      "passed": true,
+      "ms": 2320,
+      "usage": {
+        "input_tokens": 17940,
+        "output_tokens": 91,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.07358,
+      "stats": {
+        "groupBy": "month",
+        "season": null,
+        "prefCode": null
+      }
+    },
+    {
+      "id": "st-use",
+      "kind": "stats",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [
+        "no_valid_id"
+      ],
+      "cardIds": [],
+      "answerChars": 0,
+      "passed": true,
+      "ms": 3781,
+      "usage": {
+        "input_tokens": 17950,
+        "output_tokens": 59,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.07298,
+      "stats": {
+        "groupBy": "use",
+        "season": null,
+        "prefCode": null
+      }
+    },
+    {
+      "id": "st-current",
+      "kind": "stats",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [
+        "no_valid_id"
+      ],
+      "cardIds": [],
+      "answerChars": 0,
+      "passed": true,
+      "ms": 2156,
+      "usage": {
+        "input_tokens": 17932,
+        "output_tokens": 60,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.072928,
+      "stats": {
+        "groupBy": "season",
+        "season": 2026,
+        "prefCode": null
+      }
+    }
+  ]
+}

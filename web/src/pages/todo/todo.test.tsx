@@ -719,14 +719,14 @@ describe("DisinfectionPanel", () => {
   });
 });
 
-describe("相談から足した見直しの欄（会員だけ）", () => {
+describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   const section = () => screen.findByRole("region", { name: TODO_TEXT.reviewsHeading });
 
   it("足したカードが 1 行ずつ、対策・根拠の札・資料名と、「外す」のボタンで並ぶ", async () => {
     reviewBox.store.listReviews.mockResolvedValue(["maff-M07", "aphis-A01"]);
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
-    expect(sec.getByRole("heading", { name: "相談から足した見直し" })).toBeTruthy();
+    expect(sec.getByRole("heading", { name: "AI の相談から足した見直し" })).toBeTruthy();
     await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(2));
     const rows = sec.getAllByRole("listitem");
     expect(rows[0]!.textContent).toContain("着替え・履き替えの前後の動線を分ける");
@@ -734,6 +734,24 @@ describe("相談から足した見直しの欄（会員だけ）", () => {
     expect(rows[0]!.textContent).toContain("飼養衛生管理基準遵守指導の手引き");
     expect(rows[1]!.textContent).toContain("研究で関係あり");
     expect(within(rows[0]!).getByRole("button", { name: "外す" })).toBeTruthy();
+  });
+
+  it("各項目の「この対策を AI に聞く」は、その対策の名前を入れた相談の画面へ。一覧の下にも相談へのリンクを出す", async () => {
+    reviewBox.store.listReviews.mockResolvedValue(["maff-M07"]);
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = within(await section());
+    await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(1));
+    const ask = within(sec.getAllByRole("listitem")[0]!).getByRole("link", { name: "この対策を AI に聞く" });
+    expect(ask.getAttribute("href")).toBe(`/consult?q=${encodeURIComponent("着替え・履き替えの前後の動線を分ける")}`);
+    expect(sec.getByRole("link", { name: "AIに対策を相談する" }).getAttribute("href")).toBe("/consult");
+  });
+
+  it("今の資料にないカードには「この対策を AI に聞く」を出さない", async () => {
+    reviewBox.store.listReviews.mockResolvedValue(["gone-X99"]);
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    const sec = within(await section());
+    await waitFor(() => expect(sec.getAllByRole("listitem")).toHaveLength(1));
+    expect(sec.queryByRole("link", { name: "この対策を AI に聞く" })).toBeNull();
   });
 
   it("「外す」を押すと消して、その行がなくなる", async () => {
@@ -762,7 +780,7 @@ describe("相談から足した見直しの欄（会員だけ）", () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
     expect(await sec.findByText("相談の画面で『対策項目に足す』を押すと、ここに並びます。")).toBeTruthy();
-    expect(sec.getByRole("link", { name: "対策の相談を開く" }).getAttribute("href")).toBe("/consult");
+    expect(sec.getByRole("link", { name: "AIに対策を相談する" }).getAttribute("href")).toBe("/consult");
     expect(sec.queryAllByRole("listitem")).toHaveLength(0);
   });
 
@@ -787,7 +805,7 @@ describe("相談から足した見直しの欄（会員だけ）", () => {
     farm = null;
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText("今月の自己点検を確かめましょう");
-    expect(screen.queryByRole("region", { name: "相談から足した見直し" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "AI の相談から足した見直し" })).toBeNull();
     expect(reviewBox.store.listReviews).not.toHaveBeenCalled();
   });
 
@@ -795,7 +813,7 @@ describe("相談から足した見直しの欄（会員だけ）", () => {
     const sample = { ...store, mode: "sample" } as unknown as RecordStore;
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }), store: sample });
     await screen.findByText("今月の自己点検を確かめましょう");
-    expect(screen.queryByRole("region", { name: "相談から足した見直し" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "AI の相談から足した見直し" })).toBeNull();
     expect(reviewBox.store.listReviews).not.toHaveBeenCalled();
   });
 

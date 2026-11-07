@@ -252,10 +252,10 @@ describe("shellContextOf", () => {
   it("会員の印がなければ記録と設定を出さず、会員のログインを出す。/login と /join で選択中", () => {
     const farm = (p: string, member: boolean) => shellContextOf(p, member).groups.find((g) => g.label === "養鶏事業者の方")!.items;
     expect(farm("/", false).map((i) => [i.label, i.to])).toEqual([["対策項目", "/todo"], ["会員のログイン", "/login"]]);
-    expect(farm("/", true).map((i) => [i.label, i.to])).toEqual([["対策項目", "/todo"], ["対策の相談", "/consult"], ["死亡・消毒の記録", "/record/deaths"], ["農場と通知の設定", "/settings/farm"]]);
+    expect(farm("/", true).map((i) => [i.label, i.to])).toEqual([["対策項目", "/todo"], ["AIに対策を相談", "/consult"], ["死亡・消毒の記録", "/record/deaths"], ["農場と通知の設定", "/settings/farm"]]);
     // 対策の相談は会員の印があるときだけ。会員でない人と、見本の中には出さない
     expect(farm("/", false).some((i) => i.to === "/consult")).toBe(false);
-    expect(farm("/consult", true).find((i) => i.label === "対策の相談")!.current).toBe(true);
+    expect(farm("/consult", true).find((i) => i.label === "AIに対策を相談")!.current).toBe(true);
     expect(farm("/login", false).find((i) => i.label === "会員のログイン")!.current).toBe(true);
     expect(farm("/join/abc", false).find((i) => i.label === "会員のログイン")!.current).toBe(true);
     // 見本の中は会員の印に関係なく、見本の行き先と記録を試す

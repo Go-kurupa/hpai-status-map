@@ -1,4 +1,4 @@
-// 相談から足した見直し（会員だけ）。対策の相談の「対策項目に足す」で足したカードを並べる。
+// 相談から足した見直し（会員だけ）。AIに対策を相談の「対策項目に足す」で足したカードを並べる。
 // 中身はカードの一覧（/consult/cards.json）から引く。農場に保存してあるのはカードの id と、足した時刻と人だけ。
 import { EVIDENCE_LABEL } from "@hpai/shared/consult/types";
 import { useEffect, useMemo, useState } from "react";
@@ -64,6 +64,10 @@ export function ReviewsSection({ farmId }: { farmId: string }) {
                       {EVIDENCE_LABEL[card.evidence]}
                       {source ? `。資料: ${source.title}（${source.publisher}）` : ""}
                     </p>
+                    {/* 相談の画面の入力欄に、この対策の名前を入れて開く（送るのは本人） */}
+                    <p>
+                      <Link to={`/consult?q=${encodeURIComponent(card.action)}`}>{TODO_TEXT.reviewsAsk}</Link>
+                    </p>
                   </>
                 ) : (
                   <p className="todo-note">{catalog ? TODO_TEXT.reviewsGone : id}</p>
@@ -73,6 +77,11 @@ export function ReviewsSection({ farmId }: { farmId: string }) {
             );
           })}
         </ul>
+      ) : null}
+      {load.status === "ready" && load.ids.length > 0 ? (
+        <p>
+          <Link to="/consult">{TODO_TEXT.reviewsLink}</Link>
+        </p>
       ) : null}
       {removeFailed ? <p role="alert">{TODO_TEXT.reviewsRemoveFailed}</p> : null}
     </section>

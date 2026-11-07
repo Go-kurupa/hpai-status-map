@@ -12,7 +12,7 @@ export const ABOUT_TEXT = {
     ai: "AI の読み取りの確かさと費用",
     privacy: "集める情報と消し方",
   },
-  sourcesLead: "国、県、国土交通省、国土地理院が公開しているデータと、対策の相談では海外の公的機関の資料と論文を使っています。県の連絡が正です。",
+  sourcesLead: "国、県、国土交通省、国土地理院が公開しているデータと、「AIに対策を相談」では海外の公的機関の資料と論文を使っています。県の連絡が正です。",
   sourcesMore: "利用条件と加工の詳しい記録は、この作品のリポジトリの文書（docs/data-sources.md）にあります。",
   judgesLead: "ハッカソンの審査のために、登録なしで見られるものです。再現と記録を試すは見本で、本物の今季の状況とは別のものです。",
 } as const;
@@ -22,7 +22,7 @@ export const JUDGE_LINKS: ReadonlyArray<{ to: string; label: string }> = [
   { to: "/replay", label: "去年の再現（2025 年 12 月の 4 事例と全国の流れ）" },
   { to: "/replay/backstage", label: "舞台裏（2 つの Claude の読み取りと、プログラムの検査）" },
   { to: "/sample", label: "記録を試す（架空の農場。数字は作り物）" },
-  { to: "/consult?judge=1", label: "対策の相談を試す（公的資料と論文のカードだけで答えます。回数に上限あり、保存しません）" },
+  { to: "/consult?judge=1", label: "AIに対策を相談（試しの入口。公的資料と論文のカードだけで答えます。回数に上限あり、保存しません）" },
   { to: "#about-ai", label: "AI の読み取りの確かさと費用（このページの下の節）" },
 ];
 
@@ -80,8 +80,8 @@ export const DATA_SOURCES: readonly DataSource[] = [
     url: null,
   },
   {
-    name: "対策の相談の資料 23 件（農林水産省、県、論文 10 本、英国 Defra、米国 USDA APHIS の公開資料）",
-    use: "対策の相談の根拠のカード。資料ごとの題と URL は、相談の画面のカードに出しています",
+    name: "AIに対策を相談の資料 23 件（農林水産省、県、論文 10 本、英国 Defra、米国 USDA APHIS の公開資料）",
+    use: "AIに対策を相談の根拠のカード。資料ごとの題と URL は、相談の画面のカードに出しています",
     url: null,
   },
 ];

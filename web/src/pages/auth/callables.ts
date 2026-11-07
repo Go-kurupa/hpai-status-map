@@ -1,5 +1,5 @@
 // 会員の画面から呼ぶ Cloud Functions（onCall）。lazy の chunk だけが import する。
-import type { ConsultAskResponse } from "@hpai/shared/consult/types";
+import type { ConsultAskResponse, ConsultTurn } from "@hpai/shared/consult/types";
 import type { NeighborAudience, NeighborDraftResult } from "@hpai/shared/drafts";
 import { httpsCallable } from "firebase/functions";
 import { getFirebase } from "../../firebase";
@@ -40,16 +40,20 @@ export async function draftNeighborExplainerCall(measures: string, audience: Nei
 }
 
 /**
- * 対策の相談を聞く。話題か文のどちらか一方を渡す。judge が true なら、ログインなしの審査員の入口（全体の回数に上限）。
- * 渡る文は本人が入れた 1 問だけ。農場の名前、位置、記録は送らない。
+ * AIに対策を相談で聞く。話題か文のどちらか一方を渡す。judge が true なら、ログインなしの審査員の入口（全体の回数に上限）。
+ * 渡るのは本人が入れた問いと、続けて聞くときの同じ相談の前の往復（問いと AI の答え、直前の数往復）だけ。農場の名前、位置、記録は送らない。
  */
-export async function consultAskCall(input: { question: string } | { topicId: string }, judge: boolean): Promise<ConsultAskResponse> {
+export async function consultAskCall(
+  input: { question: string } | { topicId: string },
+  judge: boolean,
+  history: ConsultTurn[] = [],
+): Promise<ConsultAskResponse> {
   const { functions } = await getFirebase();
-  const res = await httpsCallable<{ question?: string; topicId?: string; judge?: boolean }, ConsultAskResponse>(
+  const res = await httpsCallable<{ question?: string; topicId?: string; judge?: boolean; history?: ConsultTurn[] }, ConsultAskResponse>(
     functions,
     "consultAsk",
     // 既定は 70 秒。サーバーは Claude を待つので、返しまで待つ（draftNeighborExplainerCall と同じ）
     { timeout: 130_000 },
-  )({ ...input, ...(judge ? { judge: true } : {}) });
+  )({ ...input, ...(judge ? { judge: true } : {}), ...(history.length > 0 ? { history } : {}) });
   return res.data;
 }

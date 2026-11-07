@@ -1,5 +1,7 @@
 // 対策の見直し相談の型。型と定数だけを置く。カードの JSON の形は設計書 6 章に合わせる。
 
+import type { ConsultStats } from "./stats";
+
 // 根拠の強さ（画面では EVIDENCE_LABEL の札で出す）。
 export type Evidence =
   | "obligation"
@@ -89,4 +91,31 @@ export interface ConsultAskResponse {
   outOfScope: boolean;
   /** Claude を呼ばなかった理由（予算の停止、1 日の回数）か、答えを作れなかったこと（unavailable）。それ以外は null */
   notice: ConsultNotice;
+  /**
+   * 続けて聞く候補（Claude の下書き。検査に通ったものだけ、CONSULT_MAX_FOLLOW_UPS 個まで）。答えがないときは空。
+   * 古い関数の返事にはないので、画面は無いものとして扱う。
+   */
+  followUps?: string[];
+  /**
+   * 発生の件数の表（Claude が数え方を選び、プログラムが過去の事例から数えたもの。stats.ts）。件数の問いでなければ null。
+   * 古い関数の返事にはないので、画面は無いものとして扱う。
+   */
+  stats?: ConsultStats | null;
 }
+
+/** 続けて聞くときに、画面が関数へ渡す前の往復（同じ相談の直前の分だけ）。根拠にはしない。問いの意味を読む材料。 */
+export interface ConsultTurn {
+  question: string;
+  answer: string;
+}
+
+/** 関数へ渡す前の往復の数の上限。 */
+export const CONSULT_MAX_HISTORY = 3;
+/** 聞く文の長さの上限（文字の数）。画面の入力欄と関数が同じ数を使う。前の往復の問いも同じ上限。 */
+export const CONSULT_MAX_QUESTION = 300;
+/** 前の往復の答えの長さの上限（文字の数）。答えの検査の上限と同じ。 */
+export const CONSULT_HISTORY_ANSWER_MAX = 500;
+/** 続けて聞く候補の数の上限。 */
+export const CONSULT_MAX_FOLLOW_UPS = 2;
+/** 続けて聞く候補 1 つの長さの上限（文字の数）。 */
+export const CONSULT_FOLLOW_UP_MAX_CHARS = 30;

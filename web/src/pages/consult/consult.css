@@ -1,53 +1,44 @@
-/* 対策の相談。平面の単色だけ（陰影・ぼかしなし）。色は ui/theme.css の変数。
-   おすすめの枠の黄色系だけ、この画面の中で決める（theme.css は触らない）。 */
+/* AIに対策を相談。チャットの形（見本 private/requirements/consult-chat-mock.html）。平面の単色だけ（陰影・ぼかしなし）。色は ui/theme.css の変数。
+   おすすめの吹き出しの黄色系と、自分の吹き出しの青系だけ、この画面の中で決める（theme.css は触らない）。 */
 .consult-page {
   --advice-bg: #fbf0dc;
   --advice-fg: #7a4b00;
+  --me-bg: #e8ecff;
   max-width: 40rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.consult-page p {
+  margin: 0;
+}
+.consult-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s1);
+}
+.consult-bar h1 {
+  margin: 0;
+}
+.consult-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
 }
 .consult-judge {
-  margin: 0 0 12px;
   padding: 8px 12px;
   border: 1px solid var(--line);
   background: var(--soft);
   font-weight: 700;
 }
-.consult-topics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s1);
-  margin: 0 0 var(--s2);
-}
-.consult-ask label {
-  display: block;
-  font-weight: 700;
-}
-.consult-ask textarea {
-  width: 100%;
-  min-height: 5.5rem;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--fg);
-  font: inherit;
-  line-height: 1.6;
-}
-.consult-error {
-  margin: 8px 0;
-  padding: 8px 12px;
-  border: 2px solid var(--lv1);
-  background: var(--surface);
-}
-.consult-note {
-  color: var(--sub);
-  font-size: 0.9rem;
-}
+
+/* 吹き出し */
 .consult-log {
   display: flex;
   flex-direction: column;
-  gap: var(--s3);
-  margin: var(--s3) 0;
+  gap: var(--s2);
 }
 .consult-entry {
   display: flex;
@@ -55,38 +46,190 @@
   gap: 12px;
   scroll-margin-top: 64px;
 }
+.consult-bubble {
+  max-width: 92%;
+  padding: 10px 14px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.consult-ai {
+  align-self: flex-start;
+  border: 1px solid var(--divider);
+  border-top-left-radius: 0;
+  background: var(--surface);
+}
 .consult-me {
   align-self: flex-end;
-  max-width: 85%;
-  margin: 0;
-  padding: 8px 12px;
-  border-radius: 4px;
-  background: var(--soft);
-}
-.consult-advice {
-  padding: 10px 12px;
-  border-radius: 4px;
-  background: var(--advice-bg);
+  border-top-right-radius: 0;
+  background: var(--me-bg);
   color: var(--fg);
 }
-.consult-advice p {
-  margin: 0 0 4px;
+.consult-me-text {
+  white-space: pre-line;
 }
-/* 答えの改行（箇条書きの行）を保つ */
+.consult-time {
+  align-self: flex-end;
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.consult-who {
+  color: var(--sub);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.consult-advice {
+  border-color: transparent;
+  background: var(--advice-bg);
+}
+.consult-advice-head {
+  color: var(--advice-fg);
+}
+/* 答えの改行を保つ */
 .consult-answer {
   white-space: pre-line;
 }
-.consult-advice-head {
+.consult-thinking {
+  color: var(--sub);
+}
+
+/* 話題と、続けて聞く候補 */
+.consult-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+.consult-follow {
+  align-self: flex-start;
+}
+.consult-chip {
+  min-height: var(--tap);
+  padding: 4px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+}
+.consult-chip:disabled {
+  border-color: var(--divider);
+  color: var(--sub);
+  cursor: default;
+}
+.consult-chip:focus-visible,
+.consult-sources-toggle:focus-visible,
+.consult-history-open:focus-visible,
+.consult-history-remove:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* この答えの対策（答えのすぐ下。その場で対策項目に足せる） */
+.consult-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--divider);
+}
+.consult-actions-head {
   color: var(--advice-fg);
   font-size: 0.9rem;
   font-weight: 700;
 }
-.consult-notice {
+.consult-actions ul {
+  list-style: none;
   margin: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.consult-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
   border-radius: 4px;
   background: var(--surface);
+}
+.consult-action-name {
+  font-weight: 700;
+}
+.consult-to-todo {
+  color: var(--accent);
+  font-weight: 700;
+}
+/* フォーカスを移す先（往復・やりとりの欄・見出し）は、マウスで押したときは枠を出さない */
+.consult-entry:focus:not(:focus-visible),
+.consult-log:focus:not(:focus-visible),
+.consult-history h2:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* 発生の件数の表（数えるのはプログラム） */
+.consult-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.consult-stats-title {
+  color: var(--navy);
+  font-weight: 700;
+}
+.consult-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+.consult-stats-table th,
+.consult-stats-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--divider);
+  text-align: left;
+  font-weight: 400;
+}
+.consult-stats-table td {
+  text-align: right;
+  white-space: nowrap;
+}
+.consult-stats-table thead th {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.consult-stats-table tfoot th,
+.consult-stats-table tfoot td {
+  font-weight: 700;
+  border-bottom: 0;
+}
+.consult-stats-notes {
+  margin: 0;
+  padding-left: 1.1em;
+  color: var(--sub);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+/* 根拠の資料（畳んでおく） */
+.consult-sources-toggle {
+  min-height: var(--tap);
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--navy);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
 }
 .consult-cards {
   list-style: none;
@@ -94,16 +237,19 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+}
+.consult-cards[hidden] {
+  display: none;
 }
 .consult-card {
   padding: 10px 12px;
   border: 1px solid var(--divider);
   border-radius: 4px;
   background: var(--surface);
-}
-.consult-card p {
-  margin: 0 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .consult-card-action {
   font-weight: 700;
@@ -118,7 +264,7 @@
   font-weight: 700;
 }
 .consult-quote {
-  margin: 0 0 6px;
+  margin: 0;
   padding-left: 10px;
   border-left: 3px solid var(--line);
   color: var(--sub);
@@ -136,19 +282,153 @@
   font-weight: 700;
 }
 .consult-caveats {
-  margin: 0 0 6px;
+  margin: 0;
   padding-left: 1.1em;
-}
-.consult-processed {
-  margin: var(--s3) 0 0;
-  color: var(--sub);
-  font-size: 0.9rem;
 }
 .consult-attribution {
   overflow-wrap: anywhere;
 }
+.consult-notice {
+  background: var(--surface);
+}
+
+/* 入力欄（画面の下に留める） */
+.consult-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--divider);
+  background: var(--bg);
+}
+.consult-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s1);
+}
+.consult-composer textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+.consult-hint,
+.consult-note {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.consult-error {
+  padding: 8px 12px;
+  border: 2px solid var(--lv1);
+  background: var(--surface);
+}
+.consult-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* これまでの相談 */
+.consult-history {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.consult-history h2 {
+  margin: 0;
+}
+.consult-history-group h3 {
+  margin: 0 0 6px;
+  color: var(--sub);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+}
+.consult-history-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.consult-history-item {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.consult-history-item.is-current {
+  border: 2px solid var(--accent);
+}
+.consult-history-open {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+/* 長い問いの題は 2 行で切る */
+.consult-history-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.consult-history-meta {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.consult-history-remove {
+  min-width: var(--tap);
+  padding: 0 12px;
+  border: 0;
+  border-left: 1px solid var(--divider);
+  background: transparent;
+  color: var(--sub);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.consult-history-kept {
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: var(--soft);
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+.consult-history-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+
+.consult-processed {
+  color: var(--sub);
+  font-size: 0.9rem;
+}
 .consult-footer {
-  margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--divider);
   color: var(--sub);

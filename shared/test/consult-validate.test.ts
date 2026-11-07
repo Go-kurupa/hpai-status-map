@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OUT_OF_SCOPE_TEXT } from "../src/consult/scope";
-import { stripCardRefs, validateAsk } from "../src/consult/validate";
+import { stripCardRefs, validateAsk, validateFollowUps } from "../src/consult/validate";
 import type { ConsultCard } from "../src/consult/types";
 
 function makeCard(over: Partial<ConsultCard> & { id: string }): ConsultCard {
@@ -288,5 +288,43 @@ describe("validateAsk: URL の形（ドメイン、hxxp、[.]）", () => {
     for (const s of ["網目は 2.5 倍ではありません", "鶏舎を見直します。次に長靴です。", "e.g. info を見る", "A.B と C"]) {
       expect(f(s).includes("url"), s).toBe(false);
     }
+  });
+});
+
+describe("validateFollowUps", () => {
+  it("漢数字の数量を含む候補も捨てる（押すと次の問いになり、その数字が答えに書いてよい数字になるため）", () => {
+    expect(validateFollowUps(["三百羽でも要る？", "二割の農場は？", "裏口の出入りは？"])).toEqual(["裏口の出入りは？"]);
+  });
+  it("あおる語・請け合う語を含む候補は捨てる", () => {
+    expect(validateFollowUps(["危ない鶏舎の見分け方は？", "これで大丈夫？", "裏口の出入りは？"])).toEqual(["裏口の出入りは？"]);
+  });
+
+  it("通る例は前後を trim して返す", () => {
+    expect(validateFollowUps(["  長靴は鶏舎ごとに替えますか？ "])).toEqual(["長靴は鶏舎ごとに替えますか？"]);
+  });
+  it("配列でなければ空", () => {
+    for (const v of [undefined, null, "x", 1, { a: 1 }]) expect(validateFollowUps(v)).toEqual([]);
+  });
+  it("文字でない、空、30 字超は捨てる（30 字は通る）", () => {
+    expect(validateFollowUps([1, null, "", "   ", "あ".repeat(31)])).toEqual([]);
+    expect(validateFollowUps(["あ".repeat(30)])).toEqual(["あ".repeat(30)]);
+  });
+  it("URL は捨てる", () => {
+    expect(validateFollowUps(["http://example.com を見る？", "www.maff.go.jp は？"])).toEqual([]);
+  });
+  it("数字（半角・全角）を含むものは捨てる", () => {
+    expect(validateFollowUps(["2 cm の網目は？", "３羽でも要る？"])).toEqual([]);
+  });
+  it("禁句（請け合う言葉）は捨てる", () => {
+    expect(validateFollowUps(["これで安全ですか？"])).toEqual([]);
+  });
+  it("範囲外の問いは捨てる", () => {
+    expect(validateFollowUps(["人は感染しますか？"])).toEqual([]);
+  });
+  it("カードの id の書き込みを含むものは捨てる", () => {
+    expect(validateFollowUps(["maff-M01 の対策は？"])).toEqual([]);
+  });
+  it("重なりを除き、先頭の 2 個まで", () => {
+    expect(validateFollowUps(["長靴は？", "長靴は？", "手洗いは？", "消毒は？"])).toEqual(["長靴は？", "手洗いは？"]);
   });
 });

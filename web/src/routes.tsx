@@ -90,7 +90,7 @@ export const routes: RouteObject[] = [
       { path: "settings/farm", element: <FarmSettingsPage /> },
       { path: "settings/notify", element: <NotifySettingsPage /> },
       { path: "settings/explainer", element: <ExplainerPage /> },
-      // 対策の相談（設計書 2026-11-06-consult-design 14 章）。?judge=1 の審査員の入口は会員の確認を通さない
+      // AIに対策を相談（設計書 2026-11-06-consult-design 14 章）。?judge=1 の審査員の入口は会員の確認を通さない
       { path: "consult", element: <ConsultPage /> },
       { path: "login", element: <LoginPage /> },
       { path: "join/:code", element: <JoinPage /> },

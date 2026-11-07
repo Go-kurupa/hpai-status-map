@@ -1,0 +1,239 @@
+{
+  "model": "claude-opus-5-5",
+  "kind": "in_scope",
+  "at": "2026-11-07T05:18:59.866Z",
+  "results": [
+    {
+      "id": "in-boots-clothes",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "papers-C03",
+        "papers-C04a",
+        "maff-M06a",
+        "maff-M07a",
+        "maff-M05"
+      ],
+      "answerChars": 151,
+      "passed": true,
+      "ms": 4709,
+      "usage": {
+        "input_tokens": 17950,
+        "output_tokens": 250,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.0768,
+      "answer": "まず、鶏舎の入口だけでなく、ふん出しなどに使う裏口でも長靴を交換し、手指を洗浄・消毒しているかを見直すとよいでしょう。あわせて、履き替えの前後で動線を分け、すのこや分離板で保管場所を離して一方通行にすることが基準で求められています。外部事業者にも農場で用意した衣服・長靴を着せることが提言されています。",
+      "followUps": [
+        "外部事業者の更衣はどう徹底する？",
+        "共同利用施設に行くときの注意は？"
+      ]
+    },
+    {
+      "id": "in-net-house",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M01",
+        "maff-M02a",
+        "maff-M02b",
+        "maff-M03",
+        "maff-M34"
+      ],
+      "answerChars": 125,
+      "passed": true,
+      "ms": 3992,
+      "usage": {
+        "input_tokens": 17955,
+        "output_tokens": 244,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.0767,
+      "answer": "まず家きん舎・堆肥舎の防鳥ネット（網目2cm以下）を定期的に確認し、破れはすぐ修繕しましょう。あわせて除糞・集卵設備の開口部や壁の破損も点検し、野鳥や野生動物が入れる隙間をなくすことが大切です。毎週曜日を決めて確認する方法も一例として示されています。",
+      "followUps": [
+        "集卵ベルトや搬出口の隙間はどう塞ぐ？",
+        "堆肥舎で気をつけることは？"
+      ]
+    },
+    {
+      "id": "in-pests",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M02b",
+        "maff-M08a",
+        "maff-M09a",
+        "maff-M12b",
+        "okayama-OK1"
+      ],
+      "answerChars": 161,
+      "passed": true,
+      "ms": 5357,
+      "usage": {
+        "input_tokens": 17957,
+        "output_tokens": 295,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.077728,
+      "answer": "まず家きん舎・堆肥舎の破損や隙間（防鳥ネット、除糞・集卵設備の開口部、壁）を点検して直し、ねずみは定期的・継続的に駆除します。ネコは衛生管理区域で飼わず住み着かせないこと、整理整頓・除草で隠れ場所をなくすことも基準の項目です。ハエは秋から冬に防虫ネットとピレスロイド系殺虫剤で入気口などの隙間を防ぐ方法が勧められています。",
+      "followUps": [
+        "飼料や水にネズミの糞が入らない工夫は？",
+        "ハエの殺虫剤はどれを選べばよい？"
+      ]
+    },
+    {
+      "id": "in-water-birds",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M01",
+        "maff-M02a",
+        "maff-M02b",
+        "maff-M13a",
+        "maff-M13b"
+      ],
+      "answerChars": 136,
+      "passed": true,
+      "ms": 4299,
+      "usage": {
+        "input_tokens": 17958,
+        "output_tokens": 267,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.077172,
+      "answer": "まず鶏舎・堆肥舎の防鳥ネット（網目2cm以下）や壁、集卵・除糞設備の開口部に破損や隙間がないかを点検し、すぐ直すことが基本です。そのうえで、農場の近くにため池・水路・水田がある場合は、水抜きやテグス・忌避テープ、雑草や不要な樹木の除去で水鳥を寄せない工夫を見直しましょう。",
+      "followUps": [
+        "防鳥ネットの点検はどのくらいの頻度で？",
+        "敷地の草刈りや整理整頓も効果がある？"
+      ]
+    },
+    {
+      "id": "in-visitors-vehicles",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M04a",
+        "maff-M05",
+        "maff-M07a",
+        "maff-M06a",
+        "overseas-U7"
+      ],
+      "answerChars": 156,
+      "passed": true,
+      "ms": 3806,
+      "usage": {
+        "input_tokens": 17946,
+        "output_tokens": 265,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.077084,
+      "answer": "まず外部事業者（出荷・飼料・工事など）の更衣と手指消毒を見直し、衣服・長靴は農場側で用意するとよいです。あわせて、着替え前後の動線を分けて一方通行にし、糞出し用の裏口から入るときも手指消毒と長靴の交換を徹底します。車両の洗浄・消毒や入口の門で不要な出入りを減らすことも挙げられています（米国の大規模農場の資料）。",
+      "followUps": [
+        "外部事業者にルールを定着させるには？",
+        "鶏舎入口での履き替えの効果は？"
+      ]
+    },
+    {
+      "id": "in-dead-birds-compost",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M10",
+        "maff-M01",
+        "maff-M06a",
+        "papers-C04a",
+        "maff-M30"
+      ],
+      "answerChars": 156,
+      "passed": true,
+      "ms": 3663,
+      "usage": {
+        "input_tokens": 17952,
+        "output_tokens": 281,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.077428,
+      "answer": "死んだ鶏や破卵は堆肥舎で処理せず焼却等で適切に処理し、堆肥舎・死体保管庫に防鳥ネットを張って破損を点検し、鳥を呼ばないようにするのがまず基本です。除糞・死体搬出用の裏口から出入りするときも、手指消毒と長靴の交換を行いましょう。死体保管施設や堆肥場を他農場と共同で使う場合は、そこへ行く際も更衣・手指消毒をします。",
+      "followUps": [
+        "堆肥舎の隙間はどう点検すればいい？",
+        "ねずみ対策はどう進めればいい？"
+      ]
+    },
+    {
+      "id": "in-daily-check",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M21a",
+        "maff-M21b",
+        "maff-M22a",
+        "maff-M22b",
+        "overseas-K3"
+      ],
+      "answerChars": 172,
+      "passed": true,
+      "ms": 4287,
+      "usage": {
+        "input_tokens": 17956,
+        "output_tokens": 283,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.077484,
+      "answer": "まず、毎日の健康観察を確実に行い、いつもと少しでも違えば迷わず家畜保健衛生所へ通報する流れを確認しましょう。通報が遅れた事例では、他の病気と見て様子を見た、死体の回収漏れ、管理者の不在が原因に挙がっています。管理者がいなくても従事者が許可を待たずに通報できる体制を決めて周知し、産卵・採食・飲水の変化も毎日記録すると変化をつかみやすくなります。",
+      "followUps": [
+        "誘導換羽中の観察で気をつけることは？",
+        "あひるやうずらでは何を見て通報する？"
+      ]
+    },
+    {
+      "id": "in-farm-sentence",
+      "kind": "in_scope",
+      "called": true,
+      "outOfScopeRaw": false,
+      "failures": [],
+      "cardIds": [
+        "maff-M13a",
+        "maff-M13b",
+        "maff-M01",
+        "maff-M34",
+        "maff-M21a"
+      ],
+      "answerChars": 169,
+      "passed": true,
+      "ms": 4469,
+      "usage": {
+        "input_tokens": 17960,
+        "output_tokens": 287,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "costUsd": 0.07758,
+      "answer": "冬に水が張られる田んぼが近くにある場合、国は水田の耕起や水抜き、テグス・忌避テープ、雑草の除去などで水鳥を寄せない対策を指導しています。あわせて、鶏舎や堆肥舎の防鳥ネット（網目2cm以下）と壁の破損を決まった曜日に点検し、隙間をなくしておくことが基本です。毎日の健康観察で少しでも普段と違えば、ためらわず家畜保健衛生所へ通報してください。",
+      "followUps": [
+        "敷地の草刈りや整理整頓はどうすればいい？",
+        "飲み水や餌置場の対策は？"
+      ]
+    }
+  ]
+}

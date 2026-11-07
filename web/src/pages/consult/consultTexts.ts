@@ -1,17 +1,61 @@
-// 対策の相談の画面の文言。「安全」「安心」は書かない（shared/src/wording.ts）。
+// AIに対策を相談の画面の文言。「安全」「安心」は書かない（shared/src/wording.ts）。
 import { CONSULT_DAILY_LIMIT, type ConsultSourceInfo } from "@hpai/shared/consult/types";
 import { OUT_OF_SCOPE_TEXT } from "@hpai/shared/consult/validate";
 
 export const CONSULT_TEXT = {
-  title: "鳥インフルの対策の相談",
-  intro: "話題を選ぶか、聞きたいことを書いてください。",
+  title: "AIに対策を相談",
+  /** 最初の AI の吹き出し */
+  greeting: "鳥インフルの対策について、公的な資料と論文から答えます。何から見直しますか？",
   topicsLabel: "話題",
   questionLabel: "聞きたいこと",
   placeholder: "例: 平飼いで 500 羽。長靴の消毒はどうしたら？",
-  ask: "聞く",
-  asking: "聞いています…",
+  followPlaceholder: "続けて聞く…",
+  ask: "送る",
+  asking: "送っています…",
+  /** 答えを待っている間の吹き出し */
+  thinking: "資料から答えを作っています…",
   judgeBanner: "審査員の方向けの試しの画面です。1 日の回数に上限があり、相談は保存しません。",
-  advice: "おすすめ（下書き）",
+  /** 吹き出しの名札 */
+  aiName: "AI",
+  advice: "AI の下書き",
+  /** 根拠のカードを開く・閉じるボタン（件数は組み立てる） */
+  /** 記号（▸ ▾ ≡ × ＋ ✓ →）は読み上げないよう、画面で aria-hidden の別の部品にする。ここには言葉だけ */
+  sourcesOpen: (n: number) => `根拠の資料 ${n} 件を見る（引用・出典）`,
+  sourcesClose: (n: number) => `根拠の資料 ${n} 件を閉じる`,
+  actionsHead: "この答えの対策",
+  /** 発生の件数の表（数えるのはプログラム。AI は数え方を選ぶだけ） */
+  statsWho: "AI が読み取り、一覧から数えました",
+  /** 表の中にいつも出す。対策の答えと一緒のときも、表の数字を AI の下書きと読ませない */
+  statsCounted: "件数は、AI ではなくプログラムが国の一覧から数えました。",
+  statsCount: "件数",
+  statsRest: (rows: number, count: number) => `ほか ${rows} 都道府県（合わせて ${count} 件）`,
+  statsTotal: "合計",
+  statsCurrent: "今季の発生は含みません。",
+  statsMapLink: "今の発生を地図で見る",
+  statsExploreLink: "条件を変えてデータで探す",
+  statsSourcePrefix: "出典: ",
+  toTodo: "対策項目で見る",
+  followUpsLabel: "続けて聞く候補",
+  /** やりとりの欄の名前（読み上げ用） */
+  logLabel: "AI とのやりとり",
+  /** 見出しのボタン */
+  historyOpen: "これまでの相談",
+  historyClose: "閉じる",
+  newChat: "新しい相談",
+  historyTitle: "これまでの相談",
+  groupToday: "今日",
+  groupYesterday: "昨日",
+  groupEarlier: "それより前",
+  turns: (n: number) => `${n} 往復`,
+  addedCount: (n: number) => `足した対策 ${n}`,
+  remove: "消す",
+  removeAll: "すべて消す",
+  removeAllConfirm: "本当にすべて消す",
+  removeAllCancel: "やめる",
+  historyEmpty: "まだ相談はありません。",
+  historyKept: "相談の記録は、この端末のブラウザにだけ残ります。作品のサーバーには保存しません。",
+  historyNotKept: "ページを離れると消えます。保存しません。",
+  historySaveFailed: "この端末に記録を残せませんでした。ページを離れると消えます。",
   /** 範囲外の決まった文（関数が返す文と同じ） */
   outOfScope: OUT_OF_SCOPE_TEXT,
   dailyLimit: `今日の相談の回数（${CONSULT_DAILY_LIMIT} 回）を使い切りました。明日また使えます。`,
@@ -20,10 +64,10 @@ export const CONSULT_TEXT = {
   /** Claude を呼んだが答えを作れなかったとき。回数を使ったことは書かない */
   unavailable: "答えを作れませんでした。時間をおいて、もう一度お試しください。",
   /** 入力欄の近く。農場を特定する情報を送らせない */
-  inputHint: "農場の名前や場所は書かないでください。",
+  inputHint: "農場の名前や場所は書かないでください。続けて聞くと、この相談の前のやりとりも AI に渡ります。",
   failed: "相談を送れませんでした。もう一度お試しください。",
   foreign: "日本と飼い方が違う可能性があります。",
-  add: "＋ 対策項目に足す",
+  add: "対策項目に足す",
   adding: "足しています…",
   added: "対策項目に足しました",
   addFailed: "対策項目に足せませんでした。もう一度お試しください。",

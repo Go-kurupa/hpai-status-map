@@ -49,10 +49,12 @@ export const TODO_TEXT = {
   panelNone: "最近の記録はありません",
   panelListFailed: "最近の記録を読めませんでした",
   panelLevelFailed: "近くの発生を読めなかったので、ふだんの項目だけ出しています",
-  // 相談から足した見直し（会員だけ。対策の相談の「対策項目に足す」で足したカード）
-  reviewsHeading: "相談から足した見直し",
+  // 相談から足した見直し（会員だけ。AIに対策を相談の「対策項目に足す」で足したカード）
+  reviewsHeading: "AI の相談から足した見直し",
   reviewsEmpty: "相談の画面で『対策項目に足す』を押すと、ここに並びます。",
-  reviewsLink: "対策の相談を開く",
+  reviewsLink: "AIに対策を相談する",
+  /** 足した見直しの各項目から、その対策について相談の画面を開く */
+  reviewsAsk: "この対策を AI に聞く",
   reviewsRemove: "外す",
   reviewsLoadFailed: "足した見直しを読めませんでした。ページを読み込み直してください。",
   reviewsRemoveFailed: "外せませんでした。もう一度お試しください。",

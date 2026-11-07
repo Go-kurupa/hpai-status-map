@@ -125,15 +125,24 @@ describe("PRIVACY_NOTICE（文の正）", () => {
     expect(pageText()).toContain("近隣への説明文の下書きでは、本人が操作したときに、入力した文を Claude に渡します");
   });
 
-  it("相談の画面で書いた文を Claude に送ること、保存もログへの記録もしないことが、プライバシーの説明と画面に出る", () => {
-    const line = "相談の画面で書いた文は、答えを作るために Claude（Anthropic）に渡します。農場名、位置、記録は渡しません。入力した文は、この作品のサーバーには保存せず、ログにも残しません。";
+  it("相談の画面で書いた文（続けて聞くときは直前のやりとりも）を Claude に送ること、保存もログへの記録もしないことが、プライバシーの説明と画面に出る", () => {
+    const line =
+      "「AIに対策を相談」で書いた文は、答えを作るために Claude（Anthropic）に渡します。続けて聞くときは、同じ相談の直前のやりとり（問いと答え、3 往復まで）も渡します。農場名、位置、記録は渡しません。入力した文は、この作品のサーバーには保存せず、ログにも残しません。";
     expect(PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs).toContain(line);
     renderPage();
     expect(pageText()).toContain(line);
   });
 
-  it("対策の相談で足した見直しの記録（カードの番号、足した日時、足した人）が、集める情報に出る", () => {
-    const phrase = "対策の相談で『対策項目に足す』を押した見直しの記録（カードの番号、足した日時、足した人）";
+  it("これまでの相談は、この端末のブラウザの中にだけ保存し、サーバーに送らないことが出る", () => {
+    const line =
+      "会員の方のこれまでの相談（問いと答え）は、見返せるように、この端末のブラウザの中にだけ保存し、サーバーには送りません。相談の画面の「これまでの相談」や、ブラウザの設定で消せます。";
+    expect(PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs).toContain(line);
+    renderPage();
+    expect(pageText()).toContain(line);
+  });
+
+  it("AIに対策を相談で足した見直しの記録（カードの番号、足した日時、足した人）が、集める情報に出る", () => {
+    const phrase = "「AIに対策を相談」で『対策項目に足す』を押した見直しの記録（カードの番号、足した日時、足した人）";
     expect(PRIVACY_NOTICE.find((s) => s.heading === "集める情報")!.paragraphs.join("")).toContain(phrase);
     renderPage();
     expect(pageText()).toContain(phrase);

@@ -74,7 +74,7 @@ describe("骨格", () => {
     expect(todo.getAttribute("href")).toBe("/todo");
     expect(todo.getAttribute("aria-current")).toBe("page");
     expect(within(nav).getByRole("link", { name: "会員のログイン" }).getAttribute("href")).toBe("/login");
-    expect(within(nav).queryByRole("link", { name: /対策の相談|死亡・消毒の記録|農場と通知の設定|記録を試す/ })).toBeNull();
+    expect(within(nav).queryByRole("link", { name: /AIに対策を相談|死亡・消毒の記録|農場と通知の設定|記録を試す/ })).toBeNull();
     expect(within(nav).getByRole("link", { name: /^今季の発生/ }).getAttribute("aria-current")).toBeNull();
     expect(within(screen.getByRole("banner")).queryByRole("link", { name: "設定" })).toBeNull();
   });
@@ -88,7 +88,7 @@ describe("骨格", () => {
       const nav = screen.getByRole("navigation", { name: "メニュー" });
       expect(within(nav).getByRole("link", { name: "死亡・消毒の記録" }).getAttribute("href")).toBe("/record/deaths");
       expect(within(nav).getByRole("link", { name: "農場と通知の設定" }).getAttribute("href")).toBe("/settings/farm");
-      expect(within(nav).getByRole("link", { name: "対策の相談" }).getAttribute("href")).toBe("/consult");
+      expect(within(nav).getByRole("link", { name: "AIに対策を相談" }).getAttribute("href")).toBe("/consult");
       expect(within(nav).queryByRole("link", { name: "会員のログイン" })).toBeNull();
       const settings = within(screen.getByRole("banner")).getByRole("link", { name: "設定" });
       expect(settings.getAttribute("href")).toBe("/settings/farm");

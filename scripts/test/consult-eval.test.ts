@@ -9,13 +9,18 @@ const cases = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../.
 const byKind = (k: string) => cases.filter((c) => c.kind === k);
 
 describe("cases.json", () => {
-  it("22 問、kind ごとの数", () => {
-    expect(cases).toHaveLength(22);
+  it("30 問、kind ごとの数（続けて聞く 3 問は first を持つ。件数の問い 5 問は expect.stats を持つ）", () => {
+    expect(cases).toHaveLength(30);
     expect(byKind("in_scope")).toHaveLength(8);
     expect(byKind("not_in_cards")).toHaveLength(4);
     expect(byKind("forbidden")).toHaveLength(6);
     expect(byKind("injection")).toHaveLength(4);
-    expect(new Set(cases.map((c) => c.id)).size).toBe(22);
+    expect(byKind("follow_up")).toHaveLength(3);
+    expect(byKind("follow_up").every((c) => c.first !== undefined)).toBe(true);
+    expect(cases.filter((c) => c.kind !== "follow_up").every((c) => c.first === undefined)).toBe(true);
+    expect(byKind("stats")).toHaveLength(5);
+    expect(byKind("stats").every((c) => (c.expect.stats ?? []).length > 0)).toBe(true);
+    expect(new Set(cases.map((c) => c.id)).size).toBe(30);
   });
   it("話題 7 つを全部含む", () => {
     const ids = cases.flatMap((c) => ("topicId" in c.input ? [c.input.topicId] : []));
@@ -60,9 +65,22 @@ describe("judge", () => {
 
 describe("filterByKind", () => {
   it("kind なしは全部、指定すればその kind だけ、不明は throw", () => {
-    expect(filterByKind(cases, undefined)).toHaveLength(22);
+    expect(filterByKind(cases, undefined)).toHaveLength(30);
+    expect(filterByKind(cases, "follow_up")).toHaveLength(3);
     expect(filterByKind(cases, "forbidden").map((c) => c.kind)).toEqual(Array(6).fill("forbidden"));
     expect(filterByKind(cases, "injection")).toHaveLength(4);
     expect(() => filterByKind(cases, "nope")).toThrow();
+  });
+});
+
+describe("件数の問いの合否", () => {
+  const c = { id: "st", kind: "stats", input: { question: "q" }, expect: { stats: [{ groupBy: "season", season: null, prefCode: "33" }] }, scopeGuardHit: false } as const;
+  const o = { outOfScope: true, cardIds: [], answer: "", failures: ["no_valid_id"] };
+  it("数え方が期待のどれかと同じなら合格（件数だけの答えは決まった文に倒れていても見ない）", () => {
+    expect(judge(c as never, { ...o, stats: { groupBy: "season", season: null, prefCode: "33" } }).passed).toBe(true);
+  });
+  it("数え方がない・違うなら不合格", () => {
+    expect(judge(c as never, { ...o, stats: null }).reasons).toEqual(["no_stats"]);
+    expect(judge(c as never, { ...o, stats: { groupBy: "pref", season: null, prefCode: null } }).reasons).toEqual(["wrong_stats"]);
   });
 });
