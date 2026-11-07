@@ -126,6 +126,8 @@ export const TEXT = {
   spotStart: "地図で場所を合わせる",
   spotRestart: "地図で場所を合わせ直す",
   spotSavedNoSend: "この端末に保存しています（送信はしません）",
+  spotRegisterNote: "通知を受けたいときは、この場所を農場の設定でそのまま使えます。",
+  spotRegister: "この場所で農場を登録する",
   // 地図の印と、場所を決めた後の切り替えの名前（作者 11/7）
   farmMark: "鶏舎の場所",
   legendFarm: "鶏舎の場所（この端末の画面だけ）",

@@ -25,6 +25,8 @@ export interface SpotState {
   clearDeviceSpot(): void;
   /** 町を選ぶ。別の市町村を選んだら前のくわしい場所を消す（古い場所が新しい町を上書きしないため） */
   setTown(code: MuniCode | null): { clearedSpot: boolean };
+  /** 会員の農場を読み直す。農場の設定で保存した後に呼び、ページを読み込み直さなくても地図を農場の場所にする */
+  refreshFarm(): void;
 }
 
 interface Internal extends SpotState {
@@ -45,10 +47,16 @@ export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | n
   const [storedTown, setStoredTown] = useState<MuniCode | null>(() => loadTown());
   const [farm, setFarm] = useState<FarmPoint | null>(null);
   const [farmRequested, setFarmRequested] = useState(false);
+  const [farmVersion, setFarmVersion] = useState(0);
   const [saveFailed, setSaveFailed] = useState(false);
   const farmPromise = useRef<ReturnType<NonNullable<typeof store>["getFarm"]> | null>(null);
 
   const requestFarm = useCallback(() => setFarmRequested(true), []);
+  const refreshFarm = useCallback(() => {
+    farmPromise.current = null;
+    setFarmVersion((v) => v + 1);
+    setFarmRequested(true);
+  }, []);
 
   useEffect(() => {
     if (fixed !== null || !farmRequested || !store) return;
@@ -60,13 +68,15 @@ export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | n
         if (!off) setFarm(toPoint(f));
       },
       () => {
-        if (!off) setFarm(null); // 読めなければ会員の農場なし（M-01 の本実装は権限や通信の失敗で reject する）
+        // 最初に読めなければ会員の農場なし（M-01 の本実装は権限や通信の失敗で reject する）。
+        // 読み直し（refreshFarm）の失敗では、読めていた農場の場所を残す（一時的な失敗で端末の場所に戻さない）
+        if (!off && farmVersion === 0) setFarm(null);
       },
     );
     return () => {
       off = true;
     };
-  }, [fixed, farmRequested, store]);
+  }, [fixed, farmRequested, store, farmVersion]);
 
   const setDeviceSpot = useCallback(
     (spot: FarmPoint) => {
@@ -120,9 +130,10 @@ export function SpotProvider({ fixed = null, children }: { fixed?: FarmPoint | n
       setDeviceSpot,
       clearDeviceSpot,
       setTown,
+      refreshFarm,
       requestFarm,
     };
-  }, [fixed, farm, device, storedTown, readsDevice, saveFailed, setDeviceSpot, clearDeviceSpot, setTown, requestFarm]);
+  }, [fixed, farm, device, storedTown, readsDevice, saveFailed, setDeviceSpot, clearDeviceSpot, setTown, refreshFarm, requestFarm]);
 
   return <SpotContext.Provider value={value}>{children}</SpotContext.Provider>;
 }
@@ -134,6 +145,14 @@ export function useSpotState(): SpotState {
   const { requestFarm } = v;
   useEffect(() => requestFarm(), [requestFarm]);
   return v;
+}
+
+/**
+ * Provider の外では null（農場の設定を単独で描く試験など）。会員の農場の読み込みは始めない
+ * （農場の設定は自分で getFarm を読み、保存の後に refreshFarm で地図側へ知らせる）
+ */
+export function useOptionalSpotState(): SpotState | null {
+  return useContext(SpotContext);
 }
 
 /** 使う地点。fixed → 会員の農場 → 端末内の順 */

@@ -458,6 +458,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         setFocus({ kind: "point", codes: town ? [town] : [], nonce: nonce.current, at: [lng, lat] });
       }}
       onCandidateChange={onSpotCandidate}
+      registerHref="/settings/farm"
     />
   );
   // 選択地域の行のすぐ下に、鶏舎の場所と約 60 km 以内の件数（2026-11-07 作者の決定 A）。今季の地図の画面だけ

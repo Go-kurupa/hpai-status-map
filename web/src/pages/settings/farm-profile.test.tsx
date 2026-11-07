@@ -6,6 +6,8 @@ import { createMemoryRouter, RouterProvider, type RouteObject } from "react-rout
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { farmFixture, houseFixture } from "../../../../shared/test/helpers/mFixtures";
 import { DataSourceProvider, RecordStoreProvider } from "../../data/context";
+import { SPOT_KEY } from "../../data/spot";
+import { SpotProvider, useSpotState } from "../../data/spotContext";
 import type { DataSource, RecordStore } from "../../data/types";
 
 // 地図（WebGL）は jsdom にないので、maplibre の入口を偽物にする（この試験は地図を操作しない）
@@ -48,13 +50,17 @@ const INDEX = vi.hoisted(() => {
   add("33203", "津山市", "33");
   return index;
 });
+const loadGate = vi.hoisted(() => ({ wait: null as Promise<void> | null }));
 vi.mock("../../geo/loadGeo", () => ({
-  loadWebGeoStore: async () => ({
-    index: INDEX,
-    adjacency: {},
-    ensurePrefs: async () => {},
-    geometry: (c: string) => ({ type: "Feature", properties: { c }, geometry: { type: "Polygon", coordinates: [] } }),
-  }),
+  loadWebGeoStore: async () => {
+    if (loadGate.wait) await loadGate.wait;
+    return {
+      index: INDEX,
+      adjacency: {},
+      ensurePrefs: async () => {},
+      geometry: (c: string) => ({ type: "Feature", properties: { c }, geometry: { type: "Polygon", coordinates: [] } }),
+    };
+  },
 }));
 
 const authState = vi.hoisted(() => ({
@@ -79,6 +85,7 @@ const listHouses = vi.fn();
 const dataSource = { mode: "live", now: () => new Date("2026-11-06T10:30:00+09:00") } as unknown as DataSource;
 
 beforeEach(() => {
+  loadGate.wait = null;
   authState.value = { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} };
   farm = { id: "f1", ...farmFixture("u1", { name: "", muniCode: "13101", prefCode: "13" }) };
   houses = [];
@@ -525,5 +532,109 @@ describe("全体", () => {
     mount();
     await screen.findByLabelText("農場名");
     expect(screen.getAllByText(/最終保存/)).toHaveLength(1);
+  });
+});
+
+describe("発生状況で決めた場所を引き継ぐ（場所は 1 回選べば済む。作者 11/7）", () => {
+  const DEVICE = { meshCode: "53394611", muniCode: "33203", frequentMuniCodes: [] };
+  function Spot() {
+    // 農場と端末のどちらの場所かも出す（同じマス目でも、読み直しが効いたかを見分ける）
+    const { spot, source } = useSpotState();
+    return <p data-testid="spot">{spot ? `${source}:${spot.muniCode}/${spot.meshCode}` : "なし"}</p>;
+  }
+  function mountWithSpot() {
+    const routes: RouteObject[] = [
+      {
+        path: "/settings/farm",
+        element: (
+          <DataSourceProvider value={dataSource}>
+            <RecordStoreProvider value={store}>
+              <SpotProvider>
+                <FarmSettingsPage />
+                <Spot />
+              </SpotProvider>
+            </RecordStoreProvider>
+          </DataSourceProvider>
+        ),
+      },
+    ];
+    return render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ["/settings/farm"] })} />);
+  }
+  beforeEach(() => {
+    localStorage.clear();
+    farm = null;
+    // 農場がないときの保存は、新しい農場を作る（実物と同じく、渡した地点で作る）
+    saveFarm.mockImplementation(async (patch: Partial<Farm>) => {
+      farm = { id: "u1", ...farmFixture("u1", { name: "", frequentMuniCodes: [] }), ...(farm ?? {}), ...patch } as Saved;
+    });
+  });
+  afterEach(() => localStorage.clear());
+
+  it("農場がなく、この端末に場所があれば、その町とマス目を示し、1 回押すと地点・市町村・県だけを保存する", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
+    mountWithSpot();
+    expect(await screen.findByText("発生状況の画面で決めた場所があります")).toBeTruthy();
+    expect(await screen.findByText("岡山県 津山市の約 1km のマス目")).toBeTruthy();
+    click("この場所を農場の地点にする");
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    expect(lastPatch()).toEqual({ meshCode: "53394611", muniCode: "33203", prefCode: "33" });
+    // 保存の後、地図側（同じ Provider）も読み込み直さずに農場の場所になる
+    await waitFor(() => expect(screen.getByTestId("spot").textContent).toBe("farm:33203/53394611"));
+    expect(await screen.findByText(/登録した地点: 津山市/)).toBeTruthy();
+    expect(screen.queryByText("発生状況の画面で決めた場所があります")).toBeNull();
+  });
+
+  it("別の場所を選ぶ欄は、端末の場所の県と市町村を選んだ状態で開く（地図もその町に寄る）", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
+    mountWithSpot();
+    await screen.findByText("発生状況の画面で決めた場所があります");
+    await waitFor(() => expect((screen.getByLabelText("市町村") as HTMLSelectElement).value).toBe("33203"));
+    expect((screen.getByLabelText("都道府県") as HTMLSelectElement).value).toBe("33");
+    expect(saveFarm).not.toHaveBeenCalled();
+  });
+
+  it("農場の情報を保存した後も、地図側の農場を読み直す（行き来する町も地図の判定に使う）", async () => {
+    farm = { id: "u1", ...farmFixture("u1", { name: "", muniCode: "13101", prefCode: "13", frequentMuniCodes: [] }) };
+    mountWithSpot();
+    await screen.findByLabelText("農場名");
+    await waitFor(() => expect(screen.getByTestId("spot").textContent).toMatch(/^farm:13101\//));
+    const before = (store.getFarm as ReturnType<typeof vi.fn>).mock.calls.length;
+    fireEvent.change(screen.getByLabelText("農場名"), { target: { value: "テスト農場" } });
+    click("農場の情報を保存");
+    await waitFor(() => expect(saveFarm).toHaveBeenCalled());
+    // 画面自身の読み直しと、地図側の読み直しの 2 回
+    await waitFor(() => expect((store.getFarm as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThanOrEqual(before + 2));
+  });
+
+  it("市町村の一覧を読み込む前に県を選んだら、端末の町で市町村を埋めない（県と市町村が食い違わない）", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    loadGate.wait = gate;
+    mountWithSpot();
+    await screen.findByText("まだ地点を登録していません。");
+    fireEvent.change(screen.getByLabelText("都道府県"), { target: { value: "13" } });
+    release();
+    await screen.findByText("発生状況の画面で決めた場所があります");
+    expect((screen.getByLabelText("都道府県") as HTMLSelectElement).value).toBe("13");
+    expect((screen.getByLabelText("市町村") as HTMLSelectElement).value).toBe("");
+    // 選択欄は一覧にない値を空と見せるので、案内の文で市町村がまだ決まっていないことを確かめる
+    expect(screen.getByText("市町村を選ぶと、地図がその町に寄ります。")).toBeTruthy();
+  });
+
+  it("端末に場所がなければ、引き継ぎの欄を出さない", async () => {
+    mountWithSpot();
+    await screen.findByText("まだ地点を登録していません。");
+    expect(screen.queryByText("発生状況の画面で決めた場所があります")).toBeNull();
+    expect(screen.queryByRole("button", { name: "この場所を農場の地点にする" })).toBeNull();
+  });
+
+  it("農場があれば、端末に場所があっても引き継ぎの欄を出さない（農場の地点が正）", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
+    farm = { id: "f1", ...farmFixture("u1", { name: "", muniCode: "13101", prefCode: "13" }) };
+    mountWithSpot();
+    await screen.findByLabelText("農場名");
+    expect(screen.queryByText("発生状況の画面で決めた場所があります")).toBeNull();
+    expect((screen.getByLabelText("市町村") as HTMLSelectElement).value).toBe("13101");
   });
 });

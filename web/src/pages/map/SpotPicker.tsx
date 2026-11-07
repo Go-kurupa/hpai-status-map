@@ -2,6 +2,7 @@ import type { GeoStore } from "@hpai/shared/geo";
 import { PREFS } from "@hpai/shared/pref";
 import type { FarmPoint, MuniCode } from "@hpai/shared/types";
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { useOaza } from "../../data/oaza";
 import { Button } from "../../ui/Button";
 import { spotFromPick } from "../../data/spot";
@@ -30,6 +31,8 @@ export interface SpotPickerProps {
   onAimAt?(lng: number, lat: number): void;
   /** 確かめる候補がある間 true。親はこの間、町の欄の置き場を動かさない（動くと作り直されて候補が消える） */
   onCandidateChange?(has: boolean): void;
+  /** 決めた場所を農場の設定でそのまま使えると案内する先。渡さなければ案内しない（見本や再現） */
+  registerHref?: string;
 }
 
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
@@ -115,6 +118,15 @@ export function SpotPicker(p: SpotPickerProps) {
         ) : (
           <p className="map-note">{TEXT.spotNone}</p>
         )
+      ) : null}
+      {/* 町が索引にない（合併などで古い値）ときは、農場の設定でそのまま使えないので案内しない */}
+      {!p.aiming && !candidate && p.deviceSpot && p.registerHref && p.geo?.index[p.deviceSpot.muniCode] ? (
+        <p className="map-note">
+          {TEXT.spotRegisterNote}
+          <Link to={p.registerHref} className="tap-link">
+            {TEXT.spotRegister}
+          </Link>
+        </p>
       ) : null}
       {p.saveFailed ? <p role="status">{TEXT.spotSaveFailed}</p> : null}
 

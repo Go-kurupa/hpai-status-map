@@ -3,6 +3,7 @@ import type { FarmPoint } from "@hpai/shared/types";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { clearOazaCache } from "../../data/oaza";
 import { useState } from "react";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PickTarget } from "./pickSpot";
 import { SpotPicker, type SpotPickerProps } from "./SpotPicker";
@@ -250,5 +251,43 @@ describe("SpotPicker: 地区（大字）で地図を寄せる", () => {
     render(<Harness geo={geo} mapless town="33643" onAimAt={vi.fn()} />);
     expect(screen.queryByLabelText(TEXT.oazaLabel)).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("農場の設定への案内（場所は 1 回選べば済む。作者 11/7）", () => {
+  const device: FarmPoint = { meshCode: "53394611", muniCode: "13101", frequentMuniCodes: [] };
+  it("場所を決めた後、registerHref があれば、この場所を農場の設定でそのまま使えると案内する", () => {
+    render(
+      <MemoryRouter>
+        <Harness deviceSpot={device} registerHref="/settings/farm" />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(TEXT.spotRegisterNote)).toBeTruthy();
+    expect(screen.getByRole("link", { name: TEXT.spotRegister }).getAttribute("href")).toBe("/settings/farm");
+  });
+
+  it("場所を決める前と、registerHref がないとき（見本や再現）は案内しない", () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <Harness registerHref="/settings/farm" />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole("link", { name: TEXT.spotRegister })).toBeNull();
+    unmount();
+    render(<Harness deviceSpot={device} />);
+    expect(screen.queryByRole("link", { name: TEXT.spotRegister })).toBeNull();
+  });
+
+  it("端末の町が市町村の一覧にない（合併などで古い値）ときは案内しない（農場の設定でそのまま使えないため）", () => {
+    render(
+      <MemoryRouter>
+        <Harness deviceSpot={{ meshCode: "53394611", muniCode: "01100", frequentMuniCodes: [] }} registerHref="/settings/farm" />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole("link", { name: TEXT.spotRegister })).toBeNull();
+  });
+
+  it("案内の文は禁止の言い回しを含まない", () => {
+    expect(findWordingViolations(`${TEXT.spotRegisterNote}${TEXT.spotRegister}`)).toEqual([]);
   });
 });

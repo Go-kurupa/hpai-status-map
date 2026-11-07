@@ -39,6 +39,19 @@
   color: var(--sub);
   font-size: 0.9rem;
 }
+/* 発生状況の画面で決めた場所の引き継ぎ。押すのはこの 1 つだけなので、枠で目立たせる */
+.settings-handover {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 16px;
+  padding: 12px 16px;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.settings-handover p {
+  margin: 0;
+}
 .settings-saved {
   color: var(--sub);
   margin: 4px 0 0;

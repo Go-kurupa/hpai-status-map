@@ -1,9 +1,10 @@
 import type { GeoStore, MuniEntry } from "@hpai/shared/geo";
 import { PREFS } from "@hpai/shared/pref";
 import type { Farm } from "@hpai/shared/types";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useRecordStore } from "../../data/context";
+import { useOptionalSpotState } from "../../data/spotContext";
 import { loadWebGeoStore } from "../../geo/loadGeo";
 import { Button } from "../../ui/Button";
 import { createFarmInviteCall } from "../auth/callables";
@@ -26,6 +27,9 @@ type Load = { state: "loading" } | { state: "error"; message: string | null } | 
  */
 function FarmSettings() {
   const store = useRecordStore();
+  // 発生状況の画面と同じ地点の置き場（根の Provider）。保存したら読み直させ、端末の場所は引き継ぎに使う
+  const spotState = useOptionalSpotState();
+  const deviceSpot = spotState?.deviceSpot ?? null;
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [geo, setGeo] = useState<GeoStore | null>(null);
   const [geoFailed, setGeoFailed] = useState(false);
@@ -74,6 +78,19 @@ function FarmSettings() {
     };
   }, []);
 
+  // 農場がなく、発生状況の画面で場所を決めていれば、県と市町村をその町にして開く（地図もその町に寄る）
+  const farmMissing = load.state === "ok" && load.farm === null;
+  const deviceMuni = deviceSpot && geo ? (geo.index[deviceSpot.muniCode] ?? null) : null;
+  // 入れるのは 1 回だけで、県と市町村が両方とも空のときだけ（一覧を読む前に県を選んでいたら、その選択を残す）
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || !farmMissing || !deviceMuni) return;
+    prefilled.current = true;
+    if (prefCode !== "" || muniCode !== "") return;
+    setPrefCode(deviceMuni.prefCode);
+    setMuniCode(deviceMuni.code);
+  }, [farmMissing, deviceMuni, prefCode, muniCode]);
+
   const munis = useMemo(
     () =>
       geo
@@ -102,12 +119,13 @@ function FarmSettings() {
   const registered = farm && geo ? geo.index[farm.muniCode] : undefined;
   const saved = savedAtLabel(farm?.updatedAt);
 
-  async function save() {
-    if (!pick || saving) return;
+  async function savePoint(point: FarmPick) {
+    if (saving) return;
     setSaving(true);
     setSaveFailed(false);
     try {
-      await store.saveFarm(pick);
+      await store.saveFarm(point);
+      spotState?.refreshFarm(); // 発生状況の地図も、読み込み直さずに農場の場所にする
       const next = await store.getFarm();
       setLoad({ state: "ok", farm: next });
       setPick(null);
@@ -116,10 +134,15 @@ function FarmSettings() {
     }
     setSaving(false);
   }
+  const save = () => (pick ? savePoint(pick) : Promise.resolve());
+  // 発生状況の画面で決めた場所（約 1km のマス目と町）を、そのまま農場の地点にする
+  const handover: FarmPick | null = !farm && deviceSpot && deviceMuni ? { meshCode: deviceSpot.meshCode, muniCode: deviceMuni.code, prefCode: deviceMuni.prefCode } : null;
+  const handoverName = deviceMuni ? `${PREFS.find((p) => p.code === deviceMuni.prefCode)?.name ?? ""} ${deviceMuni.name}`.trim() : "";
 
   /** 地点以外の欄の保存。渡した項目だけを保存し、保存の後に読み直して『最終保存』を進める */
   async function saveProfile(patch: Partial<Farm>) {
     await store.saveFarm(patch);
+    spotState?.refreshFarm(); // 行き来する町も地図の判定に使う
     try {
       setLoad({ state: "ok", farm: await store.getFarm() });
     } catch {
@@ -156,6 +179,18 @@ function FarmSettings() {
         ) : (
           <p className="settings-note">まだ地点を登録していません。</p>
         )}
+        {handover ? (
+          <div className="settings-handover">
+            <p>
+              <strong>発生状況の画面で決めた場所があります</strong>
+            </p>
+            <p>{handoverName}の約 1km のマス目</p>
+            <Button variant="primary" disabled={saving} onClick={() => void savePoint(handover)}>
+              この場所を農場の地点にする
+            </Button>
+            <p className="settings-note">押すと、約 1km のマス目と市町村だけを保存します。別の場所にするときは、下で選んでください。</p>
+          </div>
+        ) : null}
         <div className="settings-form">
           <label htmlFor="pref">都道府県</label>
           <select

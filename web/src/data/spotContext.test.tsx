@@ -3,7 +3,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecordStoreProvider } from "./context";
 import { SPOT_KEY, TOWN_KEY } from "./spot";
-import { SpotProvider, useSpot, useSpotState, useTown } from "./spotContext";
+import { SpotProvider, useOptionalSpotState, useSpot, useSpotState, useTown } from "./spotContext";
 import type { RecordStore } from "./types";
 
 const DEVICE: FarmPoint = { meshCode: "53394611", muniCode: "13101", frequentMuniCodes: [] };
@@ -229,5 +229,80 @@ describe("SpotProvider", () => {
     expect(screen.getByTestId("spot").textContent).toBe("13101/53394611");
     expect(screen.getByTestId("f").textContent).toBe("true");
     vi.restoreAllMocks();
+  });
+});
+
+describe("農場の読み直し（場所は 1 回選べば済む。作者 11/7）", () => {
+  it("refreshFarm を呼ぶと getFarm を読み直し、保存したばかりの農場の場所に替わる（ページを読み込み直さない）", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
+    let current: unknown = null;
+    const { store, getFarm } = fakeStore(() => Promise.resolve(current));
+    let refresh: (() => void) | null = null;
+    function Grab() {
+      refresh = useSpotState().refreshFarm;
+      return null;
+    }
+    render(
+      <RecordStoreProvider value={store}>
+        <SpotProvider>
+          <Show />
+          <Grab />
+        </SpotProvider>
+      </RecordStoreProvider>,
+    );
+    await flush();
+    expect(screen.getByTestId("spot").textContent).toBe("13101/53394611"); // 農場がない間は端末内
+    current = FARM;
+    act(() => refresh!());
+    await flush();
+    expect(getFarm).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("spot").textContent).toBe("13102/53394612");
+  });
+
+  it("読み直しに失敗しても、読めていた農場の場所のまま（一時的な通信の失敗で端末の場所に戻らない）", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
+    let fail = false;
+    const { store } = fakeStore(() => (fail ? Promise.reject(new Error("unavailable")) : Promise.resolve(FARM)));
+    let refresh: (() => void) | null = null;
+    function State() {
+      const s = useSpotState();
+      refresh = s.refreshFarm;
+      return <p data-testid="s">{`${s.source}:${s.spot?.muniCode}`}</p>;
+    }
+    render(
+      <RecordStoreProvider value={store}>
+        <SpotProvider>
+          <State />
+        </SpotProvider>
+      </RecordStoreProvider>,
+    );
+    await flush();
+    expect(screen.getByTestId("s").textContent).toBe("farm:13102");
+    fail = true;
+    act(() => refresh!());
+    await flush();
+    expect(screen.getByTestId("s").textContent).toBe("farm:13102");
+  });
+
+  it("useOptionalSpotState は Provider の外では null（農場の設定を単独で開く試験や画面で落ちない）。中では getFarm を始めない", async () => {
+    const { store, getFarm } = fakeStore(() => Promise.resolve(FARM));
+    function Probe() {
+      const s = useOptionalSpotState();
+      return <p data-testid="o">{s ? `device:${s.deviceSpot?.muniCode ?? "なし"}` : "外"}</p>;
+    }
+    const { unmount } = render(<Probe />);
+    expect(screen.getByTestId("o").textContent).toBe("外");
+    unmount();
+    localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
+    render(
+      <RecordStoreProvider value={store}>
+        <SpotProvider>
+          <Probe />
+        </SpotProvider>
+      </RecordStoreProvider>,
+    );
+    await flush();
+    expect(screen.getByTestId("o").textContent).toBe("device:13101");
+    expect(getFarm).not.toHaveBeenCalled();
   });
 });
