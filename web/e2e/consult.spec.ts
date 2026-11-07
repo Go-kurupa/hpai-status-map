@@ -26,7 +26,9 @@ test.describe("AIに対策を相談", () => {
     await expect(page.getByText(FOOTER)).toBeVisible();
     await expect(page.getByRole("heading", { name: "招待コードを入れてください" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "送る" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "これまでの相談" })).toBeVisible();
+    // パソコンの幅（e2e の既定 1280）では、これまでの相談が左にいつも出る（切り替えのボタンは出さない）
+    await expect(page.getByRole("heading", { level: 2, name: "これまでの相談" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "これまでの相談" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "新しい相談" })).toBeVisible();
   });
 
@@ -42,9 +44,8 @@ test.describe("AIに対策を相談", () => {
     await expect(page.getByRole("button", { name: "送る" })).toBeVisible();
     await expect(page.getByText(FOOTER)).toBeVisible();
     await expectNoForbiddenText(page);
-    // 聞いた問いは「これまでの相談」に出る（審査員の入口は保存しない）
-    await page.getByRole("button", { name: "これまでの相談" }).click();
-    await expect(page.getByRole("button", { name: /^長靴・服/ })).toBeVisible();
+    // 聞いた問いは、左の「これまでの相談」に出る（審査員の入口は保存しない）
+    await expect(page.getByRole("button", { name: /^長靴・服\s*1 往復/ })).toBeVisible();
     await expect(page.getByText("ページを離れると消えます。保存しません。")).toBeVisible();
     expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("hpai.consult.history")))).toEqual([]);
     expect(problems).toEqual([]);

@@ -100,7 +100,7 @@ describe("AIに対策を相談の画面", () => {
     const topics = within(screen.getByRole("group", { name: CONSULT_TEXT.topicsLabel })).getAllByRole("button");
     expect(topics.map((b) => b.textContent)).toEqual(CONSULT_TOPICS.map((t) => t.label));
     expect(topics).toHaveLength(7);
-    expect(input().placeholder).toBe("例: 平飼いで 500 羽。長靴の消毒はどうしたら？");
+    expect(input().placeholder).toBe("上記以外や個別相談などありましたら、ご記載ください");
     expect(screen.getByText(CONSULT_TEXT.footer)).toBeTruthy();
     expect(CONSULT_TEXT.footer).toBe(
       "根拠は、農林水産省・岡山県・論文・海外の公的機関の資料だけです。人の健康、区域、鶏の診断には答えません。迷ったら管轄の家畜保健衛生所へ。",
@@ -875,7 +875,8 @@ describe("AIに対策を相談の画面", () => {
       await screen.findByText(CONSULT_TEXT.advice);
       expect(stored()[0]!.title).toBe(CONSULT_TOPICS[0]!.label);
       historyOpen();
-      const item = screen.getByRole("button", { name: new RegExp(`^${CONSULT_TOPICS[0]!.label}`, "u") });
+      // 一覧の項目（話題の札「長靴・服 1」とは別）
+      const item = screen.getByRole("button", { name: new RegExp(`^${CONSULT_TOPICS[0]!.label}\\s*1 往復`, "u") });
       expect(item.textContent).toContain(CONSULT_TEXT.addedCount(1));
     });
 
@@ -1001,6 +1002,75 @@ describe("AIに対策を相談の画面", () => {
         expect(screen.getByTestId("consult-actions")).toBeTruthy();
         expect(screen.getByTestId("consult-stats")).toBeTruthy();
         expect(screen.getByText(CONSULT_TEXT.advice)).toBeTruthy();
+      });
+    });
+
+    describe("一覧の検索と札、パソコンの幅の 2 列", () => {
+      const seed = () => {
+        const at = Date.now();
+        const c = (id: string, title: string, q: string, over: Record<string, unknown> = {}) => ({
+          id, title, createdAt: at, updatedAt: at, turns: [{ question: q, at, result: reply({ answer: `${title}の答え` }) }], ...over,
+        });
+        localStorage.setItem(
+          "hpai.consult.history.v1:u1",
+          JSON.stringify([
+            c("a", "長靴・服", "長靴と服の履き替え・消毒で、まず見直すとよいことは？", { topicId: "boots-clothes" }),
+            c("b", "裏口の長靴は？", "裏口の長靴は？"),
+            c("c", "防鳥ネット・鶏舎の破れ", "防鳥ネットの点検は？", { topicId: "net-house" }),
+          ]),
+        );
+      };
+
+      it("検索の文で一覧を絞り、件数を出す。当てはまらなければその旨", () => {
+        seed();
+        renderPage();
+        historyOpen();
+        expect(screen.getByText(CONSULT_TEXT.resultCount(3))).toBeTruthy();
+        fireEvent.change(screen.getByLabelText(CONSULT_TEXT.searchLabel), { target: { value: "長靴" } });
+        expect(screen.getByText(CONSULT_TEXT.resultCount(2))).toBeTruthy();
+        expect(screen.queryByRole("button", { name: /^防鳥ネット・鶏舎の破れ\s*1 往復/u })).toBeNull();
+        fireEvent.change(screen.getByLabelText(CONSULT_TEXT.searchLabel), { target: { value: "ワクチン" } });
+        expect(screen.getByText(CONSULT_TEXT.noMatch)).toBeTruthy();
+      });
+
+      it("話題の札（件数つき）で絞り、もう一度押すと戻る。押している札は aria-pressed", () => {
+        seed();
+        renderPage();
+        historyOpen();
+        const tags = within(screen.getByRole("group", { name: CONSULT_TEXT.tagsLabel }));
+        expect(tags.getAllByRole("button").map((b) => b.textContent)).toEqual([CONSULT_TEXT.tagAll(3), "長靴・服 1", "防鳥ネット・鶏舎の破れ 1", `${CONSULT_TEXT.tagFree} 1`]);
+        fireEvent.click(tags.getByRole("button", { name: `${CONSULT_TEXT.tagFree} 1` }));
+        expect(tags.getByRole("button", { name: `${CONSULT_TEXT.tagFree} 1` }).getAttribute("aria-pressed")).toBe("true");
+        expect(screen.getByText(CONSULT_TEXT.resultCount(1))).toBeTruthy();
+        expect(screen.getByRole("button", { name: /^裏口の長靴は？\s*1 往復/u })).toBeTruthy();
+        fireEvent.click(tags.getByRole("button", { name: `${CONSULT_TEXT.tagFree} 1` }));
+        expect(screen.getByText(CONSULT_TEXT.resultCount(3))).toBeTruthy();
+      });
+
+      it("話題のボタンで始めた相談には話題の id が残る（札に数えられる）", async () => {
+        box.ask.mockResolvedValue(reply());
+        renderPage();
+        fireEvent.click(screen.getByRole("button", { name: CONSULT_TOPICS[2]!.label }));
+        await screen.findByText(CONSULT_TEXT.advice);
+        expect((stored()[0] as { topicId?: string }).topicId).toBe(CONSULT_TOPICS[2]!.id);
+      });
+
+      it("パソコンの幅では、一覧と相談の中身を同時に出し、切り替えのボタンは隠す。一覧から開くと右に中身と見出しが出る", () => {
+        vi.stubGlobal("matchMedia", (q: string) => ({ matches: q === "(min-width: 64rem)", addEventListener: () => {}, removeEventListener: () => {} }));
+        try {
+          seed();
+          renderPage();
+          expect(screen.getByRole("heading", { level: 2, name: CONSULT_TEXT.historyTitle })).toBeTruthy();
+          expect(screen.getByRole("log", { name: CONSULT_TEXT.logLabel })).toBeTruthy();
+          expect(screen.queryByRole("button", { name: CONSULT_TEXT.historyOpen })).toBeNull();
+          fireEvent.click(screen.getByRole("button", { name: /^裏口の長靴は？\s*1 往復/u }));
+          expect(screen.getByText("裏口の長靴は？の答え")).toBeTruthy();
+          expect(screen.getByRole("heading", { level: 2, name: CONSULT_TEXT.historyTitle })).toBeTruthy();
+          expect(document.querySelector(".consult-chat-title")!.textContent).toBe("裏口の長靴は？");
+          expect(document.querySelector(".consult-page")!.classList.contains("is-wide")).toBe(true);
+        } finally {
+          vi.unstubAllGlobals();
+        }
       });
     });
 

@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MAX_CONVERSATIONS,
   MAX_TURNS,
+  TAG_FREE,
+  TAG_STATS,
+  filterConversations,
+  tagCounts,
+  tagsOf,
   dayGroupOf,
   historyForAsk,
   historyKey,
@@ -137,3 +142,42 @@ describe("日付の分け方", () => {
     expect(turnTimeLabel(new Date(2026, 10, 6, 18, 12).getTime(), now)).toBe("11/6 18:12");
   });
 });
+
+describe("一覧の札と検索", () => {
+  const withStats = { ...answered("a"), stats: { title: "t" } as unknown as ConsultAskResponse["stats"] };
+  const boots = { ...conv("boots", 3), title: "長靴・服", topicId: "boots-clothes" };
+  const legacy = { ...conv("legacy", 2), title: "防鳥ネット・鶏舎の破れ" }; // topicId ができる前の記録
+  const free = { ...conv("free", 1, [turn("岡山県では何件？", withStats), turn("ＡＢＣ の長靴は？", answered("b"))]), title: "岡山県では何件？" };
+
+  it("札: 話題（topicId か、題が話題の名前と同じ）か自由な相談、件数の表があれば発生の件数も", () => {
+    expect(tagsOf(boots)).toEqual(["boots-clothes"]);
+    expect(tagsOf(legacy)).toEqual(["net-house"]);
+    expect(tagsOf(free)).toEqual([TAG_FREE, TAG_STATS]);
+  });
+
+  it("札ごとの数は話題の並び・発生の件数・自由な相談の順で、0 件の札は出さない", () => {
+    expect(tagCounts([boots, legacy, free])).toEqual([
+      { tag: "boots-clothes", count: 1 },
+      { tag: "net-house", count: 1 },
+      { tag: TAG_STATS, count: 1 },
+      { tag: TAG_FREE, count: 1 },
+    ]);
+  });
+
+  it("検索は題と聞いた文に含まれるか（全角半角・大文字小文字を区別しない）。札と重ねて絞れる", () => {
+    const all = [boots, legacy, free];
+    expect(filterConversations(all, "abc", null).map((c) => c.id)).toEqual(["free"]);
+    expect(filterConversations(all, "長靴", null).map((c) => c.id)).toEqual(["boots", "free"]);
+    expect(filterConversations(all, "長靴", TAG_STATS).map((c) => c.id)).toEqual(["free"]);
+    expect(filterConversations(all, "  ", "net-house").map((c) => c.id)).toEqual(["legacy"]);
+  });
+
+  it("topicId は保存して読み戻せる（文字でなければ捨てる）", () => {
+    const key = historyKey("u1");
+    saveConversations(key, [boots, { ...legacy, topicId: 3 as unknown as string }]);
+    const back = loadConversations(key);
+    expect(back.find((c) => c.id === "boots")!.topicId).toBe("boots-clothes");
+    expect("topicId" in back.find((c) => c.id === "legacy")!).toBe(false);
+  });
+});
+

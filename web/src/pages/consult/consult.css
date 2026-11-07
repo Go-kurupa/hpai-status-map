@@ -12,6 +12,47 @@
 .consult-page p {
   margin: 0;
 }
+.consult-body,
+.consult-chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+}
+/* パソコンの幅（64rem 以上）: 左にこれまでの相談、右に相談の中身（2026-11-07 作者の決定） */
+.consult-page.is-wide {
+  max-width: 72rem;
+}
+.consult-page.is-wide .consult-body {
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s3);
+}
+.consult-page.is-wide .consult-history {
+  position: sticky;
+  top: 8px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.consult-page.is-wide .consult-chat {
+  max-width: 44rem;
+}
+.consult-chat-head {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--divider);
+}
+.consult-chat-title {
+  color: var(--navy);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
 .consult-bar {
   display: flex;
   flex-wrap: wrap;
@@ -26,6 +67,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--s1);
+}
+/* パソコンの幅では隠す（display: flex が hidden を打ち消さないように） */
+.consult-bar-actions[hidden] {
+  display: none;
 }
 .consult-judge {
   padding: 8px 12px;
@@ -349,6 +394,42 @@
 }
 .consult-history h2 {
   margin: 0;
+}
+.consult-history-search {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.consult-history-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.consult-tag {
+  min-height: 40px;
+  padding: 2px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.consult-tag[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.consult-tag:focus-visible,
+.consult-history-search:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 .consult-history-group h3 {
   margin: 0 0 6px;

@@ -3,6 +3,7 @@
 // 読み書きは失敗しても画面を止めない（非公開のウィンドウ、容量の上限、壊れた中身）。読めない中身は捨てる。
 import type { ConsultAskResponse, ConsultTurn } from "@hpai/shared/consult/types";
 import { STATS_GROUP_BYS } from "@hpai/shared/consult/stats";
+import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
 import { CONSULT_MAX_HISTORY, EVIDENCE_LABEL } from "@hpai/shared/consult/types";
 
 export interface ConsultHistoryTurn {
@@ -20,6 +21,8 @@ export interface ConsultConversation {
   createdAt: number;
   updatedAt: number;
   turns: ConsultHistoryTurn[];
+  /** 話題のボタンで始めた相談の話題（一覧の札で絞るため）。文で始めた相談と、この項目ができる前の記録にはない */
+  topicId?: string;
 }
 
 /** 残す相談の数。古いもの（最後に聞いた時刻が古い順）から捨てる */
@@ -96,7 +99,8 @@ function parseConversation(v: unknown): ConsultConversation | null {
   if (!Array.isArray(turns)) return null;
   const good = turns.filter(isTurn);
   if (good.length === 0) return null;
-  return { id, title, createdAt, updatedAt, turns: good };
+  const topicId = typeof v["topicId"] === "string" ? v["topicId"] : undefined;
+  return { id, title, createdAt, updatedAt, turns: good, ...(topicId ? { topicId } : {}) };
 }
 
 /** 新しい順（最後に聞いた時刻）。読めなければ空 */
@@ -193,6 +197,40 @@ export function turnTimeLabel(ms: number, now: number): string {
   const d = new Date(ms);
   const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
   return dayGroupOf(ms, now) === "today" ? time : `${d.getMonth() + 1}/${d.getDate()} ${time}`;
+}
+
+/** 一覧の札の種類。話題の id、発生の件数（"stats"）、話題のボタンを使わずに始めた相談（"free"） */
+export const TAG_STATS = "stats";
+export const TAG_FREE = "free";
+
+/** 相談の話題。topicId がなければ、題が話題の名前と同じか（topicId ができる前の記録）で見る */
+function topicOf(c: ConsultConversation): string | null {
+  const t = CONSULT_TOPICS.find((x) => x.id === c.topicId) ?? CONSULT_TOPICS.find((x) => x.label === c.title);
+  return t ? t.id : null;
+}
+
+/** 相談に付く札（1 つの相談に、話題と発生の件数の両方が付くことがある） */
+export function tagsOf(c: ConsultConversation): string[] {
+  const tags: string[] = [];
+  const topic = topicOf(c);
+  tags.push(topic ?? TAG_FREE);
+  if (c.turns.some((t) => Boolean(t.result.stats))) tags.push(TAG_STATS);
+  return tags;
+}
+
+/** 札ごとの相談の数。話題の並び、発生の件数、自由な相談の順。0 件の札は出さない */
+export function tagCounts(list: readonly ConsultConversation[]): { tag: string; count: number }[] {
+  const count = (tag: string) => list.filter((c) => tagsOf(c).includes(tag)).length;
+  return [...CONSULT_TOPICS.map((t) => t.id), TAG_STATS, TAG_FREE].map((tag) => ({ tag, count: count(tag) })).filter((x) => x.count > 0);
+}
+
+/** 検索の文（題と、聞いた文に含まれるか。大文字小文字と全角半角は区別しない）と札で絞る */
+export function filterConversations(list: readonly ConsultConversation[], query: string, tag: string | null): ConsultConversation[] {
+  const norm = (s: string) => s.normalize("NFKC").toLowerCase();
+  const q = norm(query.trim());
+  return list.filter(
+    (c) => (tag === null || tagsOf(c).includes(tag)) && (q === "" || [c.title, ...c.turns.map((t) => t.question)].some((s) => norm(s).includes(q))),
+  );
 }
 
 let seq = 0;

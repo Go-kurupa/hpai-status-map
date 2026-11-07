@@ -8,7 +8,8 @@ export const CONSULT_TEXT = {
   greeting: "鳥インフルの対策について、公的な資料と論文から答えます。何から見直しますか？",
   topicsLabel: "話題",
   questionLabel: "聞きたいこと",
-  placeholder: "例: 平飼いで 500 羽。長靴の消毒はどうしたら？",
+  /** 最初の入力欄の案内（2026-11-07 作者の文）。話題のボタン以外の問いや、農場ごとの相談を書いてもらう */
+  placeholder: "上記以外や個別相談などありましたら、ご記載ください",
   followPlaceholder: "続けて聞く…",
   ask: "送る",
   asking: "送っています…",
@@ -53,6 +54,16 @@ export const CONSULT_TEXT = {
   removeAllConfirm: "本当にすべて消す",
   removeAllCancel: "やめる",
   historyEmpty: "まだ相談はありません。",
+  /** 一覧の検索と札（2026-11-07 作者の決定。パソコンでは左に一覧） */
+  searchLabel: "相談を検索",
+  tagsLabel: "話題で絞る",
+  tagAll: (n: number) => `すべて ${n}`,
+  tagStats: "発生の件数",
+  tagFree: "自由な相談",
+  resultCount: (n: number) => `${n} 件`,
+  noMatch: "当てはまる相談はありません。",
+  /** 相談の中身の見出しの下（例「今日 15:06 から · 2 往復」） */
+  chatSince: (when: string, turns: number) => `${when} から · ${turns} 往復`,
   historyKept: "相談の記録は、この端末のブラウザにだけ残ります。作品のサーバーには保存しません。",
   historyNotKept: "ページを離れると消えます。保存しません。",
   historySaveFailed: "この端末に記録を残せませんでした。ページを離れると消えます。",

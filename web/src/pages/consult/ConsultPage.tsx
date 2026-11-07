@@ -7,13 +7,16 @@ import { CONSULT_TOPICS, type ConsultTopic } from "@hpai/shared/consult/topics";
 import { STATS_SOURCE, type ConsultStats } from "@hpai/shared/consult/stats";
 import { CONSULT_MAX_QUESTION, EVIDENCE_LABEL, type ConsultAnswerCard } from "@hpai/shared/consult/types";
 import { FIXED_TEXT } from "@hpai/shared/wording";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useLocation } from "react-router";
 import { Button } from "../../ui/Button";
 import { RequireMember } from "../auth/RequireMember";
 import { useAuthUser } from "../auth/useAuthUser";
 import {
+  TAG_FREE,
+  TAG_STATS,
   dayGroupOf,
+  filterConversations,
   historyForAsk,
   hasAdvice,
   historyKey,
@@ -21,6 +24,7 @@ import {
   loadConversations,
   newConversationId,
   saveConversations,
+  tagCounts,
   trimConversations,
   turnTimeLabel,
   whenLabel,
@@ -330,6 +334,25 @@ const GROUPS: readonly { key: DayGroup; label: string }[] = [
   { key: "earlier", label: CONSULT_TEXT.groupEarlier },
 ];
 
+/** パソコンの幅（64rem 以上。地図の画面と同じ境目）では、これまでの相談を左にいつも出す。幅を調べられない環境では切り替えの作り */
+const WIDE_QUERY = "(min-width: 64rem)";
+function subscribeWide(onChange: () => void): () => void {
+  if (typeof window.matchMedia !== "function") return () => {};
+  const mq = window.matchMedia(WIDE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+const isWide = (): boolean => typeof window.matchMedia === "function" && window.matchMedia(WIDE_QUERY).matches;
+function useWide(): boolean {
+  return useSyncExternalStore(subscribeWide, isWide, () => false);
+}
+
+function tagLabel(tag: string): string {
+  if (tag === TAG_STATS) return CONSULT_TEXT.tagStats;
+  if (tag === TAG_FREE) return CONSULT_TEXT.tagFree;
+  return CONSULT_TOPICS.find((t) => t.id === tag)?.label ?? tag;
+}
+
 function HistoryPanel({
   conversations,
   currentId,
@@ -357,6 +380,14 @@ function HistoryPanel({
   onRemoveAll: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [query, setQuery] = useState("");
+  const [tag, setTag] = useState<string | null>(null);
+  const searchId = useId();
+  const tags = tagCounts(conversations);
+  // 絞っていた札の相談が消えたら、すべてに戻す
+  const activeTag = tag !== null && tags.some((t) => t.tag === tag) ? tag : null;
+  const shown = filterConversations(conversations, query, activeTag);
+  const filtering = query.trim() !== "" || activeTag !== null;
   return (
     <section className="consult-history" aria-labelledby="consult-history-title">
       <h2 id="consult-history-title" ref={headingRef} tabIndex={-1}>
@@ -369,8 +400,37 @@ function HistoryPanel({
         </Button>
       </p>
       {conversations.length === 0 ? <p className="consult-note">{CONSULT_TEXT.historyEmpty}</p> : null}
+      {conversations.length > 0 ? (
+        <>
+          <label htmlFor={searchId} className="consult-visually-hidden">
+            {CONSULT_TEXT.searchLabel}
+          </label>
+          <input
+            id={searchId}
+            type="search"
+            className="consult-history-search"
+            placeholder={CONSULT_TEXT.searchLabel}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div role="group" aria-label={CONSULT_TEXT.tagsLabel} className="consult-history-tags">
+            <button type="button" className="consult-tag" aria-pressed={activeTag === null} onClick={() => setTag(null)}>
+              {CONSULT_TEXT.tagAll(conversations.length)}
+            </button>
+            {tags.map((t) => (
+              <button key={t.tag} type="button" className="consult-tag" aria-pressed={activeTag === t.tag} onClick={() => setTag(activeTag === t.tag ? null : t.tag)}>
+                {tagLabel(t.tag)} {t.count}
+              </button>
+            ))}
+          </div>
+          <p className="consult-note" aria-live="polite">
+            {CONSULT_TEXT.resultCount(shown.length)}
+          </p>
+          {filtering && shown.length === 0 ? <p className="consult-note">{CONSULT_TEXT.noMatch}</p> : null}
+        </>
+      ) : null}
       {GROUPS.map(({ key, label }) => {
-        const items = conversations.filter((c) => dayGroupOf(c.updatedAt, now) === key);
+        const items = shown.filter((c) => dayGroupOf(c.updatedAt, now) === key);
         if (items.length === 0) return null;
         return (
           <div key={key} className="consult-history-group">
@@ -522,7 +582,7 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
       const turn: ConsultHistoryTurn = { question: shown, result, at };
       const conv: ConsultConversation = base
         ? { ...base, updatedAt: at, turns: [...base.turns, turn] }
-        : { id: newConversationId(at), title, createdAt: at, updatedAt: at, turns: [turn] };
+        : { id: newConversationId(at), title, createdAt: at, updatedAt: at, turns: [turn], ...("topicId" in input ? { topicId: input.topicId } : {}) };
       const next = trimConversations([conv, ...conversationsRef.current.filter((c) => c.id !== conv.id)]);
       setConversations(next);
       setCurrentId(conv.id);
@@ -612,15 +672,19 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
     setCurrentId(null);
   };
 
+  const wide = useWide();
+  const showHistory = wide || view === "history";
+  const showChat = wide || view === "chat";
   const now = Date.now();
   const lastTurn = turns.at(-1);
   const followUps = !busy && lastTurn && isAnswered(lastTurn) ? (lastTurn.result.followUps ?? []) : [];
 
   return (
-    <div className="consult-page">
+    <div className={wide ? "consult-page is-wide" : "consult-page"}>
       <div className="consult-bar">
         <h1>{CONSULT_TEXT.title}</h1>
-        <div className="consult-bar-actions">
+        {/* パソコンの幅では、一覧がいつも左にあり、「新しい相談」も一覧の上にあるので、切り替えのボタンは出さない */}
+        <div className="consult-bar-actions" hidden={wide}>
           {view === "chat" ? (
             <Button
               onClick={() => {
@@ -646,7 +710,8 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
       </div>
       {judge ? <p className="consult-judge">{CONSULT_TEXT.judgeBanner}</p> : null}
 
-      {view === "history" ? (
+      <div className="consult-body">
+      {showHistory ? (
         <HistoryPanel
           conversations={conversations}
           currentId={currentId}
@@ -660,8 +725,15 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
           headingRef={historyHeading}
           reviews={judge ? null : reviews}
         />
-      ) : (
-        <>
+      ) : null}
+      {showChat ? (
+        <div className="consult-chat">
+          {current ? (
+            <p className="consult-chat-head">
+              <span className="consult-chat-title">{current.title}</span>
+              <span className="consult-note">{CONSULT_TEXT.chatSince(turnTimeLabel(current.createdAt, now), current.turns.length)}</span>
+            </p>
+          ) : null}
           <div className="consult-log" role="log" aria-live="polite" aria-label={CONSULT_TEXT.logLabel} ref={logRef} tabIndex={-1}>
             <div className="consult-bubble consult-ai consult-greeting">
               <span className="consult-who">{CONSULT_TEXT.aiName}</span>
@@ -729,8 +801,9 @@ function ConsultBody({ judge, uid, initialQuestion = "" }: { judge: boolean; uid
               {CONSULT_TEXT.inputHint}
             </p>
           </div>
-        </>
-      )}
+        </div>
+      ) : null}
+      </div>
 
       <p className="consult-processed">{CONSULT_TEXT.processed}</p>
       <p className="consult-footer">{CONSULT_TEXT.footer}</p>
