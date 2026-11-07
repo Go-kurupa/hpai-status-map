@@ -81,10 +81,11 @@ test.describe("AIに対策を相談", () => {
     await expect(menuNav(page).getByRole("link", { name: "AIに対策を相談" })).toHaveAttribute("href", "/consult");
   });
 
-  test("このサイトについての審査員の入口から、相談の試しを開ける", async ({ page }) => {
+  // 審査員の入口はサイトの中にリンクを置かない（README と提出フォームだけで案内する。2026-11-07 作者の決定）
+  test("相談の試しは URL を直に開くと使え、このサイトについてにはリンクがない", async ({ page }) => {
     await page.goto("/about");
-    await page.getByRole("link", { name: /AIに対策を相談（試しの入口/ }).click();
-    await expect(page).toHaveURL(/\/consult\?judge=1/);
+    await expect(page.locator('a[href*="judge=1"]')).toHaveCount(0);
+    await page.goto("/consult?judge=1");
     await expect(page.getByText(JUDGE_BANNER)).toBeVisible();
   });
 });

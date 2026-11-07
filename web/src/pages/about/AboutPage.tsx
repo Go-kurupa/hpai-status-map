@@ -4,10 +4,10 @@ import { OPERATOR_NOTE } from "../../ui/AppShell";
 import { operatorName, PrivacyContent } from "../privacy/PrivacyPage";
 import { PRIVACY_NOTICE, PRIVACY_REVIEWED_ON } from "../privacy/privacyNotice";
 import ResultsPage from "../results/ResultsPage";
-import { ABOUT_TEXT, DATA_SOURCES, JUDGE_LINKS } from "./aboutTexts";
+import { ABOUT_TEXT, DATA_SOURCES, GUIDE_LINKS, GUIDE_NOTES } from "./aboutTexts";
 
-export type AboutSection = "judges" | "operator" | "sources" | "ai" | "privacy";
-const ORDER: AboutSection[] = ["judges", "operator", "sources", "ai", "privacy"];
+export type AboutSection = "guide" | "operator" | "sources" | "ai" | "privacy";
+const ORDER: AboutSection[] = ["guide", "operator", "sources", "ai", "privacy"];
 const anchor = (s: AboutSection) => `about-${s}`;
 
 /**
@@ -38,21 +38,19 @@ export default function AboutPage({ focus }: { focus?: AboutSection }) {
         </ul>
       </nav>
 
-      <section id={anchor("judges")} aria-labelledby={`${anchor("judges")}-h`}>
-        <h2 id={`${anchor("judges")}-h`}>{ABOUT_TEXT.sections.judges}</h2>
-        <p>{ABOUT_TEXT.judgesLead}</p>
+      <section id={anchor("guide")} aria-labelledby={`${anchor("guide")}-h`}>
+        <h2 id={`${anchor("guide")}-h`}>{ABOUT_TEXT.sections.guide}</h2>
+        <ul className="about-guide">
+          {GUIDE_NOTES.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
         <ul className="about-judges">
-          {JUDGE_LINKS.map((l) => (
+          {GUIDE_LINKS.map((l) => (
             <li key={l.to}>
-              {l.to.startsWith("#") ? (
-                <a href={l.to} className="tap-link">
-                  {l.label}
-                </a>
-              ) : (
-                <Link to={l.to} className="tap-link">
-                  {l.label}
-                </Link>
-              )}
+              <Link to={l.to} className="tap-link">
+                {l.label}
+              </Link>
             </li>
           ))}
         </ul>
