@@ -305,3 +305,45 @@ describeFixture("環境省の実物の控え（入口と今季の PDF）", [path
     expect((await docsNow()).filter((d) => d.contentType === "pdf")).toHaveLength(1);
   });
 });
+
+// 今季の PDF を表として読み、wildBirds を国の一覧に合わせる（moeTable.ts、2026-11-07）。実物の PDF の控え（公開しない）で、模擬環境の Firestore に書く
+const FIX_MOE = path.resolve(import.meta.dirname, "../../../data/private/fixtures/moe/season-2026-1106.pdf");
+const TITLE_1106 = "令和８（2026）年シーズンの野鳥における鳥インフルエンザ発生状況（令和８年11月６日現在）";
+describeFixture("今季の PDF を表として読む（模擬環境）", [FIX_MOE], () => {
+  it("簡易陽性のまま残った栗原市の古い記録を消し、4 件を書く。表として読めた PDF は読み取りに回さない。2 回目は 1 件も書かない", async () => {
+    const { loadGeoStore } = await import("../../src/geo/loadGeo");
+    const { tableSync, firestoreWildBirdIo } = await import("../../src/watch/moe");
+    const body = fs.readFileSync(FIX_MOE);
+    const { deps } = fake({ [ENTRANCE]: entrance([[PDF1, TITLE_1106]]), [PDF1]: ok(body, PDF1, "application/pdf") }, new Date("2026-11-07T00:00:00Z"));
+    deps.geo = await loadGeoStore(path.resolve(import.meta.dirname, "../../../data/geo"));
+    const old = { id: "wb-96ce9d606ddb7d8357e82964", season: 2026, date: "2026-10-27", prefCode: "04", muniCode: "04213", muniName: "栗原市", species: "マガン", test: "screening_positive", focusZone: { from: null, to: null }, sourceUrl: P2 };
+    await db.doc(`wildBirds/${old.id}`).set(old);
+    const sets: string[] = [];
+    const io = { ...firestoreWildBirdIo, set: async (b: Parameters<typeof firestoreWildBirdIo.set>[0]) => { sets.push(b.id); await firestoreWildBirdIo.set(b); } };
+
+    const r = await checkMoe(source(), deps, { onSeasonPdf: tableSync(io) });
+    expect(r.ok).toBe(true);
+    const birds = (await db.collection("wildBirds").get()).docs.map((d) => d.data());
+    expect(birds.map((b) => b.id)).not.toContain(old.id);
+    expect(birds.map((b) => [b.prefCode, b.muniName, b.test]).sort()).toEqual([
+      ["01", "音更町", "hpai_confirmed"],
+      ["04", "栗原市", "negative"],
+      ["05", "由利本荘市", "hpai_confirmed"],
+      ["46", "出水市", "hpai_confirmed"],
+    ]);
+    expect(sets).toHaveLength(4);
+    expect((await docsNow()).map((d) => d.readState)).toEqual(["discarded"]);
+
+    await checkMoe(source(), deps, { onSeasonPdf: tableSync(io) });
+    expect(sets).toHaveLength(4);
+  });
+
+  it("表として読めない PDF は、今までどおり読み取りに回し（pending）、見回りは失敗にする", async () => {
+    const { tableSync } = await import("../../src/watch/moe");
+    const { deps } = fake({ [ENTRANCE]: entrance([[PDF1, TITLE_1106]]), [PDF1]: pdf(PDF1, "v1") });
+    const r = await checkMoe(source(), deps, { onSeasonPdf: tableSync() });
+    expect(r.ok).toBe(false);
+    expect((await docsNow()).map((d) => d.readState)).toEqual(["pending"]);
+    expect((await db.collection("wildBirds").get()).size).toBe(0);
+  });
+});

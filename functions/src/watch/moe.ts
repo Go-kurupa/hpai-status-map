@@ -1,14 +1,17 @@
 // 環境省の見回り（I-12、設計書 §9.2 野鳥）。野鳥の鳥インフルの陽性の一覧（今季の PDF）と、野鳥の発生状況の報道発表を文書にして読み取り（I-05）に回す。
-// 野鳥の陽性は、この文書の読み取りで wildBirds になる（ここでは読まない）。Claude は使わない。
+// 本番では今季の PDF を表としても読み、wildBirds を国の一覧に合わせる（moeTable.ts。2026-11-07 から。報道発表の読み取りだけでは陽性が載らなかったため）。
+// 文書の読み取り（Claude）は別の関数が行う。表を読む処理は Claude を使わない。
 // 今季の PDF は確認のたびに取り、指紋が変われば新しい文書になる（同じなら増えない）。報道発表は state の hrefs にないものだけ取る。
 import { logger } from "firebase-functions";
 import { toJstIso } from "@hpai/shared/dates";
 import { linkKey } from "@hpai/shared/read/pageDiff";
 import { currentSeason } from "@hpai/shared/season";
 import { hasHpaiWord, normalizeForMatch } from "@hpai/shared/text";
-import type { IsoDateTime, Season, Source } from "@hpai/shared/types";
+import type { IsoDateTime, Season, Source, WildBird } from "@hpai/shared/types";
+import { db } from "../admin";
 import { FAILED, type CheckResult, type Handlers, type WatchDeps } from "./deps";
-import { decodeBody, extractHtml, extractPdfText, fingerprint, sha256Hex } from "./extract";
+import { decodeBody, extractHtml, extractPdfItems, extractPdfText, fingerprint, sha256Hex } from "./extract";
+import { asOfFromTitle, parseMoeTable, rowToWildBird, syncWildBirdTable, unmatchedMuni, type WildBirdIo } from "./moeTable";
 import { MAX_LINK_TRIES, MAX_NEW_LINKS_PER_CHECK, giveUpLink, loadJson, saveJson, type LinkCtx } from "./page";
 import { storeDocument } from "./store";
 
@@ -73,7 +76,7 @@ const sameHostAndPath = (a: string, b: string): boolean => {
 type Fetched = Extract<Awaited<ReturnType<WatchDeps["fetch"]>>, { kind: "ok" }>;
 
 /** PDF を文書にする。文字層のない PDF は指紋がバイト列の SHA-256。指紋を返す。 */
-async function storePdf(o: Fetched, link: MoeLink, ctx: LinkCtx): Promise<string> {
+async function storePdf(o: Fetched, link: MoeLink, ctx: LinkCtx, readState: "pending" | "discarded" = "pending"): Promise<string> {
   const ex = await extractPdfText(o.body);
   const fp = ex.hasTextLayer ? fingerprint(ex.text) : sha256Hex(o.body);
   await storeDocument({
@@ -87,17 +90,61 @@ async function storePdf(o: Fetched, link: MoeLink, ctx: LinkCtx): Promise<string
     hasTextLayer: ex.hasTextLayer,
     prefCode: ctx.source.prefCode,
     fetchedAt: o.fetchedAt,
-    readState: "pending",
+    readState,
   });
   return fp;
 }
 
-/** 今季の PDF を取って文書にする。PDF でないもの（メンテナンスの HTML など）は文書にせず失敗。 */
-async function processSeasonPdf(link: MoeLink, ctx: LinkCtx): Promise<{ ok: true; fingerprint: string } | { ok: false }> {
+/** 今季の PDF を取れたときに呼ぶ処理（本番は表を読んで wildBirds を作る）。false なら見回りを失敗にする。 */
+export type OnSeasonPdf = (body: Buffer, link: MoeLink, ctx: LinkCtx) => Promise<boolean>;
+
+/**
+ * 今季の PDF を取って文書にする。PDF でないもの（メンテナンスの HTML など）は文書にせず失敗。
+ * 表として読めたときは、文書を読み取り（Claude）に回さない（discarded）。読み取りが同じ件を別の番号で載せ、点と知らせが二重になるのを防ぐ。
+ * 表として読めなかったときは、今までどおり読み取りに回し（運営者の箱に届く道を残す）、見回りは失敗にする。
+ */
+async function processSeasonPdf(link: MoeLink, ctx: LinkCtx, onSeasonPdf?: OnSeasonPdf): Promise<{ ok: true; fingerprint: string } | { ok: false }> {
   // 上限は既定（8 MiB）。今の PDF は約 100 KB。超えたら失敗として見える
   const o = await ctx.deps.fetch(link.href, { allowUrl: ctx.allow });
   if (o.kind !== "ok" || !isPdfBody(o.body)) return { ok: false };
-  return { ok: true, fingerprint: await storePdf(o, link, ctx) };
+  if (!onSeasonPdf) return { ok: true, fingerprint: await storePdf(o, link, ctx) };
+  const tableOk = await onSeasonPdf(o.body, link, ctx);
+  const fp = await storePdf(o, link, ctx, tableOk ? "discarded" : "pending");
+  return tableOk ? { ok: true, fingerprint: fp } : { ok: false };
+}
+
+/** wildBirds の本番の読み書き */
+export const firestoreWildBirdIo: WildBirdIo = {
+  listSeason: async (season) => (await db.collection("wildBirds").where("season", "==", season).get()).docs.map((d) => d.data() as WildBird),
+  set: async (b) => {
+    await db.doc(`wildBirds/${b.id}`).set(b);
+  },
+  remove: async (id) => {
+    await db.doc(`wildBirds/${id}`).delete();
+  },
+};
+
+/**
+ * 今季の PDF を表として読み、wildBirds を国の一覧に合わせる（moeTable.ts）。
+ * 読めない（表がない、件が 0、必須の欄が欠ける、見たことのない言い方）、または前に書いた番号のある件が消えたら、形が変わったとみなして書かずに失敗にする。
+ */
+export function tableSync(io: WildBirdIo = firestoreWildBirdIo): OnSeasonPdf {
+  return async (body, link, ctx) => {
+    const season = currentSeason(ctx.deps.now());
+    const parsed = parseMoeTable(await extractPdfItems(body), season);
+    if (!parsed.ok) {
+      logger.warn("環境省の今季の PDF を表として読めませんでした。野鳥の陽性を更新していません", { sourceId: ctx.source.id, reason: parsed.reason, href: link.href });
+      return false;
+    }
+    const birds = parsed.rows.map((r) => rowToWildBird(r, season, ctx.deps.geo, link.href)).filter((b): b is WildBird => b !== null);
+    const report = await syncWildBirdTable(birds, season, io, asOfFromTitle(link.text));
+    if (!report.ok) {
+      logger.warn("環境省の今季の PDF から、前に載せた番号の件が消えました（表の形が変わった可能性）。野鳥の陽性を更新していません", { sourceId: ctx.source.id, ...report });
+      return false;
+    }
+    logger.info("環境省の今季の PDF から野鳥の陽性を更新しました", { sourceId: ctx.source.id, rows: parsed.rows.length, birds: birds.length, muniUnmatched: unmatchedMuni(birds), ...report });
+    return true;
+  };
 }
 
 /**
@@ -135,7 +182,7 @@ async function processPress(link: MoeLink, ctx: LinkCtx): Promise<"done" | "retr
  * 取れないもの、PDF でないもの、別のページへ転送された入口は失敗にして、何もないとは見せない（今季の PDF が入口にまだないのは失敗ではない）。
  * 入口には etag も lastModified も送らない（今季の PDF は毎回取るので、入口の変化を待たない）。
  */
-export async function checkMoe(source: Source, deps: WatchDeps): Promise<CheckResult> {
+export async function checkMoe(source: Source, deps: WatchDeps, opts: { onSeasonPdf?: OnSeasonPdf } = {}): Promise<CheckResult> {
   const o = await deps.fetch(source.url, { allowUrl: allowMoe });
   if (o.kind !== "ok") return FAILED;
 
@@ -164,7 +211,7 @@ export async function checkMoe(source: Source, deps: WatchDeps): Promise<CheckRe
     );
   }
   for (const link of seasonPdfs) {
-    const r = await processSeasonPdf(link, ctx);
+    const r = await processSeasonPdf(link, ctx, opts.onSeasonPdf);
     if (r.ok) {
       if (fp === null) {
         fp = r.fingerprint;
@@ -201,4 +248,5 @@ export async function checkMoe(source: Source, deps: WatchDeps): Promise<CheckRe
   return { ok: true, etag: null, lastModified: null, fingerprint: fp ?? fingerprint(page.text) };
 }
 
-export const moeHandlers: Handlers = { moe: checkMoe };
+// 本番の見回りは、今季の PDF を表として読んで wildBirds を国の一覧に合わせる
+export const moeHandlers: Handlers = { moe: (source, deps) => checkMoe(source, deps, { onSeasonPdf: tableSync() }) };

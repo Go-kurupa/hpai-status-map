@@ -53,7 +53,8 @@ export interface WildBird {
   muniName: string | null;
   species: string | null;
   test: WildBirdTest;
-  focusZone: { from: IsoDate | null; to: IsoDate | null }; // 読まないので今は null
+  // 野鳥監視重点区域の指定日と解除日。環境省の今季の一覧（表）から入れる（解除予定は to に入れない）。報道発表の読み取りから作った記録は null
+  focusZone: { from: IsoDate | null; to: IsoDate | null };
   sourceUrl: string;
 }
 export interface WatchStatus {

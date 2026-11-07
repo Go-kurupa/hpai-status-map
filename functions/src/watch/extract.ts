@@ -94,6 +94,24 @@ export function hasTextLayerOf(text: string, pages: number): boolean {
   return [...text.replace(/\s+/gu, "")].length / pages >= MIN_CHARS_PER_PAGE;
 }
 
+/** PDF の文字を 1 片ずつ、ページと位置つきで取り出す（表を読むため。環境省の野鳥の一覧）。読めない PDF は空。 */
+export async function extractPdfItems(body: Buffer): Promise<Array<{ page: number; s: string; x: number; y: number }>> {
+  try {
+    const pdf = await getDocumentProxy(new Uint8Array(body));
+    const out: Array<{ page: number; s: string; x: number; y: number }> = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const tc = await (await pdf.getPage(p)).getTextContent();
+      for (const it of tc.items as Array<{ str?: string; transform?: number[] }>) {
+        if (typeof it.str !== "string" || it.str.trim() === "" || !it.transform) continue;
+        out.push({ page: p, s: it.str, x: Math.round(it.transform[4]!), y: Math.round(it.transform[5]!) });
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 /** PDF の文字層を取り出す。読めない PDF は throw せず空を返す。 */
 export async function extractPdfText(body: Buffer): Promise<{ text: string; pages: number; hasTextLayer: boolean }> {
   try {
