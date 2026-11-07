@@ -35,7 +35,7 @@ export const CHECKLIST_HEADINGS: Readonly<Record<ChecklistClass, string>> = {
 };
 
 /** 『区域に入っていれば求められること』の見出しに添える。区域の内外はここでは決めない */
-export const ZONE_AUTHORITY_NOTE = "区域に入っているかは県の連絡が正です";
+export const ZONE_AUTHORITY_NOTE = "区域に入っているかは、県の連絡で確かめてください";
 
 /** 開放的な鶏舎と放し飼いは、野生動物に関わる項目を上に */
 const WILD_ANIMAL_FIRST: ReadonlyArray<readonly [string, number]> = [

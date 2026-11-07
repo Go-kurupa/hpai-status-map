@@ -74,7 +74,7 @@ test("招待リンクを別の文脈で開き、会員になって、地点を�
   await expect(page.getByRole("region", { name: "農場の地点を選ぶ地図" })).toBeVisible();
   await page.getByLabel("都道府県").selectOption("33");
   await page.getByLabel("市町村").selectOption("33203");
-  await expect(page.getByRole("status").filter({ hasText: /地図で、農場のあたりをおしてください/ })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /地図で、農場のあたりを押してください/ })).toBeVisible();
 
   const res = await page.request.get("/geo/muni-index.json");
   const index = (await res.json()) as Record<string, { center: [number, number] }>;

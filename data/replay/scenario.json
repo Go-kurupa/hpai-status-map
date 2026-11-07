@@ -182,7 +182,7 @@
       },
       "noticePreview": {
         "level": 1,
-        "text": "津山市で疑いの発表がありました。県の連絡が正です"
+        "text": "津山市で疑いの発表がありました。正式な情報は県の連絡です"
       },
       "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970438_misc.pdf",
       "backstageId": "tsuyama-suspected"
@@ -232,7 +232,7 @@
       },
       "noticePreview": {
         "level": 1,
-        "text": "津山市で確定の発表がありました。県の連絡が正です"
+        "text": "津山市で確定の発表がありました。正式な情報は県の連絡です"
       },
       "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970439_misc.pdf",
       "backstageId": "tsuyama-confirmed"
@@ -544,7 +544,7 @@
       },
       "noticePreview": {
         "level": 1,
-        "text": "津山市で搬出制限の解除の発表がありました。県の連絡が正です"
+        "text": "津山市で搬出制限の解除の発表がありました。正式な情報は県の連絡です"
       },
       "sourceUrl": "https://www.pref.okayama.jp/uploaded/life/1030744_9970460_misc.pdf",
       "backstageId": "tsuyama-shipment-lifted"
@@ -665,7 +665,7 @@
       },
       "noticePreview": {
         "level": 2,
-        "text": "津山市で移動制限の解除の発表がありました。県の連絡が正です"
+        "text": "津山市で移動制限の解除の発表がありました。正式な情報は県の連絡です"
       },
       "sourceUrl": "https://www.maff.go.jp/j/press/syouan/douei/260121_1.html",
       "backstageId": "tsuyama-movement-lifted"

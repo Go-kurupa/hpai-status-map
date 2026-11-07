@@ -201,7 +201,7 @@ export function MeshPicker({
       ) : null}
       {outside ? (
         <p className="settings-error" role="alert">
-          選んだ市町村の外です。地図で、選んだ町の中をおしてください。
+          選んだ市町村の外です。地図で、選んだ町の中を押してください。
         </p>
       ) : null}
       {unsupported ? null : (

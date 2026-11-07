@@ -114,7 +114,7 @@ describe("AIに対策を相談の画面", () => {
     const topics = within(screen.getByRole("group", { name: CONSULT_TEXT.topicsLabel })).getAllByRole("button");
     expect(topics.map((b) => b.textContent)).toEqual(CONSULT_TOPICS.map((t) => t.label));
     expect(topics).toHaveLength(7);
-    expect(input().placeholder).toBe("上記以外や個別相談などありましたら、ご記載ください");
+    expect(input().placeholder).toBe("ほかに聞きたいことがあれば、ここに書いてください");
     expect(screen.getByText(CONSULT_TEXT.footer)).toBeTruthy();
     expect(CONSULT_TEXT.footer).toBe(
       "根拠は、農林水産省・岡山県・論文・海外の公的機関の資料だけです。人の健康、区域、鶏の診断には答えません。迷ったら管轄の家畜保健衛生所へ。",
@@ -328,7 +328,7 @@ describe("AIに対策を相談の画面", () => {
     expect((screen.getByRole("button", { name: CONSULT_TOPICS[0]!.label }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("「対策項目に足す」を押すと保存し、「対策項目に足しました」の押せないボタンになる", async () => {
+  it("「対策項目に追加する」を押すと保存し、「対策項目に追加しました」の押せないボタンになる", async () => {
     box.ask.mockResolvedValue(reply());
     renderPage();
     fireEvent.change(input(), { target: { value: "長靴は？" } });
@@ -336,9 +336,9 @@ describe("AIに対策を相談の画面", () => {
     await screen.findByText(CONSULT_TEXT.advice);
     const first = within(screen.getAllByTestId("consult-action")[0]!);
     fireEvent.click(first.getByRole("button", { name: CONSULT_TEXT.add }));
-    await waitFor(() => expect(first.getByRole("button", { name: "対策項目に足しました" })).toBeTruthy());
+    await waitFor(() => expect(first.getByRole("button", { name: "対策項目に追加しました" })).toBeTruthy());
     expect(box.reviews.addReview).toHaveBeenCalledWith("maff-M07");
-    expect((first.getByRole("button", { name: "対策項目に足しました" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((first.getByRole("button", { name: "対策項目に追加しました" }) as HTMLButtonElement).disabled).toBe(true);
     // もう 1 枚は足していない
     expect(within(screen.getAllByTestId("consult-action")[1]!).getByRole("button", { name: CONSULT_TEXT.add })).toBeTruthy();
   });
@@ -351,11 +351,11 @@ describe("AIに対策を相談の画面", () => {
     fireEvent.click(askButton());
     await screen.findByText(CONSULT_TEXT.advice);
     const us = within(screen.getAllByTestId("consult-action")[1]!);
-    await waitFor(() => expect((us.getByRole("button", { name: "対策項目に足しました" }) as HTMLButtonElement).disabled).toBe(true));
+    await waitFor(() => expect((us.getByRole("button", { name: "対策項目に追加しました" }) as HTMLButtonElement).disabled).toBe(true));
     expect(box.reviews.addReview).not.toHaveBeenCalled();
   });
 
-  it("保存中は「足しています…」で押せず、二度押しでも addReview は 1 回だけ", async () => {
+  it("保存中は「追加しています…」で押せず、二度押しでも addReview は 1 回だけ", async () => {
     let done: () => void = () => {};
     box.reviews.addReview.mockReturnValue(new Promise<void>((r) => (done = r)));
     box.ask.mockResolvedValue(reply());
@@ -367,11 +367,11 @@ describe("AIに対策を相談の画面", () => {
     const btn = first.getByRole("button", { name: CONSULT_TEXT.add });
     fireEvent.click(btn);
     fireEvent.click(btn);
-    const busy = await first.findByRole("button", { name: "足しています…" });
+    const busy = await first.findByRole("button", { name: "追加しています…" });
     expect((busy as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(busy);
     done();
-    await waitFor(() => expect(first.getByRole("button", { name: "対策項目に足しました" })).toBeTruthy());
+    await waitFor(() => expect(first.getByRole("button", { name: "対策項目に追加しました" })).toBeTruthy());
     expect(box.reviews.addReview).toHaveBeenCalledTimes(1);
     expect(first.queryByRole("alert")).toBeNull();
   });
@@ -386,7 +386,7 @@ describe("AIに対策を相談の画面", () => {
     await screen.findByText(CONSULT_TEXT.advice);
     const first = within(screen.getAllByTestId("consult-action")[0]!);
     fireEvent.click(first.getByRole("button", { name: CONSULT_TEXT.add }));
-    await waitFor(() => expect(first.getByRole("button", { name: "対策項目に足しました" })).toBeTruthy());
+    await waitFor(() => expect(first.getByRole("button", { name: "対策項目に追加しました" })).toBeTruthy());
     expect(first.queryByRole("alert")).toBeNull();
   });
 
@@ -442,7 +442,7 @@ describe("AIに対策を相談の画面", () => {
     const first = within(screen.getAllByTestId("consult-action")[0]!);
     fireEvent.click(first.getByRole("button", { name: CONSULT_TEXT.add }));
     const alert = await first.findByRole("alert");
-    expect(alert.textContent).toContain("対策項目に足すには、先に『農場と通知の設定』で農場を登録してください。");
+    expect(alert.textContent).toContain("対策項目に追加するには、先に『農場と通知の設定』で農場を登録してください。");
     expect(alert.textContent).not.toContain("もう一度");
     expect(first.getByRole("link", { name: "農場と通知の設定" }).getAttribute("href")).toBe("/settings/farm");
     // 別のカードには出ない
@@ -503,7 +503,7 @@ describe("AIに対策を相談の画面", () => {
       renderPage();
       await askText();
       const twin = within(screen.getAllByTestId("consult-action")[0]!);
-      const btn = await twin.findByRole("button", { name: "対策項目に足しました" });
+      const btn = await twin.findByRole("button", { name: "対策項目に追加しました" });
       expect((btn as HTMLButtonElement).disabled).toBe(true);
       fireEvent.click(btn);
       // 別の文のカードは足していない
@@ -523,7 +523,7 @@ describe("AIに対策を相談の画面", () => {
       fireEvent.click(askButton());
       await waitFor(() => expect(screen.getAllByTestId("consult-action")).toHaveLength(2));
       const second = within(screen.getAllByTestId("consult-action")[1]!);
-      expect((second.getByRole("button", { name: "対策項目に足しました" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((second.getByRole("button", { name: "対策項目に追加しました" }) as HTMLButtonElement).disabled).toBe(true);
       expect(box.reviews.addReview).toHaveBeenCalledTimes(1);
     });
 
@@ -539,11 +539,11 @@ describe("AIに対策を相談の画面", () => {
       await waitFor(() => expect(screen.getAllByTestId("consult-action")).toHaveLength(2));
       const rows = screen.getAllByTestId("consult-action");
       fireEvent.click(within(rows[0]!).getByRole("button", { name: CONSULT_TEXT.add }));
-      await within(rows[0]!).findByRole("button", { name: "足しています…" });
+      await within(rows[0]!).findByRole("button", { name: "追加しています…" });
       // もう一方の答えの行は、まだ「足す」のまま（足している最中の印は押したカードの行だけ）。押しても書かない
       fireEvent.click(within(rows[1]!).getByRole("button", { name: CONSULT_TEXT.add }));
       done();
-      await waitFor(() => expect(within(rows[1]!).getByRole("button", { name: "対策項目に足しました" })).toBeTruthy());
+      await waitFor(() => expect(within(rows[1]!).getByRole("button", { name: "対策項目に追加しました" })).toBeTruthy());
       expect(box.reviews.addReview).toHaveBeenCalledTimes(1);
       expect(box.reviews.addReview).toHaveBeenCalledWith("maff-M07");
     });
@@ -582,7 +582,7 @@ describe("AIに対策を相談の画面", () => {
       renderPage();
       fireEvent.click(screen.getByRole("button", { name: CONSULT_TOPICS[0]!.label }));
       await screen.findByText(CONSULT_TEXT.advice);
-      expect((await screen.findByRole("button", { name: "対策項目に足しました" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((await screen.findByRole("button", { name: "対策項目に追加しました" }) as HTMLButtonElement).disabled).toBe(true);
       historyOpen();
       const item = screen.getByRole("button", { name: new RegExp(`^${CONSULT_TOPICS[0]!.label}\\s*1 往復`, "u") });
       expect(item.textContent).toContain(CONSULT_TEXT.addedCount(1));
@@ -652,12 +652,12 @@ describe("AIに対策を相談の画面", () => {
     });
     it("CC BY 4.0: 帰属の文に題を入れない（資料の行にある）", async () => {
       const text = await attribution(withLicense("CC BY 4.0"));
-      expect(text).toBe("CC BY 4.0（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト");
+      expect(text).toBe("CC BY 4.0（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しはこのサイト");
       expect(text).not.toContain("飼養衛生管理基準遵守指導の手引き");
     });
     it("CC BY（版なし）も同じ形で、題を入れない", async () => {
       const text = await attribution(withLicense("CC BY"));
-      expect(text).toBe("CC BY（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト");
+      expect(text).toBe("CC BY（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しはこのサイト");
       expect(text).not.toContain("飼養衛生管理基準遵守指導の手引き");
     });
     it("OGL v3.0: Contains public sector information licensed under the Open Government Licence v3.0.", async () => {
@@ -1009,7 +1009,7 @@ describe("AIに対策を相談の画面", () => {
       expect(screen.getByRole("button", { name: "新しい相談" })).toBeTruthy();
       await askText();
       expect(screen.getByRole("button", { name: "根拠の資料 2 件を見る（引用・出典）" })).toBeTruthy();
-      expect(within(screen.getAllByTestId("consult-action")[0]!).getByRole("button", { name: "対策項目に足す" })).toBeTruthy();
+      expect(within(screen.getAllByTestId("consult-action")[0]!).getByRole("button", { name: "対策項目に追加する" })).toBeTruthy();
       historyOpen();
       expect(screen.getByRole("button", { name: "閉じる" })).toBeTruthy();
     });
@@ -1317,7 +1317,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     }
   });
 
-  it("登録を読めないときは、読めなかったと出し、選ぶ欄を出さない（未登録とは言わない）", async () => {
+  it("登録を読めないときは、読み込めなかったと出し、選ぶ欄を出さない（未登録とは言わない）", async () => {
     box.getFarm.mockRejectedValue(new Error("offline"));
     renderPage();
     expect(await screen.findByText(CONSULT_TEXT.conditionLoadFailed)).toBeTruthy();

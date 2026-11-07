@@ -121,9 +121,9 @@ describe("入力の欄", () => {
     expect(draftCall.fn).not.toHaveBeenCalled();
   });
 
-  it("『配るのは農場で、作品からは送りません』と書いてある", () => {
+  it("『配るのは農場で、このサイトからは送りません』と書いてある", () => {
     mount();
-    expect(screen.getAllByText(/配るのは農場で、作品からは送りません/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/配るのは農場で、このサイトからは送りません/).length).toBeGreaterThan(0);
   });
 
   it("書く前の画面の文に、使ってはいけない語（安全、安心、区域の外です）がない", () => {

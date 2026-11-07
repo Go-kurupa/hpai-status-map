@@ -209,7 +209,7 @@ describe("全国まとめ（daily_overview）", () => {
 describe("API の応答に添える文", () => {
   it("baseNotices は『県の連絡が正です』と『どこでも感染のリスクがあります』を含み、禁句がない", () => {
     const joined = baseNotices().join("\n");
-    expect(joined).toContain("県の連絡が正です");
+    expect(joined).toContain("正式な情報は県の連絡です");
     expect(joined).toContain("シーズン中はどこでも感染のリスクがあります");
     expect(joined).toContain(DATA_NOT_INSTRUCTION);
     expect(findWordingViolations(joined)).toEqual([]);

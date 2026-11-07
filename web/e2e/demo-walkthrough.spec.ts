@@ -173,14 +173,14 @@ test.describe("デモの筋", () => {
     await expect(page.getByRole("heading", { name: "区域に入っていれば求められること" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /^確かめておくとよいこと/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: /^確かめておくとよいこと/ })).toContainText("義務ではありません");
-    await expect(page.getByText("区域に入っているかは県の連絡が正です")).toBeVisible();
+    await expect(page.getByText("区域に入っているかは、県の連絡で確かめてください")).toBeVisible();
 
     // 解除の見込み: 防疫措置が完了している（12/30）ので、『未定』ではなく日付が出る
     const lift = page.getByRole("region", { name: "解除の見込み" });
     await expect(lift).toBeVisible();
     await expect(lift).not.toContainText("未定です");
     await expect(lift).toContainText("移動制限");
-    await expect(lift).toContainText("県の連絡が正です");
+    await expect(lift).toContainText("正式な情報は県の連絡です");
     await expect(lift).toContainText(/1\s*月\s*21\s*日/u);
 
     // 声かけ文: 読んで直し、コピーできる
@@ -194,14 +194,14 @@ test.describe("デモの筋", () => {
     await expectNoForbiddenText(page);
   });
 
-  test("場面 5: 報告文を作れて、基準に当たる例で通報を促す", async ({ page }) => {
+  test("場面 5: 報告文を作れて、届け出の基準に達する例で通報を促す", async ({ page }) => {
     await prepare(page);
     await page.goto("/sample/record/deaths");
     await page.getByLabel("鶏舎", { exact: true }).selectOption("house-a");
     await page.getByLabel("死亡数", { exact: true }).fill("10");
     await page.getByRole("button", { name: "記録する" }).click();
     const result = page.getByRole("region", { name: "計算の結果" });
-    await expect(result).toContainText("基準に当たる可能性があります");
+    await expect(result).toContainText("届け出の基準に達している可能性があります");
     await expect(result).toContainText("直ちに家保へ通報してください");
     await expect(result).toContainText("迷うときは家保へ確かめてください");
     await expectNoForbiddenText(page);

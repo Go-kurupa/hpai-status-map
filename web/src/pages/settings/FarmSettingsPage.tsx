@@ -37,10 +37,10 @@ function NextStep({ farm, houseCount }: { farm: Saved | null; houseCount: number
   if (houseCount === 0) {
     return (
       <div className="settings-next">
-        <p>次は鶏舎を足してください。死亡数の記録は鶏舎ごとにつけます。</p>
+        <p>次は鶏舎を追加してください。死亡数の記録は鶏舎ごとにつけます。</p>
         <p className="settings-next-links">
           <Link to="/settings/farm#houses" className="tap-link">
-            鶏舎を足す
+            鶏舎を追加する
           </Link>
         </p>
       </div>
@@ -167,7 +167,7 @@ function FarmSettings() {
       <section className="settings-page">
         <h1>農場の設定</h1>
         <p className="settings-error" role="alert">
-          {load.message ?? "農場の情報を読めませんでした。通信を確かめて、ページを読み込み直してください。"}
+          {load.message ?? "農場の情報を読み込めませんでした。通信を確かめて、ページを読み込み直してください。"}
         </p>
       </section>
     );
@@ -229,7 +229,7 @@ function FarmSettings() {
 
       <section>
         <h2>農場の地点</h2>
-        <p>住所は聞きません。市町村を選び、地図で農場のあたりをおしてください。約 1km のマス目で保存します。</p>
+        <p>住所は聞きません。市町村を選び、地図で農場のあたりを押してください。約 1km のマス目で保存します。</p>
         <p className="settings-note">正確な地点は保存せず、端末からも送りません。</p>
         {farm ? (
           <p>
@@ -287,7 +287,7 @@ function FarmSettings() {
           </select>
           {geoFailed ? (
             <p className="settings-error" role="alert">
-              市町村の一覧を読めませんでした。ページを読み込み直してください。
+              市町村の一覧を読み込めませんでした。ページを読み込み直してください。
             </p>
           ) : null}
         </div>
@@ -301,8 +301,8 @@ function FarmSettings() {
                 : TEXT.meshPickMuniFirst
               : muni
                 ? farm
-                  ? "替えるときは、地図で別の場所をおしてください。"
-                  : "地図で、農場のあたりをおしてください。"
+                  ? "替えるときは、地図で別の場所を押してください。"
+                  : "地図で、農場のあたりを押してください。"
                 : "市町村を選ぶと、地図がその町に寄ります。"}
         </p>
         <Button variant="primary" disabled={!pick || saving} onClick={() => void save()}>
@@ -349,8 +349,8 @@ function FarmSettings() {
 
       {farm ? (
         <section>
-          <h2>会員を足す</h2>
-          <p>同じ農場の会員を足すには、招待リンクを作って送ります。</p>
+          <h2>会員を追加する</h2>
+          <p>同じ農場の会員を追加するには、招待リンクを作って送ります。</p>
           <Button onClick={() => void makeInvite()} disabled={inviting}>
             招待リンクを作る
           </Button>

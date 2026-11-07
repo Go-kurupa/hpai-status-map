@@ -272,14 +272,14 @@ describe("/settings/farm", () => {
     expect((screen.getByRole("button", { name: "地点を保存" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("農場を読めなかったら『読めませんでした』を出し、保存の欄を出さない（重ねて農場を作らない）", async () => {
+  it("農場を読み込めなかったら『読み込めませんでした』を出し、保存の欄を出さない（重ねて農場を作らない）", async () => {
     mount("/settings/farm", { getFarm: vi.fn(async () => Promise.reject(new Error("permission-denied"))) });
-    expect((await screen.findByRole("alert")).textContent).toMatch(/読めませんでした/);
+    expect((await screen.findByRole("alert")).textContent).toMatch(/読み込めませんでした/);
     expect(screen.queryByRole("button", { name: "地点を保存" })).toBeNull();
     expect(screen.queryByRole("region", { name: "農場の地点を選ぶ地図" })).toBeNull();
   });
 
-  it("会員を足すのは『招待リンクを作る』のボタン 1 つ。押すとリンクが出る", async () => {
+  it("会員を追加するのは『招待リンクを作る』のボタン 1 つ。押すとリンクが出る", async () => {
     createInvite.fn.mockResolvedValue({ code: "ABC", url: "https://hpai.example.test/join/ABC" });
     mount("/settings/farm");
     const button = await screen.findByRole("button", { name: "招待リンクを作る" });
@@ -355,7 +355,7 @@ describe("/settings/farm（WebGL2 が使えない端末）", () => {
     fireEvent.change(screen.getByLabelText("都道府県"), { target: { value: "13" } });
     fireEvent.change(await screen.findByLabelText("市町村", {}, { timeout: 5000 }), { target: { value: "13101" } });
     expect(await screen.findByText(TEXT.meshPressCenter, {}, { timeout: 5000 })).toBeTruthy();
-    expect(screen.queryByText(/地図で、農場のあたりをおしてください/)).toBeNull();
+    expect(screen.queryByText(/地図で、農場のあたりを押してください/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: TEXT.meshUseCenter }));
     await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false), { timeout: 5000 });
@@ -394,7 +394,7 @@ describe("/settings/notify", () => {
 
   it("saveFarm に notify だけ渡す（toEqual）。段階の受信と朝のまとめを切り替えられる", async () => {
     mount("/settings/notify");
-    fireEvent.click(await screen.findByLabelText(/隣町で発生/));
+    fireEvent.click(await screen.findByLabelText(/隣の町で発生/));
     fireEvent.click(screen.getByLabelText(/朝のまとめ/));
     fireEvent.click(save());
     await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
@@ -515,9 +515,9 @@ describe("/settings/notify", () => {
     });
   });
 
-  it("農場を読めなかったら『読めませんでした』を出し、保存を出さない", async () => {
+  it("農場を読み込めなかったら『読み込めませんでした』を出し、保存を出さない", async () => {
     mount("/settings/notify", { getFarm: vi.fn(async () => Promise.reject(new Error("x"))) });
-    expect((await screen.findByRole("alert")).textContent).toMatch(/読めませんでした/);
+    expect((await screen.findByRole("alert")).textContent).toMatch(/読み込めませんでした/);
     expect(screen.queryByRole("button", { name: /保存/ })).toBeNull();
   });
 
@@ -532,7 +532,7 @@ describe("/settings/notify", () => {
     mailStopped = true;
     const { container } = mount("/settings/notify");
     expect(await screen.findByText("配信を止めています")).toBeTruthy();
-    expect(container.textContent).toContain("基準に当たった知らせと期限の知らせも止まっています");
+    expect(container.textContent).toContain("届け出の基準に達したときの知らせと期限の知らせも止まっています");
     expect(container.textContent).toContain("画面の表示は止まっていません");
     expect(screen.getByRole("button", { name: "配信を再開する" })).toBeTruthy();
     expect(findForbiddenPhrases(container.textContent ?? "")).toEqual([]);

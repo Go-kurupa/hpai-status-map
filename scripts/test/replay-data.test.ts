@@ -293,11 +293,11 @@ describe("メールの下書き（noticePreview）", () => {
     }
   });
 
-  it("文の形は『津山市で疑いの発表がありました。県の連絡が正です』。語は 疑い／確定／搬出制限の解除／移動制限の解除", () => {
-    expect(noticeTextFor("津山市", "suspected")).toBe("津山市で疑いの発表がありました。県の連絡が正です");
-    expect(noticeTextFor("津山市", "confirmed")).toBe("津山市で確定の発表がありました。県の連絡が正です");
-    expect(noticeTextFor("津山市", "shipment_lifted")).toBe("津山市で搬出制限の解除の発表がありました。県の連絡が正です");
-    expect(noticeTextFor("津山市", "movement_lifted")).toBe("津山市で移動制限の解除の発表がありました。県の連絡が正です");
+  it("文の形は『津山市で疑いの発表がありました。正式な情報は県の連絡です』。語は 疑い／確定／搬出制限の解除／移動制限の解除", () => {
+    expect(noticeTextFor("津山市", "suspected")).toBe("津山市で疑いの発表がありました。正式な情報は県の連絡です");
+    expect(noticeTextFor("津山市", "confirmed")).toBe("津山市で確定の発表がありました。正式な情報は県の連絡です");
+    expect(noticeTextFor("津山市", "shipment_lifted")).toBe("津山市で搬出制限の解除の発表がありました。正式な情報は県の連絡です");
+    expect(noticeTextFor("津山市", "movement_lifted")).toBe("津山市で移動制限の解除の発表がありました。正式な情報は県の連絡です");
     expect(noticeTextFor("津山市", "control_done")).toBeNull();
   });
 

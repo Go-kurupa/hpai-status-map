@@ -336,18 +336,18 @@ describe("距離の帯の農場（確認リストと声かけは ④ と同じ�
 });
 
 describe("段階 1 の解除の見込み", () => {
-  it("防疫措置の完了前は『未定』。搬出の文と『県の連絡が正です』。3 分類が最初から開いている", async () => {
+  it("防疫措置の完了前は『未定』。搬出の文と『正式な情報は県の連絡です』。3 分類が最初から開いている", async () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
     await screen.findByText("区域に入っている可能性があります。県の連絡を確かめてください");
     const region = screen.getByRole("region", { name: "解除の見込み" });
     expect(within(region).getByText(/未定です/)).toBeTruthy();
     expect(within(region).getByText(/搬出制限: 検査の結果を受けて県が解除します/)).toBeTruthy();
-    expect(within(region).getByText(/県の連絡が正です/)).toBeTruthy();
+    expect(within(region).getByText(/正式な情報は県の連絡です/)).toBeTruthy();
     expect(within(region).queryByText(/続発/)).toBeNull();
     // 段階 1 は求められることを最初から開く
     expect(hasHeading(/いつも求められていること/)).toBe(true);
     expect(hasHeading(/区域に入っていれば求められること/)).toBe(true);
-    expect(screen.getByText("区域に入っているかは県の連絡が正です")).toBeTruthy();
+    expect(screen.getByText("区域に入っているかは、県の連絡で確かめてください")).toBeTruthy();
     expect(hasHeading(/確かめておくとよいこと/)).toBe(true);
   });
 
@@ -434,10 +434,10 @@ describe("読み込みと失敗（④にしない）", () => {
     expect(screen.queryByRole("button", { name: /^確認リストを(開く|閉じる)/ })).toBeNull();
   });
 
-  it("県の形を読めなかったときは『読めませんでした』。④の文を出さない", async () => {
+  it("県の形を読み込めなかったときは『読み込めませんでした』。④の文を出さない", async () => {
     geoBox.fail = true;
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
-    await screen.findByText(/読めませんでした/);
+    await screen.findByText(/読み込めませんでした/);
     expect(riskItem()).toBeNull();
     expect(screen.queryByText("今月の自己点検を確かめましょう")).toBeNull();
   });
@@ -457,7 +457,7 @@ describe("読み込みと失敗（④にしない）", () => {
     expect(() => geo.geometry("31201")).toThrow(GeoNotLoadedError);
     mount(<TodoPage />, { ds: makeDs({ cases: [inTottori()] }) });
     await screen.findByText("近くの町で発表がありました。県の発表を確かめましょう");
-    expect(screen.queryByText(/読めませんでした/)).toBeNull();
+    expect(screen.queryByText(/読み込めませんでした/)).toBeNull();
     expect(() => geo.geometry("31201")).not.toThrow(); // 描く前に県 31 を読み込んだ
   });
 
@@ -562,12 +562,12 @@ describe("農場と記録（やった）", () => {
     expect(screen.queryAllByRole("button", { name: /^やった/ })).toHaveLength(0);
   });
 
-  it("農場を読めなかったとき（権限や通信）は『農場がない』と言わず、『やった』も出さない", async () => {
+  it("農場を読み込めなかったとき（権限や通信）は『農場がない』と言わず、『やった』も出さない", async () => {
     getFarmFails = true;
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText("今月の自己点検を確かめましょう");
     openMore();
-    await screen.findByText(/農場の情報を読めませんでした/);
+    await screen.findByText(/農場の情報を読み込めませんでした/);
     expect(screen.queryByText(/農場を設定すると記録できます/)).toBeNull();
     expect(screen.queryAllByRole("button", { name: /^やった/ })).toHaveLength(0);
   });
@@ -583,7 +583,7 @@ describe("農場と記録（やった）", () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }), store: sample, path: "/sample/todo" });
     await screen.findByText("今月の自己点検を確かめましょう");
     openMore();
-    await screen.findByText("見本の農場を読めませんでした");
+    await screen.findByText("見本の農場を読み込めませんでした");
   });
 
   it("/todo は会員の判断で包まない（未ログインでも開ける）", async () => {
@@ -745,10 +745,10 @@ describe("DisinfectionPanel", () => {
     expect(screen.queryByRole("region", { name: "最近の記録" })).toBeNull();
   });
 
-  it("近くの発生を読めなかったときは、ふだんの項目だけと断る", async () => {
+  it("近くの発生を読み込めなかったときは、ふだんの項目だけと断る", async () => {
     geoBox.fail = true;
     mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
-    await screen.findByText("近くの発生を読めなかったので、ふだんの項目だけ出しています");
+    await screen.findByText("近くの発生を読み込めなかったので、ふだんの項目だけ出しています");
     await waitFor(() => expect(screen.queryAllByRole("button", { name: /^やった/ })).toHaveLength(3));
   });
 });
@@ -841,7 +841,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   it("0 件のときは案内の文と、相談へのリンクを出す", async () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
-    expect(await sec.findByText("相談の画面で『対策項目に足す』を押すと、ここに並びます。")).toBeTruthy();
+    expect(await sec.findByText("相談の画面で『対策項目に追加する』を押すと、ここに並びます。")).toBeTruthy();
     expect(sec.getByRole("link", { name: "AIに対策を相談する" }).getAttribute("href")).toBe("/consult");
     expect(sec.queryAllByRole("listitem")).toHaveLength(0);
   });
@@ -855,12 +855,12 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
     expect(sec.getByRole("button", { name: "外す" })).toBeTruthy();
   });
 
-  it("足した項目を読めなかったときは、読めなかった旨を出す（0 件と読ませない）", async () => {
+  it("足した項目を読み込めなかったときは、読み込めなかった旨を出す（0 件と読ませない）", async () => {
     reviewBox.store.listReviewItems.mockRejectedValue(new Error("permission-denied"));
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const sec = within(await section());
-    expect((await sec.findByRole("alert")).textContent).toBe("足した見直しを読めませんでした。ページを読み込み直してください。");
-    expect(sec.queryByText("相談の画面で『対策項目に足す』を押すと、ここに並びます。")).toBeNull();
+    expect((await sec.findByRole("alert")).textContent).toBe("足した見直しを読み込めませんでした。ページを読み込み直してください。");
+    expect(sec.queryByText("相談の画面で『対策項目に追加する』を押すと、ここに並びます。")).toBeNull();
   });
 
   it("会員でない（農場を読めない）ときは欄を出さず、足した項目も読みにいかない", async () => {

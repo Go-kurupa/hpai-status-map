@@ -163,7 +163,7 @@ test.describe("去年の再現（/replay）", () => {
     await filterHas(page, "case-suspected", "33203");
     const mail = page.getByRole("region", { name: "このときメールが届く" });
     await expect(mail).toBeVisible();
-    await expect(mail.getByText("津山市で疑いの発表がありました。県の連絡が正です")).toBeVisible();
+    await expect(mail.getByText("津山市で疑いの発表がありました。正式な情報は県の連絡です")).toBeVisible();
     await expect(mail.getByText(/実際には送りません/)).toBeVisible();
     await openBandFold(page, /メールは実際には送りません/);
 

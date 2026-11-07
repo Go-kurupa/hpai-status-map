@@ -39,7 +39,7 @@ describe("buildChecklist: 段階ごとの分類", () => {
     expect(sec(r, "if_in_zone")?.heading).toBe("区域に入っていれば求められること");
     expect(sec(r, "good_to_check")?.heading).toBe("確かめておくとよいこと（義務ではありません。関係が深そうな順）");
     expect(CHECKLIST_HEADINGS.good_to_check).toBe(sec(r, "good_to_check")?.heading);
-    expect(ZONE_AUTHORITY_NOTE).toBe("区域に入っているかは県の連絡が正です");
+    expect(ZONE_AUTHORITY_NOTE).toBe("区域に入っているかは、県の連絡で確かめてください");
   });
   it("『義務ではない』は good_to_check の見出しだけ。always と if_in_zone の項目と見出しに出ない", () => {
     for (const s of build(1).filter((x) => x.class !== "good_to_check")) {

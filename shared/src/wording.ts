@@ -44,7 +44,7 @@ export const REASSURANCE_WORDS = ["大丈夫", "平気です", "ご安心"] as c
 
 export const FIXED_TEXT = {
   /** 県の連絡が正 */
-  prefContactIsAuthority: "県の連絡が正です",
+  prefContactIsAuthority: "正式な情報は県の連絡です",
   /** 国の報告書の言葉（出典つき） */
   riskAnywhere:
     "件数が少なくても、シーズン中はどこでも感染のリスクがあります（出典: 農林水産省 疫学調査報告書 https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_98/attach/pdf/kakin_98-12.pdf）",

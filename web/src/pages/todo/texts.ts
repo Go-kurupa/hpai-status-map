@@ -3,8 +3,8 @@
 
 export const TODO_TEXT = {
   title: "対策項目",
-  loading: "読み込んでいます。読めるまで、発生がないとは言えません",
-  loadFailed: "読めませんでした。ページを読み込み直してください。読めるまで、発生がないとは言えません",
+  loading: "読み込んでいます。読み込めるまで、発生がないとは言えません",
+  loadFailed: "読み込めませんでした。ページを読み込み直してください。読み込めるまで、発生がないとは言えません",
   noSpot: "地域を選択すると、近くの発生に合わせた確認を出せます。いまは、ふだんの確認だけを出しています",
   pickTown: "地図で地域を選択",
   /** 見回りで県の発表を確認できていないとき（段階 4 を「何もない」と読ませない） */
@@ -28,7 +28,7 @@ export const TODO_TEXT = {
   liftSourceCalculated: "防疫指針の日数から計算",
   liftEarliestDay: "最も早い日",
   liftChain: "続発があると延びます",
-  liftAuthority: "解除は県が決めます。県の連絡が正です",
+  liftAuthority: "解除は県が決めます。正式な情報は県の連絡です",
   liftLifted: "移動制限は解除されました",
   movement: "移動制限",
   surveillance: "監視強化",
@@ -40,9 +40,9 @@ export const TODO_TEXT = {
   doneFailed: "記録できませんでした。もう一度押してください",
   recordNeedInvite: "招待コードで登録すると記録できます",
   recordNeedFarm: "農場を設定すると記録できます",
-  recordSampleNone: "見本の農場を読めませんでした",
+  recordSampleNone: "見本の農場を読み込めませんでした",
   recordAuthError: "ログインの状態を確かめられませんでした。ページを読み込み直してください",
-  farmFailed: "農場の情報を読めませんでした。記録はできません。ページを読み込み直してください",
+  farmFailed: "農場の情報を読み込めませんでした。記録はできません。ページを読み込み直してください",
   setFarmLink: "農場を設定する",
   loginLink: "ログインする",
   // 消毒の記録
@@ -50,16 +50,16 @@ export const TODO_TEXT = {
   panelLead: "消毒したら「やった」を押すと、日付と項目を残します",
   panelRecent: "最近の記録",
   panelNone: "最近の記録はありません",
-  panelListFailed: "最近の記録を読めませんでした",
-  panelLevelFailed: "近くの発生を読めなかったので、ふだんの項目だけ出しています",
+  panelListFailed: "最近の記録を読み込めませんでした",
+  panelLevelFailed: "近くの発生を読み込めなかったので、ふだんの項目だけ出しています",
   // 相談から足した見直し（会員だけ。AIに対策を相談の「対策項目に足す」で足したカード）
   reviewsHeading: "AI の相談から足した見直し",
-  reviewsEmpty: "相談の画面で『対策項目に足す』を押すと、ここに並びます。",
+  reviewsEmpty: "相談の画面で『対策項目に追加する』を押すと、ここに並びます。",
   reviewsLink: "AIに対策を相談する",
   /** 足した見直しの各項目から、その対策について相談の画面を開く */
   reviewsAsk: "この対策を AI に聞く",
   reviewsRemove: "外す",
-  reviewsLoadFailed: "足した見直しを読めませんでした。ページを読み込み直してください。",
+  reviewsLoadFailed: "足した見直しを読み込めませんでした。ページを読み込み直してください。",
   reviewsRemoveFailed: "外せませんでした。もう一度お試しください。",
   reviewsGone: "このカードは今の資料にありません。",
   // 実施の記録（人が付ける。AI は付けない）。状態の名前は shared/src/consult/review.ts の REVIEW_STATUS_LABEL
@@ -87,7 +87,7 @@ export const TODO_TEXT = {
 export const MORNING_TEXT = {
   heading: "けさの確認",
   loading: "読み込んでいます",
-  failed: "読めませんでした",
+  failed: "読み込めませんでした",
   // 1 最新の発生
   outbreakHeading: "最新の発生",
   outbreakLink: "発生の地図を見る",

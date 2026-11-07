@@ -182,7 +182,7 @@ export function KahoContactForm({ farm, save }: { farm: Pick<Farm, "kahoContact"
       />
       <div>
         <Button variant="primary" disabled={state === "saving"} onClick={() => void run()}>
-          家保の連絡先を保存
+          家畜保健衛生所の連絡先を保存
         </Button>
       </div>
       <SaveStatus state={state} />

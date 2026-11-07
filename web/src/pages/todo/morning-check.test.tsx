@@ -246,15 +246,15 @@ describe("2 今日の死亡数", () => {
     mount();
     const p = await part(/今日の死亡数/);
     expect(await p.findByText(/鶏舎がまだありません。/)).toBeTruthy();
-    expect(p.getByRole("link", { name: "鶏舎を足す" }).getAttribute("href")).toBe("/settings/farm#houses");
+    expect(p.getByRole("link", { name: "鶏舎を追加する" }).getAttribute("href")).toBe("/settings/farm#houses");
     expect(p.queryAllByRole("listitem")).toHaveLength(0);
   });
 
-  it("読めなければ「読めませんでした」（未入力や 0 羽と出さない）。記録の画面への入口は残す", async () => {
+  it("読めなければ「読み込めませんでした」（未入力や 0 羽と出さない）。記録の画面への入口は残す", async () => {
     listDeaths.mockRejectedValue(new Error("permission-denied"));
     mount();
     const p = await part(/今日の死亡数/);
-    expect(await p.findByText("読めませんでした")).toBeTruthy();
+    expect(await p.findByText("読み込めませんでした")).toBeTruthy();
     expect(p.queryByText(/未入力|羽/)).toBeNull();
     expect(p.getByRole("link", { name: "死亡数を記録する" }).getAttribute("href")).toBe("/record/deaths");
   });
@@ -381,11 +381,11 @@ describe("3 後でやる・まだの対策", () => {
     expect(p.queryByText(/件/)).toBeNull();
   });
 
-  it("読めなければ「読めませんでした」（0 件と出さない）", async () => {
+  it("読めなければ「読み込めませんでした」（0 件と出さない）", async () => {
     reviewBox.store.listReviewItems.mockRejectedValue(new Error("permission-denied"));
     mount();
     const p = await part(/後でやる・まだの対策/);
-    expect(await p.findByText("読めませんでした")).toBeTruthy();
+    expect(await p.findByText("読み込めませんでした")).toBeTruthy();
     expect(p.queryByText(/件|ありません/)).toBeNull();
   });
 

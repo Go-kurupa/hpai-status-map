@@ -19,7 +19,7 @@ describe("禁止の語", () => {
 
 describe("FIXED_TEXT", () => {
   it("契約 3.1 の文と一致する", () => {
-    expect(FIXED_TEXT.prefContactIsAuthority).toBe("県の連絡が正です");
+    expect(FIXED_TEXT.prefContactIsAuthority).toBe("正式な情報は県の連絡です");
     expect(FIXED_TEXT.pastDisclaimer).toBe("過去の記録です。これからの発生を予測するものではありません");
     expect(FIXED_TEXT.replayBanner).toBe("去年の再現です");
     expect(FIXED_TEXT.areaNoDistance).toBe("町だけを選んでいるので、農場からの距離は見ていません。農場の地点を登録すると、区域に入るかを確かめられます");

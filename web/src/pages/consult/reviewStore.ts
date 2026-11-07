@@ -34,7 +34,7 @@ export interface ReviewStore {
 }
 
 /** 農場がない会員への案内（画面は code が no-farm のときに設定へのリンクを添える） */
-export const NO_FARM_MESSAGE = "対策項目に足すには、先に『農場と通知の設定』で農場を登録してください。";
+export const NO_FARM_MESSAGE = "対策項目に追加するには、先に『農場と通知の設定』で農場を登録してください。";
 const noFarmError = () => Object.assign(new Error(NO_FARM_MESSAGE), { code: "no-farm" });
 
 const toDate = (v: unknown): Date | null => {

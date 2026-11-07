@@ -50,9 +50,9 @@ export function MuniMultiPicker({
     town === farmMuniCode
       ? "農場の町は足せません。農場の地点として登録してあります。"
       : shown.includes(town)
-        ? "この町はもう足してあります。"
+        ? "この町はもう追加してあります。"
         : shown.length >= MAX_FREQUENT_MUNIS
-          ? `${MAX_FREQUENT_MUNIS} 件までです。足すには、どれかを外してください。`
+          ? `${MAX_FREQUENT_MUNIS} 件までです。追加するには、どれかを外してください。`
           : null;
 
   function add() {
@@ -64,7 +64,7 @@ export function MuniMultiPicker({
 
   return (
     <div className="settings-form">
-      <p>仕事や用事でよく行き来する町を足します。その町で発生したときに、知らせます。</p>
+      <p>仕事や用事でよく行き来する町を追加します。その町で発生したときに、知らせます。</p>
       <p className="settings-note">
         {shown.length} / {MAX_FREQUENT_MUNIS} 件
       </p>
@@ -91,10 +91,10 @@ export function MuniMultiPicker({
           })}
         </ul>
       ) : (
-        <p className="settings-note">まだ足していません。</p>
+        <p className="settings-note">まだ追加していません。</p>
       )}
 
-      <label htmlFor="frequent-pref">足す町の県</label>
+      <label htmlFor="frequent-pref">追加する町の県</label>
       <select
         id="frequent-pref"
         value={prefCode}
@@ -110,7 +110,7 @@ export function MuniMultiPicker({
           </option>
         ))}
       </select>
-      <label htmlFor="frequent-town">足す町</label>
+      <label htmlFor="frequent-town">追加する町</label>
       <select id="frequent-town" value={town} disabled={prefCode === "" || !geo} onChange={(e) => setTown(e.target.value)}>
         <option value="">選んでください</option>
         {choices.map((m) => (
@@ -119,11 +119,11 @@ export function MuniMultiPicker({
           </option>
         ))}
       </select>
-      {geoFailed ? <p className="settings-note">市町村の一覧を読めなかったため、町を足せません。</p> : null}
+      {geoFailed ? <p className="settings-note">市町村の一覧を読み込めなかったため、町を追加できません。</p> : null}
       {blocked ? <p className="settings-note">{blocked}</p> : null}
       <div>
         <Button disabled={town === "" || blocked !== null} onClick={add}>
-          この町を足す
+          この町を追加する
         </Button>
       </div>
 

@@ -108,7 +108,7 @@ export function HouseList({
     // 読めなかったときは「ない」と言わない（ないと思って重ねて足さないため）
     return (
       <p className="settings-error" role="alert">
-        鶏舎の一覧を読めませんでした。通信を確かめて、ページを読み込み直してください。
+        鶏舎の一覧を読み込めませんでした。通信を確かめて、ページを読み込み直してください。
       </p>
     );
   }
@@ -197,7 +197,7 @@ export function HouseList({
         </div>
       ) : (
         <div>
-          <Button onClick={() => open(BLANK)}>鶏舎を足す</Button>
+          <Button onClick={() => open(BLANK)}>鶏舎を追加する</Button>
         </div>
       )}
     </div>

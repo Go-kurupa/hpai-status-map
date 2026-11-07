@@ -109,7 +109,7 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
         <section>
           <h2>配信を止めています</h2>
           <p className="settings-note">
-            メールのリンクで、この農場あてのメールを止めています。発生の知らせ、野鳥の知らせ、朝のまとめが届きません。基準に当たった知らせと期限の知らせも止まっています。画面の表示は止まっていません。
+            メールのリンクで、この農場あてのメールを止めています。発生の知らせ、野鳥の知らせ、朝のまとめが届きません。届け出の基準に達したときの知らせと期限の知らせも止まっています。画面の表示は止まっていません。
           </p>
           <Button variant="primary" disabled={resume === "busy"} onClick={() => void resumeMail()}>
             配信を再開する
@@ -129,9 +129,9 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
 
       <section>
         <h2>メールで知らせる</h2>
-        <p className="settings-note">発生の知らせは、疑いも「疑い」と書いてメールで届きます。県の連絡が正です。</p>
+        <p className="settings-note">発生の知らせは、疑いも「疑い」と書いてメールで届きます。正式な情報は県の連絡です。</p>
         <p className="settings-note">
-          野鳥の高病原性鳥インフルエンザが確定したときは、近くなら朝のまとめに入ります（警告の段階は上がりません）。死亡数が基準に当たったときの知らせは、この設定にかかわらずすぐ届きます。メールの配信停止のリンクで、これらも止まります。
+          野鳥の高病原性鳥インフルエンザが確定したときは、近くなら朝のまとめに入ります（知らせの段階は上がりません）。死亡数が届け出の基準に達したときの知らせは、この設定にかかわらずすぐ届きます。メールの配信停止のリンクで、これらも止まります。
         </p>
         <div className="settings-form">
           <label className="settings-check">
@@ -140,7 +140,7 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
           </label>
           <label className="settings-check">
             <input type="checkbox" checked={notify.level2} onChange={toggle("level2")} />
-            隣町で発生（朝 6 時にまとめて届きます）
+            隣の町で発生（朝 6 時にまとめて届きます）
           </label>
           <label className="settings-check">
             <input type="checkbox" checked={notify.level3} onChange={toggle("level3")} />
@@ -245,7 +245,7 @@ function NotifySettingsLoader() {
       <section className="settings-page">
         <h1>通知の設定</h1>
         <p className="settings-error" role="alert">
-          {load.message ?? "農場の情報を読めませんでした。通信を確かめて、ページを読み込み直してください。"}
+          {load.message ?? "農場の情報を読み込めませんでした。通信を確かめて、ページを読み込み直してください。"}
         </p>
       </section>
     );

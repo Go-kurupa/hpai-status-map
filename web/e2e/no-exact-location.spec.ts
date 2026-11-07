@@ -284,7 +284,7 @@ test("会員: 招待で入り、町を選び、地図を押して保存すると
     await expect(page.getByRole("region", { name: "農場の地点を選ぶ地図" })).toBeVisible();
     await page.getByLabel("都道府県").selectOption("33");
     await page.getByLabel("市町村").selectOption("33203");
-    await expect(page.getByRole("status").filter({ hasText: /地図で、農場のあたりをおしてください/ })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: /地図で、農場のあたりを押してください/ })).toBeVisible();
     const index = (await (await page.request.get("/geo/muni-index.json")).json()) as Record<string, { center: [number, number] }>;
     const [lng, lat] = index["33203"]!.center;
     await page.waitForFunction(() => !!(window as unknown as PW).__hpaiPicker);

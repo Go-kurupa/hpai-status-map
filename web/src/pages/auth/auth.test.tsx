@@ -336,7 +336,7 @@ describe("/login", () => {
     mount("/login");
     fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
     expect(
-      await screen.findByText("ログインの窓が開けませんでした。もう一度「Google で入る」を押してください（auth/popup-blocked）"),
+      await screen.findByText("ログインの画面を開けませんでした。もう一度「Google で入る」を押してください（auth/popup-blocked）"),
     ).toBeTruthy();
     expect(redeem.fn).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Google で入る" })).toBeTruthy(); // 画面は生きている
@@ -452,7 +452,7 @@ describe("/join/:code", () => {
     firebaseAuth.signInWithPopup.mockRejectedValue(Object.assign(new Error("x"), { code: "auth/popup-blocked" }));
     mount("/join/CODE123");
     fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
-    expect(await screen.findByText("ログインの窓が開けませんでした。もう一度「Google で入る」を押してください（auth/popup-blocked）")).toBeTruthy();
+    expect(await screen.findByText("ログインの画面を開けませんでした。もう一度「Google で入る」を押してください（auth/popup-blocked）")).toBeTruthy();
     expect(redeem.fn).not.toHaveBeenCalled();
     expect(at()).toBe("/join/CODE123");
   });
@@ -545,7 +545,7 @@ describe("入る方法の並びと、リンクを送った後の文", () => {
     fireEvent.change(await screen.findByLabelText("メールアドレス"), { target: { value: "me@example.test" } });
     fireEvent.click(screen.getByRole("button", { name: "ログインのリンクを送る" }));
     const sent = await screen.findByText(/メールを送りました/);
-    expect(sent.textContent).toBe("メールを送りました。届いたリンクをおしてください。届かないときは迷惑メールも見てください");
+    expect(sent.textContent).toBe("メールを送りました。届いたリンクを押してください。届かないときは迷惑メールも見てください");
     expect(sent.getAttribute("role")).toBe("status");
     expect(sent.classList.contains("auth-sent")).toBe(true);
     // jsdom は css を当てないので、規則を読んで確かめる。色は theme.css の変数

@@ -34,7 +34,7 @@ export const EXPLAINER_TEXT = {
   draftNote: "Claude の文は下書きです。配る前に、必ず読んで、直してください。",
   sendNotice: "入力した文を Claude に送ります。農場の名前、位置、記録は送りません。",
   sampleNotice: "これは見本の画面です。入力した文は Claude に送らず、雛形に入れるだけです。",
-  distribute: "配るのは農場で、作品からは送りません。",
+  distribute: "配るのは農場で、このサイトからは送りません。",
 } as const;
 
 /** 下書きの結果が雛形になった理由を、やさしい言葉にする。入力の文そのものは出さない（言い方の語だけ） */

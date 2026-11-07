@@ -177,7 +177,7 @@ describe("RecordTabs（上の 2 行とリンク）", () => {
     expect(hrefs.some((h) => h.startsWith("/record"))).toBe(false);
   });
 
-  it("配信を止めているときは常に『メールは止まっています。基準に当たっても届きません』", async () => {
+  it("配信を止めているときは常に『メールは止まっています。届け出の基準に達しても届きません』", async () => {
     mailStopped = true;
     mount(<RecordTabs />);
     expect(await screen.findByText(RECORD_TEXT.mailStopped)).toBeTruthy();
@@ -447,7 +447,7 @@ describe("DeathsPanel 入力", () => {
     mount(<DeathsPanel />);
     await screen.findByText(/^鶏舎がまだありません。/);
     expect(screen.queryByText(/。。/)).toBeNull();
-    expect(screen.getByRole("link", { name: "鶏舎を足す" }).getAttribute("href")).toBe("/settings/farm#houses");
+    expect(screen.getByRole("link", { name: "鶏舎を追加する" }).getAttribute("href")).toBe("/settings/farm#houses");
     expect(screen.queryByRole("button", { name: RECORD_TEXT.save })).toBeNull();
   });
 
@@ -457,7 +457,7 @@ describe("DeathsPanel 入力", () => {
     mount(<DeathsPanel />, { path: "/sample/record/deaths", store: sample });
     await screen.findByText(new RegExp(RECORD_TEXT.noHouses));
     expect(screen.getByRole("link", { name: RECORD_TEXT.setFarmLink }).getAttribute("href")).toBe("/settings/farm");
-    expect(screen.queryByRole("link", { name: "鶏舎を足す" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "鶏舎を追加する" })).toBeNull();
   });
 
   it("農場がなければ /settings/farm へ案内し、保存を出さない", async () => {
@@ -491,7 +491,7 @@ describe("DeathsPanel 計算の表示", () => {
     expect(screen.getByText(MORTALITY_TEXT.symptoms)).toBeTruthy();
   });
 
-  it("当たれば hit の文と、登録した家保の連絡先。入力を直すと表示が消える", async () => {
+  it("当たれば hit の文と、登録した家畜保健衛生所の連絡先。入力を直すと表示が消える", async () => {
     deaths = history(21); // 1 日 1 羽 / 1000 羽
     mount(<DeathsPanel />);
     await recordDeaths("10"); // 当日 10 羽 → 平均の 2 倍以上
@@ -512,7 +512,7 @@ describe("DeathsPanel 計算の表示", () => {
     expect(screen.getByText(RECORD_TEXT.hitAfterEdit)).toBeTruthy();
   });
 
-  it("連絡先が空でも hit を残し、『家保の連絡先が未登録です』と /settings/farm への案内を出す", async () => {
+  it("連絡先が空でも hit を残し、『家畜保健衛生所の連絡先が未登録です』と /settings/farm への案内を出す", async () => {
     farm = farmFixture({ kahoContact: "" });
     deaths = history(21);
     mount(<DeathsPanel />);

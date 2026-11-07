@@ -7,14 +7,14 @@ import { CODE_REFUSED } from "./InviteCodeForm";
 import "./auth.css";
 
 const GOOGLE_FAILED = "メールのリンクで入ってください";
-const GOOGLE_BLOCKED = "ログインの窓が開けませんでした。もう一度「Google で入る」を押してください";
+const GOOGLE_BLOCKED = "ログインの画面を開けませんでした。もう一度「Google で入る」を押してください";
 const GOOGLE_CLOSED = "ログインをやめました";
 const SEND_FAILED = "メールを送れませんでした。メールアドレスを確かめて、もう一度試してください";
 const LINK_FAILED = "このリンクは使えません。もう一度、リンクを送ってください";
 // Google の窓が開かない場面の注。メールのリンクの欄の上に置き、Google がだめならここから入れると分かるようにする
 const LINE_NOTE = "LINE の中で開くと Google が使えないことがあります。そのときはメールのリンクで入ってください";
 // 送った後の文。小さく見落とされないよう枠付き・太字にし、届かないときの見どころも添える（2026-11-07 精査 J2）
-const SENT = "メールを送りました。届いたリンクをおしてください。届かないときは迷惑メールも見てください";
+const SENT = "メールを送りました。届いたリンクを押してください。届かないときは迷惑メールも見てください";
 
 type FirebaseAuth = Awaited<ReturnType<typeof getFirebase>>["auth"];
 
@@ -155,7 +155,7 @@ export function SignInPanel({
     return (
       <form className="auth-form" onSubmit={answerAsk}>
         <label htmlFor="ask-email">ログインに使うメールアドレス</label>
-        <p className="auth-note">別の端末やブラウザでリンクを開いたので、もう一度入れてください。</p>
+        <p className="auth-note">別の端末やブラウザでリンクを開いたので、メールアドレスをもう一度入力してください。</p>
         <input
           id="ask-email"
           type="email"

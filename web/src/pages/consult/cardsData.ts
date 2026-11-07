@@ -13,7 +13,7 @@ export function loadConsultCatalog(): Promise<ConsultCatalog> {
   if (!pending) {
     pending = fetch("/consult/cards.json")
       .then((res) => {
-        if (!res.ok) throw new Error(`カードを読めませんでした（${res.status}）`);
+        if (!res.ok) throw new Error(`カードを読み込めませんでした（${res.status}）`);
         return res.json() as Promise<ConsultCardsFile>;
       })
       .then((file) => ({

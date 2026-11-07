@@ -10,7 +10,7 @@ export const CONSULT_TEXT = {
   topicsLabel: "話題",
   questionLabel: "聞きたいこと",
   /** 最初の入力欄の案内（2026-11-07 作者の文）。話題のボタン以外の問いや、農場ごとの相談を書いてもらう */
-  placeholder: "上記以外や個別相談などありましたら、ご記載ください",
+  placeholder: "ほかに聞きたいことがあれば、ここに書いてください",
   followPlaceholder: "続けて聞く…",
   ask: "送る",
   asking: "送っています…",
@@ -66,7 +66,7 @@ export const CONSULT_TEXT = {
   noMatch: "当てはまる相談はありません。",
   /** 相談の中身の見出しの下（例「今日 15:06 から · 2 往復」） */
   chatSince: (when: string, turns: number) => `${when} から · ${turns} 往復`,
-  historyKept: "相談の記録は、この端末のブラウザにだけ残ります。作品のサーバーには保存しません。",
+  historyKept: "相談の記録は、この端末のブラウザにだけ残ります。このサイトのサーバーには保存しません。",
   historyNotKept: "ページを離れると消えます。保存しません。",
   historySaveFailed: "この端末に記録を残せませんでした。ページを離れると消えます。",
   /** 範囲外の決まった文（関数が返す文と同じ） */
@@ -89,7 +89,7 @@ export const CONSULT_TEXT = {
   conditionNoneBefore: "登録した条件: 未登録。",
   conditionSettingsLink: "農場の設定",
   conditionNoneAfter: "で登録すると、条件を付けて相談できます。",
-  conditionLoadFailed: "登録した条件を読めませんでした。条件を付けずに相談できます。",
+  conditionLoadFailed: "登録した条件を読み込めませんでした。条件を付けずに相談できます。",
   /** 答えの近くに出す、今回使った条件 */
   conditionUsed: (label: string) => `今回の条件: ${label}`,
   /** 質問の文と登録が食い違うとき（食い違い 1 つごとの文と、最後の 1 文）。送らずに、本人に選んでもらう（直す・このまま付けて送る・付けずに送る・やめる） */
@@ -101,15 +101,15 @@ export const CONSULT_TEXT = {
   conflictSendWithout: "条件を付けずに送る",
   conflictCancel: "やめる",
   foreign: "日本と飼い方が違う可能性があります。",
-  add: "対策項目に足す",
-  adding: "足しています…",
-  added: "対策項目に足しました",
+  add: "対策項目に追加する",
+  adding: "追加しています…",
+  added: "対策項目に追加しました",
   addFailed: "対策項目に足せませんでした。もう一度お試しください。",
   /** 農場がなくて足せないとき。「農場と通知の設定」はリンクにする */
-  noFarmBefore: "対策項目に足すには、先に『",
+  noFarmBefore: "対策項目に追加するには、先に『",
   noFarmLink: "農場と通知の設定",
   noFarmAfter: "』で農場を登録してください。",
-  reviewsLoadFailed: "足した項目を読めませんでした。足し済みの印が出ないことがあります。",
+  reviewsLoadFailed: "足した項目を読み込めませんでした。足し済みの印が出ないことがあります。",
   /** 画面の下の 1 行の前。カードの文が資料の要約・加工であること */
   processed: "カードの対策・効く条件・注意書きは、資料を要約・加工したものです。引用は原文のままです。",
   footer:
@@ -128,9 +128,9 @@ export function attributionText(source: ConsultSourceInfo): string {
       return `出典: ${source.publisher}『${source.title}』を加工して作成`;
     case "CC BY 4.0":
       // 題は上の「資料:」の行にあるので、ここには入れない
-      return "CC BY 4.0（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト";
+      return "CC BY 4.0（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しはこのサイト";
     case "CC BY":
-      return "CC BY（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しは当サイト";
+      return "CC BY（https://creativecommons.org/licenses/by/4.0/ ）。要約と抜き出しはこのサイト";
     case "OGL v3.0":
       return "Contains public sector information licensed under the Open Government Licence v3.0.";
     case "US Gov":

@@ -72,7 +72,7 @@ describe("createReviewStore", () => {
     ]) {
       await expect(run()).rejects.toMatchObject({
         code: "no-farm",
-        message: "対策項目に足すには、先に『農場と通知の設定』で農場を登録してください。",
+        message: "対策項目に追加するには、先に『農場と通知の設定』で農場を登録してください。",
       });
     }
   });

@@ -40,7 +40,7 @@ test.describe("AIに対策を相談", () => {
     // 鍵がないので Claude の呼び出しは失敗する → unavailable の文（決まった文ではない）
     await expect(page.getByText(UNAVAILABLE)).toBeVisible({ timeout: 120_000 });
     await expect(page.getByText(OUT_OF_SCOPE)).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /対策項目に足/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /対策項目に追加/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "送る" })).toBeVisible();
     await expect(page.getByText(FOOTER)).toBeVisible();
     await expectNoForbiddenText(page);

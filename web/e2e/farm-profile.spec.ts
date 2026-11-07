@@ -63,7 +63,7 @@ const sectionOf = (page: Page, heading: string) =>
 async function pickTown(page: Page, prefCode: string, muniCode: string) {
   await page.getByLabel("都道府県", { exact: true }).selectOption(prefCode);
   await page.getByLabel("市町村", { exact: true }).selectOption(muniCode);
-  await expect(page.getByRole("status").filter({ hasText: /地図で、農場のあたりをおしてください/ })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /地図で、農場のあたりを押してください/ })).toBeVisible();
   const res = await page.request.get("/geo/muni-index.json");
   const index = (await res.json()) as Record<string, { center: [number, number] }>;
   const [lng, lat] = index[muniCode]!.center;
@@ -115,18 +115,18 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
 
   // 農場がないあいだは地点の欄だけ
   await expect(page.getByLabel("農場名", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "鶏舎を足す" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "鶏舎を追加する" })).toHaveCount(0);
 
   // 地点を津山市の center に置いて保存する
   const spot = await pickTown(page, "33", "33203");
   await page.getByRole("button", { name: "地点を保存" }).click();
   await expect(page.getByText(/最終保存/)).toBeVisible();
-  await expect(page.getByText("次は鶏舎を足してください。死亡数の記録は鶏舎ごとにつけます。")).toBeVisible();
+  await expect(page.getByText("次は鶏舎を追加してください。死亡数の記録は鶏舎ごとにつけます。")).toBeVisible();
 
   // 鶏舎がないうちに死亡数の画面を開くと、鶏舎の欄へのリンクが出て、押すと鶏舎の見出しへ移る（題への焦点の移動に負けない）
   await page.goto("/record/deaths?emulator=1");
   await expect(page.getByText(/^鶏舎がまだありません。/)).toBeVisible();
-  await page.getByRole("link", { name: "鶏舎を足す" }).click();
+  await page.getByRole("link", { name: "鶏舎を追加する" }).click();
   await expect(page).toHaveURL(/\/settings\/farm(\?[^#]*)?#houses$/);
   await expect(page.getByRole("heading", { name: "鶏舎", exact: true })).toBeFocused();
   // 画面の中のリンクは ?emulator=1 を持ち越さない。後の再読み込みで本番の設定を読まないよう、付けて開き直す
@@ -142,15 +142,15 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await expect(sectionOf(page, "農場の情報").getByRole("status")).toHaveText("保存しました");
 
   // 行き来する町 札幌市
-  await page.getByLabel("足す町の県", { exact: true }).selectOption("01");
-  await page.getByLabel("足す町", { exact: true }).selectOption("01100");
-  await page.getByRole("button", { name: "この町を足す" }).click();
+  await page.getByLabel("追加する町の県", { exact: true }).selectOption("01");
+  await page.getByLabel("追加する町", { exact: true }).selectOption("01100");
+  await page.getByRole("button", { name: "この町を追加する" }).click();
   await page.getByRole("button", { name: "行き来する町を保存" }).click();
   await expect(sectionOf(page, "行き来する町").getByRole("status")).toHaveText("保存しました");
 
   // 鶏舎を 2 つ
   const addHouse = async (name: string, bird: string, flock: string) => {
-    await page.getByRole("button", { name: "鶏舎を足す" }).click();
+    await page.getByRole("button", { name: "鶏舎を追加する" }).click();
     await page.getByLabel("鶏舎の名前", { exact: true }).fill(name);
     await page.getByLabel("鳥の種類", { exact: true }).selectOption(bird);
     await page.getByLabel("飼養羽数", { exact: true }).fill(flock);
@@ -162,7 +162,7 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
 
   // 家保の連絡先（見本の語だけ）
   await page.getByLabel("家畜保健衛生所の連絡先", { exact: true }).fill("テスト用の連絡先");
-  await page.getByRole("button", { name: "家保の連絡先を保存" }).click();
+  await page.getByRole("button", { name: "家畜保健衛生所の連絡先を保存" }).click();
   await expect(sectionOf(page, "家畜保健衛生所の連絡先").getByRole("status")).toHaveText("保存しました");
 
   // 再読み込みで残る（各欄の保存が終わってから読み直す）

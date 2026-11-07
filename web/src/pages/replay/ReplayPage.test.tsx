@@ -175,7 +175,7 @@ describe("ReplayPage", () => {
     fireEvent.click(item(/12 月 19 日.*津山市.*疑い/));
     expect(await screen.findByText(ZONE)).toBeTruthy();
     const mail = screen.getByRole("region", { name: "このときメールが届く" });
-    expect(within(mail).getByText("津山市で疑いの発表がありました。県の連絡が正です")).toBeTruthy();
+    expect(within(mail).getByText("津山市で疑いの発表がありました。正式な情報は県の連絡です")).toBeTruthy();
     expect(mail.textContent).toMatch(/実際には送りません/);
     expect(document.body.textContent).toMatch(/時刻の記載なし/);
     await waitFor(() => expect(lastProps().view.suspectedMuniCodes).toContain("33203"));
