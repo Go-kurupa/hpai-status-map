@@ -50,7 +50,7 @@ describe("AboutPage（このサイトについて）", () => {
     const sec = document.getElementById("about-guide") as HTMLElement;
     expect(within(sec).getByRole("heading", { level: 2 }).textContent).toBe("利用上のご案内");
     expect(within(sec).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/replay", "/sample"]);
-    expect(sec.textContent).toContain("県の発表が正");
+    expect(sec.textContent).toContain("区域の正式な情報は、県の発表です");
     expect(document.body.textContent).not.toContain("審査員");
     expect(document.querySelector('a[href*="judge=1"]')).toBeNull();
     // 舞台裏は AI の節から開ける

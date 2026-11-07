@@ -22,7 +22,7 @@ export const METRIC_LABEL: Readonly<Record<EvalMetricName, string>> = {
   published_headcount_errors: "自動で載せた文書の羽数の誤り",
   auto_published_documents: "自動で載せると決めた文書",
   review_documents: "人の確認に回った文書",
-  second_reader_mismatches: "二つの読み手の食い違い",
+  second_reader_mismatches: "2 つの AI の結果の食い違い",
   tamper_rejected: "入れ替えた結果のうち、落ちたもの",
   detection_prev_season: "前季の確認の発表の検知",
   detection_title_classification: "国の題の分類",
