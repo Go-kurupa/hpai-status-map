@@ -21,7 +21,7 @@ import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { parseStatsQuery, type StatsQuery } from "@hpai/shared/consult/stats";
 import { jstDateOf } from "@hpai/shared/dates";
 import { findTopic } from "@hpai/shared/consult/topics";
-import type { ConsultCard, ConsultTurn } from "@hpai/shared/consult/types";
+import type { ConsultCard, ConsultTurn, ConsultFarmCondition } from "@hpai/shared/consult/types";
 import { OUT_OF_SCOPE_TEXT, validateAsk, validateFollowUps } from "@hpai/shared/consult/validate";
 import { buildAskRequest, CONSULT_MAX_CARDS, CONSULT_MODEL } from "../../functions/src/consult/claude";
 import { decodeMessage } from "../../functions/src/read/claude";
@@ -44,6 +44,8 @@ export interface EvalCase {
   first?: { question: string } | { topicId: string };
   expect: { outOfScope?: boolean; minCards?: number; outOfScopeOrCleanAnswer?: boolean; stats?: StatsQuery[] };
   scopeGuardHit: boolean;
+  /** 本人が「この飼い方で相談する」を選んだときの条件（F2）。無ければ条件なしの相談 */
+  farm?: ConsultFarmCondition;
 }
 
 export interface Outcome {
@@ -169,7 +171,7 @@ async function runDry(client: Anthropic, cases: EvalCase[], cards: ConsultCard[]
       continue;
     }
     called += c.kind === "follow_up" ? 2 : 1;
-    const p = buildAskRequest(cards, q);
+    const p = buildAskRequest(cards, q, [], "", c.farm ?? null);
     try {
       const n = (await client.messages.countTokens({ model: p.model, system: p.system, messages: p.messages })).input_tokens;
       tokens += n;
@@ -192,7 +194,7 @@ async function runOne(client: Anthropic, c: EvalCase, cards: ConsultCard[], stam
   const started = Date.now();
   let message: Anthropic.Message;
   try {
-    message = await client.messages.create(buildAskRequest(cards, q, history, jstDateOf(new Date())));
+    message = await client.messages.create(buildAskRequest(cards, q, history, jstDateOf(new Date()), c.farm ?? null));
   } catch (e) {
     const failures = [`api_error:${errorCode(e)}`];
     return { ...fixedResult(c, failures), called: true, passed: false, ms: Date.now() - started, reasons: failures };
@@ -207,7 +209,7 @@ async function runOne(client: Anthropic, c: EvalCase, cards: ConsultCard[], stam
   };
   const costUsd = estimateUsd(CONSULT_MODEL, usage);
   fs.mkdirSync(RAW_DIR, { recursive: true });
-  fs.writeFileSync(path.join(RAW_DIR, `consult-eval-${stamp}-${c.id}.json`), `${JSON.stringify({ id: c.id, question: q, history, message }, null, 2)}\n`, "utf8");
+  fs.writeFileSync(path.join(RAW_DIR, `consult-eval-${stamp}-${c.id}.json`), `${JSON.stringify({ id: c.id, question: q, history, farm: c.farm ?? null, message }, null, 2)}\n`, "utf8");
 
   const attempt = decodeMessage(message, z.unknown());
   const raw = attempt.ok ? (attempt.value as { outOfScope?: unknown } | null) : null;
