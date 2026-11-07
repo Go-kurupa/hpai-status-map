@@ -51,7 +51,7 @@ export const DATA_SOURCES: readonly DataSource[] = [
   },
   {
     name: "農林水産省 疫学調査報告書",
-    use: "「件数が少なくても、シーズン中はどこでも感染のリスクがあります」の文。全国の傾向の画面の出典は、その画面に書いています",
+    use: "「件数が少なくても、シーズン中はどこでも感染のリスクがあります」の文。発生傾向の画面の出典は、その画面に書いています",
     url: "https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_98/attach/pdf/kakin_98-12.pdf",
   },
   {

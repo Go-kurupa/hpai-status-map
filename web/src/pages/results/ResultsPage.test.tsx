@@ -327,9 +327,9 @@ describe("リンク", () => {
     expect(screen.getByRole("link", { name: /舞台裏/ }).getAttribute("href")).toBe("/replay/backstage");
   });
 
-  it("末尾に全国の傾向へのリンクがあり、3 本とも .tap-link", async () => {
+  it("末尾に発生傾向へのリンクがあり、3 本とも .tap-link", async () => {
     await show();
-    const trends = screen.getByRole("link", { name: "全国の傾向" });
+    const trends = screen.getByRole("link", { name: "発生傾向" });
     expect(trends.getAttribute("href")).toBe("/trends");
     for (const l of [trends, screen.getByRole("link", { name: /地図/ }), screen.getByRole("link", { name: /舞台裏/ })]) expect(l.classList.contains("tap-link")).toBe(true);
   });

@@ -45,7 +45,7 @@ export function shellContextOf(pathname: string, member = false): { mode: ShellM
         item("/", "今季の発生", path === "/" || under(path, "/season")),
         // 再現はメニューにも切り替えにも並べないが、中にいる間は今までどおり過去の発生を選択中にする（決定 16）
         item("/compare", "過去の発生", under(path, "/compare") || under(path, "/town") || under(path, "/area") || mode === "replay"),
-        item("/trends", "全国の傾向", under(path, "/trends")),
+        item("/trends", "発生傾向", under(path, "/trends")),
       ],
     },
     {

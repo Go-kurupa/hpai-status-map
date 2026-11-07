@@ -1,4 +1,4 @@
-// 全国の傾向（/trends）の深掘りの集計の形（設計書 2026-11-06-trends-redesign §5）。scripts/lib/trends-insights.ts（作る側）と画面が同じ表を使う。
+// 発生傾向（/trends）の深掘りの集計の形（設計書 2026-11-06-trends-redesign §5）。scripts/lib/trends-insights.ts（作る側）と画面が同じ表を使う。
 // React や import.meta.env に触れない（scripts からも読む）。
 //
 // 今の summary.json とは別のファイル（/trends/insights.json）。このファイルが無いときは、画面は今の表示に戻る。

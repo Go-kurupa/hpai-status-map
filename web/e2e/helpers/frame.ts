@@ -19,7 +19,7 @@ export const menuButton = (page: Page): Locator => page.getByRole("button", { na
 export const MENU_ITEMS: ReadonlyArray<{ name: string; path: string }> = [
   { name: "今季の発生", path: "/" },
   { name: "過去の発生", path: "/compare" },
-  { name: "全国の傾向", path: "/trends" },
+  { name: "発生傾向", path: "/trends" },
   { name: "対策項目", path: "/todo" },
   { name: "会員のログイン", path: "/login" },
   { name: "分かっていること", path: "/known" },

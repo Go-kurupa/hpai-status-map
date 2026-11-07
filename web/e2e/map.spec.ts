@@ -261,7 +261,7 @@ test.describe("地図（入口）", () => {
     await expect(menuNav(page)).toBeHidden();
     await expect(burger).toBeFocused();
     // 項目を押して画面が替わると、フォーカスは新しい画面の題（h1）へ
-    await goViaMenu(page, "全国の傾向");
+    await goViaMenu(page, "発生傾向");
     await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeFocused();
   });
 

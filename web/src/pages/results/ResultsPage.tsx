@@ -108,7 +108,7 @@ export default function ResultsPage({ embedded = false }: { embedded?: boolean }
       </Section>
 
       <p className="replay-hint">
-        {embedded ? null : <><Link to="/" className="tap-link">地図にもどる</Link>　</>}<Link to="/replay/backstage" className="tap-link">去年の再現の舞台裏を見る</Link>　<Link to="/trends" className="tap-link">全国の傾向</Link>
+        {embedded ? null : <><Link to="/" className="tap-link">地図にもどる</Link>　</>}<Link to="/replay/backstage" className="tap-link">去年の再現の舞台裏を見る</Link>　<Link to="/trends" className="tap-link">発生傾向</Link>
       </p>
     </div>
   );

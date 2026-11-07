@@ -9,7 +9,7 @@ const shot = async (page: Page, name: string) => {
 
 const noSideScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
-test.describe("全国の傾向（作り直し）", () => {
+test.describe("発生傾向（作り直し）", () => {
   test("PC の幅: 要点に割合があり、押した項目の詳しい欄が右に出る", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/trends");

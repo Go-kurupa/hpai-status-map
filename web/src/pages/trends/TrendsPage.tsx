@@ -1,4 +1,4 @@
-// /trends: 全国の傾向（X-27、設計書 §2、§4 の C、§7）。国の疫学調査チームの現地調査の概要を、3 つの項目に揃えて数えた結果。
+// /trends: 発生傾向（X-27、設計書 §2、§4 の C、§7）。国の疫学調査チームの現地調査の概要を、3 つの項目に揃えて数えた結果。
 // 読むのは静的ファイル（/trends/summary.json）だけで、Claude も Firestore も呼ばない。
 // 事例や市町村と結びつけない【決定】。集計がまだなければ「準備中です」のまま。
 import { useEffect, useState } from "react";
@@ -74,12 +74,12 @@ export default function TrendsPage() {
     };
   }, []);
 
-  if (state.s === "loading") return <p role="status">全国の傾向を読み込んでいます</p>;
+  if (state.s === "loading") return <p role="status">発生傾向を読み込んでいます</p>;
   // 渡り鳥の枠は別のファイルを読む。現地調査の集計が無くても、枠だけは出す
   if (state.s === "none")
     return (
       <div>
-        <Placeholder title="全国の傾向" />
+        <Placeholder title="発生傾向" />
         <MigrationSection />
         <MigrationRoutes />
         <BackLinks />
@@ -88,7 +88,7 @@ export default function TrendsPage() {
   if (state.s === "failed")
     return (
       <div>
-        <h1>全国の傾向</h1>
+        <h1>発生傾向</h1>
         <p role="alert">集計を読み込めませんでした。時間をおいて開き直してください。</p>
         <MigrationSection />
         <MigrationRoutes />
@@ -100,7 +100,7 @@ export default function TrendsPage() {
   if (state.insights)
     return (
       <div className="trends">
-        <h1>全国の傾向</h1>
+        <h1>発生傾向</h1>
         <p>国の疫学調査チームが発生農場で行った現地調査の概要から、国の報告書で多かった 3 つの項目を数えました。{formatAt(state.insights.generatedAt)} 時点。</p>
         <TrendsInsights v={state.insights} />
         <details className="tr-sources">
@@ -124,8 +124,8 @@ export default function TrendsPage() {
     );
   return (
     <div className="trends">
-      <h1>全国の傾向</h1>
-      <p>全国の傾向です。国の疫学調査チームが発生農場で行った現地調査の概要から、国の報告書で多かった 3 つの項目を数えました。</p>
+      <h1>発生傾向</h1>
+      <p>全国の発生傾向です。国の疫学調査チームが発生農場で行った現地調査の概要から、国の報告書で多かった 3 つの項目を数えました。</p>
       <p>自由記述を Claude が項目に揃えた結果で、全件を人が確かめたものではありません。</p>
       <p>事例ごとの現地調査の概要に書かれた指摘だけを数えています。「外部事業者の専用の衣服や靴」は、概要の多くが「外部の業者も専用の衣服や靴に替えて入る」と書いており、不備と書かれた事例は少なく、国の報告書の集計（半数以上の農場）より少なく出ます。数え方が違います。</p>
       <p>事例や市町村とは結びつけていません。</p>

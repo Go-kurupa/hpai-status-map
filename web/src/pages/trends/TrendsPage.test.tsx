@@ -72,7 +72,7 @@ describe("戻る道と表の見た目", () => {
   it.each(["missing", "error", "ready"] as const)("%s の分岐の末尾に、地図にもどると試験の結果を見るがあり、.tap-link", async (r) => {
     stub(r === "ready" ? SUMMARY : r);
     const { container } = show();
-    await screen.findByRole(r === "ready" ? "table" : r === "error" ? "alert" : "heading", r === "missing" ? { name: /全国の傾向/ } : undefined);
+    await screen.findByRole(r === "ready" ? "table" : r === "error" ? "alert" : "heading", r === "missing" ? { name: /発生傾向/ } : undefined);
     const back = within(container).getAllByRole("link", { name: "地図にもどる" });
     const results = within(container).getAllByRole("link", { name: "試験の結果を見る" });
     expect(back).toHaveLength(1);
@@ -108,11 +108,11 @@ describe("渡りの経路図の枠", () => {
   });
 });
 
-describe("全国の傾向（/trends）", () => {
-  it("集計があれば、全国の傾向であること、人が全件を確かめていないこと、時点を出す", async () => {
+describe("発生傾向（/trends）", () => {
+  it("集計があれば、発生傾向であること、人が全件を確かめていないこと、時点を出す", async () => {
     stub(SUMMARY);
     show();
-    expect(await screen.findByText(/全国の傾向です/u)).toBeTruthy();
+    expect(await screen.findByText(/全国の発生傾向です/u)).toBeTruthy();
     expect(screen.getByText(/自由記述を Claude が項目に揃えた結果で、全件を人が確かめたものではありません/u)).toBeTruthy();
     expect(screen.getByText(/国の報告書の集計（半数以上の農場）より少なく出ます。数え方が違います/u)).toBeTruthy();
     expect(screen.getByText(/2026-11-08 10:00 時点/u)).toBeTruthy();
