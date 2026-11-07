@@ -173,7 +173,16 @@ describe("firebase.json", () => {
       { key: "X-Content-Type-Options", value: "nosniff" },
     ]);
     // 他の項目は消えていない
-    expect(headers.map((h) => h.source).sort()).toEqual(["!/__/**", "/geo/**", "/history/**"]);
+    expect(headers.map((h) => h.source).sort()).toEqual(["!/__/**", "**/!(*.*)", "/assets/**", "/geo/**", "/history/**", "/index.html"]);
+  });
+
+  it("画面の入口の HTML は毎回確かめ（反映の後に古い版を出さない）、名前に版の入る assets は長く保存させる", () => {
+    const headers = firebase.hosting.headers as Array<{ source: string; headers: Array<{ key: string; value: string }> }>;
+    const cache = (source: string) => headers.find((h) => h.source === source)?.headers.find((x) => x.key === "Cache-Control")?.value;
+    expect(cache("**/!(*.*)")).toBe("no-cache"); // /、/about など拡張子のない道筋（rewrite で index.html を返す）
+    expect(cache("/index.html")).toBe("no-cache");
+    expect(cache("/assets/**")).toBe("public, max-age=31536000, immutable");
+    expect(cache("/geo/**")).toBe("public, max-age=86400"); // 前からの指定は変えない
   });
 
   it("emulators", () => {
