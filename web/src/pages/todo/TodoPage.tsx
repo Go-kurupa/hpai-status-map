@@ -3,6 +3,7 @@
 // 会員でなくても開ける（RequireMember で包まない）。記録（やった）は農場が読めているときだけ。
 import { ZONE_AUTHORITY_NOTE, buildChecklist, shortReminder, type ChecklistItem } from "@hpai/shared/checklist";
 import { STANDARD_NUMBER_NOTE } from "@hpai/shared/checklist/items";
+import { FIXED_TEXT } from "@hpai/shared/wording";
 import { useState } from "react";
 import { Link } from "react-router";
 import { useRecordStore } from "../../data/context";
@@ -18,6 +19,9 @@ import { TODO_TEXT } from "./texts";
 import { levelOf, useTodoData } from "./useTodoData";
 import { WorkerMessagePanel } from "./WorkerMessagePanel";
 import "./todo.css";
+
+// 守る文は URL まで含む 1 本の文字列。箇条書きでは文と「出典: 名前」のリンクに分け、長い URL を本文に出さない（地図のスマホと同じ分け方）
+const RISK_PARTS = /^(.*)（出典: (.*) (https:\S+)）$/.exec(FIXED_TEXT.riskAnywhere);
 
 const ZONE_FIRST = ["if_in_zone", "always", "good_to_check"] as const;
 
@@ -80,7 +84,19 @@ export default function TodoPage() {
       {lines.length > 0 ? (
         <ul className="todo-reminder" aria-label="短い確認">
           {lines.map((l) => (
-            <li key={l}>{l}</li>
+            <li key={l}>
+              {l === FIXED_TEXT.riskAnywhere && RISK_PARTS ? (
+                <>
+                  {RISK_PARTS[1]}（出典:{" "}
+                  <a href={RISK_PARTS[3]} target="_blank" rel="noopener noreferrer">
+                    {RISK_PARTS[2]}
+                  </a>
+                  ）
+                </>
+              ) : (
+                l
+              )}
+            </li>
           ))}
         </ul>
       ) : null}

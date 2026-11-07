@@ -51,6 +51,19 @@ import TodoPage, { orderSections } from "./TodoPage";
 import { STANDARD_NUMBER_NOTE } from "@hpai/shared/checklist/items";
 import { buildChecklist } from "@hpai/shared/checklist";
 
+// 守る文は箇条書きで「文（出典: 名前）」と名前のリンクに分けて出す（URL は本文に出さない）
+const RISK = /^(.*)（出典: (.*) (https:\S+)）$/.exec(FIXED_TEXT.riskAnywhere)!;
+const riskItem = () => screen.queryAllByRole("listitem").find((li) => li.textContent?.startsWith(RISK[1]!)) ?? null;
+function expectRiskItem() {
+  const li = riskItem();
+  expect(li?.textContent).toBe(`${RISK[1]}（出典: ${RISK[2]}）`);
+  expect(li?.textContent).not.toContain(RISK[3]);
+  const a = li!.querySelector("a")!;
+  expect(a.textContent).toBe(RISK[2]);
+  expect(a.getAttribute("href")).toBe(RISK[3]);
+}
+
+
 const dataDir = (...p: string[]) => path.resolve(import.meta.dirname, "../../../../data/geo", ...p);
 function freshGeo(): GeoStore {
   return createGeoStore({
@@ -216,7 +229,7 @@ describe("ふだん（段階 4）", () => {
   it("短い確認だけを出し、『確認リストを開く（N 項目）』を押すと always の確認リストが開く。区域の見出しも日付もない", async () => {
     const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText("今月の自己点検を確かめましょう");
-    expect(screen.getByText(FIXED_TEXT.riskAnywhere)).toBeTruthy();
+    expectRiskItem();
     // 閉じている間は確認リストの項目が DOM にない
     expect(screen.queryByText(/手指の洗浄と消毒/)).toBeNull();
     const more = screen.getByRole("button", { name: MORE });
@@ -407,7 +420,7 @@ describe("読み込みと失敗（④にしない）", () => {
   it("事例が届くまでは『読み込んでいます』だけ。短い確認も riskAnywhere も出さない", async () => {
     mount(<TodoPage />, { ds: makeDs({ cases: null }) });
     await screen.findByText(/読み込んでいます/);
-    expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+    expect(riskItem()).toBeNull();
     expect(screen.queryByText("今月の自己点検を確かめましょう")).toBeNull();
     expect(screen.queryByRole("button", { name: /^確認リストを(開く|閉じる)/ })).toBeNull();
   });
@@ -416,7 +429,7 @@ describe("読み込みと失敗（④にしない）", () => {
     geoBox.fail = true;
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText(/読めませんでした/);
-    expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+    expect(riskItem()).toBeNull();
     expect(screen.queryByText("今月の自己点検を確かめましょう")).toBeNull();
   });
 
@@ -425,7 +438,7 @@ describe("読み込みと失敗（④にしない）", () => {
     mount(<TodoPage />, { spot: null, ds: makeDs({ cases: [inTsuyama()] }) });
     await screen.findByText(/地域を選択すると、近くの発生に合わせた確認を出せます/);
     expect(screen.getByRole("link", { name: "地図で地域を選択" }).getAttribute("href")).toBe("/");
-    expect(screen.getByText(FIXED_TEXT.riskAnywhere)).toBeTruthy();
+    expectRiskItem();
     expect(screen.queryByRole("region", { name: "解除の見込み" })).toBeNull();
     expect(screen.queryByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeNull();
   });
