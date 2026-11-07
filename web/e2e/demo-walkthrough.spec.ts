@@ -97,7 +97,8 @@ test.describe("デモの筋", () => {
   test("場面 3: 全国の流れで件数が増え、姫路市（約 28 km）と津山市（約 16 km）が輪に入り、輪は発表の区域ではないと出る", async ({ page }) => {
     const requests: Request[] = [];
     page.on("request", (r) => requests.push(r));
-    const statText = (title: string) => page.locator(".stat").filter({ has: page.locator(".stat-title", { hasText: title }) });
+    // 約 60 km 以内の件数は町の欄の鶏舎の場所の下（.farm-band。2026-11-07 作者の決定 A）
+    const statText = (title: string) => page.locator(".stat, .farm-band").filter({ has: page.locator(".stat-title, .farm-band-title", { hasText: title }) });
 
     await openReplay(page);
     await page.getByRole("button", { name: "全国の流れ" }).click();

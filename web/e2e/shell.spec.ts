@@ -124,7 +124,8 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     await page.goto("/");
     await firstScreen(page, true);
     await bottomAboveNav(page, page.locator(".map-ring-note"));
-    const near = page.getByRole("button", { name: "選択地域付近" });
+    // 鶏舎の場所を決めた後は「鶏舎の付近」と呼ぶ（2026-11-07 作者の決定 A）
+    const near = page.getByRole("button", { name: "鶏舎の付近" });
     await bottomAboveNav(page, near);
     await expect(near).toHaveAttribute("aria-pressed", "true");
     expect((await near.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -740,8 +741,9 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       await expect(canvas).toBeVisible();
       await expect(page.locator(".stat-row")).toBeVisible();
       const cards = page.locator(".stat-row > .stat:visible");
-      await expect(cards).toHaveCount(spot ? 4 : 3);
-      await expect(cards.first().locator(".stat-title")).toContainText(spot ? "約 60 km 以内" : "発生した件数");
+      // 約 60 km 以内の件数は札の列ではなく町の欄の鶏舎の場所の下（2026-11-07 作者の決定 A）
+      await expect(cards).toHaveCount(3);
+      await expect(cards.first().locator(".stat-title")).toContainText("発生した件数");
       const boxes = await Promise.all((await cards.all()).map(async (c) => (await c.boundingBox())!));
       const top = (await canvas.boundingBox())!.y;
       for (const b of boxes) {
@@ -759,7 +761,7 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
         expect(scope.y + scope.height).toBeLessThanOrEqual(map.y);
         expect(scope.x).toBeLessThanOrEqual(map.x + 1);
         expect(scope.width).toBeGreaterThan(map.width);
-        const near = (await page.getByRole("button", { name: "選択地域付近" }).boundingBox())!;
+        const near = (await page.getByRole("button", { name: "鶏舎の付近" }).boundingBox())!;
         expect(near.height).toBeGreaterThanOrEqual(44);
       }
     });

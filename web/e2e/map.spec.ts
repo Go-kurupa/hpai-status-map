@@ -423,7 +423,7 @@ test.describe("地図（入口）", () => {
       await page.addInitScript((s) => window.localStorage.setItem("hpai.spot.v1", JSON.stringify(s)), spot);
       await open(page);
       await expect(page.getByText(RING_NOTE)).toBeVisible();
-      await expect(page.getByText(/農場から約 60 km 以内/).last()).toBeVisible();
+      await expect(page.getByText(/鶏舎から約 60 km 以内/).last()).toBeVisible();
       await page.evaluate(() => window.__hpaiMap!.jumpTo({ center: [134.0, 35.07], zoom: 8 }));
       await expect
         .poll(() => page.evaluate(() => window.__hpaiMap!.queryRenderedFeatures(undefined, { layers: ["distance-rings"] }).length), { timeout: 10_000 })

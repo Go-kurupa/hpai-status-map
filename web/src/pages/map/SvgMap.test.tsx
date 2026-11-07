@@ -274,6 +274,22 @@ describe("代わりの地図（SVG）", () => {
       for (const l of labels) expect(Number(l.getAttribute("font-size")) * (480 / 1000)).toBeGreaterThanOrEqual(14);
     });
 
+    it("鶏舎の場所（作者 11/7）: 全国の図では一定の大きさ（画面で 14px）の赤い四角と「鶏舎の場所」の札。仮の地点や地点なしでは出さない", async () => {
+      const { rerender } = render(<SvgMap {...props({ farmMeshCode: FARM_MESH, markFarm: true, myMuniCode: "33203" })} />);
+      const map = await screen.findByRole("group", { name: TEXT.svgMapAria });
+      const square = map.querySelector(".svg-farm-square")!;
+      expect(square).toBeTruthy();
+      expect(square.getAttribute("fill")).toBe(PAINT.current);
+      // 実測できない jsdom では幅 480px の目安で計算する
+      expect(Number(square.getAttribute("width")) * (480 / 1000)).toBeCloseTo(14, 5);
+      expect(map.querySelector(".svg-farm-label")?.textContent).toBe("鶏舎の場所");
+      // 再現や見本の仮の地点（markFarm なし）は農場の場所ではないので、輪だけで印を描かない
+      rerender(<SvgMap {...props({ farmMeshCode: FARM_MESH, myMuniCode: "33203" })} />);
+      expect((await screen.findByRole("group", { name: TEXT.svgMapAria })).querySelector(".svg-farm")).toBeNull();
+      rerender(<SvgMap {...props({ farmMeshCode: null, markFarm: true, myMuniCode: "33203" })} />);
+      expect((await screen.findByRole("group", { name: TEXT.svgMapAria })).querySelector(".svg-farm")).toBeNull();
+    });
+
     it("不正なマス目でも落ちず、輪を描かない", async () => {
       render(<SvgMap {...props({ farmMeshCode: "abc", myMuniCode: "33203" })} />);
       const map = await screen.findByRole("group", { name: TEXT.svgMapAria });

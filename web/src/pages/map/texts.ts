@@ -105,9 +105,18 @@ export const TEXT = {
   openFarmSettings: "農場の設定を開く",
   cancel: "やめる",
   // 地点
-  spotTitle: "くわしい場所を決める",
+  // 鶏舎の場所。選択地域の行のすぐ下に置く（2026-11-07 作者の決定 A。見本 5F5Vywchui4boPbsvnfJRs）
+  spotTitle: "鶏舎の場所",
   spotWhy: "約 1km のマス目と市町村だけを、この端末の中に保存します。送信はしません。",
+  spotNone: "まだ決めていません。決めると、その場所を中心に距離の輪を描き、約 60 km 以内の件数を出します。約 1km のマス目だけをこの端末に保存し、送信はしません。",
   spotStart: "地図で場所を合わせる",
+  spotRestart: "地図で場所を合わせ直す",
+  spotSavedNoSend: "この端末に保存しています（送信はしません）",
+  // 地図の印と、場所を決めた後の切り替えの名前（作者 11/7）
+  farmMark: "鶏舎の場所",
+  legendFarm: "鶏舎の場所（この端末の画面だけ）",
+  mapNearFarm: "鶏舎の付近",
+  bandTitle: (km: number): string => `鶏舎から約 ${km} km 以内`,
   spotHint: "地図を動かして、中央の十字を自分の鶏舎のある場所に合わせてください",
   // 地区（大字）で地図を寄せる（2026-11-06 作者の決定）。地区の名前も位置も送信しない
   oazaLabel: "地区（大字）で地図を寄せる",
@@ -120,7 +129,6 @@ export const TEXT = {
   spotConfirm: "この場所で決めますか？",
   spotDecide: "決める",
   spotMapWait: "地図を読み込んでいます。少し待ってからもう一度押してください",
-  spotSaved: "この端末に保存しています",
   spotRetry: "やりなおす",
   spotClear: "場所を消す",
   spotSaveFailed: "この端末では保存できませんでした。このページを開いているあいだだけ使います",

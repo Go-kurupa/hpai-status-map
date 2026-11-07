@@ -25,6 +25,12 @@ export function latLngToMesh3(lat: number, lng: number): MeshCode {
 
 /** 3 次メッシュ 8 桁の中心。不正なコードは throw する。 */
 export function mesh3Center(code: MeshCode): { lat: number; lng: number } {
+  const b = mesh3Bounds(code);
+  return { lat: (b.south + b.north) / 2, lng: (b.west + b.east) / 2 };
+}
+
+/** 3 次メッシュ 8 桁の四隅（南、北の緯度と、西、東の経度）。不正なコードは throw する。 */
+export function mesh3Bounds(code: MeshCode): { south: number; north: number; west: number; east: number } {
   if (!/^\d{8}$/.test(code)) throw new RangeError(`メッシュコードは 8 桁の数字です: ${code}`);
   const p = Number(code.slice(0, 2));
   const u = Number(code.slice(2, 4));
@@ -35,5 +41,10 @@ export function mesh3Center(code: MeshCode): { lat: number; lng: number } {
   if (q > 7 || v > 7) throw new RangeError(`メッシュコードの 2 次の桁は 0〜7 です: ${code}`);
   const latCells = p * 80 + q * 10 + r;
   const lngCells = u * 80 + v * 10 + w;
-  return { lat: (latCells + 0.5) / LAT_CELLS_PER_DEG, lng: 100 + (lngCells + 0.5) / LNG_CELLS_PER_DEG };
+  return {
+    south: latCells / LAT_CELLS_PER_DEG,
+    north: (latCells + 1) / LAT_CELLS_PER_DEG,
+    west: 100 + lngCells / LNG_CELLS_PER_DEG,
+    east: 100 + (lngCells + 1) / LNG_CELLS_PER_DEG,
+  };
 }

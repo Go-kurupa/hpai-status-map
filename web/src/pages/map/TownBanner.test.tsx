@@ -88,6 +88,20 @@ describe("TownBanner: 読めないとき（T10）", () => {
 });
 
 describe("TownBanner", () => {
+  it("鶏舎の場所の行は、選択地域の行のすぐ下、段階の文より前に描く（2026-11-07 作者の決定 A）", () => {
+    const { container } = show(props({ spotRow: <div className="spot-row-probe">鶏舎の場所</div> }));
+    const row = container.querySelector(".town-name-row")!;
+    expect(row.nextElementSibling?.className).toBe("spot-row-probe");
+    const probe = container.querySelector(".spot-row-probe")!;
+    const now = container.querySelector(".town-now")!;
+    expect(probe.compareDocumentPosition(now) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("町を選んでいないときは鶏舎の場所の行を出さない", () => {
+    show(props({ muniCode: null, muniName: null, spotRow: <div className="spot-row-probe">鶏舎の場所</div> }));
+    expect(document.querySelector(".spot-row-probe")).toBeNull();
+  });
+
   it("色（data-tone）は今季の段階の行だけ。過去の行とその中に data-tone がない（§15）", () => {
     const { container } = show(props());
     const toned = container.querySelectorAll("[data-tone]");

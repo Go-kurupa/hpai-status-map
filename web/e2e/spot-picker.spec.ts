@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installFixture } from "./fixtures";
 
-// くわしい場所を決める（約 1km のマス目）。「地図で場所を合わせる」を押すと、選んだ町へ地図が寄り、中央の十字で決める。
+// 鶏舎の場所を決める（約 1km のマス目）。「地図で場所を合わせる」を押すと、選んだ町へ地図が寄り、中央の十字で決める。
 // 2026-11-06: PC 幅で地図の箱が 2px に縮み、地図が真っ白で十字が左端に寄っていた（作者の報告）。
 
 const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
@@ -59,13 +59,16 @@ const CASES = [
   { w: 390, h: 800, town: "33213", name: "赤磐市" },
 ];
 
-test.describe("くわしい場所を決める", () => {
+test.describe("鶏舎の場所を決める", () => {
   for (const c of CASES) {
-    test(`${c.w}px、${c.name}: 押すと地図は横いっぱいで、十字は地図の中央、十字の下は選んだ町。そのまま決めると町の名前で確かめられる`, async ({ page }) => {
+    test(`${c.w}px、${c.name}: 鶏舎の場所の欄は選択地域の行のすぐ下。押すと十字は地図の中央、十字と［ここに決める］が同じ画面に入り、十字の下は選んだ町。そのまま決めると町の名前で確かめられる`, async ({ page }) => {
       await openWithTown(page, c.w, c.h, c.town);
+      // 鶏舎の場所の欄は町の欄の中、選択地域の行のすぐ下（2026-11-07 作者の決定 A）。ページの下に別の欄はない
+      await expect(page.locator(".town-banner .town-name-row + .spot-picker")).toBeVisible();
+      await expect(page.locator(".spot-picker")).toHaveCount(1);
       await page.getByRole("button", { name: "地図で場所を合わせる" }).click();
 
-      // 地図の箱は親の幅いっぱい（PC で 2px に縮んでいた）。地図の絵も箱と同じ幅
+      // 地図の箱は、PC は左の列の幅いっぱい（2px に縮まない）、スマホは横いっぱい。地図の絵も箱と同じ幅
       const sizes = await page.evaluate(() => {
         const box = document.querySelector(".map-box")!.getBoundingClientRect();
         const parent = document.querySelector(".map-page")!.getBoundingClientRect();
@@ -73,7 +76,10 @@ test.describe("くわしい場所を決める", () => {
         const cross = document.querySelector(".crosshair")!.getBoundingClientRect();
         return { box: box.width, parent: parent.width, canvas: canvas.width, canvasMid: canvas.x + canvas.width / 2, crossMid: cross.x + cross.width / 2 };
       });
-      expect(sizes.box).toBeGreaterThanOrEqual(sizes.parent - 2);
+      expect(sizes.box).toBeGreaterThanOrEqual(c.w >= 1024 ? sizes.parent * 0.55 : sizes.parent - 2);
+      // 十字と［ここに決める］を、スクロールせずに同じ画面で見られる
+      await expect(page.locator(".crosshair")).toBeInViewport();
+      await expect(page.getByRole("button", { name: "ここに決める" })).toBeInViewport();
       expect(Math.abs(sizes.canvas - sizes.box)).toBeLessThanOrEqual(2);
       expect(Math.abs(sizes.crossMid - sizes.canvasMid)).toBeLessThanOrEqual(2);
 
@@ -89,7 +95,7 @@ test.describe("くわしい場所を決める", () => {
 });
 
 // 地区（大字）で地図を寄せる（2026-11-06 作者の決定）。国土交通省「大字・町丁目位置参照情報」の目安の点
-test.describe("くわしい場所を決める: 地区（大字）で地図を寄せる", () => {
+test.describe("鶏舎の場所を決める: 地区（大字）で地図を寄せる", () => {
   for (const [w, h] of [[1280, 860], [390, 800]] as const) {
     test(`${w}px、西粟倉村: 大字影石を選ぶと、地図がその目安の点へ寄り、十字の下は西粟倉村。そのまま決められる`, async ({ page }) => {
       const requests: string[] = [];

@@ -34,5 +34,7 @@ export const CMP_TEXT = {
   latestAria: (n: number): string => `発生状況の地図（選んだ ${n} シーズンのうち、町ごとに最後に発生したシーズンの色）`,
   scopeAria: "地図の広さ",
   scopeNear: "選択地域付近",
+  // 鶏舎の場所を決めた後（作者 11/7）。輪の中心が鶏舎だと分かるように
+  scopeNearFarm: "鶏舎の付近",
   scopeJapan: "全国",
 } as const;

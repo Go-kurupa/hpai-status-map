@@ -29,4 +29,10 @@ describe("ScopeButtons", () => {
     expect(screen.queryByRole("button", { name: CMP_TEXT.scopeNear })).toBeNull();
     expect(screen.getByRole("button", { name: CMP_TEXT.scopeJapan }).getAttribute("aria-pressed")).toBe("true");
   });
+
+  it("鶏舎の場所を決めていれば［鶏舎の付近］と呼ぶ（作者 11/7）", () => {
+    render(<ScopeButtons hasNear nearIsFarm picked="near" onNear={() => {}} onJapan={() => {}} onRegion={() => {}} />);
+    expect(screen.getByRole("button", { name: "鶏舎の付近" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByRole("button", { name: CMP_TEXT.scopeNear })).toBeNull();
+  });
 });

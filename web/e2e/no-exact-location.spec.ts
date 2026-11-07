@@ -169,7 +169,7 @@ test("公開: 町と地点を指定しても、全要求に緯度経度がなく
   await expect(page.getByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeVisible();
   // 距離の輪と約 60km の札が地点から作られた後でも、通信に緯度経度を出さない（下で調べる）
   await expect(page.getByText("輪は距離の目安で、発表の区域ではありません。")).toBeVisible();
-  await expect(page.locator(".stat", { hasText: "約 60 km 以内" })).toContainText(/今季 \d+ 件/);
+  await expect(page.locator(".farm-band", { hasText: "約 60 km 以内" })).toContainText(/今季 \d+ 件/);
 
   // 端末の中には、3 つのキーだけ（hpai.spot.v1）
   const saved = await page.evaluate(() => window.localStorage.getItem("hpai.spot.v1"));
@@ -233,7 +233,8 @@ test("会員: 招待で入り、町を選び、地図を押して保存すると
     await page.goto(link);
     await page.getByLabel("ログインに使うメールアドレス").fill(email);
     await page.getByRole("button", { name: "つづける" }).click();
-    await expect(page).toHaveURL(/\/settings\/farm/);
+    // 招待の受け取り（redeemInvite）は、模擬環境で最初に呼ぶと立ち上がりに 5 秒を超えることがある（farm-profile.spec.ts と同じ）
+    await expect(page).toHaveURL(/\/settings\/farm/, { timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "農場の設定" })).toBeVisible();
 
     // 町を選び、地図を押す

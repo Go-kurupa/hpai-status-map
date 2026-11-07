@@ -44,9 +44,30 @@ function Harness(p: Partial<SpotPickerProps> & { map?: PickTarget | null }) {
 afterEach(cleanup);
 
 describe("SpotPicker", () => {
-  it("端末の中だけに、約 1km のマス目と市町村だけを保存すると説明する", () => {
+  it("題は「鶏舎の場所」。決める前は、決めると何が出るかと、端末の中だけに約 1km のマス目を保存することを説明する（作者 11/7）", () => {
     render(<Harness />);
-    expect(screen.getByText(/約 1km のマス目と市町村だけを、この端末の中に保存します。送信はしません/)).toBeTruthy();
+    expect(screen.getByRole("region", { name: "鶏舎の場所" })).toBeTruthy();
+    expect(screen.getByText(/まだ決めていません。決めると、その場所を中心に距離の輪を描き、約 60 km 以内の件数を出します/)).toBeTruthy();
+    expect(screen.getByText(/約 1km のマス目だけをこの端末に保存し、送信はしません/)).toBeTruthy();
+  });
+
+  it("決めた後は町の名前とマス目、ボタンは［地図で場所を合わせ直す］［場所を消す］", () => {
+    const device: FarmPoint = { meshCode: "53394611", muniCode: "13101", frequentMuniCodes: [] };
+    render(<Harness deviceSpot={device} />);
+    expect(screen.getByText("東京都 千代田区の約 1km のマス目。この端末に保存しています（送信はしません）")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "地図で場所を合わせ直す" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "場所を消す" })).toBeTruthy();
+    expect(screen.queryByText(/まだ決めていません/)).toBeNull();
+  });
+
+  it("確かめる候補がある間を親に知らせる（町の欄が地図の前後に動いて候補が消えないよう、親が置き場を固定する）", () => {
+    const onCandidateChange = vi.fn();
+    render(<Harness onCandidateChange={onCandidateChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせる" }));
+    fireEvent.click(screen.getByRole("button", { name: "ここに決める" }));
+    expect(onCandidateChange).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole("button", { name: "決める" }));
+    expect(onCandidateChange).toHaveBeenLastCalledWith(false);
   });
 
   it("場所を合わせる → 町の名前で確かめる → 決める。onSet に渡るのはメッシュと市町村だけ", () => {
@@ -54,6 +75,8 @@ describe("SpotPicker", () => {
     render(<Harness onSet={onSet} />);
     fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせる" }));
     expect(screen.getByText(/中央の十字を自分の鶏舎のある場所に合わせてください/)).toBeTruthy();
+    // 合わせている間も、送信しないことを書く（ボタンの下）
+    expect(screen.getByText(TEXT.spotWhy)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "ここに決める" }));
     expect(screen.getByText(/東京都 千代田区/)).toBeTruthy();
     expect(onSet).not.toHaveBeenCalled(); // 確かめるまで保存しない
@@ -96,7 +119,7 @@ describe("SpotPicker", () => {
     expect(screen.getByText(/千代田区/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "場所を消す" }));
     expect(onClear).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせる" }));
+    fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせ直す" }));
     fireEvent.click(screen.getByRole("button", { name: "ここに決める" }));
     fireEvent.click(screen.getByRole("button", { name: "決める" }));
     expect(onSet.mock.calls[0]![0].frequentMuniCodes).toEqual(["33203"]);

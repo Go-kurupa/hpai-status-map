@@ -765,7 +765,12 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     await waitFor(() => expect(lastProps().focus?.kind).toBe("rings"));
     expect(lastProps().focus?.codes).toEqual(["33203"]);
     fireEvent.click(screen.getByRole("button", { name: "全国" }));
-    fireEvent.click(screen.getByRole("button", { name: TEXT.mapNear }));
+    // 場所を決めた後は「鶏舎の付近」と呼ぶ（2026-11-07 作者の決定 A）
+    expect(screen.queryByRole("button", { name: TEXT.mapNear })).toBeNull();
+    // 本人の端末の場所なので、地図に鶏舎の場所の印を描き、凡例にも載せる
+    expect(lastProps().markFarm).toBe(true);
+    expect(screen.getByRole("list", { name: TEXT.legendAria }).textContent).toContain(TEXT.legendFarm);
+    fireEvent.click(screen.getByRole("button", { name: TEXT.mapNearFarm }));
     expect(lastProps().focus?.kind).toBe("rings");
   });
 
@@ -1140,15 +1145,65 @@ describe("MapPage: 並びと出典", () => {
   });
 
   it("『地図で場所を合わせる』を押すと地図の上端へ動く。棒を押すと見出しへ動く", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([]);
+    await screen.findByText(/まだ決めていません/);
+    await waitFor(() => expect(document.querySelector(".town-banner .town-now")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせる" }));
     expect(scrollMock()).toHaveBeenCalledWith({ block: "start" });
     scrollMock().mockClear();
     fireEvent.click(screen.getByRole("button", { name: /昨季/ }));
     expect(scrollMock()).toHaveBeenCalled();
+  });
+
+  it("鶏舎の場所の欄は選択地域の行のすぐ下（2026-11-07 作者の決定 A）。ページの下に別の欄はない", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    await waitFor(() => expect(document.querySelector(".town-banner .town-now")).toBeTruthy());
+    const spot = document.querySelector(".town-banner .spot-picker")!;
+    expect(spot.previousElementSibling?.classList.contains("town-name-row")).toBe(true);
+    expect(document.querySelectorAll(".spot-picker")).toHaveLength(1);
+  });
+
+  it("合わせている間に町の文の段階が変わって町の欄の置き場が変わる場合でも、欄を作り直さず、［ここに決める］の後の候補が残る", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverWatch(okWatch());
+    // 段階 ①（町の文は地図の前）で合わせ始める
+    r.deliverCases([tsuyamaCase({ muniCode: "33214", muniName: "真庭市", stages: { confirmed: { date: "2026-11-02", time: null } } })]);
+    await waitFor(() => expect(document.querySelector(".town-banner .town-now")?.getAttribute("data-tone")).toBe("lv1"));
+    const spot = () => document.querySelector(".town-banner .spot-picker")!;
+    const afterMap = () => Boolean(document.querySelector(".map-box")!.compareDocumentPosition(spot().closest(".town-banner")!) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const before = afterMap();
+    expect(before).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせる" }));
+    await waitFor(() => expect(spot().getAttribute("data-active")).toBe("true"));
+    const banner = spot().closest(".town-banner");
+    // 合わせている間に段階 ④（ふだんは地図の後ろ）になっても、置き場を動かさない
+    r.deliverCases([tsuyamaCase({ prefCode: "46", muniCode: "46201", muniName: "鹿児島市", stages: { confirmed: { date: "2026-11-02", time: null } } })]);
+    await waitFor(() => expect(document.querySelector(".town-banner .town-now")?.getAttribute("data-tone")).toBe("lv4"));
+    expect(afterMap()).toBe(before);
+    expect(spot().closest(".town-banner")).toBe(banner);
+    // 十字の下を真庭市にして［ここに決める］。候補を確かめる［決める］が残る（決めた直後に置き場が戻って作り直さない）
+    const fake = { getZoom: () => 14, getCenter: () => ({ lat: 35.07, lng: 133.75 }), project: () => ({ x: 0, y: 0 }), queryRenderedFeatures: () => [{ properties: { c: "33214" } }] };
+    act(() => lastProps().onMapReady?.(fake as never));
+    fireEvent.click(screen.getByRole("button", { name: "ここに決める" }));
+    await act(async () => {
+      await new Promise((res) => setTimeout(res, 50));
+    });
+    expect(screen.getByRole("button", { name: "決める" })).toBeTruthy();
+    expect(afterMap()).toBe(before);
+    // 決めたら固定を外し、ふだんの置き場（段階 ④ は地図の後ろ）に戻る
+    fireEvent.click(screen.getByRole("button", { name: "決める" }));
+    await waitFor(() => expect(afterMap()).toBe(true));
   });
 
   it("町を選んだ人が『地図で場所を合わせる』を押すと、その町へ、そのまま決められる拡大（SPOT_MIN_ZOOM）まで寄せる指定を地図に渡す", async () => {
@@ -1157,6 +1212,7 @@ describe("MapPage: 並びと出典", () => {
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([]);
+    await waitFor(() => expect(document.querySelector(".town-banner .town-now")).toBeTruthy());
     fireEvent.click(await screen.findByRole("button", { name: "地図で場所を合わせる" }));
     await waitFor(() => expect(lastProps().focus?.minZoom).toBe(SPOT_MIN_ZOOM));
     expect(lastProps().focus?.kind).toBe("muni");
@@ -1286,8 +1342,10 @@ describe("MapPage: 平面の札（T12）", () => {
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     const when = (selector: string) => document.querySelector(`.stat-row ${selector} .stat-when`)?.textContent;
-    await waitFor(() => expect(when(".stat-band")).toBe(TEXT.statBandWhen));
-    expect(when(".stat-national")).toBe(TEXT.chartsSourceLive);
+    await waitFor(() => expect(when(".stat-national")).toBe(TEXT.chartsSourceLive));
+    // 約 60 km の件数は札の列ではなく町の欄（作者 11/7）。距離が目安だという断りはそちらに添える
+    expect(document.querySelector(".stat-row .stat-band")).toBeNull();
+    await waitFor(() => expect(document.querySelector(".town-banner .farm-band")?.textContent).toContain(TEXT.statBandWhen));
     expect(when(".stat-recent")).toBe(TEXT.chartsSourceLive);
     expect(when(".stat-past")).toBe(TEXT.chartsSourceReplay);
   });
@@ -1390,17 +1448,17 @@ describe("MapPage: 平面の札（T12）", () => {
     expect(all.querySelector("b")!.textContent).toBe("0");
   });
 
-  it("地点があるときは約 60km の札が数字の札の先頭。町が分からない発表の断りと読めない断りは札に残す", async () => {
+  it("地点があっても札の列の先頭は全国の件数（約 60 km は町の欄へ移した）。町が分からない発表の断りは町の欄の件数に添える", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
     const r = rig();
     show(r);
     await screen.findByTestId("map");
     r.deliverWatch(okWatch());
     r.deliverCases([tsuyamaCase({ muniCode: null, muniName: null })]);
-    await waitFor(() => expect(titles()[0]).toBe("農場から約 60 km 以内"));
-    expect(document.querySelector(".stat-row")!.querySelector(".stat")).toBe(stats()[0]);
-    expect(stats()[0]!.textContent).toContain(TEXT.statBandUnplaced(1));
-    expect(document.querySelector(".stat-below .stat-band-more")!.textContent).toContain(TEXT.statBandRelated);
+    await waitFor(() => expect(titles()[0]).toBe("発生した件数"));
+    const band = () => document.querySelector(".town-banner .farm-band")?.textContent;
+    await waitFor(() => expect(band()).toContain(TEXT.statBandUnplaced(1)));
+    expect(band()).toContain(TEXT.statBandRelated);
   });
 
   it("全県確認で 0 件でも、件数のあるときと .stat-value の class は同じ", async () => {
@@ -1436,8 +1494,8 @@ describe("map.css（比べの表の幅と PC 幅の 2 列）", () => {
     expect(body).toMatch(/column-gap:\s*24px/);
     expect(body).toMatch(/\.map-box\s*\{[^}]*grid-column:\s*1/);
     expect(body).toMatch(/\.map-page\s*>\s*\.map-box ~ \*\s*\{[^}]*grid-column:\s*2/);
-    // 十字合わせ中は 2 列を解く
-    expect(body).toMatch(/\.map-page:has\(>\s*\.spot-picker\[data-active="true"\]\)\s*\{[^}]*display:\s*flex/);
+    // 十字合わせ中も 2 列のまま。場所の欄は町の欄の中で、町の欄は右の列（地図の隣）にある（2026-11-07 作者の決定 A）
+    expect(body).not.toMatch(/spot-picker/);
     // 再現の h1 隠しは壊さない
     expect(readFileSync(path.resolve(import.meta.dirname, "../replay/replay.css"), "utf8")).toMatch(/\.replay-scope \.map-page > h1\s*\{\s*display:\s*none/);
   });
@@ -1467,9 +1525,9 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       return typeof title === "string" ? t === title : title.test(t);
     });
   const recentValue = () => card("直近 14 日の件数")!.querySelector(".stat-value")!.textContent;
-  const bandCard = () => card(/約 60 km 以内/);
-  // 札の数字の列に入らない残り（過去の件数と断り）は、幅によらず地図の下の stat-below にある
-  const bandText = () => `${bandCard()!.textContent}\n${document.querySelector(".stat-below .stat-band-more")!.textContent}`;
+  // 鶏舎から約 60 km 以内の件数は、町の欄の鶏舎の場所のすぐ下にまとめる（2026-11-07 作者の決定 A）
+  const bandCard = () => (document.querySelector<HTMLElement>(".town-banner .farm-band") ?? undefined);
+  const bandText = () => bandCard()!.textContent ?? "";
   const onDate = (date: string) => ({ confirmed: { date, time: null } });
   const failedWatch = (codes: string[]) => okWatch().map((w) => (codes.includes(w.prefCode) ? { ...w, ok: false, failingSince: "2026-11-04T01:00:00+09:00" } : w));
 
@@ -1691,7 +1749,10 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       await waitFor(() => expect(bandCard()!.textContent).toContain("今季 1 件"));
       await waitFor(() => expect(bandText()).toMatch(/過去 6 シーズン \d+ 件/));
       expect(bandText()).toContain(TEXT.statBandRelated);
-      expect(bandCard()!.classList.contains("stat-wide")).toBe(true);
+      expect(bandText()).toContain("鶏舎から約 60 km 以内");
+      // 鶏舎の場所の欄のすぐ下。地図の上の札の列には出さない
+      expect(bandCard()!.previousElementSibling?.classList.contains("spot-picker")).toBe(true);
+      expect(document.querySelector(".stat-row")!.textContent).not.toContain("60 km");
     });
 
     it("一部の県が未確認なら今季に断りを付け、47 県とも未確認なら件数を見出しにしない", async () => {
@@ -1743,7 +1804,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       expect(bandCard()!.textContent).toContain("町が分からない発表が 1 件あり、距離に入れていません。");
     });
 
-    it("約 60km の今季が 0 件で、町の 1 文に riskAnywhere がなければ、札のすぐ前に出す", async () => {
+    it("約 60km の今季が 0 件で、札の前に守る文がなければ、件数のすぐ前に出す（町の文からは外して 2 度書かない）", async () => {
       localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: FARM_MESH, muniCode: "33203", frequentMuniCodes: ["01100"] }));
       const r = rig();
       show(r);
@@ -1752,7 +1813,25 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       r.deliverCases([tsuyamaCase({ prefCode: "01", muniCode: "01100", muniName: "札幌市", stages: onDate("2026-11-02") })]);
       await waitFor(() => expect(bandCard()!.textContent).toContain("今季 0 件"));
       expect(recentValue()).toBe("1 件");
-      await waitFor(() => expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(FIXED_TEXT.riskAnywhere));
+      const risk = bandCard()!.querySelector(".town-note")!;
+      expect(risk.textContent).toBe(FIXED_TEXT.riskAnywhere);
+      expect(risk.nextElementSibling?.textContent).toContain("今季 0 件");
+      const banner = bandCard()!.closest(".town-banner")!;
+      expect(banner.textContent!.split(FIXED_TEXT.riskAnywhere).length - 1).toBe(1);
+    });
+
+    it("過去の記録がない町で約 60 km の今季が 0 件でも、守る文は町の欄に 1 回だけ（件数のすぐ前）。ページの下の図にも重ねない", async () => {
+      localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: latLngToMesh3(44.02, 145.19), muniCode: "01694", frequentMuniCodes: ["01100"] }));
+      const r = rig();
+      show(r);
+      await screen.findByTestId("map");
+      r.deliverWatch(okWatch());
+      r.deliverCases([tsuyamaCase({ prefCode: "01", muniCode: "01100", muniName: "札幌市", stages: onDate("2026-11-02") })]);
+      await waitFor(() => expect(bandCard()!.textContent).toContain("今季 0 件"));
+      await waitFor(() => expect(document.querySelector(".town-past")).toBeTruthy());
+      const risks = [...document.querySelectorAll("p")].filter((e) => e.textContent === FIXED_TEXT.riskAnywhere);
+      expect(risks).toHaveLength(1);
+      expect(risks[0]!.closest(".farm-band")).toBeTruthy();
     });
 
     it("過去のシーズンでは出さない", async () => {
@@ -1782,7 +1861,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       expect(frequentCard()).toBeUndefined();
     });
 
-    it("約 60km の札のすぐ後に、町ごとの今季の件数を出す。数えない事例は入れない", async () => {
+    it("地図の下の残りの札に、町ごとの今季の件数を出す。数えない事例は入れない", async () => {
       withFrequent(["33214", "33202"]);
       const r = rig();
       show(r);
@@ -1795,7 +1874,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       ]);
       await waitFor(() => expect(frequentCard()!.textContent).toContain("真庭市 2 件"));
       expect(frequentCard()!.textContent).toContain("倉敷市 0 件");
-      expect(document.querySelector(".stat-below .stat-band-more")!.nextElementSibling).toBe(frequentCard());
+      expect(frequentCard()!.parentElement?.classList.contains("stat-below")).toBe(true);
     });
 
     it("登録した町に 0 件があれば、riskAnywhere を札のすぐ前に出す", async () => {
@@ -1993,14 +2072,27 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(scroll.mock.contexts.at(-1)).toBe(document.querySelector(".map-box"));
   });
 
-  it("スマホでも、町が分からない発表と読めない断りは約 60 km の残りに出る", async () => {
+  it("スマホでも、町の欄の約 60 km の件数は見出し（今季、過去 6 シーズン）を隠す部品（.stat-long）を使わない", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    r.deliverWatch(okWatch());
+    r.deliverCases([]);
+    const band = await waitFor(() => document.querySelector<HTMLElement>(".town-banner .farm-band")!);
+    await waitFor(() => expect(band.textContent).toMatch(/過去 6 シーズン/));
+    expect(band.querySelector(".stat-long")).toBeNull();
+    expect(band.textContent).toContain("今季 0 件");
+  });
+
+  it("スマホでも、町が分からない発表と読めない断りは町の欄の約 60 km の件数に出る", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
     const r = rig({ history: "deferred" });
     show(r);
     await screen.findByTestId("map");
     r.deliverWatch(okWatch());
     r.deliverCases([tsuyamaCase({ muniCode: null, muniName: null })]);
-    const more = () => document.querySelector(".stat-below .stat-band-more")?.textContent;
+    const more = () => document.querySelector(".town-banner .farm-band")?.textContent;
     await waitFor(() => expect(more()).toContain(TEXT.statBandUnplaced(1)));
     await act(async () => {
       r.historyDeferred.reject(new Error("読めない"));

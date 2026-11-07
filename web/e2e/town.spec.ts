@@ -199,9 +199,15 @@ test.describe("自分の町の 1 文", () => {
     }
     expect(google).toEqual([]);
 
-    // 地図の source に、地点の source はない
+    // 地図の source に、地点の source はない。例外は鶏舎の場所の約 1km のマス目（farm-mesh、2026-11-07 作者の決定）で、
+    // 中身は四角（Polygon）だけ。点（Point）を持たない
     const sources = await page.evaluate(() => Object.keys((window as unknown as W).__hpaiMap!.getStyle().sources));
-    expect(sources.filter((s) => /spot|farm|point|mine|my/i.test(s))).toEqual([]);
+    expect(sources.filter((s) => /spot|farm|point|mine|my/i.test(s))).toEqual(["farm-mesh"]);
+    const meshTypes = await page.evaluate(() => {
+      const data = ((window as unknown as W).__hpaiMap!.getStyle().sources as Record<string, { data?: { features?: { geometry: { type: string } }[] } }>)["farm-mesh"]?.data;
+      return (data?.features ?? []).map((f) => f.geometry.type);
+    });
+    expect(meshTypes).toEqual(["Polygon"]);
 
     // 再読み込みで残る
     await page.reload();

@@ -2,7 +2,8 @@ import type { Case, HistoryCase, WildBird } from "@hpai/shared/types";
 import { describe, expect, it, vi } from "vitest";
 import historyJson from "../../../../data/history/cases.json";
 import { distanceRingsOf } from "../../geo/distanceRings";
-import { applyDistanceRings, applyLatest, applyOverlay, applyView, applyWildBirds, overlayStyle, wildBirdFeatures, type ViewTarget } from "./applyView";
+import { farmMeshFeature } from "../../geo/farmMark";
+import { applyDistanceRings, applyFarmMesh, applyLatest, applyOverlay, applyView, applyWildBirds, overlayStyle, wildBirdFeatures, type ViewTarget } from "./applyView";
 import { PAINT } from "./mapStyle";
 import { buildSeasonView } from "./seasonView";
 
@@ -15,7 +16,7 @@ function fakeMap() {
   const map: ViewTarget = {
     setFilter: (id, f) => void filters.set(id, f),
     setPaintProperty: (id, prop, v) => void paints.set(`${id}/${prop}`, v),
-    getSource: (id) => (id === "wild-birds" || id === "muni" || id === "distance-rings" ? { setData } : undefined),
+    getSource: (id) => (id === "wild-birds" || id === "muni" || id === "distance-rings" || id === "farm-mesh" ? { setData } : undefined),
   };
   return { map, filters, paints, setData };
 }
@@ -177,6 +178,17 @@ describe("applyDistanceRings", () => {
     applyDistanceRings(map, rings);
     expect(setData).toHaveBeenLastCalledWith(rings);
     applyDistanceRings(map, null);
+    expect(setData).toHaveBeenLastCalledWith({ type: "FeatureCollection", features: [] });
+  });
+});
+
+describe("applyFarmMesh（鶏舎の場所のマス目、作者 11/7）", () => {
+  it("マス目があれば farm-mesh の source に渡し、なければ空にする（場所を消したら印も消える）", () => {
+    const { map, setData } = fakeMap();
+    const f = farmMeshFeature("53394611")!;
+    applyFarmMesh(map, f);
+    expect(setData).toHaveBeenLastCalledWith({ type: "FeatureCollection", features: [f] });
+    applyFarmMesh(map, null);
     expect(setData).toHaveBeenLastCalledWith({ type: "FeatureCollection", features: [] });
   });
 });

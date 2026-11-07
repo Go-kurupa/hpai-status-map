@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { latLngToMesh3, mesh3Center } from "../src/mesh";
+import { latLngToMesh3, mesh3Bounds, mesh3Center } from "../src/mesh";
 
 describe("latLngToMesh3", () => {
   it("東京駅付近は 53394611", () => {
@@ -44,5 +44,28 @@ describe("mesh3Center", () => {
     for (const bad of ["", "5339461", "533946111", "5339461a", "53394811", "53398611", "5339 4611"]) {
       expect(() => mesh3Center(bad)).toThrow();
     }
+  });
+});
+
+describe("mesh3Bounds", () => {
+  it("53394611 は緯度 30 秒・経度 45 秒の四角で、中心を囲む", () => {
+    const b = mesh3Bounds("53394611");
+    expect(b.south).toBeCloseTo(35.675, 9);
+    expect(b.north).toBeCloseTo(35.675 + 1 / 120, 9);
+    expect(b.west).toBeCloseTo(139.7625, 9);
+    expect(b.east).toBeCloseTo(139.7625 + 1 / 80, 9);
+    const c = mesh3Center("53394611");
+    expect((b.south + b.north) / 2).toBeCloseTo(c.lat, 9);
+    expect((b.west + b.east) / 2).toBeCloseTo(c.lng, 9);
+  });
+
+  it("四隅の内側は同じマス目に戻る", () => {
+    const b = mesh3Bounds("52394011");
+    expect(latLngToMesh3(b.south + 1e-6, b.west + 1e-6)).toBe("52394011");
+    expect(latLngToMesh3(b.north - 1e-6, b.east - 1e-6)).toBe("52394011");
+  });
+
+  it("不正なコードは throw する", () => {
+    expect(() => mesh3Bounds("53398611")).toThrow();
   });
 });

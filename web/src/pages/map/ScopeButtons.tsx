@@ -15,6 +15,7 @@ export function regionMuniCodes(id: RegionId, codes: Iterable<MuniCode>): MuniCo
 
 export function ScopeButtons({
   hasNear,
+  nearIsFarm = false,
   picked,
   onNear,
   onJapan,
@@ -22,6 +23,8 @@ export function ScopeButtons({
 }: {
   /** 地域を選んでいるとき true。［選択地域付近］を出す */
   hasNear: boolean;
+  /** 鶏舎の場所を決めている。［選択地域付近］を［鶏舎の付近］と呼ぶ */
+  nearIsFarm?: boolean;
   picked: Scope;
   onNear: () => void;
   onJapan: () => void;
@@ -31,7 +34,7 @@ export function ScopeButtons({
     <div className="cmp-scope" role="group" aria-label={CMP_TEXT.scopeAria}>
       {hasNear ? (
         <button type="button" aria-pressed={picked === "near"} onClick={onNear}>
-          {CMP_TEXT.scopeNear}
+          {nearIsFarm ? CMP_TEXT.scopeNearFarm : CMP_TEXT.scopeNear}
         </button>
       ) : null}
       <button type="button" aria-pressed={picked === "japan"} onClick={onJapan}>

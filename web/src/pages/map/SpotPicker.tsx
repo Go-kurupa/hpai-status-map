@@ -1,7 +1,7 @@
 import type { GeoStore } from "@hpai/shared/geo";
 import { PREFS } from "@hpai/shared/pref";
 import type { FarmPoint, MuniCode } from "@hpai/shared/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOaza } from "../../data/oaza";
 import { Button } from "../../ui/Button";
 import { spotFromPick } from "../../data/spot";
@@ -28,16 +28,26 @@ export interface SpotPickerProps {
   town?: MuniCode | null;
   /** 地区（大字）を選んだら、地図をその目安の点へ寄せる（[経度, 緯度]）。渡さなければ地区の一覧を出さない */
   onAimAt?(lng: number, lat: number): void;
+  /** 確かめる候補がある間 true。親はこの間、町の欄の置き場を動かさない（動くと作り直されて候補が消える） */
+  onCandidateChange?(has: boolean): void;
 }
 
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 
 /**
- * 約 1km のマス目まで場所を決める（任意）。中央の十字の位置を町にして、町の名前で確かめてから保存する。
- * 緯度経度はここでも持たない（pickFromMap が捨てる）。
+ * 鶏舎の場所を約 1km のマス目まで決める（任意）。中央の十字の位置を町にして、町の名前で確かめてから保存する。
+ * 選択地域の行のすぐ下に置く（2026-11-07 作者の決定 A）。緯度経度はここでも持たない（pickFromMap が捨てる）。
  */
 export function SpotPicker(p: SpotPickerProps) {
-  const [candidate, setCandidate] = useState<FarmPoint | null>(null);
+  const [candidate, setCandidateState] = useState<FarmPoint | null>(null);
+  // 候補の有無は、候補を入れるのと同じ更新の中で親に知らせる（描いた後に知らせると、その間に親の置き場の固定が外れる）
+  const setCandidate = (c: FarmPoint | null) => {
+    setCandidateState(c);
+    p.onCandidateChange?.(c !== null);
+  };
+  // 候補を持ったまま欄が消えたら（町を外したときなど）、親の「候補あり」を戻す
+  const onCandidateChange = p.onCandidateChange;
+  useEffect(() => () => onCandidateChange?.(false), [onCandidateChange]);
   const [message, setMessage] = useState<string | null>(null);
   const [oazaPick, setOazaPick] = useState("");
   // 地区の一覧は、十字を合わせている間だけ読む（画面を開いただけでは通信しない。再現や見本の画面も同じ）
@@ -96,11 +106,15 @@ export function SpotPicker(p: SpotPickerProps) {
   return (
     <section className="spot-picker" aria-label={TEXT.spotTitle} data-active={p.aiming || candidate ? "true" : undefined}>
       <h2>{TEXT.spotTitle}</h2>
-      <p className="map-note">{TEXT.spotWhy}</p>
-      {p.deviceSpot && !p.aiming && !candidate ? (
-        <p>
-          {nameOf(p.deviceSpot.muniCode)}の約 1km のマス目。{TEXT.spotSaved}
-        </p>
+      {candidate ? <p className="map-note">{TEXT.spotWhy}</p> : null}
+      {!p.aiming && !candidate ? (
+        p.deviceSpot ? (
+          <p>
+            {nameOf(p.deviceSpot.muniCode)}の約 1km のマス目。{TEXT.spotSavedNoSend}
+          </p>
+        ) : (
+          <p className="map-note">{TEXT.spotNone}</p>
+        )
       ) : null}
       {p.saveFailed ? <p role="status">{TEXT.spotSaveFailed}</p> : null}
 
@@ -135,6 +149,16 @@ export function SpotPicker(p: SpotPickerProps) {
         </div>
       ) : p.aiming ? (
         <div>
+          {/* 十字の案内と［ここに決める］を先に置く。スマホで地区の欄がボタンを画面の外へ押し出さないように */}
+          <p>{TEXT.spotHint}</p>
+          {message ? <p role="alert">{message}</p> : null}
+          <div className="town-actions">
+            <Button variant="primary" onClick={decide}>
+              {TEXT.spotSet}
+            </Button>
+            <Button onClick={stop}>{TEXT.cancel}</Button>
+          </div>
+          <p className="map-note">{TEXT.spotWhy}</p>
           {/* 地区の一覧が読めて 1 つ以上あるときだけ。読めなくても十字で決められるので、失敗は出さない */}
           {oazaRows.length > 0 ? (
             <div className="spot-oaza">
@@ -151,18 +175,10 @@ export function SpotPicker(p: SpotPickerProps) {
               <p className="map-note">{TEXT.oazaSource}</p>
             </div>
           ) : null}
-          <p>{TEXT.spotHint}</p>
-          {message ? <p role="alert">{message}</p> : null}
-          <div className="town-actions">
-            <Button variant="primary" onClick={decide}>
-              {TEXT.spotSet}
-            </Button>
-            <Button onClick={stop}>{TEXT.cancel}</Button>
-          </div>
         </div>
       ) : (
         <div className="town-actions">
-          <Button onClick={start}>{TEXT.spotStart}</Button>
+          <Button onClick={start}>{p.deviceSpot ? TEXT.spotRestart : TEXT.spotStart}</Button>
           {p.deviceSpot ? <Button onClick={p.onClear}>{TEXT.spotClear}</Button> : null}
         </div>
       )}

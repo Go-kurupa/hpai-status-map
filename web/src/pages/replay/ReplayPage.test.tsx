@@ -348,8 +348,9 @@ describe("ReplayPage: 全国の流れ", () => {
   const TOTAL = 24;
   const band = () => document.querySelector(".replay-band")!.textContent ?? "";
   const nowLine = () => document.querySelector(".replay-now")!.textContent ?? "";
+  // 約 60 km 以内の件数は、町の欄の場所の下（.farm-band。2026-11-07 作者の決定 A）
   const card = (title: string) =>
-    [...document.querySelectorAll(".stat")].find((c) => c.querySelector(".stat-title")?.textContent?.startsWith(title))?.textContent ?? null;
+    [...document.querySelectorAll(".stat, .farm-band")].find((c) => c.querySelector(".stat-title, .farm-band-title")?.textContent?.startsWith(title))?.textContent ?? null;
   const flowButton = (name: string) => screen.getByRole("button", { name });
 
   async function openNational() {
@@ -405,6 +406,9 @@ describe("ReplayPage: 全国の流れ", () => {
     await screen.findByText(`0 / ${TOTAL}`);
     await waitFor(() => expect(lastProps().focus?.kind).toBe("rings"));
     expect(lastProps().focus?.codes).toEqual([NATIONAL_FLOW_SPOT.muniCode]);
+    // 仮の地点は農場の場所ではないので、鶏舎の場所の印を描かず、「鶏舎」とも呼ばない（2026-11-07）
+    expect(lastProps().markFarm).toBeFalsy();
+    expect(document.body.textContent).not.toContain("鶏舎の");
     fireEvent.click(flowButton(CASES));
     await waitFor(() => expect(lastProps().focus).toBeNull());
   });

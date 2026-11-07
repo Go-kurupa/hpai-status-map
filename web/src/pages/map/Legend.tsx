@@ -1,7 +1,7 @@
 import { TEXT } from "./texts";
 
-/** 地図の見方。疑いは斜線、確定は単色、野鳥は別の印、確認できていない県は斜線の灰色 */
-export function Legend({ isCurrent }: { isCurrent: boolean }) {
+/** 地図の見方。疑いは斜線、確定は単色、野鳥は別の印、確認できていない県は斜線の灰色。鶏舎の場所を決めていれば、その印も */
+export function Legend({ isCurrent, hasFarm = false }: { isCurrent: boolean; hasFarm?: boolean }) {
   const past = isCurrent ? "" : " is-past";
   return (
     <ul className="map-legend" aria-label={TEXT.legendAria}>
@@ -25,6 +25,12 @@ export function Legend({ isCurrent }: { isCurrent: boolean }) {
         <span className="swatch swatch-unwatched" aria-hidden="true" />
         確認できていない県
       </li>
+      {hasFarm ? (
+        <li>
+          <span className="swatch swatch-farm" aria-hidden="true" />
+          {TEXT.legendFarm}
+        </li>
+      ) : null}
     </ul>
   );
 }

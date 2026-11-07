@@ -1,7 +1,7 @@
 import { findForbiddenPhrases, findWordingViolations } from "@hpai/shared/wording";
 import type { Case, HistoryCase, Season, WatchStatus } from "@hpai/shared/types";
 import { createGeoStore } from "@hpai/shared/geo";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { MemoryRouter } from "react-router";
@@ -130,20 +130,24 @@ describe("WebGL2 が使えない端末", () => {
     expect(screen.getAllByText(TEXT.mapTapHint).length).toBeGreaterThan(0);
   });
 
-  it("「くわしい場所を決める」は、十字ではなく町の中心あたりのマス目を使うボタンになり、この端末に保存する", async () => {
+  it("「鶏舎の場所」は、十字ではなく町の中心あたりのマス目を使うボタンになり、この端末に保存する", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { container } = mount();
     const japan = await screen.findByRole("group", { name: TEXT.svgMapAria }, SLOW);
-    const spot = screen.getByRole("region", { name: TEXT.spotTitle });
-    expect(within(spot).queryByRole("button", { name: TEXT.spotStart })).toBeNull();
-    expect(within(spot).getByText(TEXT.spotNoMap)).toBeTruthy();
+    // 鶏舎の場所の欄は、選択地域の行のすぐ下（2026-11-07 作者の決定 A）。町を選ぶまでは出さない
+    expect(screen.queryByRole("region", { name: TEXT.spotTitle })).toBeNull();
     // 町を選ぶ（代わりの地図から）
     fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));
     fireEvent.click(within(japan).getByRole("button", { name: /^岡山県/ }));
     const muni = await screen.findByRole("group", { name: /岡山県の市町村/ });
     fireEvent.click(await within(muni).findByRole("button", { name: /^西粟倉村/ }));
+    // 町の文がそろうまでは、町の欄が地図の前後に動いて作り直される。そろってから押す
+    await waitFor(() => expect(document.querySelector(".town-banner .town-now")).toBeTruthy());
+    const spot = await screen.findByRole("region", { name: TEXT.spotTitle });
+    expect(within(spot).queryByRole("button", { name: TEXT.spotStart })).toBeNull();
+    expect(within(spot).getByText(TEXT.spotNoMap)).toBeTruthy();
     fireEvent.click(within(spot).getByRole("button", { name: TEXT.meshUseCenter }));
-    fireEvent.click(within(spot).getByRole("button", { name: TEXT.spotDecide }));
+    fireEvent.click(within(screen.getByRole("region", { name: TEXT.spotTitle })).getByRole("button", { name: TEXT.spotDecide }));
     const saved = JSON.parse(localStorage.getItem(SPOT_KEY) ?? "null") as { meshCode: string; muniCode: string } | null;
     expect(saved?.muniCode).toBe("33643");
     expect(saved?.meshCode).toMatch(/^\d{8}$/);

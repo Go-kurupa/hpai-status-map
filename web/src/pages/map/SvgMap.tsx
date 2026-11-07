@@ -10,6 +10,7 @@ import { feature, merge } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { distanceRingsAt, distanceRingsOf, ringLabel, ringTop, visibleRingKms, type DistanceRings } from "../../geo/distanceRings";
+import { FARM_MARK_PX, farmMeshFeature, farmSquareShown, type FarmMeshFeature } from "../../geo/farmMark";
 import { loadJapanTopo, loadPrefAnchors, loadWebGeoStore } from "../../geo/loadGeo";
 import { overlayStyle, viewStyle, wildBirdFeatures, type WildBirdFeature } from "./applyView";
 import { CMP_TEXT } from "./compareTexts";
@@ -20,7 +21,7 @@ import { badgeStates, JAPAN_BOUNDS } from "./seasonView";
 import { TEXT } from "./texts";
 
 export interface SvgMapProps
-  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni" | "overlay" | "latest" | "pickedMuni"> {
+  extends Pick<MapViewProps, "view" | "wildBirds" | "failedPrefCodes" | "myMuniCode" | "nearMuniCodes" | "farmMeshCode" | "markFarm" | "ringCenter" | "focus" | "onSelectMuni" | "onInspectMuni" | "overlay" | "latest" | "pickedMuni"> {
   /** 場所が分からず置けなかった野鳥の数（注記は MapView が出す） */
   onUnplaced?: (n: number) => void;
   /** 形を読めなかった（知らせは MapView が出す） */
@@ -238,6 +239,31 @@ function Hatch({ id, color, dir = "up", filled = false }: { id: string; color: s
 const CMP_HATCH = { "cmp-one": PAINT.hatchCmpOne, "cmp-two": PAINT.hatchCmpTwo, "cmp-both": PAINT.hatchCmpBoth } as const;
 const CMP_COLOR = { "cmp-one": PAINT.cmpOne, "cmp-two": PAINT.cmpTwo, "cmp-both": PAINT.cmpBoth } as const;
 
+/**
+ * 鶏舎の場所（作者 11/7）。約 1km のマス目を薄い赤で塗って赤い線で囲む。マス目が 14px より小さく見える広さでは、
+ * 一定の大きさの赤い四角に替える（MapView と同じ）。「鶏舎の場所」の札を添える。scale は viewBox の 1 単位が画面の何 px か
+ */
+function FarmMark({ mesh, proj, scale }: { mesh: FarmMeshFeature; proj: Projection; scale: number }) {
+  const unitsPerKm = (proj.at(0, 0)[1] - proj.at(0, 1)[1]) / KM_PER_LAT_DEG;
+  const ring = mesh.geometry.coordinates[0]!;
+  const [x0, y0] = proj.at(ring[0]![0]!, ring[0]![1]!);
+  const [x1, y1] = proj.at(ring[2]![0]!, ring[2]![1]!);
+  const [cx, cy] = [(x0 + x1) / 2, (y0 + y1) / 2];
+  const half = FARM_MARK_PX / scale / 2;
+  return (
+    <g className="svg-farm" aria-hidden="true">
+      {farmSquareShown(unitsPerKm * scale) ? (
+        <rect className="svg-farm-square" x={cx - half} y={cy - half} width={half * 2} height={half * 2} fill={PAINT.current} fillOpacity={0.6} stroke={PAINT.current} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      ) : (
+        <path className="svg-farm-mesh" d={pathOf(mesh.geometry, proj)} fill={PAINT.current} fillOpacity={0.45} stroke={PAINT.current} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      )}
+      <text className="svg-farm-label" x={cx + half + 4 / scale} y={cy} fontSize={RING_LABEL_PX / scale}>
+        {TEXT.farmMark}
+      </text>
+    </g>
+  );
+}
+
 /** 距離の輪と km のラベル。scale は viewBox の 1 単位が画面の何 px か */
 function RingMarks({ rings, proj, scale }: { rings: DistanceRings; proj: Projection; scale: number }) {
   const unitsPerKm = (proj.at(0, 0)[1] - proj.at(0, 1)[1]) / KM_PER_LAT_DEG;
@@ -291,6 +317,7 @@ export default function SvgMap(props: SvgMapProps) {
     () => (props.farmMeshCode ? distanceRingsOf(props.farmMeshCode) : distanceRingsAt(ringLng !== undefined && ringLat !== undefined ? [ringLng, ringLat] : null)),
     [props.farmMeshCode, ringLng, ringLat],
   );
+  const farmMesh = useMemo(() => (props.markFarm ? farmMeshFeature(props.farmMeshCode) : null), [props.markFarm, props.farmMeshCode]);
 
   // 1) 全国の形、索引、県の代表の位置を読む（1 度だけ）
   useEffect(() => {
@@ -498,6 +525,7 @@ export default function SvgMap(props: SvgMapProps) {
               <path key={i} className="svg-mine-line" d={d} fill="none" {...LINE.mine} />
             ))}
             {rings ? <RingMarks rings={rings} proj={japan.proj} scale={scale} /> : null}
+            {farmMesh ? <FarmMark mesh={farmMesh} proj={japan.proj} scale={scale} /> : null}
             {style.showWildBirds ? birds?.features.map((f) => <BirdMark key={f.properties.id} f={f} proj={japan.proj} />) : null}
             {japan.prefs
               .filter((s) => badges.has(s.code))
@@ -627,6 +655,7 @@ export default function SvgMap(props: SvgMapProps) {
                     <path key={s.code} className="svg-mine-line" d={s.d} fill="none" {...LINE.mine} />
                   ))}
                 {rings ? <RingMarks rings={rings} proj={pref.proj} scale={scale} /> : null}
+                {farmMesh ? <FarmMark mesh={farmMesh} proj={pref.proj} scale={scale} /> : null}
                 {style.showWildBirds && store
                   ? birds?.features
                       .filter((f) => props.wildBirds.find((b) => b.id === f.properties.id)?.prefCode === prefCode)

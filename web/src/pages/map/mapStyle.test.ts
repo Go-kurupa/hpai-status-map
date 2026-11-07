@@ -7,6 +7,19 @@ import { MUNI_ZOOM } from "./seasonView";
 
 const layers = overlayLayers();
 
+describe("鶏舎の場所のマス目（作者 11/7）", () => {
+  it("中を薄い赤で塗り、赤い線で囲む。距離の輪より上、野鳥の印より下", () => {
+    const fill = layers.find((l) => l.id === "farm-mesh-fill") as { source: string; paint: Record<string, unknown> };
+    const line = layers.find((l) => l.id === "farm-mesh-line") as { source: string; paint: Record<string, unknown> };
+    expect(fill.source).toBe("farm-mesh");
+    expect(line.source).toBe("farm-mesh");
+    expect(fill.paint["fill-color"]).toBe(PAINT.current);
+    expect(fill.paint["fill-opacity"]).toBeGreaterThan(0);
+    expect(fill.paint["fill-opacity"]).toBeLessThan(1);
+    expect(line.paint["line-color"]).toBe(PAINT.current);
+  });
+});
+
 describe("地図の層", () => {
   it("下から gsi-pale、muni-fill、pref-unwatched、case-suspected、case-confirmed、muni-line、near-line、pref-line、my-town、距離の輪、野鳥 2 層", () => {
     const base = baseStyle().layers.map((l) => l.id);
@@ -31,6 +44,8 @@ describe("地図の層", () => {
       "my-town",
       "picked-line",
       "distance-rings",
+      "farm-mesh-fill",
+      "farm-mesh-line",
       "wild-bird-screening",
       "wild-bird-confirmed",
     ]);
@@ -92,7 +107,7 @@ describe("地図の層", () => {
   it("muni の source は tolerance 0.3 の geojson。source の名前が層と一致する", () => {
     const style = baseStyle();
     expect(style.sources["gsi"]).toMatchObject({ type: "raster", tileSize: 256, minzoom: 2, maxzoom: 18 });
-    expect(OVERLAY_SOURCE_IDS).toEqual(["muni", "pref", "wild-birds", "distance-rings"]);
+    expect(OVERLAY_SOURCE_IDS).toEqual(["muni", "pref", "wild-birds", "distance-rings", "farm-mesh"]);
     for (const l of layers) {
       if ("source" in l) expect(OVERLAY_SOURCE_IDS).toContain(l.source);
     }
@@ -132,6 +147,7 @@ describe("maplibre の style の検査（本物の検証器）", () => {
         pref: { type: "geojson" as const, data: empty },
         "wild-birds": { type: "geojson" as const, data: empty },
         "distance-rings": { type: "geojson" as const, data: empty },
+        "farm-mesh": { type: "geojson" as const, data: empty },
       },
       layers: [...base.layers, ...overlayLayers()],
     };

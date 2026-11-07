@@ -35,6 +35,8 @@ export interface TownBannerProps {
   children?: ReactNode;
   /** 町の名前の横に描く（地域を選択ボタン。設計書 2026-11-06-town-picker D1）。町を選んでいないときは children を使う */
   nameAction?: ReactNode;
+  /** 選択地域の行のすぐ下に描く（鶏舎の場所と、約 60 km 以内の件数。2026-11-07 作者の決定 A）。町を選んでいないときは出さない */
+  spotRow?: ReactNode;
   /** スマホの段階の文を地図の前に置くとき、lead は段階の文だけ、rest はそれ以外を描く。既定は全部 */
   part?: "all" | "lead" | "rest";
   /** 過去の行を 1 文と「選択地域の過去」へのリンクだけにする（最初の画面。設計書 2026-11-06-ui-frame 4.1） */
@@ -201,6 +203,7 @@ export function TownBanner(p: TownBannerProps) {
           {p.nameAction}
         </div>
       ) : null}
+      {p.spotRow}
       {now}
       <PastRow past={p.past} nearby={p.nearby} town={p.muniCode} line={p.line} showDisclaimer={p.showPastDisclaimer} riskShownAbove={p.riskShownAbove ?? false} brief={p.pastBrief ?? false} onPickTown={p.onPickTown} />
       {/* 最初の画面は「選択地域の過去を見る」の 1 本にする。案内ページへは選択地域の過去の画面から（設計書 2026-11-06-town-picker D8） */}

@@ -40,7 +40,7 @@ export const HATCH_COLORS: ReadonlyArray<readonly [id: string, color: string]> =
 
 export const IMAGE_IDS = { birdScreening: "bird-screening", birdConfirmed: "bird-confirmed" } as const;
 
-export const OVERLAY_SOURCE_IDS = ["muni", "pref", "wild-birds", "distance-rings"] as const;
+export const OVERLAY_SOURCE_IDS = ["muni", "pref", "wild-birds", "distance-rings", "farm-mesh"] as const;
 
 export const LAYER_IDS = [
   "gsi-pale",
@@ -63,6 +63,8 @@ export const LAYER_IDS = [
   "my-town",
   "picked-line",
   "distance-rings",
+  "farm-mesh-fill",
+  "farm-mesh-line",
   "wild-bird-screening",
   "wild-bird-confirmed",
 ] as const;
@@ -189,6 +191,19 @@ export function overlayLayers(): LayerSpecification[] {
       type: "line",
       source: "distance-rings",
       paint: { "line-color": PAINT.ink, "line-width": 1.5, "line-dasharray": [2, 2] },
+    },
+    // 鶏舎の場所の約 1km のマス目（作者 11/7）。この端末の画面だけで描き、送らない。全国の広さでは MapView が一定の大きさの四角に替える
+    {
+      id: "farm-mesh-fill",
+      type: "fill",
+      source: "farm-mesh",
+      paint: { "fill-color": PAINT.current, "fill-opacity": 0.45 },
+    },
+    {
+      id: "farm-mesh-line",
+      type: "line",
+      source: "farm-mesh",
+      paint: { "line-color": PAINT.current, "line-width": 2 },
     },
     {
       id: "wild-bird-screening",

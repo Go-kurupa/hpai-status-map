@@ -54,7 +54,8 @@ const filterHas = (page: Page, layer: string, code: string) =>
   page.waitForFunction(([l, c]) => JSON.stringify((window as unknown as W).__hpaiMap!.getFilter(l!)).includes(c!), [layer, code], { timeout: 10_000 });
 
 test.describe("全国の流れ（/replay の切り替え）", () => {
-  const statText = (page: Page, title: string) => page.locator(".stat").filter({ has: page.locator(".stat-title", { hasText: title }) });
+  // 約 60 km 以内の件数は町の欄の鶏舎の場所の下（.farm-band。2026-11-07 作者の決定 A）
+  const statText = (page: Page, title: string) => page.locator(".stat, .farm-band").filter({ has: page.locator(".stat-title, .farm-band-title", { hasText: title }) });
 
   async function openNational(page: Page) {
     await open(page);

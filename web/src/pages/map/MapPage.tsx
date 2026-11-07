@@ -73,6 +73,26 @@ function StatCount({ text, lead }: { text: string; lead?: string }) {
   );
 }
 
+/**
+ * 町の欄の約 60 km 以内の件数の 1 行。札（StatCount）と違い、スマホでも見出し（今季、過去 6 シーズン）と未確認の断りを隠さない。
+ * 「N 件」の数字だけを太くする
+ */
+function BandLine({ lead, text }: { lead: string; text: string }) {
+  const count = /^(\d+(?:〜\d+)?) 件$/.exec(text);
+  return (
+    <p className="stat-value">
+      {lead}{" "}
+      {count ? (
+        <>
+          <b>{count[1]}</b> 件
+        </>
+      ) : (
+        text
+      )}
+    </p>
+  );
+}
+
 // 守る文を、文と出典に分ける。文の正は FIXED_TEXT のまま
 const RISK_PARTS = /^(.*)（出典: (.*) (https:\S+)）$/.exec(FIXED_TEXT.riskAnywhere)!;
 const [, RISK_SENTENCE, RISK_SOURCE, RISK_URL] = RISK_PARTS;
@@ -145,6 +165,9 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     current: d.current,
   });
   const farmMeshCode = spotState.spot?.meshCode ?? null;
+  // 鶏舎の場所として印を描き、「鶏舎の付近」と呼ぶのは、本人の端末の場所か会員の農場だけ（2026-11-07 作者の決定 A）。
+  // 再現や見本の仮の地点（fixed）は農場の場所ではないので、印を描かず、今までの呼び方のまま
+  const ownFarm = farmMeshCode !== null && spotState.source !== "fixed";
   const nearby = useNearbyPast({
     town,
     meshCode: farmMeshCode,
@@ -175,6 +198,21 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   // 選ぶ画面を開いた時の、町の欄の置き場（地図の後ろか）。開いている間に置き場が変わると選ぶ画面が作り直され、入力が消えるので固定する
   const [pickSlot, setPickSlot] = useState<boolean | null>(null);
   const [aiming, setAiming] = useState(false);
+  // 鶏舎の場所の候補を確かめている間（SpotPicker が知らせる）。この間と十字を合わせている間は、町の欄の置き場を地図の後ろに固定する
+  const [spotCandidate, setSpotCandidate] = useState(false);
+  // 合わせ始めた時の町の欄の置き場（地図の後ろなら true）。合わせている間と候補を確かめている間はこれに固定する。
+  // 画面に出ている置き場は、描いた後に shownSlot へ写す（捨てられた描画の値を使わない）
+  const [spotSlot, setSpotSlot] = useState<boolean | null>(null);
+  const shownSlot = useRef<boolean | null>(null);
+  const holdSlot = useCallback(() => setSpotSlot((cur) => cur ?? shownSlot.current), []);
+  // SpotPicker は候補を入れるのと同じ更新の中で知らせる（決めた直後に固定が一瞬外れて欄が作り直されないように）
+  const onSpotCandidate = useCallback(
+    (has: boolean) => {
+      setSpotCandidate(has);
+      if (has) holdSlot();
+    },
+    [holdSlot],
+  );
   // 場所合わせ中は、町の形などが後から届いても選択地域付近へ寄せ直さない（決められる拡大まで寄せた結果が消える）
   const aimingRef = useRef(false);
   aimingRef.current = aiming;
@@ -205,12 +243,13 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     (on: boolean) => {
       setAiming(on);
       if (on) {
+        holdSlot();
         setPicking(false);
         // 十字を合わせやすいよう、自分の町へ寄せる。大きな町でも、そのまま「ここに決める」を押せる拡大まで寄せる
         if (town) moveTo("muni", [town], SPOT_MIN_ZOOM);
       }
     },
-    [town, moveTo],
+    [town, moveTo, holdSlot],
   );
   const setPickingOpen = useCallback((open: boolean) => {
     setPicking(open);
@@ -315,7 +354,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       ? countText({ count: 0, allUnchecked: noneConfirmed })
       : countText({ count: birdCounts.total });
   // 発生が 0 件のときと同じく、札に 0 件が出るときは札のすぐ前に置く（0 件だけが先に読まれないように）
-  const zeroStat = showStats && (recentCount === 0 || (farmMeshCode !== null && band.now === 0) || (hasFrequent && geo !== null && (frequentCounts?.some((c) => c.count === 0) ?? false)));
+  const zeroStat = showStats && (recentCount === 0 || (hasFrequent && geo !== null && (frequentCounts?.some((c) => c.count === 0) ?? false)));
   // 町の文のうち、普段の段階 ③④ と読み込み中は地図の下に置いて地図を上げる。重要な文と読めない断りは地図の前に置く
   const lineFailed = townLine.failed || (town !== null && geoFailed);
   const bannerBelowMap = town !== null && !lineFailed && (d.currentCases === null || townLine.line === null || townLine.line.tone === "lv3" || townLine.line.tone === "lv4");
@@ -326,10 +365,25 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const narrowTown = narrow && town !== null;
   const townLead = narrowTown && (lineFailed || (d.currentCases !== null && (townLine.line?.tone === "lv1" || townLine.line?.tone === "lv2" || townLine.line?.tone === "none")));
   const bannerAfterMap = bannerBelowMap || narrowTown;
-  const bannerSlotAfterMap = picking && pickSlot !== null ? pickSlot : bannerAfterMap;
+  // 鶏舎の場所を合わせている間と候補を確かめている間は、町の欄の置き場を合わせ始めた時のままにする。
+  // 町の文の段階が途中で変わって欄が地図の前後に動くと、場所の欄が作り直されて候補や地区の選択が消えるため
+  const spotBusy = inMap && canEdit && (aiming || spotCandidate);
+  const bannerSlotAfterMap = picking && pickSlot !== null ? pickSlot : spotBusy && spotSlot !== null ? spotSlot : bannerAfterMap;
+  useEffect(() => {
+    shownSlot.current = bannerSlotAfterMap;
+  });
+  // 合わせ終わって候補もなくなったら、固定を外す
+  useEffect(() => {
+    if (!spotBusy) setSpotSlot(null);
+  }, [spotBusy]);
   const riskMovedUp = showStats && view.loaded && lineHasRisk && (bannerAfterMap || zeroShown);
   const riskAboveStats = view.isCurrent && view.loaded && (riskMovedUp || (zeroShown && !lineHasRisk));
-  const bannerLine = riskMovedUp && townLine.line ? { ...townLine.line, details: townLine.line.details.filter((t) => t !== FIXED_TEXT.riskAnywhere) } : townLine.line;
+  // 鶏舎から約 60 km 以内の件数（町の欄の鶏舎の場所の下。2026-11-07 作者の決定 A）。今季が 0 件なら、守る文を件数のすぐ前に置く
+  // （札の前にもう出ているときは繰り返さない）。そのときは町の文から守る文を外し、同じ欄で 2 度書かない
+  const showBand = inMap && showStats && farmMeshCode !== null;
+  const bandRisk = showBand && band.now === 0 && !riskAboveStats;
+  const bannerLine =
+    (riskMovedUp || bandRisk) && townLine.line ? { ...townLine.line, details: townLine.line.details.filter((t) => t !== FIXED_TEXT.riskAnywhere) } : townLine.line;
 
   // 守る文。スマホは出典を短いリンクにする（URL の全文は地図の下）
   const riskText = (className: string) =>
@@ -367,6 +421,52 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     </>
   );
 
+  const bandBox = showBand ? (
+    <div className="farm-band">
+      <p className="farm-band-title">{ownFarm ? TEXT.bandTitle(DISTANCE_BAND_KM) : TEXT.statBand(DISTANCE_BAND_KM)}</p>
+      {bandRisk ? riskText("town-note") : null}
+      <BandLine lead={TEXT.statBandNow} text={bandNowText(band.now)} />
+      <BandLine lead={TEXT.statBandPast(pastSeasons)} text={bandPastText(band.past)} />
+      {/* 約 60km の件数を 0 と読ませない断り */}
+      {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
+      {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
+      <p className="stat-note">
+        {TEXT.statBandWhen}。{TEXT.statBandRelated}
+      </p>
+    </div>
+  ) : null;
+  const spotPicker = (
+    <SpotPicker
+      getMap={() => mapRef.current}
+      geo={geo}
+      deviceSpot={spotState.deviceSpot}
+      readOnly={spotState.readOnly}
+      saveFailed={spotState.saveFailed}
+      aiming={aiming}
+      onAimingChange={aim}
+      onSet={(spot) => {
+        spotState.setDeviceSpot(spot);
+        setNotice(null);
+      }}
+      onClear={spotState.clearDeviceSpot}
+      mapless={mapless}
+      town={town}
+      onAimAt={(lng, lat) => {
+        // 地区（大字）の目安の点へ寄せる。点は寄せる先にだけ使い、保存しない（決めるのは十字の下の約 1km のマス目）
+        nonce.current += 1;
+        setFocus({ kind: "point", codes: town ? [town] : [], nonce: nonce.current, at: [lng, lat] });
+      }}
+      onCandidateChange={onSpotCandidate}
+    />
+  );
+  // 選択地域の行のすぐ下に、鶏舎の場所と約 60 km 以内の件数（2026-11-07 作者の決定 A）。今季の地図の画面だけ
+  const spotRow = inMap ? (
+    <>
+      {spotPicker}
+      {bandBox}
+    </>
+  ) : undefined;
+
   const bannerProps = {
     muniCode: town,
     muniName: townName,
@@ -377,7 +477,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     nearby,
     slow: d.casesSlow,
     showPastDisclaimer: view.isCurrent || !view.loaded,
-    riskShownAbove: riskMovedUp,
+    // 約 60 km の件数の前に守る文を出したときも、過去の行で繰り返さない
+    riskShownAbove: riskMovedUp || bandRisk,
   };
   const banner = (
     <TownBanner
@@ -387,6 +488,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       onPickTown={section === "now" ? setInspected : undefined}
       hideNationalHead={section === "now"}
       nameAction={town !== null ? picker : undefined}
+      spotRow={spotRow}
     >
       {town === null ? picker : null}
     </TownBanner>
@@ -395,22 +497,6 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const watchAfterMap = narrow && showStats && d.watchLoaded;
   const failedCount = d.failedPrefCodes.length;
   const failedWho = failedCount <= 2 ? names(d.failedPrefCodes) : TEXT.watchShortCount(failedCount);
-  // 約 60km の件数を 0 と読ませない断り。PC は札の数字のすぐ下に置き、スマホは地図の下の残りに置く
-  const bandCaveats = (
-    <>
-      {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
-      {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
-    </>
-  );
-  const bandMore = (
-    <>
-      <p className="stat-value">
-        {TEXT.statBandPast(pastSeasons)} {bandPastText(band.past)}
-      </p>
-      <p className="stat-note">{TEXT.statBandRelated}</p>
-      {narrow ? bandCaveats : null}
-    </>
-  );
   // PC の札に添える出典や断り。スマホの数字の 1 行には出さない
   const whenLine = (text: string) => (narrow ? null : <p className="stat-when">{text}</p>);
   const casesSource = ds.mode === "replay" ? TEXT.chartsSourceReplay : TEXT.chartsSourceLive;
@@ -454,7 +540,6 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   ) : null;
   // スマホで、全国の件数と同じ文だけの札（まだ確認できていません、など）は繰り返さない
   const repeatsHead = (text: string) => narrow && currentBar !== null && !text.includes("件") && text === countText(currentBar);
-  const bandNow = bandNowText(band.now);
   const recentText = countText({ count: recentCount, ...watchFlags });
   // 最初は全国の広さ（focus なし）。動かした先で押された状態を決める
   const showingNear = focus !== null && focus.kind !== "japan";
@@ -552,19 +637,6 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
               {TEXT.watchFailedTail}
             </p>
           ) : null}
-          {farmMeshCode !== null && !repeatsHead(bandNow) ? (
-            <div className="stat stat-wide stat-band">
-              <div className="stat-band-main">
-                <p className="stat-title">
-                  {TEXT.statBand(DISTANCE_BAND_KM).slice(0, -TEXT.statBandTail.length)}
-                  <span className="stat-long">{TEXT.statBandTail}</span>
-                </p>
-                <StatCount text={bandNow} lead={TEXT.statBandNow} />
-              </div>
-              {whenLine(TEXT.statBandWhen)}
-              {narrow ? null : bandCaveats}
-            </div>
-          ) : null}
           <div className={currentBar.unchecked && !currentBar.allUnchecked ? "stat stat-wide stat-national" : "stat stat-national"}>
             <p className="stat-title">発生した件数</p>
             <StatCount text={countText(currentBar)} />
@@ -602,6 +674,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       {section === "compare" ? (
         <ScopeButtons
           hasNear={town !== null}
+          nearIsFarm={ownFarm}
           picked={cmpScope}
           onNear={() => {
             userScoped.current = true;
@@ -620,7 +693,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       ) : town !== null ? (
         <div className="map-scope" role="group" aria-label={TEXT.mapScopeAria}>
           <button type="button" aria-pressed={showingNear} onClick={showNear}>
-            {TEXT.mapNear}
+            {ownFarm ? TEXT.mapNearFarm : TEXT.mapNear}
           </button>
           <button type="button" aria-pressed={!showingNear} onClick={() => moveTo("japan", [])}>
             {TEXT.japan}
@@ -653,6 +726,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
                   myMuniCode={town}
                   nearMuniCodes={townLine.nearMuniCodes}
                   farmMeshCode={farmMeshCode}
+                  markFarm={ownFarm}
                   ringCenter={ringCenter}
                   onInspectMuni={o.onInspectMuni}
                   focus={o.focus}
@@ -687,6 +761,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
               myMuniCode={town}
               nearMuniCodes={townLine.nearMuniCodes}
               farmMeshCode={farmMeshCode}
+              markFarm={ownFarm}
               ringCenter={ringCenter}
               onInspectMuni={section === "now" && !(picking && canEdit) && !aiming ? setInspected : undefined}
               focus={focus}
@@ -742,17 +817,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         </p>
       ) : null}
       {watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
-      {inMap && showStats && (farmMeshCode !== null || hasFrequent) ? (
-        <div className="stat-below">
-          {farmMeshCode !== null ? (
-            <div className="stat-band-more">
-              <p className="stat-title">{TEXT.statBand(DISTANCE_BAND_KM)}</p>
-              {bandMore}
-            </div>
-          ) : null}
-          {frequentStat}
-        </div>
-      ) : null}
+      {inMap && showStats && hasFrequent ? <div className="stat-below">{frequentStat}</div> : null}
       {inMap && bannerSlotAfterMap ? banner : null}
       {/* 右の欄（設計書 2026-11-06-ui-frame 4.1）: ふだんは自分の町の 1 文。町を押すとその町の事例に替わる（map.css で町の文を隠す） */}
       {section === "now" ? (
@@ -769,7 +834,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           onClose={() => setInspected(null)}
         />
       ) : null}
-      {section === "compare" ? null : <Legend isCurrent={view.isCurrent} />}
+      {section === "compare" ? null : <Legend isCurrent={view.isCurrent} hasFarm={ownFarm} />}
 
       {mapless ? null : (
         <p className="map-attribution">
@@ -780,29 +845,6 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         </p>
       )}
 
-      {inMap ? (
-      <SpotPicker
-        getMap={() => mapRef.current}
-        geo={geo}
-        deviceSpot={spotState.deviceSpot}
-        readOnly={spotState.readOnly}
-        saveFailed={spotState.saveFailed}
-        aiming={aiming}
-        onAimingChange={aim}
-        onSet={(spot) => {
-          spotState.setDeviceSpot(spot);
-          setNotice(null);
-        }}
-        onClear={spotState.clearDeviceSpot}
-        mapless={mapless}
-        town={town}
-        onAimAt={(lng, lat) => {
-          // 地区（大字）の目安の点へ寄せる。点は寄せる先にだけ使い、保存しない（決めるのは十字の下の約 1km のマス目）
-          nonce.current += 1;
-          setFocus({ kind: "point", codes: town ? [town] : [], nonce: nonce.current, at: [lng, lat] });
-        }}
-      />
-      ) : null}
         </>
       ) : null}
 
@@ -862,7 +904,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           failedPrefCodes={d.failedPrefCodes}
           asOfText={d.asOf === null ? null : formatAsOf(d.asOf)}
           source={ds.mode === "replay" ? TEXT.chartsSourceReplay : TEXT.chartsSourceLive}
-          note={riskAboveStats || lineHasRisk ? null : riskText("map-notice")}
+          note={riskAboveStats || lineHasRisk || bandRisk ? null : riskText("map-notice")}
         />
       ) : null}
 
