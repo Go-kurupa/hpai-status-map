@@ -31,8 +31,9 @@ export const MENU_ITEMS: ReadonlyArray<{ name: string; path: string }> = [
 const VIEWS: Readonly<Record<string, { menu: string; tabs?: string; tab?: string; link?: string }>> = {
   今季の発生と地図: { menu: "今季の発生", tabs: "今季の発生の見方", tab: "地図" },
   今季の一覧と数: { menu: "今季の発生", tabs: "今季の発生の見方", tab: "一覧と数" },
-  過去シーズンとの比べ: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "全国とシーズン" },
-  条件で見る: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "条件で見る" },
+  // 2026-11-07 作者の決定 案 A で名前を変えた（旧「全国とシーズン」「条件で見る」）
+  地図で比べる: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "地図で比べる" },
+  数で見る: { menu: "過去の発生", tabs: "過去の発生の見方", tab: "数で見る" },
   // 切り替えには並べない（作者 11/7）。最初の画面の「選択地域の過去を見る」のリンクから開く
   選択地域の過去: { menu: "今季の発生", link: "選択地域の過去を見る" },
 };

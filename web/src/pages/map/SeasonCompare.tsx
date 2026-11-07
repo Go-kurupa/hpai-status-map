@@ -23,6 +23,8 @@ export interface SeasonCompareProps {
   /** 見回りで確認できていない県の数（件数の言い方を変える） */
   unchecked: number;
   allUnchecked: boolean;
+  /** 地図で比べる画面（/compare）では今日までの 1 文だけを出し、表と県の上位は「数で見る」に任せる（2026-11-07 作者の決定 案 A） */
+  brief?: boolean;
 }
 
 const jaMonthDay = (d: IsoDate) => `${Number(d.slice(5, 7))} 月 ${Number(d.slice(8, 10))} 日`;
@@ -74,6 +76,8 @@ export function SeasonCompare(p: SeasonCompareProps) {
               </>
             ) : null}
           </p>
+          {p.brief ? null : (
+          <>
           <div className="table-scroll" tabIndex={0}>
           <table className="compare-table data-table">
             <caption>シーズンごとの件数（{md}までと、シーズンの合計）</caption>
@@ -149,6 +153,8 @@ export function SeasonCompare(p: SeasonCompareProps) {
               ))}
             </ul>
           </details>
+          </>
+          )}
         </>
       )}
       <p className="map-notice">{COMPARE_DISCLAIMER}</p>

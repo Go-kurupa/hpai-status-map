@@ -79,6 +79,8 @@ export interface OverlayState {
   show: OverlayShow;
   /** 確認できていない県。今季を比べに選んだときだけ入る */
   unwatchedPrefCodes: readonly PrefCode[];
+  /** 古い方と新しい方のシーズンの呼び方（今季、1 年前…）。代わりの地図の読み上げに使う（作者 11/7「比べる」を使わない） */
+  names?: readonly [string, string];
 }
 
 /** 1 だけ、2 だけ、両方に分ける。見せ方が「1 だけ」「2 だけ」なら、その片方を全部 one か two に入れる */

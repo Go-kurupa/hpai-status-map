@@ -71,12 +71,12 @@ test.describe("デモの筋", () => {
     expect(await noTone()).toBe(true);
 
     // 過去 6 シーズンの件数（古い順に 52、25、84、11、51、24。合わせて 247 事例）。
-    // シーズンの棒は「過去シーズンとの比べ」（/compare）にある（2026-11-06 骨組みの作り直し、設計書 2026-11-06-ui-frame 4.4）
-    await page.goto("/compare");
-    await expect(page.locator(".season-bar-count").nth(6)).toContainText("件");
-    const counts = await page.locator(".season-bar-count").allTextContents();
+    // シーズンごとの件数は「数で見る」（/explore）にある（2026-11-07 作者の決定 案 A）
+    await page.goto("/explore");
+    await expect(page.locator(".explore-bar-count").nth(6)).toContainText("件");
+    const counts = await page.locator(".explore-bar-count").allTextContents();
     const numbers = counts.map((t) => Number(/(\d+) 件/u.exec(t)?.[1] ?? NaN));
-    const pastSix = numbers.slice(1).reverse(); // 先頭は今季。1 年前から古い方へ並ぶので、逆にして古い順
+    const pastSix = numbers.slice(0, 6); // 古い順に過去 6 シーズン、最後が今季
     expect(pastSix).toEqual([52, 25, 84, 11, 51, 24]);
     expect(pastSix.reduce((a, b) => a + b, 0)).toBe(247);
 

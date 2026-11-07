@@ -91,8 +91,6 @@ export const TEXT = {
   // 選択地域付近で、約 60 km 以内に今季の発生がないときだけ出す（2026-11-06 作者の決定。あるときと全国の見方では出さない）
   nearNone: "現時点では、付近での発生は確認されていません。",
   // 過去シーズンとの比べの 2 枚の地図（設計書 2026-11-06-ui-frame 4.4、決定 5）。シーズンは日付の範囲でも示す
-  compareFirst: "比べる 1",
-  compareSecond: "比べる 2",
   compareOption: (label: string, season: number) => `${label}（${season} 年 6 月〜${season + 1} 年 5 月）`,
   compareHead: (name: string, season: number) => [name, `（${season} 年 6 月〜${season + 1} 年 5 月）`],
   compareMapAria: (name: string, season: string) => `発生状況の地図（${name}: ${season}）`,

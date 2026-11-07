@@ -1,21 +1,20 @@
 // 過去シーズンとの重ね合わせの文言（設計書 2026-11-06-data-explore E8〜E15）。
 // texts.ts は別の作業と同時に直されることがあるので、重ね合わせの文はここに分けて置く。禁句は使わない
 export const CMP_TEXT = {
-  svgOne: "比べる 1 だけで発生",
-  svgTwo: "比べる 2 だけで発生",
+  // 代わりの地図の町の読み上げ。name はシーズンの呼び方（今季、1 年前…）。作者 11/7「比べる」を使わない
+  svgOnly: (name: string): string => `${name}だけで発生`,
   svgBoth: "両方で発生",
   svgLatest: "選んだシーズンで発生（色は最後に発生したシーズン）",
   legendAria: "重ね合わせの凡例",
-  legendOneOnly: (n: number): string => `比べる 1 だけで発生（${n} 町）`,
-  legendTwoOnly: (n: number): string => `比べる 2 だけで発生（${n} 町）`,
+  /** name はシーズンの呼び方（今季、1 年前…） */
+  legendOnly: (name: string, n: number): string => `${name}だけで発生（${n} 町）`,
   legendBoth: (n: number): string => `両方で発生（${n} 町）`,
-  legendOne: (n: number): string => `比べる 1 で発生（${n} 町）`,
-  legendTwo: (n: number): string => `比べる 2 で発生（${n} 町）`,
+  legendIn: (name: string, n: number): string => `${name}で発生（${n} 町）`,
   legendUnwatched: "確認できていない県",
   legendNote: "町の数は、発生のあった市区町村の数です。県名だけの発表は地図に塗れないので、数に入れていません。",
   currentSuspected: "今季は疑いを含みます",
   sameSeason: "同じシーズンを選んでいます。別のシーズンを選ぶと比べられます。",
-  mapAria: (one: string, two: string): string => `発生状況の地図（比べる 1: ${one} と、比べる 2: ${two} の重ね合わせ）`,
+  mapAria: (one: string, two: string): string => `発生状況の地図（${one}と${two}の重ね合わせ）`,
   hint: "地図で町を押すと、2 つのシーズンのその町の発生が、地図の下に上下に並んで出ます。",
   // 3 つ以上の比べ（設計書 2026-11-06-data-explore E12）
   seasonsAria: "比べるシーズン（押して選ぶ。2 つなら重ねる、3 つ以上なら最後の発生の色）",

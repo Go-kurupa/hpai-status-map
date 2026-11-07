@@ -78,7 +78,7 @@ async function open(page: Page, o: { watch: WatchStatus[]; cases?: Case[]; wildB
 }
 
 test.describe("一覧", () => {
-  test("『一覧』（/season）を押すと aria-expanded が true。今季の行と注記が 3 つ出る。1 年前の切り替えは /compare で『24 件』", async ({ page }) => {
+  test("『一覧』（/season）を押すと aria-expanded が true。今季の行と注記が 3 つ出る", async ({ page }) => {
     await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird], path: "/season" });
     const toggle = page.getByRole("button", { name: /一覧/ });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -87,25 +87,25 @@ test.describe("一覧", () => {
     for (const t of ["疑いは、県の発表を見つけられた県だけ出ます", "環境省の野鳥監視重点区域は、防疫指針の区域とは別のものです", "監視強化区域は"]) {
       await expect(page.getByText(t)).toBeVisible();
     }
-    // シーズンの切り替えは /compare。1 年前を選ぶと 24 件
-    await page.goto("/compare");
-    // 比べるシーズンのボタンにも「1 年前」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
-    await page.locator(".season-bar").getByRole("button", { name: /1 年前.*24 件/ }).click();
-    await expect(page.locator(".season-bar").getByRole("button", { name: /1 年前/ })).toHaveAttribute("aria-pressed", "true");
   });
 
-  // 1 年前を選んで 24 行を見る。シーズンの切り替えと、選んだシーズンの一覧は /compare にある（設計書 2026-11-06-ui-frame 4.4）。
-  // 画面は行き先ごとに作り直すので、選んだシーズンは他の画面へ持ち越さない（/ はいつも今季）
-  test("1 年前を /compare で選ぶと、そこの一覧が 24 行で、出典は maff.go.jp", async ({ page }) => {
+  // 過去のシーズンの事例の一覧は「数で見る」（/explore）にある（2026-11-07 作者の決定 案 A。地図で比べる画面には一覧を置かない）。
+  // 1 年前（2025 年 6 月〜2026 年 5 月）の行は 24 行で、出典は maff.go.jp
+  test("1 年前の事例は /explore の一覧に 24 行あり、出典は maff.go.jp。/compare には一覧もシーズンの棒もない", async ({ page }) => {
     await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird], path: "/compare" });
-    await page.locator(".season-bar").getByRole("button", { name: /1 年前.*24 件/ }).click();
-    const toggle = page.getByRole("button", { name: /一覧/ });
-    await toggle.click();
-    const rows = page.getByRole("list", { name: "発生の一覧" }).getByRole("listitem");
-    await expect(rows).toHaveCount(24);
-    const hrefs = await rows.locator("a").evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).hostname));
-    expect(hrefs.length).toBeGreaterThanOrEqual(24);
-    expect(hrefs.every((h) => h.endsWith("maff.go.jp"))).toBe(true);
+    await expect(page.locator(".cmp-overlay")).toBeVisible();
+    await expect(page.locator(".case-list, .season-bar")).toHaveCount(0);
+    await page.getByRole("link", { name: "数で全国を見る" }).click();
+    await expect(page).toHaveURL(/\/explore$/);
+    const rows = page.locator(".explore-cases tbody tr");
+    await expect(rows.first()).toBeVisible();
+    const lastSeason = await rows.evaluateAll((trs) =>
+      trs
+        .filter((tr) => /^(2025 年 (6|7|8|9|10|11|12) 月|2026 年 [1-5] 月)/u.test(tr.querySelector("td")?.textContent ?? ""))
+        .map((tr) => (tr.querySelector("a") as HTMLAnchorElement | null)?.hostname ?? ""),
+    );
+    expect(lastSeason).toHaveLength(24);
+    expect(lastSeason.every((h) => h.endsWith("maff.go.jp"))).toBe(true);
   });
 
   test("今季の一覧（/season）は、確認中の事例を県名と『確認中』とリンクだけで出し、野鳥は検査中と出す", async ({ page }) => {

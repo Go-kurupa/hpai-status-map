@@ -22,10 +22,10 @@ import { SectionTabs } from "../../ui/SectionTabs";
 import { RecentAlert, recentAlertItems } from "./RecentAlert";
 import { TownCasesPanel } from "./TownCasesPanel";
 import { CompareOverlay } from "./CompareOverlay";
-import { parseRegion, type RegionId } from "../../geo/regions";
+import { parseRegion, regionOf, type RegionId } from "../../geo/regions";
 import { regionMuniCodes, ScopeButtons, type Scope } from "./ScopeButtons";
 import { buildSeasonView } from "./seasonView";
-import { MapLinks, NextLinks } from "./MapLinks";
+import { ExploreLink, MapLinks, NextLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
 import { birdPrefsText } from "./birdStat";
 import { casesNearCenter, countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
@@ -113,7 +113,7 @@ export type MapSection = "now" | "town" | "season" | "compare" | "all";
 const SECTION_TITLE: Record<Exclude<MapSection, "now" | "all">, string> = {
   town: "選択地域の過去",
   season: "今季の一覧と数",
-  compare: "過去シーズンとの比べ",
+  compare: "地図で比べる過去の発生",
 };
 
 export default function MapPage({ replayStats = false, section = "all" }: { replayStats?: boolean; section?: MapSection }) {
@@ -508,6 +508,9 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   // スマホの地図の下に送るもの。確認の行の全文、札の残り（数字の 1 行に入らないもの）
   const watchAfterMap = narrow && showStats && d.watchLoaded;
   const failedCount = d.failedPrefCodes.length;
+  // 選択地域付近で比べているときに「数で見る」へ渡す地方。端末に残った値が県の番号でなくても落とさない（2026-11-07 点検の指摘）
+  const nearPref = town === null ? null : town.slice(0, 2);
+  const nearRegion = nearPref !== null && PREF_NAME.has(nearPref) ? regionOf(nearPref) : null;
   const failedWho = failedCount <= 2 ? names(d.failedPrefCodes) : TEXT.watchShortCount(failedCount);
   // PC の札に添える出典や断り。スマホの数字の 1 行には出さない
   const whenLine = (text: string) => (narrow ? null : <p className="stat-when">{text}</p>);
@@ -927,7 +930,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         </>
       ) : null}
 
-      {section === "season" || section === "compare" || section === "all" ? (
+      {/* 比べ（/compare）は「どこで」を見る地図の画面にし、事例の一覧・シーズンの棒・月の棒は「数で見る」に任せる（2026-11-07 作者の決定 案 A） */}
+      {section === "season" || section === "all" ? (
       <CaseListSheet
         rows={rows}
         birds={view.isCurrent ? birdRows : null}
@@ -956,7 +960,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         </div>
       ) : null}
 
-      {section === "compare" || section === "all" ? <SeasonBar bars={bars} selected={d.selected} onSelect={selectSeason} current={d.current} /> : null}
+      {section === "all" ? <SeasonBar bars={bars} selected={d.selected} onSelect={selectSeason} current={d.current} /> : null}
 
       {/* 再現（去年の再現）は日付を過去に置いた画面なので、今日の比べは出さない */}
       {ds.mode === "replay" || !(section === "compare" || section === "all") ? null : (
@@ -969,8 +973,11 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           asOf={d.asOf}
           unchecked={d.failedPrefCodes.length}
           allUnchecked={noneConfirmed}
+          brief={section === "compare"}
         />
       )}
+
+      {section === "compare" ? <ExploreLink region={cmpScope === "japan" ? null : cmpScope === "near" ? nearRegion : cmpScope} /> : null}
 
       {/* 札と同じ条件で出す（今季だけ。再現は全国の流れだけで、再現の時計までを描く） */}
       {showStats && (section === "season" || section === "all") ? (
@@ -988,12 +995,15 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         />
       ) : null}
 
-      {!view.isCurrent && view.loaded && section !== "town" ? <p className="map-notice">{FIXED_TEXT.pastDisclaimer}</p> : null}
-      {view.undatedCases > 0 && (section === "season" || section === "compare" || section === "all") ? (
+      {/* 比べ（/compare）は選んだシーズンのどれかが過去なら出す（シーズンの棒を外したので view は今季のまま。2026-11-07 点検の指摘） */}
+      {(section === "compare" ? shownViews.some((v) => !v.isCurrent && v.loaded) : !view.isCurrent && view.loaded && section !== "town") ? (
+        <p className="map-notice">{FIXED_TEXT.pastDisclaimer}</p>
+      ) : null}
+      {view.undatedCases > 0 && (section === "season" || section === "all") ? (
         <p className="map-note">日付のない事例が {view.undatedCases} 件あり、月の棒には入っていません。</p>
       ) : null}
 
-      {section === "season" || section === "compare" || section === "all" ? (
+      {section === "season" || section === "all" ? (
         <MonthBars months={view.months} loaded={view.loaded} allUnchecked={view.isCurrent && noneConfirmed} past={!view.isCurrent} />
       ) : null}
       {/* 過去の行が出ていれば、その中に「選択地域の過去を見る」があるので、地図の下には重ねない（2026-11-07 精査 M3） */}

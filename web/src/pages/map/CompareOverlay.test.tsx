@@ -112,10 +112,12 @@ describe("CompareOverlay", () => {
   it("地図は 1 枚で、重ね合わせを渡す。凡例に 3 つの町の数", () => {
     const r = rig();
     expect(screen.getAllByTestId("map")).toHaveLength(1);
-    expect(r.last().overlay).toEqual<OverlayState>({ first: ["33203", "33215"], second: ["33202", "33215"], show: "both", unwatchedPrefCodes: [] });
+    expect(r.last().overlay).toEqual<OverlayState>({ first: ["33203", "33215"], second: ["33202", "33215"], show: "both", unwatchedPrefCodes: [], names: ["2 年前", "1 年前"] });
     const legend = screen.getByRole("list", { name: CMP_TEXT.legendAria });
-    expect(within(legend).getByText(CMP_TEXT.legendOneOnly(1))).toBeTruthy();
-    expect(within(legend).getByText(CMP_TEXT.legendTwoOnly(1))).toBeTruthy();
+    // 「比べる 1・2」ではなく、シーズンの呼び方（今季・1 年前…）で書く（作者 11/7）
+    expect(within(legend).getByText("2 年前だけで発生（1 町）")).toBeTruthy();
+    expect(within(legend).getByText("1 年前だけで発生（1 町）")).toBeTruthy();
+    expect(legend.textContent).not.toContain("比べる");
     expect(within(legend).getByText(CMP_TEXT.legendBoth(1))).toBeTruthy();
   });
 
@@ -132,9 +134,10 @@ describe("CompareOverlay", () => {
     act(() => r.last().onInspectMuni("33215"));
     const panel = screen.getByRole("region", { name: "美作市" });
     const heads = within(panel).getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    expect(heads[0]).toContain("比べる 1");
+    expect(heads[0]).toContain("2 年前（2024 年 6 月〜2025 年 5 月）");
+    expect(heads[1]).toContain("1 年前（2025 年 6 月〜2026 年 5 月）");
+    expect(panel.textContent).not.toContain("比べる");
     expect(heads[0]).toContain("2024 年 6 月");
-    expect(heads[1]).toContain("比べる 2");
     expect(within(panel).getByText("2024 年 12 月 20 日")).toBeTruthy();
     expect(within(panel).getByText("2025 年 12 月 2 日")).toBeTruthy();
   });
@@ -149,7 +152,7 @@ describe("CompareOverlay", () => {
   it("今季を読めていない間は塗らない", () => {
     const r = rig({ first: 2026, firstView: view(2026, { currentCases: null }), currentCases: null });
     // 1 シーズン分の普通の塗りを出さないよう、空の重ね合わせを渡す。確認できていない県は今季なので示す
-    expect(r.last().overlay).toEqual<OverlayState>({ first: [], second: [], show: "both", unwatchedPrefCodes: [] });
+    expect(r.last().overlay).toEqual<OverlayState>({ first: [], second: [], show: "both", unwatchedPrefCodes: [], names: ["今季", "1 年前"] });
     // 凡例も町の数も出さない（読めていない断りは MapPage が出す）
     expect(screen.queryByRole("list", { name: CMP_TEXT.legendAria })).toBeNull();
   });

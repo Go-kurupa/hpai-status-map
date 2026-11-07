@@ -60,7 +60,7 @@ export type KnownFigure =
 const TO_COMPARE = { to: "/compare", label: "過去の発生" } as const;
 const TO_TRENDS = { to: "/trends", label: "発生傾向" } as const;
 const TO_TODO = { to: "/todo", label: "対策項目" } as const;
-const TO_EXPLORE = { to: "/explore", label: "条件で見る過去の発生" } as const;
+const TO_EXPLORE = { to: "/explore", label: "数で見る過去の発生" } as const;
 
 const VERIFIED_ON: IsoDate = "2026-11-04";
 

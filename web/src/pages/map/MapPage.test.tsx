@@ -433,7 +433,7 @@ describe("MapPage: 自分の町の 1 文", () => {
   });
 
   // 設計書 2026-11-06-data-explore E8、E10、E14（もとは 2026-11-06-ui-frame 4.4 の 2 枚の地図）
-  it("過去シーズンとの比べは 1 枚の地図に重ねる。初めは比べる 1 が1 年前、比べる 2 が今季。町を押すと 2 つのシーズンの事例が上下に並び、選び直せる", async () => {
+  it("過去シーズンとの比べは 1 枚の地図に重ねる。初めは古い方が 1 年前、新しい方が今季。町を押すと 2 つのシーズンの事例が上下に並び、選び直せる", async () => {
     seen.length = 0;
     const r = rig();
     show(r, { section: "compare" });
@@ -449,7 +449,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(lastProps().overlay!.show).toBe("both");
     // 津山市は 2025 年シーズンに国の事例一覧の記録がある
     expect(lastProps().overlay!.first).toContain("33203");
-    expect(lastProps().ariaLabel).toBe("発生状況の地図（比べる 1: 1 年前（2025 年 6 月〜2026 年 5 月） と、比べる 2: 今季（2026 年 6 月〜2027 年 5 月） の重ね合わせ）");
+    expect(lastProps().ariaLabel).toBe("発生状況の地図（1 年前（2025 年 6 月〜2026 年 5 月）と今季（2026 年 6 月〜2027 年 5 月）の重ね合わせ）");
     // 今季を選んでいる間は、確認できていない県を灰色で重ねる（確認の状態が届く前は全県）
     expect(lastProps().overlay!.unwatchedPrefCodes).toHaveLength(47);
     expect(screen.getByText("今季は疑いを含みます")).toBeTruthy();
@@ -457,7 +457,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     act(() => lastProps().onInspectMuni!("33203"));
     expect(await screen.findByRole("heading", { level: 2, name: "津山市" })).toBeTruthy();
     const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    expect(heads).toEqual(["比べる 1（2025 年 6 月〜2026 年 5 月）", "比べる 2（2026 年 6 月〜2027 年 5 月）"]);
+    expect(heads).toEqual(["1 年前（2025 年 6 月〜2026 年 5 月）", "今季（2026 年 6 月〜2027 年 5 月）"]);
     const blocks = [...document.querySelectorAll(".cmp-cases-block")];
     expect(blocks[0]!.querySelectorAll("li").length).toBeGreaterThan(0);
     // 今季に記録がない文は、時点の日付で言う（2026-11-06 作者の決定）
@@ -471,24 +471,22 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(lastProps().overlay).toBeNull();
     expect(screen.queryByRole("group", { name: "地図の見せ方" })).toBeNull();
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
-    // 下のシーズンの棒（一覧と月の件数のシーズン）は、比べるシーズンのボタンとは別。ボタンを押しても棒の選びは1 年前のまま
-    expect(screen.getByRole("region", { name: "シーズンの切り替え" }).querySelector('[aria-pressed="true"]')!.textContent).toContain("1 年前");
-    // 棒を押しても、比べるシーズンは黙って替わらない（横断レビューの指摘、11/7）
-    fireEvent.click(within(screen.getByRole("region", { name: "シーズンの切り替え" })).getByRole("button", { name: /^今季/ }));
+    // シーズンの棒は「数で見る」に任せ、地図で比べる画面には出さない（2026-11-07 作者の決定 案 A）
+    expect(screen.queryByRole("region", { name: "シーズンの切り替え" })).toBeNull();
     expect(seasonBtn(2023).getAttribute("aria-pressed")).toBe("true");
     expect(seasonBtn(2025).getAttribute("aria-pressed")).toBe("true");
     expect(seasonBtn(2026).getAttribute("aria-pressed")).toBe("true");
     expect(lastProps().latest!.colors.length).toBeGreaterThan(0);
 
-    // 2025 を外すと 2 つ（2023 と今季）に戻り、重ね合わせ。古い方が比べる 1
+    // 2025 を外すと 2 つ（2023 と今季）に戻り、重ね合わせ。古い方が先
     fireEvent.click(seasonBtn(2025));
     await waitFor(() => expect(lastProps().overlay).not.toBeNull());
-    expect(screen.getAllByRole("heading", { level: 3 })[0]!.textContent).toBe("比べる 1（2023 年 6 月〜2024 年 5 月）");
+    expect(screen.getAllByRole("heading", { level: 3 })[0]!.textContent).toBe("3 年前（2023 年 6 月〜2024 年 5 月）");
 
     // 過去 2 シーズンどうしでは、確認できていない県を重ねない
     fireEvent.click(seasonBtn(2024));
     fireEvent.click(seasonBtn(2026));
-    expect(screen.getAllByRole("heading", { level: 3 })[1]!.textContent).toBe("比べる 2（2024 年 6 月〜2025 年 5 月）");
+    expect(screen.getAllByRole("heading", { level: 3 })[1]!.textContent).toBe("2 年前（2024 年 6 月〜2025 年 5 月）");
     await waitFor(() => expect(lastProps().overlay!.unwatchedPrefCodes).toEqual([]));
 
     // 見せ方の切り替えはなく、いつも重ねる（2026-11-07 作者の決定）
@@ -2832,19 +2830,47 @@ describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章�
     expect(has(".season-compare")).toBe(false);
   });
 
-  it("compare はシーズンの棒と比べ、選んだシーズンの地図と一覧を出す（段階 3 の 2 枚の地図までのつなぎ）。町の文と場所の設定は出さない", async () => {
+  it("地図で比べる（compare）は、重ねた地図と今日までの比べを出し、シーズンの棒・月の棒・一覧は出さず「数で見る」へつなぐ（2026-11-07 作者の決定 案 A）", async () => {
     const r = rig();
     show(r, { section: "compare" });
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    await waitFor(() => expect(has(".season-bar")).toBe(true));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("過去シーズンとの比べ");
-    expect(has(".season-compare")).toBe(true);
+    await waitFor(() => expect(has(".season-compare")).toBe(true));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("地図で比べる過去の発生");
     expect(has(".map-box")).toBe(true);
-    expect(has(".case-list")).toBe(true);
+    expect(has(".season-bar")).toBe(false);
+    expect(has(".case-list")).toBe(false);
+    expect(has(".month-bars")).toBe(false);
+    expect(has(".compare-table")).toBe(false);
+    expect(screen.getByRole("link", { name: "数で全国を見る" }).getAttribute("href")).toBe("/explore");
     expect(has(".town-banner")).toBe(false);
     expect(has(".spot-picker")).toBe(false);
     expect(has(".stat-row")).toBe(false);
+  });
+
+  it("地図で比べるは、初め（1 年前と今季）から過去の記録の断りを出す", async () => {
+    const r = rig();
+    show(r, { section: "compare", path: "/compare" });
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    expect(await screen.findByText(FIXED_TEXT.pastDisclaimer)).toBeTruthy();
+  });
+
+  it("選択地域付近で比べているときは、その町の地方を数で見るへ渡す。県の番号でない値でも落ちない", async () => {
+    localStorage.setItem(TOWN_KEY, "33203");
+    const r = rig();
+    show(r, { section: "compare", path: "/compare" });
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    expect((await screen.findByRole("link", { name: "数で中国を見る" })).getAttribute("href")).toBe("/explore?region=chugoku");
+  });
+
+  it("地図で比べるを地方で開くと、数で見るへその地方を渡す", async () => {
+    const r = rig();
+    show(r, { section: "compare", path: "/compare?region=chugoku" });
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    expect((await screen.findByRole("link", { name: "数で中国を見る" })).getAttribute("href")).toBe("/explore?region=chugoku");
   });
 });
 

@@ -144,12 +144,10 @@ test.describe("自分の町の 1 文", () => {
     await expect(page.getByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeVisible();
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");
 
-    // / にはシーズンの切り替えがない（設計書 2026-11-06-ui-frame 4.1）。/compare で1 年前を選び、画面の中の移動で / へ戻っても、色は lv1 のまま
+    // / にはシーズンの切り替えがない（設計書 2026-11-06-ui-frame 4.1）。地図で比べる（初めは 1 年前と今季）を開き、画面の中の移動で / へ戻っても、色は lv1 のまま
     // （画面は行き先ごとに作り直すので、/ はいつも今季）
-    await goViaMenu(page, "過去シーズンとの比べ");
-    // 比べるシーズンのボタンにも「1 年前」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
-    await page.locator(".season-bar").getByRole("button", { name: /1 年前/ }).click();
-    await expect(page.locator(".season-bar").getByRole("button", { name: /1 年前/ })).toHaveAttribute("aria-pressed", "true");
+    await goViaMenu(page, "地図で比べる");
+    await expect(page.getByRole("group", { name: /^比べるシーズン/ }).getByRole("button", { name: /1 年前/ })).toHaveAttribute("aria-pressed", "true");
     await goViaMenu(page, "今季の発生と地図");
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");

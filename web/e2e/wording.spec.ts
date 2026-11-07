@@ -135,21 +135,22 @@ test.describe("地図の入口: 段階の色と文", () => {
   }
 });
 
-test.describe("地図の入口: シーズンの切り替え（/compare）", () => {
+test.describe("地図の入口: 地図で比べる（/compare）のシーズン", () => {
   for (const level of LEVELS) {
-    test(`${level.name}: /compare で全てのシーズンに切り替えても、禁句がなく、時点が出る。/season、/town、/ も同じ（いつも今季）`, async ({ page }) => {
+    test(`${level.name}: /compare で全てのシーズンを足しても、禁句がなく、時点が出る。/season、/town、/ も同じ（いつも今季）`, async ({ page }) => {
       await prepare(page, { cases: [TSUYAMA_CASE], storage: level.storage });
       await page.goto("/");
       await waitForWord(page, "時点");
       await level.setup(page);
       await expect(page.getByText(level.sentence, { exact: false }).first()).toBeVisible();
 
-      await goViaMenu(page, "過去シーズンとの比べ");
+      await goViaMenu(page, "地図で比べる");
       await expect(page).toHaveURL(/\/compare$/);
-      const buttons = page.locator('section[aria-label="シーズンの切り替え"] button');
+      // シーズンは地図の上のボタンで足す（2026-11-07 作者の決定 案 A で下のシーズンの棒は外した）
+      const buttons = page.getByRole("group", { name: /^比べるシーズン/ }).getByRole("button");
       await expect(buttons.first()).toBeVisible(); // 画面が描かれるまで待ってから数える
       const labels = await seasonButtonLabels(page);
-      expect(labels.length, "シーズンの切り替えのボタンの数").toBeGreaterThanOrEqual(6);
+      expect(labels.length, "比べるシーズンのボタンの数").toBeGreaterThanOrEqual(6);
       // 禁句は、どのシーズンでも落とす。時点は、全ての画面に出す決まり（§15）なので、出ないシーズンを全部数えてから落とす
       const check = async (where: string, needAsOf: boolean) => {
         await expectNoForbiddenText(page).catch((e: Error) => {
@@ -164,7 +165,8 @@ test.describe("地図の入口: シーズンの切り替え（/compare）", () =
       };
       for (let i = 0; i < labels.length; i++) {
         const label = (labels[i] ?? "").replace(/\s+/gu, " ");
-        await buttons.nth(i).click();
+        // 押されていないシーズンだけ足す（押されているものを押すと外れる）
+        if ((await buttons.nth(i).getAttribute("aria-pressed")) !== "true") await buttons.nth(i).click();
         await expect(buttons.nth(i)).toHaveAttribute("aria-pressed", "true");
         await check(`${level.name} / ${label} / /compare`, true);
       }

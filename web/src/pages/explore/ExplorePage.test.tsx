@@ -42,7 +42,7 @@ const nowCase = (o: Partial<Case> = {}): Case => ({
   ...o,
 });
 
-function rig(o: { cases?: Case[]; failed?: string[]; historyFails?: boolean } = {}) {
+function rig(o: { cases?: Case[]; failed?: string[]; historyFails?: boolean; path?: string } = {}) {
   const ds: DataSource = {
     mode: "live",
     now: () => NOW,
@@ -61,7 +61,7 @@ function rig(o: { cases?: Case[]; failed?: string[]; historyFails?: boolean } = 
     loadHistory: () => (o.historyFails ? Promise.reject(new Error("読めない")) : Promise.resolve(history)),
   };
   render(
-    <MemoryRouter initialEntries={["/explore"]}>
+    <MemoryRouter initialEntries={[o.path ?? "/explore"]}>
       <DataSourceProvider value={ds}>
         <ExplorePage />
       </DataSourceProvider>
@@ -183,11 +183,26 @@ describe("ExplorePage", () => {
     expect(within(first as HTMLElement).getByRole("link").getAttribute("href")).toBe("https://www.pref.example/a");
   });
 
-  it("過去の発生の見方で「条件で見る」が選ばれている", async () => {
+  it("過去の発生の見方で「数で見る」が選ばれ、見出しは「数で見る過去の発生」", async () => {
     rig();
     await screen.findByText(/過去 6 シーズンと今季/);
     const nav = screen.getByRole("navigation", { name: "過去の発生の見方" });
-    expect(within(nav).getByRole("link", { name: "条件で見る" }).getAttribute("aria-current")).toBe("page");
+    expect(within(nav).getByRole("link", { name: "数で見る" }).getAttribute("aria-current")).toBe("page");
+    expect(within(nav).getByRole("link", { name: "地図で比べる" }).getAttribute("href")).toBe("/compare");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("数で見る過去の発生");
+  });
+
+  it("地図で比べるから ?region= で開くと、その地方で絞った状態で始まる", async () => {
+    rig({ path: "/explore?region=chugoku" });
+    await screen.findByText(/中国の過去 6 シーズンと今季/);
+    const region = screen.getByRole("group", { name: EXPLORE_TEXT.regionLabel });
+    expect(within(region).getByRole("button", { name: chip("中国") }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("link", { name: "地図で中国を見る" }).getAttribute("href")).toBe("/compare?region=chugoku");
+  });
+
+  it("?region= の値が地方の名前でなければ、全国で始める", async () => {
+    rig({ path: "/explore?region=nowhere" });
+    await screen.findByText(/全国の過去 6 シーズンと今季/);
   });
 
   it("ボタンに件数が出る。選んでもその段のほかのボタンは 0 にならない", async () => {

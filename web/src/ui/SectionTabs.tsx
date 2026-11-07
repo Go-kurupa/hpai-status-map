@@ -16,9 +16,10 @@ export const SECTION_TABS = {
   past: {
     label: "過去の発生の見方",
     tabs: [
-      { to: "/compare", label: "全国とシーズン", match: (p) => under(p, "/compare") },
+      // 地図で「どこで」、数で「いつ・どんな農場で」を見る（2026-11-07 作者の決定 案 A）
+      { to: "/compare", label: "地図で比べる", match: (p) => under(p, "/compare") },
       // 用途・羽数・地方で絞る（設計書 2026-11-06-data-explore E1）
-      { to: "/explore", label: "条件で見る", match: (p) => under(p, "/explore") },
+      { to: "/explore", label: "数で見る", match: (p) => under(p, "/explore") },
       // 去年の再現は審査員向けの見本なので、ここに並べず「このサイトについて」の審査員の節から開く（決定 16）
       // 選択地域のまわり（/town）は、最初の画面の右の欄と案内ページ（/area）と中身が重なるので並べない（作者 11/7）。
       // 画面は残し、最初の画面の「選択地域の過去を見る」から開く

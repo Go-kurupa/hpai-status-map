@@ -1,7 +1,7 @@
 import { PREFS } from "@hpai/shared/pref";
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
-import { regionOf, REGIONS, type RegionId } from "../../geo/regions";
+import { Link, useSearchParams } from "react-router";
+import { parseRegion, regionOf, REGIONS, type RegionId } from "../../geo/regions";
 import { RiskLine } from "../../ui/RiskLine";
 import { SectionTabs } from "../../ui/SectionTabs";
 import { countText } from "../map/SeasonBar";
@@ -65,7 +65,12 @@ function Choices<V extends string>({
  */
 export default function ExplorePage() {
   const d = useSeasonData();
-  const [f, setF] = useState<ExploreFilter>({ use: [], band: [], region: [], month: null });
+  // 地図で比べる（/compare）から ?region= で開いたときは、その地方で絞って始める（2026-11-07 作者の決定 案 A。地方を両方向に渡す）
+  const [searchParams] = useSearchParams();
+  const [f, setF] = useState<ExploreFilter>(() => {
+    const r = parseRegion(searchParams.get("region"));
+    return { use: [], band: [], region: r ? [r] : [], month: null };
+  });
   // 過去 6 シーズン（古い順）と今季
   const seasons = useMemo(() => [6, 5, 4, 3, 2, 1, 0].map((n) => d.current - n), [d.current]);
   const rows = useMemo(() => (d.history === null ? null : exploreRows({ history: d.history, currentCases: d.currentCases, current: d.current })), [d.history, d.currentCases, d.current]);

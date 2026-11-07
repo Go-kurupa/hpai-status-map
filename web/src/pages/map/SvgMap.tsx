@@ -588,7 +588,7 @@ export default function SvgMap(props: SvgMapProps) {
     const labelOf = (s: Shape) => {
       const parts = [s.name];
       const f = fillOf(s.code);
-      if (f) parts.push(f === "confirmed" ? TEXT.svgConfirmed : f === "suspected" ? TEXT.svgSuspected : f === "cmp-one" ? CMP_TEXT.svgOne : f === "cmp-two" ? CMP_TEXT.svgTwo : f === "latest" ? CMP_TEXT.svgLatest : CMP_TEXT.svgBoth);
+      if (f) parts.push(f === "confirmed" ? TEXT.svgConfirmed : f === "suspected" ? TEXT.svgSuspected : f === "cmp-one" ? CMP_TEXT.svgOnly(overlay?.names?.[0] ?? "古い方のシーズン") : f === "cmp-two" ? CMP_TEXT.svgOnly(overlay?.names?.[1] ?? "新しい方のシーズン") : f === "latest" ? CMP_TEXT.svgLatest : CMP_TEXT.svgBoth);
       if (sets.mine.has(s.code)) parts.push(TEXT.myTown);
       if (sets.near.has(s.code)) parts.push(TEXT.svgNear);
       if (unwatched) parts.push(TEXT.svgUnwatched);

@@ -135,7 +135,9 @@ export function CompareOverlay(p: CompareOverlayProps) {
     });
   };
 
-  const labelOf = (season: Season) => TEXT.compareOption(p.options.find((o) => o.season === season)?.label ?? `${season} 年`, season);
+  // シーズンの呼び方（今季、1 年前…）。「比べる 1・2」とは呼ばない（作者 11/7）
+  const nameOf = (season: Season) => p.options.find((o) => o.season === season)?.label ?? `${season} 年`;
+  const labelOf = (season: Season) => TEXT.compareOption(nameOf(season), season);
   // シーズンのボタン。押すと足し、もう一度押すと外す。最後の 1 つは外さない（何も比べない地図にしない）
   const toggle = (season: Season) => {
     const on = p.seasons.includes(season);
@@ -172,7 +174,7 @@ export function CompareOverlay(p: CompareOverlayProps) {
         {p.renderMap(
           pair
             ? {
-                overlay: overlay ?? { first: [], second: [], show, unwatchedPrefCodes: withCurrent ? [...p.failedPrefCodes] : [] },
+                overlay: { ...(overlay ?? { first: [], second: [], show, unwatchedPrefCodes: withCurrent ? [...p.failedPrefCodes] : [] }), names: [nameOf(p.seasons[0]!), nameOf(p.seasons[1]!)] },
                 latest: null,
                 picked: inspected,
                 focus: p.focus,
@@ -218,11 +220,11 @@ export function CompareOverlay(p: CompareOverlayProps) {
             <>
               <li>
                 <span className="swatch cmp-swatch is-one" aria-hidden="true" />
-                {CMP_TEXT.legendOneOnly(split.one.length)}
+                {CMP_TEXT.legendOnly(nameOf(p.seasons[0]!), split.one.length)}
               </li>
               <li>
                 <span className="swatch cmp-swatch is-two" aria-hidden="true" />
-                {CMP_TEXT.legendTwoOnly(split.two.length)}
+                {CMP_TEXT.legendOnly(nameOf(p.seasons[1]!), split.two.length)}
               </li>
               <li>
                 <span className="swatch cmp-swatch is-both" aria-hidden="true" />
@@ -232,12 +234,12 @@ export function CompareOverlay(p: CompareOverlayProps) {
           ) : show === "one" ? (
             <li>
               <span className="swatch cmp-swatch is-one" aria-hidden="true" />
-              {CMP_TEXT.legendOne(split.one.length)}
+              {CMP_TEXT.legendIn(nameOf(p.seasons[0]!), split.one.length)}
             </li>
           ) : (
             <li>
               <span className="swatch cmp-swatch is-two" aria-hidden="true" />
-              {CMP_TEXT.legendTwo(split.two.length)}
+              {CMP_TEXT.legendIn(nameOf(p.seasons[1]!), split.two.length)}
             </li>
           )}
           {overlay && overlay.unwatchedPrefCodes.length > 0 ? (
@@ -267,7 +269,7 @@ export function CompareOverlay(p: CompareOverlayProps) {
                   {pair ? (
                     <>
                       <span className={`swatch cmp-swatch ${i === 0 ? "is-one" : "is-two"}`} aria-hidden="true" />
-                      <Chunks parts={TEXT.compareHead(i === 0 ? TEXT.compareFirst : TEXT.compareSecond, season)} />
+                      <Chunks parts={TEXT.compareHead(nameOf(season), season)} />
                     </>
                   ) : (
                     <>

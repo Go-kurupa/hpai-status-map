@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Case, HistoryCase } from "@hpai/shared/types";
 import { findWordingViolations } from "@hpai/shared/wording";
 import historyJson from "../../../../data/history/cases.json";
-import { COMPARE_DISCLAIMER, countThisSeasonToDate, SeasonCompare, type SeasonCompareProps } from "./SeasonCompare";
+import { COMPARE_DISCLAIMER, countThisSeasonToDate, HISTORY_CHECKED_ON, SeasonCompare, type SeasonCompareProps } from "./SeasonCompare";
 
 afterEach(cleanup);
 
@@ -26,6 +26,15 @@ const base: SeasonCompareProps = {
 const text = () => document.body.textContent ?? "";
 
 describe("SeasonCompare", () => {
+  it("brief（地図で比べる画面）は、今日までの 1 文と断りと時点だけを出し、表と県の上位は出さない（2026-11-07 作者の決定 案 A。数は「数で見る」に任せる）", () => {
+    const { container } = render(<SeasonCompare {...base} brief />);
+    expect(screen.getByTestId("compare-lead").textContent).toContain("1 年前");
+    expect(container.querySelectorAll("table")).toHaveLength(0);
+    expect(container.querySelector(".compare-prefs")).toBeNull();
+    expect(container.textContent).toContain(COMPARE_DISCLAIMER);
+    expect(container.textContent).toContain(HISTORY_CHECKED_ON);
+  });
+
   it("今季と1 年前の文が出る（同じ時期までの件数と合計）", () => {
     render(<SeasonCompare {...base} currentCases={[caseOf("2026-11-01"), caseOf("2026-11-03")]} />);
     expect(screen.getByTestId("compare-lead").textContent).toBe(

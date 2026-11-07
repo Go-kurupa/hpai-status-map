@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { REGIONS, type RegionId } from "../../geo/regions";
 
 const LINKS: ReadonlyArray<{ to: string; label: string }> = [
   { to: "/public", label: "鶏を飼っていない方へ" },
@@ -28,7 +29,7 @@ export function MapLinks() {
 const NEXT: ReadonlyArray<{ to: string; label: string }> = [
   { to: "/town", label: "選択地域の過去を見る" },
   { to: "/season", label: "今季の一覧と数を見る" },
-  { to: "/compare", label: "過去シーズンと比べる" },
+  { to: "/compare", label: "過去の発生を地図で比べる" },
 ];
 
 /**
@@ -47,5 +48,21 @@ export function NextLinks({ hideTown = false }: { hideTown?: boolean }) {
         ))}
       </ul>
     </nav>
+  );
+}
+
+/**
+ * 地図で比べる（/compare）から数で見る（/explore）へ。いま寄せている地方を渡す（2026-11-07 作者の決定 案 A）。
+ * 全国のときは地方を付けない。シーズンの棒・月の棒・事例の一覧は数で見るの画面にある
+ */
+export function ExploreLink({ region }: { region: RegionId | null }) {
+  const r = region === null ? null : (REGIONS.find((x) => x.id === region) ?? null);
+  return (
+    <p className="explore-link">
+      シーズンごと・月ごとの件数と事例の一覧は、{" "}
+      <Link to={r ? `/explore?region=${r.id}` : "/explore"} className="tap-link">
+        数で{r ? r.name : "全国"}を見る
+      </Link>
+    </p>
   );
 }
