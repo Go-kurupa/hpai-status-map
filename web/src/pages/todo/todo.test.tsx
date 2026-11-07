@@ -202,7 +202,10 @@ function pageText(container: HTMLElement): string {
   return clone.textContent ?? "";
 }
 const hasHeading = (re: RegExp) => screen.queryAllByRole("heading", { name: re }).length > 0;
-const openMore = () => fireEvent.click(screen.getByRole("button", { name: "くわしく" }));
+/** 閉じているときの名前（開くと出る確認項目の数は農場の種類で変わるので、数は固定しない） */
+const MORE = /^確認リストを開く（\d+ 項目）$/;
+const LESS = "確認リストを閉じる";
+const openMore = () => fireEvent.click(screen.getByRole("button", { name: MORE }));
 
 // 段階の材料
 const inTsuyama = (o: Partial<Case> = {}) => mkCase({ id: "t1", ...o });
@@ -210,15 +213,23 @@ const inTottori = () => mkCase({ id: "tt1", muniCode: "31201", muniName: "鳥取
 const farAway = () => mkCase({ id: "far1", muniCode: "13101", muniName: "千代田区", prefCode: "13" });
 
 describe("ふだん（段階 4）", () => {
-  it("短い確認だけを出し、『くわしく』を押すと always の確認リストが開く。区域の見出しも日付もない", async () => {
+  it("短い確認だけを出し、『確認リストを開く（N 項目）』を押すと always の確認リストが開く。区域の見出しも日付もない", async () => {
     const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText("今月の自己点検を確かめましょう");
     expect(screen.getByText(FIXED_TEXT.riskAnywhere)).toBeTruthy();
     // 閉じている間は確認リストの項目が DOM にない
     expect(screen.queryByText(/手指の洗浄と消毒/)).toBeNull();
-    expect(screen.getByRole("button", { name: "くわしく" }).getAttribute("aria-expanded")).toBe("false");
+    const more = screen.getByRole("button", { name: MORE });
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    // ボタンの直前に、何が並ぶかの 1 行（小さな注）
+    const lead = more.previousElementSibling!;
+    expect(lead.classList.contains("todo-note")).toBe(true);
+    expect(lead.textContent).toBe(TODO_TEXT.moreLead);
+    const n = Number(/（(\d+) 項目）/.exec(more.textContent ?? "")![1]);
 
     openMore();
+    // 名前の数は、開くと出る確認項目の数と同じ
+    expect(container.querySelectorAll(".todo-details .todo-items > li")).toHaveLength(n);
     expect(screen.getByRole("heading", { name: "いつも求められていること" })).toBeTruthy();
     expect(screen.getAllByText(/手指の洗浄と消毒/).length).toBeGreaterThan(0);
     expect(hasHeading(/区域に入っていれば/)).toBe(false);
@@ -226,7 +237,8 @@ describe("ふだん（段階 4）", () => {
     expect(screen.queryByRole("region", { name: "解除の見込み" })).toBeNull();
     expect(pageText(container)).not.toMatch(/\d{1,2}月\d{1,2}日/);
     expect(pageText(container)).not.toContain("見込み");
-    expect(screen.getByRole("button", { name: "くわしくを閉じる" })).toBeTruthy();
+    const less = screen.getByRole("button", { name: LESS });
+    expect(less.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("県の発表を確認できていないときは、何もない画面にしない", async () => {
@@ -397,7 +409,7 @@ describe("読み込みと失敗（④にしない）", () => {
     await screen.findByText(/読み込んでいます/);
     expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
     expect(screen.queryByText("今月の自己点検を確かめましょう")).toBeNull();
-    expect(screen.queryByRole("button", { name: "くわしく" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^確認リストを(開く|閉じる)/ })).toBeNull();
   });
 
   it("県の形を読めなかったときは『読めませんでした』。④の文を出さない", async () => {
@@ -637,7 +649,7 @@ describe("消毒への道、段階 1 の並び、番号の注意", () => {
     expect(container.textContent).toContain(position);
   });
 
-  it("農場が読めているとき『くわしく』の中に取り消しがない旨が出る。農場がなければ出ない", async () => {
+  it("農場が読めているとき確認リストの中に取り消しがない旨が出る。農場がなければ出ない", async () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText("今月の自己点検を確かめましょう");
     openMore();
@@ -666,8 +678,8 @@ describe("全文に禁止語がない", () => {
     ["段階 4", () => [farAway()]],
   ] as const)("%s", async (_name, cases) => {
     const { container } = mount(<TodoPage />, { ds: makeDs({ cases: cases() }) });
-    await screen.findByRole("button", { name: "くわしく" }).catch(() => screen.findByRole("button", { name: "くわしくを閉じる" }));
-    if (screen.queryByRole("button", { name: "くわしく" })) openMore();
+    await screen.findByRole("button", { name: MORE }).catch(() => screen.findByRole("button", { name: LESS }));
+    if (screen.queryByRole("button", { name: MORE })) openMore();
     await waitFor(() => expect(screen.queryAllByRole("button", { name: /^やった/ }).length).toBeGreaterThan(0));
     expect(findForbiddenPhrases(container.textContent ?? "")).toEqual([]);
   });
@@ -722,7 +734,7 @@ describe("DisinfectionPanel", () => {
 describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   const section = () => screen.findByRole("region", { name: TODO_TEXT.reviewsHeading });
 
-  it("欄は「くわしく」のボタンの直後に詰めず、上を 24px（--s3）空ける（2026-11-07 精査 T3）", async () => {
+  it("欄は「確認リストを開く」のボタンの直後に詰めず、上を 24px（--s3）空ける（2026-11-07 精査 T3）", async () => {
     reviewBox.store.listReviews.mockResolvedValue([]);
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     expect((await section()).classList.contains("todo-reviews")).toBe(true);

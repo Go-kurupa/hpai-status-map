@@ -590,6 +590,21 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           : null
         : casesNearCenter(town, nowCountable, geo);
 
+  // 鶏舎の印の大きさの切り替え（見た目だけ。2026-11-07 作者の決定）。地図に印があるときだけ出す
+  const markSizeGroup =
+    ownFarm && !mapless ? (
+      <div className="mark-size" role="group" aria-label={TEXT.markSizeLabel}>
+        <span className="mark-size-label" aria-hidden="true">
+          {TEXT.markSizeLabel}
+        </span>
+        {(["l", "m", "s"] as const).map((k) => (
+          <button key={k} type="button" aria-pressed={markSize === k} onClick={() => pickMarkSize(k)}>
+            {TEXT.markSizeNames[k]}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
   return (
     <div className="map-page" data-section={section}>
       {section === "now" || section === "season" ? <SectionTabs group="now" /> : null}
@@ -823,19 +838,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           </Suspense>
         </MapChunkBoundary>
         {aiming && canEdit && !mapless ? <div className="crosshair" aria-hidden="true" /> : null}
-        {/* 鶏舎の印の大きさ（見た目だけ）。地図に印があるときだけ、地図の右上に置く */}
-        {ownFarm && !mapless ? (
-          <div className="mark-size" role="group" aria-label={TEXT.markSizeLabel}>
-            <span className="mark-size-label" aria-hidden="true">
-              {TEXT.markSizeLabel}
-            </span>
-            {(["l", "m", "s"] as const).map((k) => (
-              <button key={k} type="button" aria-pressed={markSize === k} onClick={() => pickMarkSize(k)}>
-                {TEXT.markSizeNames[k]}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        {/* 鶏舎の印の大きさ（見た目だけ）。PC は地図の右上に置く。スマホは距離の輪の札に重なるので、地図の枠の外に置く（下の輪の断りの後。2026-11-07 精査 M4） */}
+        {narrow ? null : markSizeGroup}
         {/* 町を選ぶ前は切り替えがないので、拡大の後に全国へ戻る口を地図の隅に置く */}
         {narrow && town === null && !mapless ? (
           <button type="button" className="map-home-btn" onClick={() => moveTo("japan", [])}>
@@ -881,6 +885,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
 
       {nearCount === 0 ? <p className="map-disclaimer">{TEXT.nearNone}</p> : null}
       {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : ringCenter !== null ? <p className="map-ring-note">{TEXT.ringNoteTown}</p> : null}
+      {/* スマホの印の大きさは、地図のすぐ下の「確認されていません」と輪の断りの後ろ（最初の画面に入れる文を押し下げない。shell.spec） */}
+      {narrow && section !== "compare" ? markSizeGroup : null}
       {narrow && riskAboveStats ? (
         <p className="map-risk-source">
           {TEXT.listSource}: {RISK_SOURCE}{" "}

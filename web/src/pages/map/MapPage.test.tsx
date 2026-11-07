@@ -2360,6 +2360,28 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     vi.unstubAllGlobals();
   });
 
+  it("印の大きさの切り替えは、スマホでは地図の枠の外（輪の断りの直後）に置き、距離の輪の札に重ねない。地図のすぐ下の文は押し下げない（2026-11-07 精査 M4）", async () => {
+    localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
+    const r = rig();
+    show(r);
+    await screen.findByTestId("map");
+    const group = screen.getByRole("group", { name: TEXT.markSizeLabel });
+    const box = document.querySelector(".map-box")!;
+    expect(box.contains(group)).toBe(false);
+    // 「確認されていません」は地図のすぐ下のまま（e2e/shell.spec の .map-box + .map-disclaimer）。切り替えは輪の断りの直後
+    expect(box.nextElementSibling?.matches(".map-disclaimer, .map-ring-note")).toBe(true);
+    expect(document.querySelector(".map-ring-note")!.nextElementSibling).toBe(group);
+    // 押すと地図に渡すのは PC と同じ
+    fireEvent.click(within(group).getByRole("button", { name: "中" }));
+    expect(lastProps().farmMarkSize).toBe("m");
+    // jsdom は css を当てないので、規則を読む。スマホの static は、地図の右上に置く基の規則より後ろにないと効かない
+    const css = readFileSync(path.resolve(import.meta.dirname, "map.css"), "utf8");
+    const base = css.search(/\n\.mark-size\s*\{[^}]*position:\s*absolute/);
+    const narrowRule = css.search(/@media \(max-width:\s*63\.99rem\)\s*\{\s*\.mark-size\s*\{[^}]*position:\s*static/);
+    expect(base).toBeGreaterThan(-1);
+    expect(narrowRule).toBeGreaterThan(base);
+  });
+
   it("スマホでは自分の町を決めた後に地図の上端へ戻す", async () => {
     const scroll = vi.fn();
     Element.prototype.scrollIntoView = scroll;

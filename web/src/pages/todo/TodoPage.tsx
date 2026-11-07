@@ -1,4 +1,4 @@
-// やること（設計書 §7）。ふだんは短い確認を数行だけ出し、「くわしく」で確認リストを開く。
+// やること（設計書 §7）。ふだんは短い確認を数行だけ出し、「確認リストを開く（N 項目）」で確認リストを開く。
 // リマインドにとどめる。義務（いつも、区域に入っていれば）と、見直しの推奨（確かめておくとよいこと）は見た目も言葉も分ける。
 // 会員でなくても開ける（RequireMember で包まない）。記録（やった）は農場が読めているときだけ。
 import { ZONE_AUTHORITY_NOTE, buildChecklist, shortReminder, type ChecklistItem } from "@hpai/shared/checklist";
@@ -59,6 +59,7 @@ export default function TodoPage() {
 
   const farmInfo = farm.status === "ready" ? farm.farm : null;
   const sections = orderSections(level, buildChecklist({ level, production: farmInfo?.production ?? null, housing: farmInfo?.housing ?? null }));
+  const itemCount = sections.reduce((n, s) => n + s.items.length, 0);
   const lifts = state.status === "ready" ? state.result.lifts : [];
   const lines = state.status === "ready" || state.status === "no_spot" ? shortReminder(level) : [];
 
@@ -110,8 +111,9 @@ export default function TodoPage() {
               {TODO_TEXT.disinfectionLink}
             </Link>
           </p>
+          <p className="todo-note">{TODO_TEXT.moreLead}</p>
           <Button aria-expanded={open} onClick={() => setOpened(!open)}>
-            {open ? TODO_TEXT.less : TODO_TEXT.more}
+            {open ? TODO_TEXT.less : TODO_TEXT.more(itemCount)}
           </Button>
           {open ? (
             <div className="todo-details">

@@ -1770,3 +1770,12 @@
   background: var(--accent);
   color: var(--on-accent);
 }
+/* スマホは右上に置くと距離の輪の「約 60 km」の札に重なるので、地図の枠の外（輪の断りの後）に並べる（MapPage.tsx。2026-11-07 精査 M4）。
+   上の基の規則より後ろに置く（同じ強さの規則は後ろが勝つ） */
+@media (max-width: 63.99rem) {
+  .mark-size {
+    position: static;
+    width: fit-content;
+    margin: 0 0 12px;
+  }
+}
