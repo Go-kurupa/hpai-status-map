@@ -288,6 +288,19 @@ describe("/login", () => {
     expect(calls).toEqual(["signInWithPopup", "getIdToken:true"]);
   });
 
+  it("招待コードの欄の下に、見本の農場への案内を出す。文に禁止語がない", async () => {
+    firebaseAuth.signInWithPopup.mockImplementation(async () => {
+      auth.currentUser = makeUser();
+      return { user: auth.currentUser };
+    });
+    const { container } = mount("/login");
+    fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
+    await screen.findByLabelText("招待コード");
+    expect(screen.getByText(/招待コードは運営者から受け取ります/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "見本の農場で試す" }).getAttribute("href")).toBe("/sample");
+    expect(findForbiddenPhrases(container.textContent ?? "")).toEqual([]);
+  });
+
   it("Google: すでに会員なら /todo へ進む", async () => {
     pendingMember = true;
     claimMember = false;
@@ -532,6 +545,14 @@ describe("RequireMember", () => {
     gate("firestore");
     expect(await screen.findByLabelText("招待コード")).toBeTruthy();
     expect(screen.queryByText("会員の中身")).toBeNull();
+  });
+
+  it("招待コードの欄の下に、コードの受け取り方と見本の農場への案内を出す（コードがない人の行き止まりにしない）", async () => {
+    auth.currentUser = makeUser();
+    gate("firestore");
+    await screen.findByLabelText("招待コード");
+    expect(screen.getByText(/招待コードは運営者から受け取ります/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "見本の農場で試す" }).getAttribute("href")).toBe("/sample");
   });
 
   it("会員なら中身を出す", async () => {

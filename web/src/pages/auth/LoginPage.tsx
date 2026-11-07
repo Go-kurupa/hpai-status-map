@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { keptSearch } from "./emailLink";
 import { InviteCodeForm } from "./InviteCodeForm";
+import { NoCodeNote } from "./NoCodeNote";
 import { SignInPanel } from "./SignInPanel";
 import { useAuthUser } from "./useAuthUser";
 import "./auth.css";
@@ -51,6 +52,7 @@ export default function LoginPage() {
           <>
             <h2>招待コードを入れてください</h2>
             <InviteCodeForm user={auth.user} onJoined={() => navigate({ pathname: "/settings/farm", search: keptSearch() })} />
+            <NoCodeNote />
           </>
         )
       ) : (

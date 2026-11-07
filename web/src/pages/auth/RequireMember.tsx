@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router";
 import { useRecordStore } from "../../data/context";
 import { keptSearch } from "./emailLink";
 import { InviteCodeForm } from "./InviteCodeForm";
+import { NoCodeNote } from "./NoCodeNote";
 import { useAuthUser } from "./useAuthUser";
 
 function Gate({ children }: { children: ReactNode }) {
@@ -25,6 +26,7 @@ function Gate({ children }: { children: ReactNode }) {
         <h1>招待コードを入れてください</h1>
         <p>この画面は、招待された方だけが使えます。</p>
         <InviteCodeForm user={auth.user} onJoined={auth.refresh} />
+        <NoCodeNote />
       </section>
     );
   }
