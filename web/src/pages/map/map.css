@@ -1709,3 +1709,31 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* 地図で押した町の段（2026-11-07 作者の決定）。養鶏場などの発生と野鳥の陽性を同じ形の別々の段にする。
+   左の太い線の色（赤・墨）と題の印（赤い四角・鳥）の 2 つで見分ける（色だけに頼らない） */
+.town-kind {
+  display: grid;
+  gap: 6px;
+  padding: 2px 0 2px 10px;
+  border-left: 4px solid var(--lv1);
+}
+.town-kind.is-bird {
+  border-left-color: var(--fg);
+}
+.town-kind-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 1rem;
+}
+.town-kind-head .swatch,
+.town-kind-head .swatch-bird {
+  flex: none;
+}
+.town-kind-count {
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}

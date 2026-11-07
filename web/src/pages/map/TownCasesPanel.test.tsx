@@ -1,9 +1,10 @@
-import type { Case, HistoryCase } from "@hpai/shared/types";
+import type { Case, HistoryCase, WildBird } from "@hpai/shared/types";
 import { act, cleanup, fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { distanceRingsAt, distanceRingsOf } from "../../geo/distanceRings";
+import { TEXT } from "./texts";
 import { TownCasesPanel } from "./TownCasesPanel";
 
 afterEach(cleanup);
@@ -80,14 +81,15 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
     const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
     expect(heads).toEqual(["今季（2026 年 6 月 1 日から）", "過去 6 シーズン（2020 年 6 月〜2026 年 5 月、国の事例一覧）"]);
     // 文は言葉の途中で折れないよう塊に分けて描く
-    const paras = [...document.querySelectorAll(".town-cases > p")].map((e) => e.textContent);
-    expect(paras).toContain("2026 年 11 月 4 日 8:30 時点で、発生記録はありません。");
-    expect(paras).toContain("発生記録はありません。");
+    // 養鶏場などの発生の段の題の下に書く（2026-11-07 作者の決定: 野鳥の段と同じ形で、養鶏場の記録だと分かるように）
+    const farm = [...document.querySelectorAll(".town-kind.is-farm")];
+    expect(farm.map((e) => e.querySelector("h4")!.textContent)).toEqual(["養鶏場などの発生", "養鶏場などの発生"]);
+    expect(farm.map((e) => e.querySelector("p")!.textContent)).toEqual(["2026 年 11 月 4 日 8:30 時点で、記録はありません。", "記録はありません。"]);
     expect(document.body.textContent).not.toMatch(/安全|安心|0 件/);
     cleanup();
     // 時点が読めなければ日付を書かない（端末の時計で日付を作らない）
     render(<TownCasesPanel {...base} asOf={null} muniCode="33643" muniName="西粟倉村" currentCases={[]} history={[]} />);
-    expect([...document.querySelectorAll(".town-cases > p")].filter((e) => e.textContent === "発生記録はありません。")).toHaveLength(2);
+    expect([...document.querySelectorAll(".town-kind.is-farm > p")].filter((e) => e.textContent === "記録はありません。")).toHaveLength(2);
   });
 
   it("町を押していなければ何も出さない（近くの自治体のボタンは選択地域の欄の過去の記録へ移した。2026-11-06 作者の決定）", () => {
@@ -166,5 +168,71 @@ describe("distanceRingsAt（町の中心からの輪）", () => {
     expect(distanceRingsAt([Number.NaN, 35])).toBeNull();
     // マス目の輪は、マス目の中心からの点の輪と同じ
     expect(distanceRingsOf("52344080")!.features[0]!.properties.km).toBe(10);
+  });
+});
+
+// 野鳥の陽性の段（2026-11-07 作者の決定 案 1）。野鳥の印を押したときも、この欄が開く
+describe("TownCasesPanel の野鳥の段", () => {
+  const SRC = "https://example.invalid/moe.pdf";
+  const wb = (o: Partial<WildBird> & { id: string }): WildBird => ({
+    season: 2026,
+    date: "2026-11-02",
+    prefCode: "05",
+    muniCode: "05210",
+    muniName: "由利本荘市",
+    species: "ハシブトガラス",
+    test: "hpai_confirmed",
+    focusZone: { from: "2026-11-06", to: null },
+    sourceUrl: SRC,
+    ...o,
+  });
+  const show = (birds: WildBird[] | null) =>
+    render(<TownCasesPanel {...base} muniCode="05210" muniName="由利本荘市" currentCases={[]} history={[]} wildBirds={birds} />);
+
+  it("その町の野鳥の陽性を、鳥の種類・段階・回収日・出典で出す。養鶏場の文はそのまま", () => {
+    show([wb({ id: "a" })]);
+    const sec = document.querySelector<HTMLElement>(".town-kind.is-bird")!;
+    expect(within(sec).getByRole("heading", { level: 4 }).textContent).toBe(TEXT.panelBirdsHead + TEXT.panelKindCount(1));
+    expect(sec.querySelector("h4 svg.swatch-bird.is-confirmed")).not.toBeNull();
+    const items = within(sec).getAllByRole("listitem");
+    expect(items).toHaveLength(1);
+    expect(items[0]!.textContent).toContain("ハシブトガラス");
+    expect(items[0]!.textContent).toContain("高病原性の確定");
+    expect(items[0]!.textContent).toContain("2026 年 11 月 2 日回収");
+    expect(within(items[0]!).getByRole("link", { name: TEXT.panelSource }).getAttribute("href")).toBe(SRC);
+    expect(sec.textContent).toContain(TEXT.panelBirdsNote);
+    // 養鶏場の段は別にあり、赤い四角の印と題で見分ける
+    const farm = document.querySelector<HTMLElement>(".town-kind.is-farm")!;
+    expect(farm.querySelector("h4 .swatch-solid")).not.toBeNull();
+    expect(farm.textContent).toContain("記録はありません。");
+    expect(farm.compareDocumentPosition(sec) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("陰性・ほかの町・ほかのシーズンは出さない。新しい順。種がなければそう書く。検査中は検査中", () => {
+    show([
+      wb({ id: "a" }),
+      wb({ id: "b", date: "2026-11-05", test: "screening_positive", species: null }),
+      wb({ id: "n", test: "negative" }),
+      wb({ id: "o", muniCode: "05201" }),
+      wb({ id: "s", season: 2025, date: "2025-12-01" }),
+    ]);
+    const items = within(document.querySelector<HTMLElement>(".town-kind.is-bird")!).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]!.textContent).toContain("2026 年 11 月 5 日回収");
+    expect(items[0]!.textContent).toContain("検査中");
+    expect(items[0]!.textContent).toContain(TEXT.panelNoSpecies);
+    expect(items[1]!.textContent).toContain("ハシブトガラス");
+    expect(document.querySelector(".town-kind.is-bird h4")!.textContent).toBe(TEXT.panelBirdsHead + TEXT.panelKindCount(2));
+  });
+
+  it("野鳥の陽性がない町は、段の題の下に「この町の発表はありません」（0 件と書かない）。読めていないとき（null）は段を出さない", () => {
+    show([wb({ id: "n", test: "negative" })]);
+    const sec = document.querySelector<HTMLElement>(".town-kind.is-bird")!;
+    expect(sec.querySelector("h4")!.textContent).toBe(TEXT.panelBirdsHead);
+    expect(sec.textContent).toContain(TEXT.panelBirdsNone);
+    expect(document.body.textContent).not.toMatch(/0 件/);
+    cleanup();
+    show(null);
+    expect(document.querySelector(".town-kind.is-bird")).toBeNull();
   });
 });

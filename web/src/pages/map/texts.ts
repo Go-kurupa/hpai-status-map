@@ -60,6 +60,16 @@ export const TEXT = {
   // 記録がない町は短く言う。「これから出ないという意味ではない」は地図のすぐ下の断りが言う（2026-11-06 作者の決定）
   panelNoneNow: (asOf: string | null) => (asOf ? [`${asOf} 時点で、`, "発生記録はありません。"] : ["発生記録はありません。"]),
   panelNonePast: "発生記録はありません。",
+  // 地図で押した町の段（2026-11-07 作者の決定）。養鶏場などの発生と野鳥の陽性を、同じ形（印・題・件数）の別々の段にし、混ぜて読ませない
+  panelFarmHead: "養鶏場などの発生",
+  panelBirdsHead: "野鳥の陽性",
+  panelKindCount: (n: number): string => `${n} 件`,
+  panelFarmNoneNow: (asOf: string | null) => (asOf ? [`${asOf} 時点で、`, "記録はありません。"] : ["記録はありません。"]),
+  panelFarmNonePast: "記録はありません。",
+  panelBirdsNone: "この町の発表はありません。",
+  panelBirdsNote: "環境省の発表です。見つかって検査された野鳥だけの数で、養鶏場の発生ではありません。",
+  panelBirdCollected: (date: string): string => `${date}回収`,
+  panelNoSpecies: "種の記載なし",
   panelSuspected: "疑い",
   panelConfirmed: "確定",
   panelNoDate: "日付の記載なし",

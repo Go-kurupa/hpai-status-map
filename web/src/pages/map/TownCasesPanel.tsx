@@ -1,8 +1,9 @@
 import { caseDate, isSuspectedOnly, pastSeasonsOf } from "@hpai/shared/overview";
 import { isCountable } from "@hpai/shared/level";
-import type { Case, HistoryCase, IsoDateTime, MuniCode, Season } from "@hpai/shared/types";
+import type { Case, HistoryCase, IsoDateTime, MuniCode, Season, WildBird } from "@hpai/shared/types";
 import { useEffect, useRef } from "react";
 import { Link } from "react-router";
+import { BirdSwatch } from "./Legend";
 import { TEXT } from "./texts";
 
 /** 文の塊を並べる。塊の中だけで折れ、言葉の途中では折れない */
@@ -42,6 +43,20 @@ export function Detail({ birdUse, housing, headCount }: { birdUse: string | null
   );
 }
 
+/**
+ * 段の題（養鶏場などの発生・野鳥の陽性）。印と件数を並べ、2 つの段を同じ形で見分けられるようにする（2026-11-07 作者の決定）。
+ * 件数は 1 件以上のときだけ。0 件は本文の「記録はありません」で言い、「0 件」と書かない（安全と読ませない。2026-11-06 の決定）
+ */
+function KindHead({ kind, count }: { kind: "farm" | "bird"; count: number | null }) {
+  return (
+    <h4 className="town-kind-head">
+      {kind === "farm" ? <span className="swatch swatch-solid" aria-hidden="true" /> : <BirdSwatch confirmed />}
+      <span>{kind === "farm" ? TEXT.panelFarmHead : TEXT.panelBirdsHead}</span>
+      {count !== null && count > 0 ? <span className="town-kind-count">{TEXT.panelKindCount(count)}</span> : null}
+    </h4>
+  );
+}
+
 export interface TownCasesPanelProps {
   /** 押した町。null なら何も出さない */
   muniCode: MuniCode | null;
@@ -58,6 +73,8 @@ export interface TownCasesPanelProps {
   current: Season;
   /** 今季の記録の時点（画面の上の「時点」と同じ値）。記録がないときの文に日付で書く（2026-11-06 作者の決定） */
   asOf: IsoDateTime | null;
+  /** 今季の野鳥の陽性（読めていない、または再現なら null で段を出さない）。2026-11-07 作者の決定 案 1 */
+  wildBirds?: readonly WildBird[] | null;
   onClose: () => void;
 }
 
@@ -102,6 +119,10 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
   const bySeason = new Map<Season, HistoryCase[]>();
   for (const h of past) bySeason.set(h.season, [...(bySeason.get(h.season) ?? []), h]);
   const name = p.muniName ?? p.muniCode;
+  // この町の今季の野鳥の陽性（陰性は除く）。新しい順。野鳥の印を押したときも、下の町としてこの欄が開く
+  const birds = (p.wildBirds ?? [])
+    .filter((b) => b.muniCode === p.muniCode && b.season === p.current && b.test !== "negative")
+    .sort((a, b) => (a.date === b.date ? a.id.localeCompare(b.id) : b.date.localeCompare(a.date)));
   return (
     <section className="town-cases" aria-labelledby="town-cases-h">
       <p className="town-cases-label">{TEXT.panelLabel}</p>
@@ -112,15 +133,18 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
       <h3>
         <Chunks parts={TEXT.panelNow(p.current)} />
       </h3>
-      {p.currentCases === null ? (
-        <p role="status">{TEXT.panelLoading}</p>
-      ) : now.length === 0 ? (
-        <p>
-          <Chunks parts={TEXT.panelNoneNow(asOf)} />
-        </p>
-      ) : (
-        <ul className="town-cases-list">
-          {now.map((c) => (
+      {/* 養鶏場などの発生と野鳥の陽性は、同じ形の別々の段（左の線の色と題の印で見分ける） */}
+      <div className="town-kind is-farm">
+        <KindHead kind="farm" count={p.currentCases === null ? null : now.length} />
+        {p.currentCases === null ? (
+          <p role="status">{TEXT.panelLoading}</p>
+        ) : now.length === 0 ? (
+          <p>
+            <Chunks parts={TEXT.panelFarmNoneNow(asOf)} />
+          </p>
+        ) : (
+          <ul className="town-cases-list">
+            {now.map((c) => (
             <li key={c.id}>
               <b>
                 {dateText(caseDate(c))}　{isSuspectedOnly(c) ? TEXT.panelSuspected : TEXT.panelConfirmed}
@@ -133,12 +157,39 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
               ) : null}
             </li>
           ))}
-        </ul>
-      )}
+          </ul>
+        )}
+      </div>
+
+      {p.wildBirds ? (
+        <div className="town-kind is-bird">
+          <KindHead kind="bird" count={birds.length} />
+          {birds.length === 0 ? (
+            <p>{TEXT.panelBirdsNone}</p>
+          ) : (
+            <ul className="town-cases-list">
+              {birds.map((b) => (
+                <li key={b.id}>
+                  <b>
+                    <span className="town-cases-nowrap">{TEXT.panelBirdCollected(dateText(b.date))}</span>　{b.test === "hpai_confirmed" ? "高病原性の確定" : "検査中"}
+                  </b>
+                  <span>{b.species ?? TEXT.panelNoSpecies}</span>
+                  <a href={b.sourceUrl} target="_blank" rel="noopener noreferrer" className="tap-link">
+                    {TEXT.panelSource}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="town-cases-note">{TEXT.panelBirdsNote}</p>
+        </div>
+      ) : null}
 
       <h3>
         <Chunks parts={TEXT.panelPast(pastRange)} />
       </h3>
+      <div className="town-kind is-farm">
+        <KindHead kind="farm" count={p.history === null ? null : past.length} />
       {p.history === null && p.historyFailed ? (
         <p className="state-unknown" role="status">
           {TEXT.panelPastFailed}{" "}
@@ -149,7 +200,7 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
       ) : p.history === null ? (
         <p role="status">{TEXT.panelLoading}</p>
       ) : past.length === 0 ? (
-        <p>{TEXT.panelNonePast}</p>
+        <p>{TEXT.panelFarmNonePast}</p>
       ) : (
         [...bySeason.entries()].map(([season, rows]) => (
           <div key={season} className="town-cases-season">
@@ -170,6 +221,7 @@ export function TownCasesPanel(p: TownCasesPanelProps) {
           </div>
         ))
       )}
+      </div>
       <p className="town-cases-note">{TEXT.panelNote}</p>
       <p>
         <Link to={`/area/${p.muniCode}`} className="tap-link">

@@ -880,6 +880,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           onRetryHistory={d.retryHistory}
           current={d.current}
           asOf={d.asOf}
+          wildBirds={ds.mode === "replay" || !d.wildBirdsLoaded ? null : d.wildBirds}
           hasTown={town !== null}
           onClose={() => setInspected(null)}
         />

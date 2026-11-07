@@ -563,7 +563,8 @@ test.describe("地図（入口）", () => {
       await page.mouse.click(c.x + c.width / 2, c.y + c.height / 2);
       const heading = panel.getByRole("heading", { level: 2, name: "西粟倉村" });
       await expect(heading).toBeFocused();
-      await expect(panel.getByText(/時点で、発生記録はありません。/)).toBeVisible();
+      await expect(panel.getByText(/時点で、記録はありません。/)).toBeVisible();
+      await expect(panel.getByRole("heading", { level: 4, name: "養鶏場などの発生" }).first()).toBeVisible();
       // 右の列の先頭で、地図の上端と並ぶ
       const canvas = (await page.locator(".map-canvas").boundingBox())!;
       const box = (await panel.boundingBox())!;
