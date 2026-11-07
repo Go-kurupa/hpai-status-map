@@ -15,6 +15,10 @@ import { DeathsPanel } from "./DeathsPanel";
 import { ExportPanel } from "./ExportPanel";
 import { RecordTabs } from "./RecordTabs";
 import { SelfCheckPanel } from "./SelfCheckPanel";
+import { DoneButton, useDisinfectionLog } from "./disinfectionLog";
+import { SampleRecordStore } from "../sample/SampleRecordStore";
+import type { SampleFarmData } from "@hpai/shared/replay";
+import sampleJson from "../../../../data/replay/sample-farm.json";
 import { TODO_TEXT } from "../todo/texts";
 import { RECORD_TEXT } from "./recordTexts";
 
@@ -183,6 +187,111 @@ describe("RecordTabs（上の 2 行とリンク）", () => {
     mount(<RecordTabs />);
     await screen.findByText(/最後の記録/);
     expect(screen.queryByText(RECORD_TEXT.mailStopped)).toBeNull();
+  });
+});
+
+describe("RecordTabs 保存の後に『最後の記録』を読み直す", () => {
+  /** 消毒の「やった」を 1 つだけ置く（DisinfectionPanel は地図の段階を読むので、記録の部品だけで試す） */
+  function OneDisinfection() {
+    const log = useDisinfectionLog(true);
+    return <DoneButton itemId="always-17" label="消毒" log={log} />;
+  }
+
+  it("死亡数を記録すると、上の『最後の記録』がその日付に変わる", async () => {
+    mount(
+      <>
+        <RecordTabs />
+        <DeathsPanel />
+      </>,
+      { path: "/record/deaths" },
+    );
+    expect(await screen.findByText("最後の記録: なし")).toBeTruthy();
+    await recordDeaths("2");
+    await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
+    expect(await screen.findByText("最後の記録: 2026年11月6日")).toBeTruthy();
+  });
+
+  it("前の日付の記録があっても、記録した日付に変わる", async () => {
+    deaths = [rec("2026-11-03", 1, { houseId: "h1", flockSizeAt: 100 })];
+    mount(
+      <>
+        <RecordTabs />
+        <DeathsPanel />
+      </>,
+      { path: "/record/deaths" },
+    );
+    expect(await screen.findByText("最後の記録: 2026年11月3日")).toBeTruthy();
+    await recordDeaths("0");
+    expect(await screen.findByText("最後の記録: 2026年11月6日")).toBeTruthy();
+  });
+
+  it("自己点検を保存すると、上の『最後の記録』がその日付に変わる", async () => {
+    saveCheck.mockImplementation(async (c) => {
+      checks = [...checks, { ...c, id: c.kind === "disinfection" ? `dis_${c.date}_${c.itemId}` : `self_${c.month}` }];
+    });
+    mount(
+      <>
+        <RecordTabs />
+        <SelfCheckPanel />
+      </>,
+      { path: "/record/self-check" },
+    );
+    expect(await screen.findByText("最後の記録: なし")).toBeTruthy();
+    await selfReady();
+    fireEvent.click(within(screen.getByRole("group", { name: /^17 / })).getByLabelText("○"));
+    fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.selfSave }));
+    await waitFor(() => expect(saveCheck).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("最後の記録: 2026年11月6日")).toBeTruthy();
+  });
+
+  it("消毒の「やった」を残すと、上の『最後の記録』がその日付に変わる", async () => {
+    saveCheck.mockImplementation(async (c) => {
+      checks = [...checks, { ...c, id: c.kind === "disinfection" ? `dis_${c.date}_${c.itemId}` : `self_${c.month}` }];
+    });
+    mount(
+      <>
+        <RecordTabs />
+        <OneDisinfection />
+      </>,
+      { path: "/record/disinfection" },
+    );
+    expect(await screen.findByText("最後の記録: なし")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: `${TODO_TEXT.done}: 消毒` }));
+    await waitFor(() => expect(saveCheck).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("最後の記録: 2026年11月6日")).toBeTruthy();
+  });
+
+  it("保存に失敗したら読み直さない（上の行は変わらない）", async () => {
+    saveDeath.mockRejectedValue(new Error("書けません"));
+    mount(
+      <>
+        <RecordTabs />
+        <DeathsPanel />
+      </>,
+      { path: "/record/deaths" },
+    );
+    expect(await screen.findByText("最後の記録: なし")).toBeTruthy();
+    await recordDeaths("2");
+    await screen.findByText(RECORD_TEXT.saveFailed);
+    expect(screen.getByText("最後の記録: なし")).toBeTruthy();
+  });
+
+  it("見本の農場の口（SampleRecordStore）でも、死亡数を記録すると『最後の記録』が変わる", async () => {
+    // 見本のデータは 2025 年 12 月まで。この試験の今日（2026-11-06）から 120 日より前なので、初めは「なし」
+    const sample = new SampleRecordStore(sampleJson as unknown as SampleFarmData);
+    mount(
+      <>
+        <RecordTabs />
+        <DeathsPanel />
+      </>,
+      { path: "/sample/record/deaths", store: sample },
+    );
+    expect(await screen.findByText("最後の記録: なし")).toBeTruthy();
+    await screen.findByLabelText(RECORD_TEXT.deathsLabel);
+    setValue(RECORD_TEXT.deathsLabel, "2");
+    fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.save }));
+    await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
+    expect(await screen.findByText("最後の記録: 2026年11月6日")).toBeTruthy();
   });
 });
 

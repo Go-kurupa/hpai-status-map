@@ -8,7 +8,7 @@ import { buildWeeklyDeathReport, EXCLUSION_LABELS } from "@hpai/shared/reports";
 import type { DeathRecord, ExclusionKind, Farm, House, IsoDate } from "@hpai/shared/types";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
-import { useDataSource, useRecordStore } from "../../data/context";
+import { useDataSource, useRecordSaves, useRecordStore } from "../../data/context";
 import { Button } from "../../ui/Button";
 import { FarmGuide, useFarmRecord } from "./disinfectionLog";
 import { CopyBox } from "./CopyBox";
@@ -228,6 +228,7 @@ function WeeklyReport({
 function DeathsBody({ farm }: { farm: FarmWithId }) {
   const store = useRecordStore();
   const ds = useDataSource();
+  const { saved: noteSaved } = useRecordSaves();
   const id = useId();
   const today = jstDateOf(ds.now());
   const from = addDays(today, -LOOKBACK_DAYS);
@@ -325,6 +326,7 @@ function DeathsBody({ farm }: { farm: FarmWithId }) {
       setBusy(false);
       return;
     }
+    noteSaved(); // 上の「最後の記録」を読み直させる（下の読み直しが失敗しても、保存はできている）
     try {
       const fresh = await store.listDeaths(from, today);
       setDeaths(fresh);

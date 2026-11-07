@@ -6,7 +6,7 @@ import { buildSelfCheckReport, SELF_CHECK_ITEMS, SELF_CHECK_SOURCE_NOTE } from "
 import type { Farm, SelfCheckItemNo } from "@hpai/shared/types";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { useDataSource, useRecordStore } from "../../data/context";
+import { useDataSource, useRecordSaves, useRecordStore } from "../../data/context";
 import { Button } from "../../ui/Button";
 import { CopyBox } from "./CopyBox";
 import { FarmGuide, useFarmRecord } from "./disinfectionLog";
@@ -19,6 +19,7 @@ const BLANK: Answers = { "17": null, "18": null, "19": null, "22": null, "23": n
 function SelfCheckBody({ farm }: { farm: Farm & { id: string } }) {
   const store = useRecordStore();
   const ds = useDataSource();
+  const { saved: noteSaved } = useRecordSaves();
   const today = jstDateOf(ds.now());
   const month = today.slice(0, 7);
   const monthLabel = `${month.slice(0, 4)}年${Number(month.slice(5, 7))}月`;
@@ -66,6 +67,7 @@ function SelfCheckBody({ farm }: { farm: Farm & { id: string } }) {
     try {
       await store.saveCheck({ kind: "self_inspection", date: today, month, answers });
       setSaved(true);
+      noteSaved(); // 上の「最後の記録」を読み直させる
     } catch {
       setFailed(true);
     }

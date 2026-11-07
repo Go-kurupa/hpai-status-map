@@ -4,7 +4,7 @@ import { addDays, jstDateOf } from "@hpai/shared/dates";
 import type { IsoDate } from "@hpai/shared/types";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { useDataSource, useRecordStore } from "../../data/context";
+import { useDataSource, useRecordSaves, useRecordStore } from "../../data/context";
 import { RECORD_TEXT } from "./recordTexts";
 import "./record.css";
 
@@ -20,6 +20,8 @@ export function jaDateWithYear(d: IsoDate): string {
 export function RecordTabs() {
   const store = useRecordStore();
   const ds = useDataSource();
+  // 記録を保存するたびに増える。同じ画面で記録した後も、上の 2 行を読み直す（読み直す間は前の表示のまま）
+  const { version } = useRecordSaves();
   const { pathname } = useLocation();
   const base = store.mode === "sample" || pathname.startsWith("/sample/") ? "/sample/record" : "/record";
 
@@ -51,7 +53,7 @@ export function RecordTabs() {
     return () => {
       off = true;
     };
-  }, [store, ds]);
+  }, [store, ds, version]);
 
   const tabs = [
     { to: `${base}/deaths`, label: RECORD_TEXT.tabDeaths },

@@ -3,7 +3,7 @@
 import { addDays, jstDateOf } from "@hpai/shared/dates";
 import type { Farm, IsoDate } from "@hpai/shared/types";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useDataSource, useRecordStore } from "../../data/context";
+import { useDataSource, useRecordSaves, useRecordStore } from "../../data/context";
 import { Button } from "../../ui/Button";
 import { TODO_TEXT } from "../todo/texts";
 
@@ -58,6 +58,7 @@ export interface DisinfectionLog {
 export function useDisinfectionLog(enabled: boolean): DisinfectionLog {
   const store = useRecordStore();
   const ds = useDataSource();
+  const { saved: noteSaved } = useRecordSaves();
   const [recent, setRecent] = useState<LoggedCheck[]>([]);
   const [recentFailed, setRecentFailed] = useState(false);
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
@@ -96,6 +97,7 @@ export function useDisinfectionLog(enabled: boolean): DisinfectionLog {
       setFailed((s) => without(s, itemId));
       try {
         await store.saveCheck({ kind: "disinfection", date, itemId });
+        noteSaved(); // 上の「最後の記録」を読み直させる
         setDoneToday((s) => new Set(s).add(itemId));
         setRecent((r) => [{ key: `local-${nextLocal.current++}`, date, itemId }, ...r]);
       } catch {
@@ -104,7 +106,7 @@ export function useDisinfectionLog(enabled: boolean): DisinfectionLog {
         setSaving((s) => without(s, itemId));
       }
     },
-    [enabled, store, ds],
+    [enabled, store, ds, noteSaved],
   );
 
   return { doneToday, saving, failed, recent, recentFailed, log };
