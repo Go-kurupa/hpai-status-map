@@ -104,7 +104,7 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   }
 
-  test("/ 登録なし: 断り、数字、地図が入る。切り替えは出さず、案内とボタンを 1 行に並べ、ボタンの文字は折れない", async ({ page }) => {
+  test("/ 登録なし: 断り、数字、地図が入る。切り替えは出さず、案内の帯は数字より上で、狭い画面ではボタンを文の下に置き、ボタンの文字は折れない", async ({ page }) => {
     await page.goto("/");
     await firstScreen(page, false);
     await expect(page.getByRole("group", { name: "地図の見る場所" })).toHaveCount(0);
@@ -112,8 +112,10 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     const btn = page.getByRole("button", { name: "地域を選択" });
     const box = (await btn.boundingBox())!;
     await bottomAboveNav(page, btn);
-    expect(box.y).toBeLessThan(text.y + text.height);
-    expect(box.x).toBeGreaterThanOrEqual(text.x + text.width);
+    // 帯は数字の欄より上（2026-11-07 作者の決定 案 A）。狭い画面では文の下にボタン
+    const stat = (await page.locator(".stat-row").boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(stat.y);
+    expect(box.y).toBeGreaterThanOrEqual(text.y + text.height - 1);
     expect(box.height).toBeGreaterThanOrEqual(44);
     // 文字が 2 行に折れると、1 行の高さの 2 倍近くになる
     expect(await btn.evaluate((e) => e.getBoundingClientRect().height <= parseFloat(getComputedStyle(e).lineHeight) * 1.5 + 20)).toBe(true);
@@ -798,7 +800,8 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       const box = (await canvas.boundingBox())!;
       // 2026-11-06 骨組みの作り直し（設計書 2026-11-06-ui-frame）: 左のメニュー（幅 240px）の分、本文が狭く、札の文が 1 行増える。
       // 実測は登録ありで 431.94px（それまで 410px 未満）。登録なしは変わらず 350px 未満
-      expect(box.y).toBeLessThan(spot ? 450 : 350);
+      // 2026-11-07 作者の決定（案 A）: 登録なしは、町を選ぶ案内の帯を時点の下に置くので、帯の分（約 104px）下がる。実測 458.75px
+      expect(box.y).toBeLessThan(spot ? 450 : 475);
       expect(box.y + box.height).toBeLessThanOrEqual(nav.y + 180);
     });
 
@@ -814,7 +817,8 @@ test.describe("PC の幅（1280x860）で地図が最初の画面に入る", () 
       const nav = viewportBottom(page);
       // 登録ありは切り替えを地図の真上に置くので、約 56px 下がる（実測 369.75px。2026-11-06 作者の決定）
       // 2026-11-06 骨組みの作り直し（設計書 2026-11-06-ui-frame）: 左のメニューの分、本文が狭くなる。登録ありの実測 396.94px（それまで 369.75px）
-      expect(box.y).toBeLessThan(spot ? 410 : 320);
+      // 2026-11-07 作者の決定（案 A）: 登録なしは、町を選ぶ案内の帯の分（約 104px）下がる。実測 423.75px
+      expect(box.y).toBeLessThan(spot ? 410 : 440);
       expect(box.height).toBeLessThanOrEqual(640);
       expect(box.y + box.height).toBeLessThanOrEqual(nav.y + 180);
     });

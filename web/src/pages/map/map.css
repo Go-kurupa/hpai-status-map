@@ -1565,3 +1565,61 @@
     grid-auto-columns: auto;
   }
 }
+
+/* 地域が未選択の最初の画面の案内の帯（2026-11-07 作者の決定 案 A）。時点のすぐ下に横いっぱいに置き、数字の欄と地図より先に読ませる。
+   既存の .town-prompt の並びはそのままで、帯の見た目だけをここで足す。狭い画面では文の下にボタンを置く */
+.town-prompt-band {
+  margin: 8px 0 12px;
+  padding: 16px 20px;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  background: var(--surface);
+}
+.town-prompt-band .town-prompt {
+  gap: 12px 20px;
+  padding: 0;
+}
+.town-prompt-band .town-prompt-text {
+  flex: 1 1 18rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--navy);
+}
+.town-prompt-band .town-pick-btn {
+  min-height: 56px;
+  padding: 0 28px;
+  font-size: 1.1rem;
+}
+
+/* スマホは最初の画面に地図の全部を入れる決まりがあるので、帯を詰める（文 2 行の下にボタン） */
+@media (max-width: 63.99rem) {
+  .town-prompt-band {
+    margin: 2px 0 4px;
+    padding: 6px 12px;
+  }
+  .town-prompt-band .town-prompt {
+    gap: 4px;
+  }
+  .town-prompt-band .town-prompt-text {
+    flex: 1 1 100%;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .town-prompt-band .town-pick-btn {
+    min-height: var(--tap);
+    padding: 0 20px;
+    font-size: 1rem;
+  }
+}
+/* PC: 選択地域の欄は右の列（grid-column: 2; order: 3）に置く決まりだが、未選択の帯だけは横いっぱいにして、DOM の順（時点の下、守る文と数字の前）に置く */
+@media (min-width: 64rem) {
+  .map-page > .town-banner.town-prompt-band {
+    grid-column: 1 / -1;
+    order: 0;
+  }
+  /* 横いっぱいの帯の中で選ぶ欄を開いても、入力欄は読みやすい幅まで */
+  .town-prompt-band .town-chooser {
+    max-width: 40rem;
+  }
+}

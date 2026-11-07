@@ -107,7 +107,7 @@ async function chooseTown(page: Page, pref: string, muni: string) {
 test.describe("自分の町の 1 文", () => {
   test("真庭市（33214）を選ぶと、隣の津山市の事例で『隣町で発生しました』。過去は近くの自治体の件数、/town で『昨季に隣町で発生しました（記録）』。地図に自分の町と隣の縁", async ({ page }) => {
     await open(page);
-    await expect(page.getByText("地域を選択すると、近くの発生が見られます。")).toBeVisible();
+    await expect(page.getByText("農場のある地域を選ぶと、近くの今季の発生と、過去の発生が分かります。")).toBeVisible();
     await chooseTown(page, "33", "33214");
     await expect(page.getByText("隣町で発生しました", { exact: true })).toBeVisible();
     // 最初の画面の過去の記録は、近くの自治体の件数の 1 文とボタン（2026-11-06 作者の決定）。過去の 1 文は /town で確かめる

@@ -114,7 +114,7 @@ const LEVELS: readonly Level[] = [
   },
   {
     name: "町を選んでいない",
-    sentence: "地域を選択すると、近くの発生が見られます。",
+    sentence: "農場のある地域を選ぶと、近くの今季の発生と、過去の発生が分かります。",
     setup: async () => {},
   },
 ];

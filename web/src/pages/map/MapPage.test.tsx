@@ -623,7 +623,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
 
   const childNames = (es: Element[]) => es.map((e) => e.tagName.toLowerCase() + (e.className ? "." + e.className : ""));
 
-  it("町を選んでいないとき、地図より上は 見出し、時点、確認の行、守る文、数字、町を選ぶ案内の順。切り替えは出さず、全国で始める", async () => {
+  it("町を選んでいないとき、地図より上は 見出し、時点、町を選ぶ案内の帯、守る文、数字の順（帯は数字より先に読まれる。守る文は札のすぐ前のまま。2026-11-07 作者の決定 案 A）。切り替えは出さず、全国で始める", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
@@ -633,7 +633,9 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     const page = document.querySelector(".map-page")!;
     const box = document.querySelector(".map-box")!;
     const above = [...page.children].filter((e) => before(e, box));
-    expect(childNames(above)).toEqual(["h1", "p.as-of", "p.map-notice map-risk", "div.stat-row", "section.town-banner"]);
+    expect(childNames(above)).toEqual(["h1", "p.as-of", "section.town-banner town-prompt-band", "p.map-notice map-risk", "div.stat-row"]);
+    // 地図の後ろに同じ案内を重ねて出さない
+    expect(document.querySelectorAll(".town-banner")).toHaveLength(1);
     // 全県確認なら見回りの行は出さない（2026-11-06 作者の決定）。並びからも外してある
     expect(screen.queryByTestId("watch-line")).toBeNull();
     const banner = document.querySelector(".town-banner")!;

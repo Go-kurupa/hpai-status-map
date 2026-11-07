@@ -371,6 +371,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   // 鶏舎の場所を合わせている間と候補を確かめている間は、町の欄の置き場を合わせ始めた時のままにする。
   // 町の文の段階が途中で変わって欄が地図の前後に動くと、場所の欄が作り直されて候補や地区の選択が消えるため
   const spotBusy = inMap && canEdit && (aiming || spotCandidate);
+  // 地域が未選択の最初の画面は、案内を時点のすぐ下の帯にする（置き場を固定し、地図の前後に動かさない）
+  const promptTop = inMap && town === null;
   const bannerSlotAfterMap = picking && pickSlot !== null ? pickSlot : spotBusy && spotSlot !== null ? spotSlot : bannerAfterMap;
   useEffect(() => {
     shownSlot.current = bannerSlotAfterMap;
@@ -592,6 +594,9 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           </p>
         </>
       )}
+      {/* 地域が未選択のときは、町を選ぶ案内を時点のすぐ下に帯で置く。数字の欄と地図より先に読まれるように（2026-11-07 作者の決定 案 A）。
+          守る文は札のすぐ前のまま（この帯はその前に置く） */}
+      {promptTop ? banner : null}
 
       {shownViews.some((v) => v.isCurrent && !v.loaded) ? (
         <p className="state-unknown" role="status">
@@ -686,7 +691,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         </TownBanner>
       ) : null}
       {inMap && townLead ? <TownBanner {...bannerProps} part="lead" hideNationalHead={section === "now"} /> : null}
-      {inMap && !bannerSlotAfterMap ? banner : null}
+      {inMap && !promptTop && !bannerSlotAfterMap ? banner : null}
 
       {showMap ? (
         <>
@@ -837,7 +842,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       ) : null}
       {watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
       {inMap && showStats && hasFrequent ? <div className="stat-below">{frequentStat}</div> : null}
-      {inMap && bannerSlotAfterMap ? banner : null}
+      {inMap && !promptTop && bannerSlotAfterMap ? banner : null}
       {/* 右の欄（設計書 2026-11-06-ui-frame 4.1）: ふだんは自分の町の 1 文。町を押すとその町の事例に替わる（map.css で町の文を隠す） */}
       {section === "now" ? (
         <TownCasesPanel

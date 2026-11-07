@@ -124,7 +124,7 @@ export function TownBanner(p: TownBannerProps) {
   if (noTown) {
     // 案内の文と町を選ぶボタンを 1 行に並べる。選ぶ画面を開くと、その下に折り返す
     return (
-      <section className="town-banner" aria-label={TEXT.myTown}>
+      <section className="town-banner town-prompt-band" aria-label={TEXT.myTown}>
         <div className="town-prompt">
           <p className="town-prompt-text" role="status">
             {TEXT.pickPrompt}
