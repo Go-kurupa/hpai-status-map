@@ -286,7 +286,7 @@ function relationToCase(p: FarmPoint, c: Case, geo: GeoStore): { level: Level; r
 function computeLevel(p: FarmPoint, cases: readonly Case[], season: Season, geo: GeoStore): LevelResult;
 function computeAreaStatus(i: { muniCode: MuniCode; cases: readonly Case[]; wildBirds: readonly WildBird[]; geo: GeoStore; asOf: IsoDateTime; season: Season }): AreaStatus;
 function wildBirdsNotifiable(p: FarmPoint, birds: readonly WildBird[], geo: GeoStore): WildBird[]; // hpai_confirmed、メッシュ中心から 10.85km 以内
-function summarizeWatch(all: readonly WatchStatus[], now: Date): WatchSummary; // ok かつ 6 時間以内を確認済みと数える
+function summarizeWatch(all: readonly WatchStatus[], now: Date): WatchSummary; // ok かつ 7 時間以内を確認済みと数える（2026-11-07 に 6 時間から変更）
 ```
 
 - ①は同じ市町村か `distanceToMuniKm <= Math.max(10, ...radiiKm) + 0.85` で、`isZoneActive` の間。②③は否定を除き今季ずっと（§7【決定】）。解除の後の同じ市町村は 2.4（索引 Q5）。

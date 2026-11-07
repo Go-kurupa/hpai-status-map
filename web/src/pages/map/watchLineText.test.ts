@@ -72,8 +72,8 @@ describe("watchLine（§9.7、§2）", () => {
     expect(w.text).toContain("岡山県");
   });
 
-  it("6 時間より古い確認は、ok:true でも確認できていない", () => {
-    const w = watchLine(allOk().map((r) => (r.prefCode === "01" ? okRow("01", "2026-11-04T02:00:00+09:00") : r)), NOW);
+  it("7 時間より古い確認は、ok:true でも確認できていない", () => {
+    const w = watchLine(allOk().map((r) => (r.prefCode === "01" ? okRow("01", "2026-11-04T01:59:00+09:00") : r)), NOW);
     expect(w.failedPrefCodes).toEqual(["01"]);
     expect(w.text).toContain("北海道");
   });
@@ -81,7 +81,7 @@ describe("watchLine（§9.7、§2）", () => {
   it("asOf は checkedAt の最大（失敗の行の最後の試行も含む）。now には動かされない", () => {
     const rows = allOk().map((r) => (r.prefCode === "33" ? failRow("33", "2026-11-04T08:45:00+09:00") : r));
     expect(watchLine(rows, NOW).asOf).toBe("2026-11-04T08:45:00+09:00");
-    // now を進めても（6 時間を過ぎて全県が未確認になっても）asOf は checkedAt のまま
+    // now を進めても（7 時間を過ぎて全県が未確認になっても）asOf は checkedAt のまま
     const later = new Date("2026-11-04T20:00:00+09:00");
     const w = watchLine(rows, later);
     expect(w.asOf).toBe("2026-11-04T08:45:00+09:00");

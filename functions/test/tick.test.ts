@@ -152,9 +152,24 @@ describe("sourcePatch", () => {
     expect(p.lastCheckedAt).toBe("2026-11-05T00:00:00+09:00");
     expect(p.lastOkAt).toBe("2026-11-05T00:00:00+09:00");
   });
-  it("失敗は failureCount + 1 と最後に調べた時刻だけ。etag、指紋、最後に成功した時刻は変えない", () => {
-    const p = sourcePatch(src("a", 0, { failureCount: 3, etag: "e", fingerprint: "f", lastOkAt: "2026-11-04T00:00:00+09:00" }), okResult({ ok: false }), now);
-    expect(p).toEqual({ failureCount: 4, lastCheckedAt: "2026-11-05T00:00:00+09:00" });
+  it("失敗は failureCount + 1 と最後に調べた時刻と、続けて失敗した 1 回目の時刻（前のまま）だけ。etag、指紋、最後に成功した時刻は変えない", () => {
+    const p = sourcePatch(
+      src("a", 0, { failureCount: 3, etag: "e", fingerprint: "f", lastOkAt: "2026-11-04T00:00:00+09:00", lastCheckedAt: "2026-11-04T21:00:00+09:00", failingSince: "2026-11-04T15:00:00+09:00" }),
+      okResult({ ok: false }),
+      now,
+    );
+    expect(p).toEqual({ failureCount: 4, lastCheckedAt: "2026-11-05T00:00:00+09:00", failingSince: "2026-11-04T15:00:00+09:00" });
+  });
+  it("1 回目の失敗は failingSince を今にし、成功で null に戻す", () => {
+    const first = sourcePatch(src("a", 0, { failureCount: 0, lastCheckedAt: "2026-11-04T21:00:00+09:00", failingSince: null }), okResult({ ok: false }), now);
+    expect(first).toMatchObject({ failureCount: 1, failingSince: "2026-11-05T00:00:00+09:00" });
+    expect(sourcePatch(src("a", 0, { failureCount: 1, failingSince: "2026-11-04T21:00:00+09:00" }), okResult(), now)).toMatchObject({ failureCount: 0, failingSince: null });
+  });
+  it("欄が無い古い入口の 2 回目の失敗は、前の確認の時刻（1 回目の失敗）を failingSince にする。前の確認も無ければ今", () => {
+    const legacy = src("a", 0, { failureCount: 1, lastCheckedAt: "2026-11-04T21:00:00+09:00" });
+    expect(legacy).not.toHaveProperty("failingSince");
+    expect(sourcePatch(legacy, okResult({ ok: false }), now)).toMatchObject({ failureCount: 2, failingSince: "2026-11-04T21:00:00+09:00" });
+    expect(sourcePatch(src("b", 0, { failureCount: 2 }), okResult({ ok: false }), now)).toMatchObject({ failingSince: "2026-11-05T00:00:00+09:00" });
   });
 });
 
@@ -175,7 +190,7 @@ describe("国の入口の失敗は failureCount + 1 で、再試行しない", (
         const { maffHandlers } = await import("../src/watch/maff");
         const report = await runTick(deps(fetchFn, at(0)), io, maffHandlers);
         expect(calls).toBe(1);
-        expect(patches).toEqual([{ id: "n", patch: { failureCount: 3, lastCheckedAt: "2026-11-05T00:00:00+09:00" } }]);
+        expect(patches).toEqual([{ id: "n", patch: { failureCount: 3, lastCheckedAt: "2026-11-05T00:00:00+09:00", failingSince: "2026-11-05T00:00:00+09:00" } }]);
         expect(report.checked).toEqual([{ id: "n", kind, ok: false }]);
       });
     }

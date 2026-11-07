@@ -30,7 +30,9 @@ export const MESH_MARGIN_KM = 0.85;
 /** 距離の帯の半径（km）。区域の判定ではなく、近づく様子を示す目安なので誤差を足さない。農場ごとに変えない。 */
 export const DISTANCE_BAND_KM = 60;
 /** 確認済みと数える、直近の確認（ok かつ checkedAt）からの時間（§9.7）。未来の時刻は数えない。 */
-const WATCH_FRESH_MS = 6 * 60 * 60 * 1000;
+// 入口は 3 時間ごとに回り、1 回だけの失敗は前の結果のまま（functions/src/watch/status.ts）。前に読めてから次の確認の記録まで
+// 6 時間と見回りの長さ（最大 30 分）がかかるので、7 時間まで確認済みに数える（2026-11-07 豪さんの決定）
+const WATCH_FRESH_MS = 7 * 60 * 60 * 1000;
 
 /** 県の発表の半径のうち最も外側。10km より狭くしない。数でない値は無視する（NaN で①を見逃さない）。 */
 export function zoneRadiusKm(c: Case): number {
@@ -198,7 +200,7 @@ export function wildBirdsNotifiable(p: FarmPoint, birds: readonly WildBird[], ge
   );
 }
 
-/** 47 都道府県のうち、ok で checkedAt が 6 時間以内（未来は除く）のものを確認済みと数える。一覧にない県は未確認。 */
+/** 47 都道府県のうち、ok で checkedAt が 7 時間以内（未来は除く）のものを確認済みと数える。一覧にない県は未確認。 */
 export function summarizeWatch(all: readonly WatchStatus[], now: Date): WatchSummary {
   const failedPrefCodes: PrefCode[] = [];
   let okCount = 0;

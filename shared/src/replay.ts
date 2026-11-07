@@ -164,7 +164,7 @@ export function noticeTextFor(muniName: string, stage: CaseStage, authority: str
 
 /**
  * order の時点の見回りの状況（説明のための例）。どの県も、再生の時刻に確認したことにする（ok かどうかは変えない）。
- * 固定の時刻のままだと、時計が進んで「6 時間以内」を外れ、全県が確認できていない扱いになり、
+ * 固定の時刻のままだと、時計が進んで「7 時間以内」を外れ、全県が確認できていない扱いになり、
  * 画面の『時点』も再生の時刻と食い違う。
  */
 export function watchAt(s: ReplayScenario, order: number): WatchStatus[] {

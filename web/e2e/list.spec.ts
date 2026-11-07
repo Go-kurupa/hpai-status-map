@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { installFixture } from "./fixtures";
 import { goViaMenu } from "./helpers/frame";
 
-// 確認状況と一覧（W-06）。画面の時計は 2026-11-04 09:00。見回りの checkedAt は 08:30（6 時間以内）なので、
+// 確認状況と一覧（W-06）。画面の時計は 2026-11-04 09:00。見回りの checkedAt は 08:30（7 時間以内）なので、
 // 失敗にした県以外は「確認できた」と数える。地理院タイルは外へ出さず、1 画素の PNG で答える。
 
 const PNG_1PX = Buffer.from(

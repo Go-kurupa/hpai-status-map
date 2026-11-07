@@ -47,7 +47,7 @@ export interface WatchLineResult {
   /** checkedAt の最大（now より後の時刻は使わない。now には動かさない）。使える checkedAt がなければ null。
    * 失敗の行の「最後に試した時刻」も含むので、okCount が 0 のときは「時点」と出さず、試した時刻として出す */
   asOf: IsoDateTime | null;
-  /** 確認できた県の数（6 時間以内に ok） */
+  /** 確認できた県の数（7 時間以内に ok） */
   okCount: number;
   failedPrefCodes: PrefCode[];
 }

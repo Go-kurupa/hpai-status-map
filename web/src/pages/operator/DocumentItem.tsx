@@ -1,4 +1,6 @@
 // 文書の確認の項目。読み取った値を入力欄の初期値にして、運営者が直して「載せる」か「無関係とする」を決める（設計書 §9.6）。
+// 入力欄は最初は畳む（多くの項目は「無関係とする」で済み、欄が全部開いていると下までスクロールが要る）。
+// 「直して載せる」を押すと欄が開き、その下に「載せる」が出る。畳んでも入れた値は残す（hidden で隠すだけ）。
 // 題、URL、理由は外から来た文字。React の文字として出し、HTML にしない。
 import { STAGE_LABELS } from "@hpai/shared/cases";
 import { jstDateOf } from "@hpai/shared/dates";
@@ -136,12 +138,11 @@ interface FormProps {
   now: Date;
   disabled: boolean;
   onPublish(values: CorrectedCaseValues): void;
-  onIrrelevant(): void;
   formError: string | null;
   setFormError(m: string | null): void;
 }
 
-function PublishForm({ item, detail, munis, now, disabled, onPublish, onIrrelevant, formError, setFormError }: FormProps) {
+function PublishForm({ item, detail, munis, now, disabled, onPublish, formError, setFormError }: FormProps) {
   const [f, setF] = useState(() => initialForm(item, detail, munis, now));
   const set = (k: keyof FormState, v: string) => setF((cur) => ({ ...cur, [k]: v }));
   const muniOptions = munis === null ? [] : Object.values(munis).filter((e) => e.prefCode === f.prefCode).sort((a, b) => a.code.localeCompare(b.code));
@@ -212,9 +213,6 @@ function PublishForm({ item, detail, munis, now, disabled, onPublish, onIrreleva
         <Button type="submit" variant="primary" disabled={disabled || !complete || munis === null}>
           載せる
         </Button>
-        <Button disabled={disabled} onClick={onIrrelevant}>
-          無関係とする
-        </Button>
       </div>
     </form>
   );
@@ -222,6 +220,8 @@ function PublishForm({ item, detail, munis, now, disabled, onPublish, onIrreleva
 
 export function DocumentItem({ item, resolve, getDetail, loadMunis, now }: Props) {
   const r = useResolver(resolve);
+  const formId = useId();
+  const [editing, setEditing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<{ detail: ReviewDetail | null; munis: MuniIndex | null } | null>(null);
 
@@ -273,19 +273,39 @@ export function DocumentItem({ item, resolve, getDetail, loadMunis, now }: Props
         <p className="op-note">二人の読み手で食い違った項目: {detail.mismatches.map(fieldLabel).join("、")}</p>
       )}
       {detail !== null && detail.error !== null && <p className="op-note">読み取りの失敗: {detail.error}</p>}
-      {loaded !== null && (
-        <PublishForm
-          item={item}
-          detail={detail}
-          munis={loaded.munis}
-          now={now()}
+      <div className="op-actions">
+        <Button
           disabled={r.disabled}
-          formError={formError ?? r.error}
-          setFormError={setFormError}
-          onPublish={(values) => void r.run({ itemId: item.id, action: "publish_corrected", values })}
-          onIrrelevant={() => void r.run({ itemId: item.id, action: "mark_irrelevant" })}
-        />
-      )}
+          onClick={() => {
+            setFormError(null);
+            void r.run({ itemId: item.id, action: "mark_irrelevant" });
+          }}
+        >
+          無関係とする
+        </Button>
+        <Button aria-expanded={editing} aria-controls={formId} disabled={r.disabled} onClick={() => setEditing((v) => !v)}>
+          直して載せる
+          <span aria-hidden="true" className="op-chevron">
+            {editing ? "▲" : "▼"}
+          </span>
+        </Button>
+      </div>
+      {/* 操作の失敗は、欄を開いて読み込みが終わっていれば「載せる」の近く（欄の中）、それ以外は欄の外に出す（失敗を見落とさない） */}
+      {(!editing || loaded === null) && r.error !== null && <p role="alert" className="op-error">{r.error}</p>}
+      <div id={formId} hidden={!editing}>
+        {loaded !== null && (
+          <PublishForm
+            item={item}
+            detail={detail}
+            munis={loaded.munis}
+            now={now()}
+            disabled={r.disabled}
+            formError={formError ?? r.error}
+            setFormError={setFormError}
+            onPublish={(values) => void r.run({ itemId: item.id, action: "publish_corrected", values })}
+          />
+        )}
+      </div>
       {r.phase === "done" && <p role="status">処理しました（一覧から消えます）</p>}
     </article>
   );

@@ -60,7 +60,7 @@ export function useSeasonData(): SeasonData {
   const [picked, setPicked] = useState<Season | null>(null);
 
   useEffect(() => {
-    const id = setInterval(() => setMinute((m) => m + 1), MINUTE_MS); // 「6 時間以内の確認」の判定を進める
+    const id = setInterval(() => setMinute((m) => m + 1), MINUTE_MS); // 「7 時間以内の確認」の判定を進める
     return () => clearInterval(id);
   }, []);
 

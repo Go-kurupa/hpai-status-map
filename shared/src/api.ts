@@ -37,7 +37,7 @@ export interface ApiEnvelope<T> {
 export type ApiCase = Omit<Case, "updatedAt"> & { updatedAt: IsoDateTime | null };
 export type ApiCases = ApiEnvelope<ApiCase[]>;
 export type ApiArea = ApiEnvelope<Omit<AreaStatus, "sameMuniCases" | "adjacentCases"> & { sameMuniCases: ApiCase[]; adjacentCases: ApiCase[] }>;
-/** confirmed は直近 6 時間以内に全入口が成功した県（summarizeWatch と同じ判定）。古い行は ok:false で返す。 */
+/** confirmed は直近 7 時間以内に確認できた県（summarizeWatch と同じ判定）。古い行は ok:false で返す。 */
 export type ApiWatchRow = WatchStatus & { confirmed: boolean };
 export type ApiWatch = ApiEnvelope<WatchSummary & { prefectures: ApiWatchRow[] }>;
 export type ApiWildBirds = ApiEnvelope<WildBird[]>;
@@ -219,7 +219,7 @@ export function toPublicWildBird(b: WildBird, ctx: PublicContext = { muniName: (
   };
 }
 
-/** 47 都道府県の行を PREFS の順に。記録のない県と、6 時間より古い行（未来の時刻も）は ok:false、confirmed:false。 */
+/** 47 都道府県の行を PREFS の順に。記録のない県と、7 時間より古い行（未来の時刻も）は ok:false、confirmed:false。 */
 export function watchRows(all: readonly WatchStatus[], now: Date): ApiWatchRow[] {
   const rows: WatchStatus[] = PREFS.map((p) => {
     const w = all.find((x) => x.prefCode === p.code);
@@ -243,7 +243,7 @@ export const prefNameOf = (code: PrefCode): string => PREF_NAME.get(code) ?? cod
 
 /** 「47 都道府県のうち N 件を確認、M 件は確認できていません（県名）」（設計書 §9.7）。未確認を発生なしと読ませない一文を足す。 */
 export function watchNotice(w: WatchSummary): string {
-  if (w.failedCount === 0) return `${PREFS.length} 都道府県すべてを、直近 6 時間以内に見回りました（${w.asOf} 時点）。`;
+  if (w.failedCount === 0) return `${PREFS.length} 都道府県すべてを、直近 7 時間以内に見回りました（${w.asOf} 時点）。`;
   const names = w.failedPrefCodes.map(prefNameOf).join("、");
   return `${PREFS.length} 都道府県のうち ${w.okCount} 件を確認、${w.failedCount} 件は確認できていません（${names}。${w.asOf} 時点）。確認できていない県の「載っていない」は、発生がないという意味ではありません。`;
 }

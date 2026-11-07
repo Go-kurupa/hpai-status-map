@@ -30,11 +30,18 @@ export function jstHour(d: Date): number {
   return (d.getUTCHours() + 9) % 24;
 }
 
-/** 確認の結果から、入口に書く更新。成功は印を更新し、失敗は数と時刻だけ（etag と指紋は前のまま）。 */
+/**
+ * 確認の結果から、入口に書く更新。成功は印を更新し、失敗は数と時刻だけ（etag と指紋は前のまま）。
+ * failingSince は続けて失敗している 1 回目の時刻（確認状況が「2 回続けて失敗したら 1 回目の時刻から」と書くため）。
+ * 1 回目の失敗なら今、続く失敗なら前の値。欄が無い古い入口は、前の確認の時刻（1 回目の失敗の後ならその時刻そのもの）で補う。
+ */
 export function sourcePatch(source: Source, result: CheckResult, now: Date): Partial<Source> {
   const at = toJstIso(now);
-  if (!result.ok) return { failureCount: source.failureCount + 1, lastCheckedAt: at };
-  return { failureCount: 0, lastCheckedAt: at, lastOkAt: at, etag: result.etag, lastModified: result.lastModified, fingerprint: result.fingerprint };
+  if (!result.ok) {
+    const failingSince = source.failureCount === 0 ? at : (source.failingSince ?? source.lastCheckedAt ?? at);
+    return { failureCount: source.failureCount + 1, lastCheckedAt: at, failingSince };
+  }
+  return { failureCount: 0, lastCheckedAt: at, lastOkAt: at, failingSince: null, etag: result.etag, lastModified: result.lastModified, fingerprint: result.fingerprint };
 }
 
 /**

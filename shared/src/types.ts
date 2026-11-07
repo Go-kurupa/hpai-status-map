@@ -58,7 +58,8 @@ export interface WildBird {
   sourceUrl: string;
 }
 export interface WatchStatus {
-  // watchStatus/{prefCode}。全入口が成功のときだけ ok
+  // watchStatus/{prefCode}。県として 2 回続けて読めていないときは ok でない（1 回だけの失敗は前の結果のまま。一度も読めていない入口などの例外は functions/src/watch/status.ts）
+  // failingSince は ok でないときだけ。続けて失敗した 1 回目の時刻
   prefCode: PrefCode;
   checkedAt: IsoDateTime | null;
   ok: boolean;
@@ -108,6 +109,8 @@ export interface Source extends SourceSeed {
   lastModified: string | null;
   fingerprint: string | null;
   failureCount: number;
+  // 続けて失敗している 1 回目の時刻。成功で null。この欄より前に作った入口には無い（undefined）
+  failingSince?: IsoDateTime | null;
 }
 export interface Invite {
   // invites/{sha256(code.trim()) の 16 進小文字}。平文は保存しない

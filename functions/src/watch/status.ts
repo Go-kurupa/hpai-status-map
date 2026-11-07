@@ -17,13 +17,41 @@ function validTime(s: string | null | undefined, now: Date): number | null {
   return Number.isFinite(t) && t <= now.getTime() ? t : null;
 }
 
+/** 1 つの入口で、続けて失敗しても県を「確認できた」のままにする回数。2 回続けて失敗したら確認できていないにする。 */
+export const TOLERATED_FAILURES = 1;
+
+/**
+ * 1 回の見回りの長さの上限（watchTick の timeoutSeconds）。県の中の入口の 1 回目の失敗がこの幅に収まれば、同じ回の失敗として
+ * 県で 1 回と数える（同じ組の入口が、県のサーバーの一瞬の不調でそろって失敗した場合）。幅を超えれば別の回の失敗で、県として 2 回続けて読めていない。
+ */
+export const SAME_RUN_MS = 30 * 60 * 1000;
+
+/** 入口 1 つの判定。at は「ここまでは読めていた」時刻、since は続けて失敗している 1 回目の時刻（分からなければ null）。 */
+type Verdict = { kind: "ok"; at: number } | { kind: "tolerated"; at: number; since: number | null } | { kind: "failed"; since: number | null };
+
+function verdictOf(s: Source, now: Date): Verdict {
+  const checked = validTime(s.lastCheckedAt, now);
+  if (s.failureCount === 0) return checked !== null ? { kind: "ok", at: checked } : { kind: "failed", since: null };
+  // 1 回目の失敗の時刻。欄が無い古い入口で 1 回目の失敗なら、最後の確認がその失敗そのもの
+  const since = validTime(s.failingSince, now) ?? (s.failureCount === 1 ? checked : null);
+  const lastOk = validTime(s.lastOkAt, now);
+  // 1 回だけの失敗を許すのは、前に読めていて（lastOkAt）、それが 24 時間以内のときだけ。一度も読めていない入口や、
+  // 見回りが長く止まった後の最初の失敗は、慎重に失敗とみなす
+  if (s.failureCount <= TOLERATED_FAILURES && checked !== null && lastOk !== null && now.getTime() - lastOk <= WATCH_ALERT_AFTER_MS) {
+    return { kind: "tolerated", at: lastOk, since };
+  }
+  return { kind: "failed", since };
+}
+
 /**
  * 47 件の確認状況。
  * まだ回っていない入口（lastCheckedAt が null で failureCount が 0）は、判定から外す（入口は 3 組で 1 時間に 1 組ずつ回るので、初回は未確認が残る）。
- * 確かめた入口のうち、成功は「failureCount が 0 で、時刻が正しい」もの。それ以外（失敗が続いている、時刻が壊れている・未来）は失敗。
- * ok は、確かめた入口が 1 つ以上あり、確かめた入口がすべて成功のときだけ。
- * checkedAt は ok なら成功した入口のうちいちばん古い時刻（いちばん古い入口が新鮮さを決める）、ok でなければ最新の確認の時刻（なければ null）。
- * failingSince は、確かめて失敗した入口があるときだけ立て、最初の時刻を保つ（前の状態から）。ok や、確かめた入口がないときは null。
+ * 確かめた入口は 3 つに分ける。成功（failureCount が 0 で、時刻が正しい）、1 回だけの失敗（verdictOf の条件つき）、失敗（それ以外。
+ * 2 回以上続けて失敗、一度も読めていない、時刻が壊れている・未来）。
+ * ok は、確かめた入口が 1 つ以上あり、失敗が無く、1 回だけの失敗がすべて同じ回（1 回目の失敗の時刻が SAME_RUN_MS の幅に収まる）のとき。
+ * 県の中で 2 つの入口が別々の回にそれぞれ 1 回失敗したら、県として 2 回続けて読めていないので ok にしない。1 回だけの失敗では公開の表示を変えない。
+ * checkedAt は ok なら「ここまでは読めていた」時刻のいちばん古いもの（1 回だけ失敗した入口は前に読めた時刻）、ok でなければ最新の確認の時刻（なければ null）。
+ * failingSince は ok でないときだけ立てる。前の状態の時刻を保ち、無ければ入口の 1 回目の失敗の時刻（いちばん古いもの）、それも無ければ今。
  */
 export function computeWatchStatuses(sources: readonly Source[], prev: readonly WatchStatus[], now: Date): WatchStatus[] {
   const prevBy = new Map(prev.map((p) => [p.prefCode, p]));
@@ -32,24 +60,29 @@ export function computeWatchStatuses(sources: readonly Source[], prev: readonly 
     // 前の時刻は、読めて未来でないときだけそのまま引き継ぐ（文字列は変えない）
     const keep = (v: string | null | undefined): string | null => (validTime(v, now) === null ? null : (v as string));
     const confirmed = sources.filter((s) => s.enabled && s.prefCode === code && !(s.failureCount === 0 && s.lastCheckedAt === null));
-    const okTimes = confirmed.map((s) => (s.failureCount === 0 ? validTime(s.lastCheckedAt, now) : null));
-    const succeeded = okTimes.filter((t): t is number => t !== null);
-    const failed = confirmed.length - succeeded.length;
+    const verdicts = confirmed.map((s) => verdictOf(s, now));
+    const failed = verdicts.filter((v) => v.kind === "failed").length;
+    const toleratedSince = verdicts.flatMap((v) => (v.kind === "tolerated" ? [v.since ?? Infinity] : []));
+    // 1 回だけの失敗が 2 つ以上なら、同じ回のものかを 1 回目の失敗の時刻で見る（時刻が分からない入口は別の回とみなす）
+    const sameRun =
+      toleratedSince.length <= TOLERATED_FAILURES ||
+      (toleratedSince.every(Number.isFinite) && Math.max(...toleratedSince) - Math.min(...toleratedSince) <= SAME_RUN_MS);
 
     if (confirmed.length === 0) {
       return { prefCode: code, ok: false, checkedAt: null, lastOkAt: keep(before?.lastOkAt), failingSince: null };
     }
-    if (failed === 0) {
-      const at = toJstIso(new Date(Math.min(...succeeded)));
+    if (failed === 0 && sameRun) {
+      const at = toJstIso(new Date(Math.min(...verdicts.map((v) => (v.kind === "failed" ? Infinity : v.at)))));
       return { prefCode: code, ok: true, checkedAt: at, lastOkAt: at, failingSince: null };
     }
     const checked = confirmed.map((s) => validTime(s.lastCheckedAt, now)).filter((t): t is number => t !== null);
+    const sinces = verdicts.map((v) => (v.kind === "ok" ? null : v.since)).filter((t): t is number => t !== null);
     return {
       prefCode: code,
       ok: false,
       checkedAt: checked.length > 0 ? toJstIso(new Date(Math.max(...checked))) : null,
       lastOkAt: keep(before?.lastOkAt),
-      failingSince: keep(before?.failingSince) ?? toJstIso(now),
+      failingSince: keep(before?.failingSince) ?? (sinces.length > 0 ? toJstIso(new Date(Math.min(...sinces))) : toJstIso(now)),
     };
   });
 }
@@ -59,6 +92,16 @@ export function shouldAlertFailing(s: WatchStatus, now: Date): boolean {
   if (s.ok) return false;
   const since = validTime(s.failingSince, now);
   return since !== null && now.getTime() - since >= WATCH_ALERT_AFTER_MS;
+}
+
+/**
+ * 見回りが直ったか（その県の watch_failing を自動で閉じてよいか）。ok で、確認の時刻が読めて 24 時間以内のときだけ。
+ * 確認が古い ok は、見回り全体が止まっている可能性があるので閉じない（突き合わせの isWatchStale と同じ 24 時間）。
+ */
+export function isRecovered(s: WatchStatus, now: Date): boolean {
+  if (!s.ok) return false;
+  const t = validTime(s.checkedAt, now);
+  return t !== null && now.getTime() - t <= WATCH_ALERT_AFTER_MS;
 }
 
 /** 運営者の箱に入れる watch_failing。id は失敗の期間ごとに変わり（同じ期間は 1 件だけ）、「/」を含まない。 */

@@ -174,6 +174,11 @@ describe("入口の状態", () => {
 
 // ── 文書の項目 ──
 describe("文書の項目", () => {
+  /** 畳んだ記入欄を「直して載せる」で開き、「載せる」を返す（読み取りの結果の読み込みを待つ） */
+  const openForm = async () => {
+    fireEvent.click(await screen.findByRole("button", { name: "直して載せる" }));
+    return screen.findByRole("button", { name: "載せる" });
+  };
   it("県、題、原文へのリンク、理由、公開中かを出す", async () => {
     setup(ready(docItem()));
     const card = screen.getByRole("article");
@@ -182,12 +187,12 @@ describe("文書の項目", () => {
     expect(within(card).getByRole("link", { name: /原文/ }).getAttribute("href")).toBe("https://example.test/d1.pdf");
     expect(within(card).getByText(/市町村/, { selector: "li" })).toBeTruthy(); // 理由の文
     expect(within(card).getByText(/公開しています/)).toBeTruthy();
-    await screen.findByRole("button", { name: "載せる" });
+    await openForm();
   });
   it("発生の語がなければ「公開していません」", async () => {
     setup(ready(docItem({ hasOutbreakWords: false })));
     expect(screen.getByText(/公開していません/)).toBeTruthy();
-    await screen.findByRole("button", { name: "載せる" });
+    await openForm();
   });
   it("自動で外した項目は、外した訳と、二人の読み手の種類を日本語で出す。直して載せる操作は残す", async () => {
     setup(ready(docItem({ hasOutbreakWords: false, reasons: ["compare:kind", "not_poultry_here", "both_read:wild_bird+notice", "outbreak_words_present"] })));
@@ -195,16 +200,62 @@ describe("文書の項目", () => {
     expect(within(card).getByText(/公開していません（この県の家きんの発生ではないと二人の読み手が読んだので、地図に「確認中」を出していません）/)).toBeTruthy();
     expect(within(card).getByText("この県の家きんの発生・疑いではないと、二人の読み手が読みました", { selector: "li" })).toBeTruthy();
     expect(within(card).getByText("主の読み手が「野鳥」、別の読み手が「周知」と読みました", { selector: "li" })).toBeTruthy();
-    await screen.findByRole("button", { name: "載せる" });
+    await openForm();
   });
   it("二人が同じ種類と読んだ理由は、種類を日本語で出す", async () => {
     setup(ready(docItem({ hasOutbreakWords: false, reasons: ["not_poultry_here", "both_read:other_pref"] })));
     expect(screen.getByText("二人の読み手が「他県の発生」と読みました", { selector: "li" })).toBeTruthy();
-    await screen.findByRole("button", { name: "載せる" });
+    await openForm();
+  });
+  it("記入欄は最初は畳み、上に「無関係とする」と「直して載せる」を並べる。理由、原文のリンク、公開しているかの文は見せる", async () => {
+    setup(ready(docItem()));
+    const card = screen.getByRole("article");
+    await waitFor(() => expect(within(card).queryByText("読み取りの結果を読み込んでいます")).toBeNull());
+    expect(within(card).getAllByRole("button").map((b) => b.textContent)).toEqual(["無関係とする", "直して載せる▼"]);
+    const toggle = within(card).getByRole("button", { name: "直して載せる" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(within(card).queryByRole("combobox", { name: "県" })).toBeNull();
+    expect(within(card).queryByRole("textbox", { name: "羽数" })).toBeNull();
+    expect(within(card).queryByRole("button", { name: "載せる" })).toBeNull();
+    expect(within(card).getByRole("link", { name: /原文/ })).toBeTruthy();
+    expect(within(card).getByText(/公開しています/)).toBeTruthy();
+    expect(within(card).getByText("確認に回った理由")).toBeTruthy();
+  });
+  it("「直して載せる」で欄が開き、その下に「載せる」。もう一度押すと畳み、入れた値は残る", async () => {
+    setup(ready(docItem()));
+    const toggle = await screen.findByRole("button", { name: "直して載せる" });
+    await openForm();
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    const region = document.getElementById(toggle.getAttribute("aria-controls")!)!;
+    expect(within(region).getByRole("combobox", { name: "県" })).toBeTruthy();
+    expect(within(region).getByRole("button", { name: "載せる" })).toBeTruthy();
+    expect(toggle.compareDocumentPosition(within(region).getByRole("button", { name: "載せる" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: "羽数" }), { target: { value: "500" } });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("button", { name: "載せる" })).toBeNull();
+    fireEvent.click(toggle);
+    expect((screen.getByRole("textbox", { name: "羽数" }) as HTMLInputElement).value).toBe("500");
+  });
+  it("ボタンは button 要素で、キーボードで押せる（type=button。form を誤って送らない）", async () => {
+    setup(ready(docItem()));
+    for (const name of ["無関係とする", "直して載せる"]) {
+      const b = await screen.findByRole("button", { name });
+      expect(b.tagName).toBe("BUTTON");
+      expect(b.getAttribute("type")).toBe("button");
+    }
+  });
+  it("欄を畳んだまま「無関係とする」が失敗しても、理由が見え、もう一度押せる", async () => {
+    const resolve = vi.fn().mockRejectedValueOnce(new Error("通信に失敗しました")).mockResolvedValue({ ok: true, caseId: null });
+    setup(ready(docItem()), { resolve });
+    fireEvent.click(await screen.findByRole("button", { name: "無関係とする" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/処理できませんでした/);
+    fireEvent.click(screen.getByRole("button", { name: "無関係とする" }));
+    await waitFor(() => expect(resolve).toHaveBeenCalledTimes(2));
   });
   it("読み取りの結果を入力欄の初期値にし、「載せる」で publish_corrected を送る", async () => {
     const { resolve, getDetail } = setup(ready(docItem()));
-    const submit = await screen.findByRole("button", { name: "載せる" });
+    const submit = await openForm();
     expect(getDetail).toHaveBeenCalledWith("doc-d1");
     expect((screen.getByLabelText("県") as HTMLSelectElement).value).toBe("33");
     expect((screen.getByLabelText("市町村") as HTMLSelectElement).value).toBe("33203");
@@ -236,7 +287,7 @@ describe("文書の項目", () => {
   });
   it("直した値で送る。市町村は選んだ県の中から選ぶ", async () => {
     const { resolve } = setup(ready(docItem()));
-    await screen.findByRole("button", { name: "載せる" });
+    await openForm();
     const muniSelect = screen.getByLabelText("市町村") as HTMLSelectElement;
     const codes = () => [...muniSelect.options].map((o) => o.value).filter((v) => v !== "");
     expect(codes().sort()).toEqual(["33100", "33202", "33203"]); // 姫路市は岡山県の中にない
@@ -255,7 +306,7 @@ describe("文書の項目", () => {
   });
   it("日付の入力欄は今日（JST）までしか選べず、未来の日付は送らない", async () => {
     const { resolve } = setup(ready(docItem()));
-    await screen.findByRole("button", { name: "載せる" });
+    await openForm();
     const date = screen.getByLabelText("日付") as HTMLInputElement;
     expect(date.max).toBe("2025-12-22");
     fireEvent.change(date, { target: { value: "2052-12-20" } });
@@ -265,7 +316,7 @@ describe("文書の項目", () => {
   });
   it("数字でない羽数は送らず、直すよう示す", async () => {
     const { resolve } = setup(ready(docItem()));
-    await screen.findByRole("button", { name: "載せる" });
+    await openForm();
     fireEvent.change(screen.getByLabelText("羽数"), { target: { value: "たくさん" } });
     fireEvent.click(screen.getByRole("button", { name: "載せる" }));
     expect(resolve).not.toHaveBeenCalled();
@@ -279,6 +330,7 @@ describe("文書の項目", () => {
   it("読み取りの結果を読めなくても、空の入力欄で載せられる", async () => {
     const { resolve } = setup(ready(docItem()), { getDetail: vi.fn(async () => Promise.reject(new Error("x"))) });
     await screen.findByText(/読み取りの結果を読めませんでした/);
+    await openForm();
     expect((screen.getByLabelText("県") as HTMLSelectElement).value).toBe("33"); // 項目の県は使う
     fireEvent.change(screen.getByLabelText("市町村"), { target: { value: "33203" } });
     fireEvent.change(screen.getByLabelText("段階"), { target: { value: "suspected" } });
@@ -290,7 +342,7 @@ describe("文書の項目", () => {
     const err = Object.assign(new Error("同じ事例か判断できません。候補の事例を確かめてください"), { code: "functions/failed-precondition", details: { candidateIds: ["33203-2025-12-18-1", "33203-2025-12-22-1"] } });
     const resolve = vi.fn().mockRejectedValueOnce(err).mockResolvedValue({ ok: true, caseId: "c" });
     setup(ready(docItem()), { resolve });
-    fireEvent.click(await screen.findByRole("button", { name: "載せる" }));
+    fireEvent.click(await openForm());
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toMatch(/同じ事例か判断できません/);
     expect(alert.textContent).toMatch(/33203-2025-12-18-1/);
@@ -301,7 +353,7 @@ describe("文書の項目", () => {
     const { container } = setup(
       ready(docItem({ title: '<img src=x onerror="alert(1)">本物の題', url: "javascript:alert(1)", reasons: ["<script>x</script>"] })),
     );
-    await screen.findByRole("button", { name: "載せる" });
+    await openForm();
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("script")).toBeNull();
     expect(screen.getByText(/<img src=x onerror=/)).toBeTruthy();
@@ -424,12 +476,12 @@ describe("全体", () => {
   ];
   it("1 項目の操作は 2 つまで", async () => {
     setup(ready(...all));
-    await screen.findAllByRole("button", { name: "載せる" });
+    await waitFor(() => expect(screen.queryByText("読み取りの結果を読み込んでいます")).toBeNull()); // 記入欄は畳んでいるので、読み込みの終わりを待つ
     for (const card of screen.getAllByRole("article")) expect(within(card).getAllByRole("button").length).toBeLessThanOrEqual(2);
   });
   it("禁止の語がない", async () => {
     const { container } = setup(ready(...all));
-    await screen.findAllByRole("button", { name: "載せる" });
+    await waitFor(() => expect(screen.queryByText("読み取りの結果を読み込んでいます")).toBeNull()); // 記入欄は畳んでいるので、読み込みの終わりを待つ
     expect(findForbiddenPhrases(container.textContent ?? "")).toEqual([]);
   });
   it("運営者の画面は farms を読まない（箱の購読だけ）", async () => {

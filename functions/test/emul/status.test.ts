@@ -6,7 +6,10 @@ import type { Source, WatchStatus } from "@hpai/shared/types";
 import { bucket, db } from "../../src/admin";
 import type { MissingNote, ReviewNote } from "../../src/watch/deps";
 import { checkPrefPage } from "../../src/watch/page";
-import { recordTick } from "../../src/watch/record";
+import { enqueueReview, reviewAlertId } from "../../src/review/queue";
+import { notifyOperator } from "../../src/review/notifyOperator";
+import { closeIfOpen, recordTick } from "../../src/watch/record";
+import { stalledWatchItem } from "../../src/watch/reconcile";
 import { runWatch } from "../../src/watch/run";
 import { firestoreIo } from "../../src/watch/tick";
 import { BASE, fake, html, ok, prefSource } from "../helpers/prefWatch";
@@ -70,7 +73,86 @@ describe("recordTick: 確認状況", () => {
     await db.doc("sources/a").update({ failureCount: 1 });
     await recordTick({ reviews: [], missing: [] }, at(27));
     await recordTick({ reviews: [], missing: [] }, at(27 + 24));
-    expect((await queue()).filter((q) => q.kind === "alert" && q.alert === "watch_failing")).toHaveLength(2);
+    const items = (await queue()).filter((q) => q.kind === "alert" && q.alert === "watch_failing");
+    expect(items).toHaveLength(2);
+    // 1 件目は直ったときに自動で閉じ、新しい失敗の 2 件目は開いている（閉じた後の失敗を取りこぼさない）
+    expect(items.filter((q) => q.resolvedAt !== null)).toMatchObject([{ resolvedAction: "auto_recovered" }]);
+    expect(items.filter((q) => q.resolvedAt === null)).toHaveLength(1);
+  });
+});
+
+describe("recordTick: 直った県の見回りの失敗の知らせを自動で閉じる", () => {
+  const failing = async () => (await queue()).filter((q) => q.kind === "alert" && q.alert === "watch_failing");
+  /** 34 を 24 時間失敗させて知らせを 1 件入れ、33 は失敗のまま。 */
+  const failBoth = async () => {
+    await seed(checked({ id: "a", prefCode: "34", failureCount: 3 }), checked({ id: "b", prefCode: "33", failureCount: 3 }));
+    await recordTick({ reviews: [], missing: [] }, T0);
+    await recordTick({ reviews: [], missing: [] }, at(25));
+    expect((await failing()).filter((q) => q.resolvedAt === null)).toHaveLength(2);
+  };
+  const recover34 = () => db.doc("sources/a").update({ failureCount: 0, lastCheckedAt: "2026-11-06T13:30:00+09:00" });
+
+  it("ok に戻った県の知らせは閉じ（記録は残す）、失敗中の県の知らせは残す", async () => {
+    await failBoth();
+    await recover34();
+    await recordTick({ reviews: [], missing: [] }, at(26));
+    const items = await failing();
+    expect(items).toHaveLength(2); // 消さない
+    expect(items.find((q) => q.prefCode === "34")).toMatchObject({ resolvedAt: "2026-11-06T14:00:00+09:00", resolvedBy: "system", resolvedAction: "auto_recovered" });
+    expect(items.find((q) => q.prefCode === "33")).toMatchObject({ resolvedAt: null });
+    expect(items.find((q) => q.prefCode === "33")).not.toHaveProperty("resolvedBy");
+  });
+  it("運営者のまとめのメールは、閉じた知らせを数えない", async () => {
+    await failBoth();
+    await recover34();
+    await recordTick({ reviews: [], missing: [] }, at(26));
+    const sent: string[] = [];
+    const r = await notifyOperator({ send: async (_to, m) => void sent.push(m.text), to: "op@example.jp", appUrl: "http://127.0.0.1", now: () => at(26) });
+    expect(r).toEqual({ sent: true, count: 1 });
+    expect(sent[0]).toContain("見回りが止まっている県: 1 件");
+  });
+  it("運営者がすでに閉じた知らせは書き換えない", async () => {
+    await failBoth();
+    const id = (await failing()).find((q) => q.prefCode === "34")!.id;
+    await db.doc(`reviewQueue/${id}`).update({ resolvedAt: "2026-11-06T13:10:00+09:00", resolvedBy: "operator-uid", resolvedAction: "dismiss_alert" });
+    await recover34();
+    await recordTick({ reviews: [], missing: [] }, at(26));
+    expect((await db.doc(`reviewQueue/${id}`).get()).data()).toMatchObject({ resolvedAt: "2026-11-06T13:10:00+09:00", resolvedBy: "operator-uid", resolvedAction: "dismiss_alert" });
+  });
+  it("見回り全体の停止の知らせ（突き合わせが入れる、記録なしの id も）も、ok に戻れば閉じる", async () => {
+    await seed(checked({ id: "a", prefCode: "34", lastCheckedAt: "2026-11-05T11:30:00+09:00" }));
+    const none = stalledWatchItem({ prefCode: "34", ok: false, checkedAt: null, lastOkAt: null, failingSince: null }, T0);
+    expect(none.id).toBe(reviewAlertId("watch_failing", "34-none"));
+    await enqueueReview(none, T0);
+    await recordTick({ reviews: [], missing: [] }, T0);
+    expect((await db.doc(`reviewQueue/${none.id}`).get()).data()).toMatchObject({ resolvedBy: "system", resolvedAction: "auto_recovered" });
+  });
+  it("突き合わせが確認の時刻から作った id の知らせも、ok に戻れば閉じる", async () => {
+    await seed(checked({ id: "a", prefCode: "34" }));
+    const item = stalledWatchItem({ prefCode: "34", ok: true, checkedAt: "2026-11-04T09:00:00+09:00", lastOkAt: "2026-11-04T09:00:00+09:00", failingSince: null }, T0);
+    expect(item.id).not.toBe(reviewAlertId("watch_failing", "34-none"));
+    await enqueueReview(item, T0);
+    await recordTick({ reviews: [], missing: [] }, T0);
+    expect((await db.doc(`reviewQueue/${item.id}`).get()).data()).toMatchObject({ resolvedBy: "system", resolvedAction: "auto_recovered" });
+  });
+  it("読んだ後に運営者が閉じていた項目は、取引の中で確かめて書き換えない", async () => {
+    const item = stalledWatchItem({ prefCode: "34", ok: false, checkedAt: null, lastOkAt: null, failingSince: null }, T0);
+    await enqueueReview(item, T0);
+    const ref = db.doc(`reviewQueue/${item.id}`);
+    await ref.update({ resolvedAt: "2026-11-05T12:10:00+09:00", resolvedBy: "operator-uid", resolvedAction: "dismiss_alert" });
+    expect(await closeIfOpen(ref, T0)).toBe(false);
+    expect((await ref.get()).data()).toMatchObject({ resolvedBy: "operator-uid", resolvedAction: "dismiss_alert" });
+    expect(await closeIfOpen(db.doc("reviewQueue/alert-watch_failing-none-missing"), T0)).toBe(false); // 消えた項目は作らない
+    expect((await db.doc("reviewQueue/alert-watch_failing-none-missing").get()).exists).toBe(false);
+  });
+  it("ok でも確認が 24 時間より古い県の知らせ、ほかの種類の知らせ、文書の項目は閉じない", async () => {
+    await seed(checked({ id: "a", prefCode: "34", lastCheckedAt: "2026-11-04T11:00:00+09:00" }));
+    const stale = stalledWatchItem({ prefCode: "34", ok: true, checkedAt: "2026-11-04T11:00:00+09:00", lastOkAt: "2026-11-04T11:00:00+09:00", failingSince: null }, T0);
+    await enqueueReview(stale, T0);
+    await seed(checked({ id: "b", prefCode: "33" }));
+    await enqueueReview({ id: reviewAlertId("case_stalled", "c1"), kind: "alert", alert: "case_stalled", prefCode: "33", caseId: "c1", message: "続報なし" }, T0);
+    await recordTick({ reviews: [{ documentId: "d1", url: "https://example.jp/d1", prefCode: "33", title: "お知らせ", reason: "ambiguous_case" } as ReviewNote], missing: [] }, T0);
+    expect((await queue()).every((q) => q.resolvedAt === null)).toBe(true);
   });
 });
 
