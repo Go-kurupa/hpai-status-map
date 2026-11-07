@@ -7,6 +7,8 @@ import { TEXT } from "./texts";
 
 /** 過去の事例（国の事例一覧）を取得した日。docs/data-sources.md「過去の事例」の取得日 */
 export const HISTORY_CHECKED_ON = "2026-11-02";
+/** 画面に出す形（ほかの日付と同じ「2026 年 11 月 2 日」。2026-11-07 作者の指摘で直した） */
+export const HISTORY_CHECKED_ON_TEXT = `${Number(HISTORY_CHECKED_ON.slice(0, 4))} 年 ${Number(HISTORY_CHECKED_ON.slice(5, 7))} 月 ${Number(HISTORY_CHECKED_ON.slice(8, 10))} 日`;
 export const COMPARE_DISCLAIMER = "過去の件数は国の事例一覧から数えた実績です。今季がどうなるかを示すものではありません。";
 
 export interface SeasonCompareProps {
@@ -158,7 +160,7 @@ export function SeasonCompare(p: SeasonCompareProps) {
         </>
       )}
       <p className="map-notice">{COMPARE_DISCLAIMER}</p>
-      <p className="as-of">時点: 国の事例一覧、確認日 {HISTORY_CHECKED_ON}</p>
+      <p className="as-of">時点: 国の事例一覧、確認日 {HISTORY_CHECKED_ON_TEXT}</p>
       <p className="as-of">
         今季のデータの時点:{" "}
         {p.asOf

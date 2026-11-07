@@ -198,12 +198,12 @@ describe("本文", () => {
 
   it("確認できていない県を書く（0 の見落としを安心と読ませない）", () => {
     const text = overviewLines(day({ watch: [] }), null, "https://app.example.test").join("\n");
-    expect(text).toContain("47 都道府県のうち 0 件を確認、47 件は確認できていません");
+    expect(text).toContain("47 都道府県のうち 0 県を確認、47 県は確認できていません");
   });
 
   it("全県を確認できた朝は『すべてを確認しました』。『0 件は確認できていません』と書かない", () => {
     expect(watchCoverageText(47, [])).toBe("47 都道府県すべてを確認しました");
-    expect(watchCoverageText(46, ["23"])).toBe("47 都道府県のうち 46 件を確認、1 件は確認できていません（愛知県）");
+    expect(watchCoverageText(46, ["23"])).toBe("47 都道府県のうち 46 県を確認、1 県は確認できていません（愛知県）");
   });
 
   it("確認の状況を読めないときは、そのことを書く", () => {

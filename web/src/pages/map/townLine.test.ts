@@ -470,11 +470,11 @@ describe("neighborPrefsOf / withWatchState（隣の県）", () => {
 
   it("④で時刻つきの文が主文になるときは、スマホの地図の前に出す短い文（時刻なし）と、地図の下に添える時刻の行を持つ", () => {
     const own = withWatchState(lv4, "33", ["33"], [], { "33": "2026-11-04T01:00:00+09:00" });
-    expect(own.lead).toEqual({ main: TEXT.prefUnwatched, note: "読み込めなくなったのは 11 月 4 日 1:00 から" });
+    expect(own.lead).toEqual({ main: TEXT.prefUnwatched, note: "読み込めなくなったのは 11 月 4 日 1:00 からです" });
     const nb = withWatchState(lv4, "33", ["28"], ["28"], { "28": "2026-11-07T09:29:00+09:00" });
-    expect(nb.lead).toEqual({ main: "隣の県（兵庫県）のホームページを読み込めていません。発生がないとは言えません", note: "読み込めなくなったのは 11 月 7 日 9:29 から" });
+    expect(nb.lead).toEqual({ main: "隣の県（兵庫県）のホームページを読み込めていません。発生がないとは言えません", note: "読み込めなくなったのは 11 月 7 日 9:29 からです" });
     const two = withWatchState(lv4, "33", ["28", "31"], ["28", "31"], { "28": "2026-11-07T09:29:00+09:00", "31": "2026-11-07T06:13:00+09:00" });
-    expect(two.lead?.note).toBe("読み込めなくなったのは、兵庫県は 11 月 7 日 9:29 から、鳥取県は 11 月 7 日 6:13 から");
+    expect(two.lead?.note).toBe("読み込めなくなったのは、兵庫県が 11 月 7 日 9:29 から、鳥取県が 11 月 7 日 6:13 からです");
     // 時刻がなければ、短い文も時刻の行も要らない（主文がそのまま短い）
     expect(withWatchState(lv4, "33", ["33"]).lead).toBeUndefined();
     // ①②③は段階の文が主文で、未確認の文は地図の下の行なので、短い文は要らない

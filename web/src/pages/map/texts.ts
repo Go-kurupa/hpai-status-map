@@ -30,7 +30,8 @@ export const TEXT = {
   prefUnwatchedSince: (since: string): string => `この県のホームページを、${since} から読み込めていません。発生がないとは言えません`,
   /** スマホで地図の下の行の先頭に添える時刻。name が null なら県名を付けない（1 県のとき） */
   unwatchedSinceNote: (prefs: ReadonlyArray<{ name: string | null; since: string | null }>): string =>
-    `読み込めなくなったのは${prefs.map((p) => (p.name === null ? ` ${p.since} から` : `、${p.name}は ${p.since} から`)).join("")}`,
+    // 文末を「からです」で結ぶ（「…から」で切らない。2026-11-07 作者の指摘）
+    `読み込めなくなったのは${prefs.map((p) => (p.name === null ? ` ${p.since} から` : `、${p.name}が ${p.since} から`)).join("")}です`,
   /** 隣の県。since は県ごとの時刻（分からなければ null） */
   neighborUnwatched: (prefs: ReadonlyArray<{ name: string; since: string | null }>): string => {
     const names = prefs.map((p) => p.name).join("、");
@@ -244,7 +245,7 @@ export const TEXT = {
    * 確認日は、その一覧を取得した日。docs/data-sources.md の「過去の事例」の節の「取得日」と同じ日で、一致は試験で確かめる
    * （scripts/test/wording-sweep.test.ts）。
    */
-  pastAsOf: "時点: 過去の記録（国の事例一覧、確認日 2026-11-02）",
+  pastAsOf: "時点: 過去の記録（国の事例一覧、確認日 2026 年 11 月 2 日）",
   pastFailed: "過去の記録を読めませんでした",
   areaLink: "この町の案内ページ（登録なしで開ける・共有用）",
   // 確認状況（W-06）
@@ -305,7 +306,8 @@ export const TEXT = {
   weekPlaceCount: (name: string, n: number): string => (n > 1 ? `${name}（${n} 件）` : name),
   weekPlacesMore: (n: number): string => `ほか ${n} 県`,
   weekAxisAria: "縦軸の目盛り（件）",
-  weekUndated: (n: number): string => `週の棒に置ける日付のない事例が ${n} 件あり、棒には入っていません。`,
+  weekUndated: (n: number): string => `日付が分からないため、週ごとの棒に入れていない事例が ${n} 件あります。`,
+  monthUndated: (n: number): string => `日付が分からないため、月ごとの棒に入れていない事例が ${n} 件あります。`,
   chartsSourceLive: "出典: 農林水産省と各県の発表",
   chartsSourceReplay: "出典: 国の事例一覧",
   // 凡例（W-06）

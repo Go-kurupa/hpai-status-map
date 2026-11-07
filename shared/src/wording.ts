@@ -51,7 +51,7 @@ export const FIXED_TEXT = {
   pastDisclaimer: "過去の記録です。これからの発生を予測するものではありません",
   replayBanner: "去年の再現です",
   /** /area、API、MCP の全段階 */
-  areaNoDistance: "この町の知らせの段階は、農場からの距離を見ていません。地点を登録すると区域の可能性が分かります",
+  areaNoDistance: "町だけを選んでいるので、農場からの距離は見ていません。農場の地点を登録すると、区域に入るかを確かめられます",
   sameMuniLifted: "この町で発生しました（移動制限は解除されました）",
 } as const;
 

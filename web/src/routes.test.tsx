@@ -144,7 +144,7 @@ describe("予期しない例外", () => {
     const root = routes[0]!;
     const router = createMemoryRouter([{ path: "/", element: root.element, errorElement: root.errorElement, children: [{ index: true, element: <Boom /> }] }], { initialEntries: ["/"] });
     render(<RouterProvider router={router} />);
-    expect(await screen.findByText(/表示中に問題が起きました。ページを開き直してください/)).toBeTruthy();
+    expect(await screen.findByText(/ページを開き直してください。直らないときは/)).toBeTruthy();
     expect(screen.getByRole("link", { name: /トップ/ }).getAttribute("href")).toBe("/");
     expect(document.body.textContent).not.toMatch(/Unexpected Application Error|GPUInitializationError|WebGL/);
   });

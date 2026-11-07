@@ -22,7 +22,7 @@ describe("FIXED_TEXT", () => {
     expect(FIXED_TEXT.prefContactIsAuthority).toBe("県の連絡が正です");
     expect(FIXED_TEXT.pastDisclaimer).toBe("過去の記録です。これからの発生を予測するものではありません");
     expect(FIXED_TEXT.replayBanner).toBe("去年の再現です");
-    expect(FIXED_TEXT.areaNoDistance).toBe("この町の知らせの段階は、農場からの距離を見ていません。地点を登録すると区域の可能性が分かります");
+    expect(FIXED_TEXT.areaNoDistance).toBe("町だけを選んでいるので、農場からの距離は見ていません。農場の地点を登録すると、区域に入るかを確かめられます");
     expect(FIXED_TEXT.sameMuniLifted).toBe("この町で発生しました（移動制限は解除されました）");
   });
 

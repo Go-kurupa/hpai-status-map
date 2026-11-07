@@ -65,7 +65,7 @@ test.describe("市町村の案内", () => {
       await open(page, code, [...cases]);
       await expect(page.locator(".town-main")).toContainText(expected);
       const main = page.getByRole("main");
-      await expect(main).toContainText("この町の知らせの段階は、農場からの距離を見ていません");
+      await expect(main).toContainText("町だけを選んでいるので、農場からの距離は見ていません");
       await expect(main).toContainText("どこでも感染のリスクがあります");
       expect(await main.innerText()).not.toMatch(FORBIDDEN);
       // 要点へのリンクが 7 つ

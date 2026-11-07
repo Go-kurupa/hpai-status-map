@@ -26,7 +26,8 @@ export const CONSULT_TEXT = {
   sourcesClose: (n: number) => `根拠の資料 ${n} 件を閉じる`,
   actionsHead: "この答えの対策",
   /** 発生の件数の表（数えるのはプログラム。AI は数え方を選ぶだけ） */
-  statsWho: "AI が読み取り、一覧から数えました",
+  // 数えたのはプログラム（すぐ下の statsCounted と食い違わないように。2026-11-07 作者の指摘）
+  statsWho: "AI が条件を選び、プログラムが一覧から数えました",
   /** 表の中にいつも出す。対策の答えと一緒のときも、表の数字を AI の下書きと読ませない */
   statsCounted: "件数は、AI ではなくプログラムが国の一覧から数えました。",
   statsCount: "件数",

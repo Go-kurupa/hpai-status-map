@@ -123,7 +123,7 @@ test.describe("一覧", () => {
 test.describe("確認状況", () => {
   test("33（岡山県）が ok:false: 文に『岡山県』、地図の pref-unwatched に 33、凡例に『確認できていない県』", async ({ page }) => {
     await open(page, { watch: watchWith33Failed() });
-    await expect(page.getByTestId("watch-line")).toContainText("47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）");
+    await expect(page.getByTestId("watch-line")).toContainText("47 都道府県のうち 46 県を確認、1 県は確認できていません（岡山県）");
     await page.waitForFunction(
       () =>
         JSON.stringify((window as unknown as { __hpaiMap: { getFilter(id: string): unknown } }).__hpaiMap.getFilter("pref-unwatched")).includes('"33"'),

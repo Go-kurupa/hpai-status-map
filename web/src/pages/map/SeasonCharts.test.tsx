@@ -83,7 +83,7 @@ describe("SeasonCharts", () => {
 
   it("日付のない事例は棒に入れず、件数を書く。県の棒には入る", () => {
     render(<SeasonCharts {...base} countByPref={{ "33": 3 }} cases={[on("2026-11-02"), on(null), on(null)]} />);
-    expect(screen.getByText("週の棒に置ける日付のない事例が 2 件あり、棒には入っていません。")).toBeTruthy();
+    expect(screen.getByText("日付が分からないため、週ごとの棒に入れていない事例が 2 件あります。")).toBeTruthy();
     expect(screen.getByText("3 件")).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "週ごとの全国の発生の棒" })).getAllByRole("listitem")).toHaveLength(1);
   });
@@ -92,7 +92,7 @@ describe("SeasonCharts", () => {
     render(<SeasonCharts {...base} countByPref={{ "33": 1 }} cases={[on(null)]} />);
     expect(screen.queryByRole("list", { name: "週ごとの全国の発生の棒" })).toBeNull();
     expect(text()).not.toContain("最大");
-    expect(screen.getByText("週の棒に置ける日付のない事例が 1 件あり、棒には入っていません。")).toBeTruthy();
+    expect(screen.getByText("日付が分からないため、週ごとの棒に入れていない事例が 1 件あります。")).toBeTruthy();
   });
 
   it("時点と出典の 1 行、呼び出し側の断りを添える。時点がなければ出典だけ", () => {

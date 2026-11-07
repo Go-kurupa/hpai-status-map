@@ -209,7 +209,9 @@ describe("過去の発生の NG の語の検出（shared/src/wording.ts の PAST
 describe("過去のシーズンの時点（確認日）は、データの出典の文書の取得日と同じ", () => {
   it("web/src/pages/map/texts.ts の pastAsOf の日付 = docs/data-sources.md「過去の事例」の取得日", () => {
     const texts = fs.readFileSync(path.join(ROOT, "web", "src", "pages", "map", "texts.ts"), "utf8");
-    const shown = /pastAsOf:\s*"[^"]*確認日\s*(\d{4}-\d{2}-\d{2})/u.exec(texts)?.[1];
+    // 画面では「2026 年 11 月 2 日」の形で書く（2026-11-07 作者の指摘）。年月日を取り出して YYYY-MM-DD にして比べる
+    const m = /pastAsOf:\s*"[^"]*確認日\s*(\d{4}) 年 (\d{1,2}) 月 (\d{1,2}) 日/u.exec(texts);
+    const shown = m ? `${m[1]}-${m[2]!.padStart(2, "0")}-${m[3]!.padStart(2, "0")}` : undefined;
     expect(shown, "texts.ts の pastAsOf の確認日").toBeDefined();
 
     const doc = fs.readFileSync(path.join(ROOT, "docs", "data-sources.md"), "utf8");

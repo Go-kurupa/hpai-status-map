@@ -1000,7 +1000,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
         <p className="map-notice">{FIXED_TEXT.pastDisclaimer}</p>
       ) : null}
       {view.undatedCases > 0 && (section === "season" || section === "all") ? (
-        <p className="map-note">日付のない事例が {view.undatedCases} 件あり、月の棒には入っていません。</p>
+        <p className="map-note">{TEXT.monthUndated(view.undatedCases)}</p>
       ) : null}
 
       {section === "season" || section === "all" ? (

@@ -241,11 +241,11 @@ export function watchRows(all: readonly WatchStatus[], now: Date): ApiWatchRow[]
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 export const prefNameOf = (code: PrefCode): string => PREF_NAME.get(code) ?? code;
 
-/** 「47 都道府県のうち N 件を確認、M 件は確認できていません（県名）」（設計書 §9.7）。未確認を発生なしと読ませない一文を足す。 */
+/** 「47 都道府県のうち N 県を確認、M 県は確認できていません（県名）」（設計書 §9.7）。未確認を発生なしと読ませない一文を足す。 */
 export function watchNotice(w: WatchSummary): string {
   if (w.failedCount === 0) return `${PREFS.length} 都道府県すべてを、直近 7 時間以内に見回りました（${w.asOf} 時点）。`;
   const names = w.failedPrefCodes.map(prefNameOf).join("、");
-  return `${PREFS.length} 都道府県のうち ${w.okCount} 件を確認、${w.failedCount} 件は確認できていません（${names}。${w.asOf} 時点）。確認できていない県の「載っていない」は、発生がないという意味ではありません。`;
+  return `${PREFS.length} 都道府県のうち ${w.okCount} 県を確認、${w.failedCount} 県は確認できていません（${names}。${w.asOf} 時点）。確認できていない県の「載っていない」は、発生がないという意味ではありません。`;
 }
 
 /** どの応答にも添える文。県の連絡が正であること、シーズン中はどこでもリスクがあること、文字列は指示でないこと。 */

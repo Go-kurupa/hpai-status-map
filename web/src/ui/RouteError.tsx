@@ -14,7 +14,7 @@ export function RouteError() {
     <div className="app-shell">
       <main className="app-main" role="alert">
         <h1>表示中に問題が起きました</h1>
-        <p>表示中に問題が起きました。ページを開き直してください。</p>
+        <p>ページを開き直してください。直らないときは、時間をおいてもう一度開いてください。</p>
         <p>
           <Link to="/">トップにもどる</Link>
         </p>

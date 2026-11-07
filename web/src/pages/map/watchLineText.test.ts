@@ -47,13 +47,13 @@ describe("watchLine（§9.7、§2）", () => {
   it("47 県のうち 45 件を確認、2 件は確認できていません（東京都、岡山県）", () => {
     const rows = allOk().map((r) => (r.prefCode === "13" || r.prefCode === "33" ? failRow(r.prefCode) : r));
     const w = watchLine(rows, NOW);
-    expect(w.text).toBe("47 都道府県のうち 45 件を確認、2 件は確認できていません（東京都、岡山県）");
+    expect(w.text).toBe("47 都道府県のうち 45 県を確認、2 県は確認できていません（東京都、岡山県）");
     expect(w.failedPrefCodes).toEqual(["13", "33"]);
   });
 
   it("結果が空でも 0 件を確認、47 件は確認できていません。asOf は null", () => {
     const w = watchLine([], NOW);
-    expect(w.text).toMatch(/^47 都道府県のうち 0 件を確認、47 件は確認できていません/);
+    expect(w.text).toMatch(/^47 都道府県のうち 0 県を確認、47 県は確認できていません/);
     expect(w.failedPrefCodes).toHaveLength(47);
     expect(w.text).not.toContain("（"); // 47 県の名前は並べない
     expect(w.asOf).toBeNull();

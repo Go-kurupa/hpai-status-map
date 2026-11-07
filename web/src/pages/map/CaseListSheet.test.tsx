@@ -182,9 +182,9 @@ describe("Legend", () => {
 
 describe("WatchLine", () => {
   it("確認状況の文をそのまま出す。確認できていない県があれば、発生がないとは言えない旨を添える", () => {
-    render(<WatchLine loaded={true} line={{ text: "47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）", asOf: null, failedPrefCodes: ["33"], okCount: 46 }} />);
+    render(<WatchLine loaded={true} line={{ text: "47 都道府県のうち 46 県を確認、1 県は確認できていません（岡山県）", asOf: null, failedPrefCodes: ["33"], okCount: 46 }} />);
     const el = screen.getByTestId("watch-line");
-    expect(el.textContent).toContain("47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）");
+    expect(el.textContent).toContain("47 都道府県のうち 46 県を確認、1 県は確認できていません（岡山県）");
     expect(el.textContent).toContain("発生がないとは言えません");
   });
 
@@ -194,7 +194,7 @@ describe("WatchLine", () => {
   });
 
   it("見回りの結果が未着のときは、文を出さず『まだ読めていません』", () => {
-    render(<WatchLine loaded={false} line={{ text: "47 都道府県のうち 0 件を確認、47 件は確認できていません（北海道）", asOf: null, failedPrefCodes: ["01"], okCount: 0 }} />);
+    render(<WatchLine loaded={false} line={{ text: "47 都道府県のうち 0 県を確認、47 県は確認できていません（北海道）", asOf: null, failedPrefCodes: ["01"], okCount: 0 }} />);
     expect(screen.getByTestId("watch-line").textContent).toContain("まだ読めていません");
   });
 });

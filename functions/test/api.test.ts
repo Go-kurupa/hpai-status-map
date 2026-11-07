@@ -127,7 +127,7 @@ describe("応答の共通の形", () => {
       const r = await get(deps, p);
       expect(r.body.watch?.okCount, p).toBe(46);
       expect(r.body.watch?.failedPrefCodes, p).toEqual(["33"]);
-      expect(r.body.notices.join("\n"), p).toContain("46 件を確認、1 件は確認できていません（岡山県");
+      expect(r.body.notices.join("\n"), p).toContain("46 県を確認、1 県は確認できていません（岡山県");
     }
     const area = await get(deps, "/api/v1/areas/33203");
     expect(area.body.notices.join("\n")).toContain("岡山県の見回りは直近で確認できていません");

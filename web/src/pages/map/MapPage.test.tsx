@@ -197,7 +197,7 @@ describe("MapPage", () => {
     r.deliverCases([]);
     r.deliverWatch(okWatch().map((w) => (w.prefCode === "33" ? { ...w, ok: false, failingSince: "2026-11-04T01:00:00+09:00" } : w)));
     expect(lastProps().failedPrefCodes).toEqual(["33"]);
-    expect(screen.getByTestId("watch-line").textContent).toContain("47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）");
+    expect(screen.getByTestId("watch-line").textContent).toContain("47 都道府県のうち 46 県を確認、1 県は確認できていません（岡山県）");
     expect(document.body.textContent).not.toMatch(/発生なし/);
     // いちばん目立つ今季の件数は「確認できた範囲では 0 件（1 県は確認できていません）」
     expect(screen.getByRole("button", { name: /今季/ }).textContent).toContain("確認できた範囲では 0 件（1 県は確認できていません）");
@@ -247,7 +247,7 @@ describe("MapPage", () => {
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
-    expect(screen.getByText("時点: 過去の記録（国の事例一覧、確認日 2026-11-02）")).toBeTruthy();
+    expect(screen.getByText("時点: 過去の記録（国の事例一覧、確認日 2026 年 11 月 2 日）")).toBeTruthy();
     expect(screen.getByText(/2025年6月〜2026年5月の記録/)).toBeTruthy();
   });
 
@@ -2539,7 +2539,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect([...document.querySelectorAll(".stat-national .stat-long")].map((e) => e.textContent)).toEqual(["確認できた範囲では ", "（1 県は確認できていません）"]);
     expect(document.querySelector(".stat-national .stat-value b")).toBeNull();
     const watchLine = screen.getByTestId("watch-line");
-    expect(watchLine.textContent).toContain("47 都道府県のうち 46 件を確認、1 件は確認できていません（岡山県）");
+    expect(watchLine.textContent).toContain("47 都道府県のうち 46 県を確認、1 県は確認できていません（岡山県）");
     expect(before(document.querySelector(".map-box")!, watchLine)).toBe(true);
   });
 

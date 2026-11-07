@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Case, HistoryCase } from "@hpai/shared/types";
 import { findWordingViolations } from "@hpai/shared/wording";
 import historyJson from "../../../../data/history/cases.json";
-import { COMPARE_DISCLAIMER, countThisSeasonToDate, HISTORY_CHECKED_ON, SeasonCompare, type SeasonCompareProps } from "./SeasonCompare";
+import { COMPARE_DISCLAIMER, countThisSeasonToDate, HISTORY_CHECKED_ON_TEXT, SeasonCompare, type SeasonCompareProps } from "./SeasonCompare";
 
 afterEach(cleanup);
 
@@ -32,7 +32,7 @@ describe("SeasonCompare", () => {
     expect(container.querySelectorAll("table")).toHaveLength(0);
     expect(container.querySelector(".compare-prefs")).toBeNull();
     expect(container.textContent).toContain(COMPARE_DISCLAIMER);
-    expect(container.textContent).toContain(HISTORY_CHECKED_ON);
+    expect(container.textContent).toContain(HISTORY_CHECKED_ON_TEXT);
   });
 
   it("今季と1 年前の文が出る（同じ時期までの件数と合計）", () => {
@@ -67,7 +67,7 @@ describe("SeasonCompare", () => {
   it("但し書きと 2 つの時点が出る", () => {
     render(<SeasonCompare {...base} />);
     expect(text()).toContain(COMPARE_DISCLAIMER);
-    expect(text()).toContain("時点: 国の事例一覧、確認日 2026-11-02");
+    expect(text()).toContain("時点: 国の事例一覧、確認日 2026 年 11 月 2 日");
     expect(text()).toContain("今季のデータの時点: 11 月 4 日 8:30 時点");
   });
   it("禁句と予測の言い方がない", () => {
