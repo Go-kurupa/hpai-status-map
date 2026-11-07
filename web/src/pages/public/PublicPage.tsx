@@ -31,7 +31,7 @@ export function PublicView({ reviewedOn }: { reviewedOn: IsoDate | null }) {
     <div className="public-page">
       <h1>鶏を飼っていない方へ</h1>
       <nav aria-label="もくじ" className="guidance-toc public-toc">
-        <p className="public-toc-head">よく聞かれること（押すと、その国の文へ移ります）</p>
+        <p className="public-toc-head">よくあるご質問（押すと、その答えの節へ移ります）</p>
         <ul>
           {OFFICIAL_GUIDANCE.map((g) => (
             <li key={g.topic}>
@@ -62,7 +62,7 @@ export function PublicView({ reviewedOn }: { reviewedOn: IsoDate | null }) {
         このページは、近くの養鶏場や、鳥インフルエンザのことで、ご近所の方からよく聞かれることを、国の文書にそって示したものです。
       </p>
       <p>
-        各節の「要点（作品側）」は、この作品が国の文をもとに短くまとめた文で、国の文ではありません。国の文は、その下に原文のまま載せています。
+        各節の「要約（作品側のまとめ）」は、この作品が国の文をもとに短くまとめた文で、国の文ではありません。国の文は、その下に原文のまま載せています。
       </p>
       <p>
         質問に答える機能はありません。文章は固定で、出典と、原本を確かめた日を、それぞれ付けています。国や県の文書は、あとで変わることがあります。くわしくは、お住まいの県の窓口に聞いてください。

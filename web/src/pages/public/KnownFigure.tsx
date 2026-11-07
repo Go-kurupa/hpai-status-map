@@ -15,6 +15,9 @@ export function KnownFigureView({ figure }: { figure: KnownFigure }) {
             <span key={i} className={i < part ? "on" : "off"} />
           ))}
         </div>
+        <p className="known-share-legend">
+          1 マスが 1 事例です（全 {whole} マス）。塗ったマスが当てはまる {part} 事例、白いマスがそれ以外です。
+        </p>
         <figcaption>
           <strong className="known-share-count">
             {part} / {whole} 事例

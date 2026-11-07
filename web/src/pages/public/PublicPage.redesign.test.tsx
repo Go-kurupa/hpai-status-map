@@ -42,9 +42,9 @@ describe("もくじ（疑問の形）", () => {
 });
 
 describe("節の要点（作品側のまとめ）", () => {
-  it("4 節だけに、見出しの直後、国の文より前に、作品側と分かる見出しで出る", () => {
+  it("全 7 節に、見出しの直後、国の文より前に、作品側と分かる見出しで出る", () => {
     const { container } = show();
-    expect(Object.keys(SECTION_LEADS).sort()).toEqual(["approach", "dead_bird", "rumor", "small_flock"]);
+    expect(Object.keys(SECTION_LEADS).sort()).toEqual(OFFICIAL_GUIDANCE.map((g) => g.topic).sort());
     for (const g of OFFICIAL_GUIDANCE) {
       const sec = container.querySelector(`section#${g.topic}`) as HTMLElement;
       const lead = sec.querySelector("[data-role='section-lead']");

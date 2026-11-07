@@ -200,13 +200,18 @@
 .known-certainty-mark .on {
   background: var(--navy);
 }
+.known-certainty-scale {
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--sub);
+}
 .known-scope {
   display: block;
   font-size: 0.9rem;
   color: var(--sub);
 }
 
-/* 読む方ごとの入口。隠さず、関係する知見へのアンカーを並べる */
+/* お立場別の入口。隠さず、関係する知見へのアンカーを並べる */
 .known-audiences {
   margin: 0 0 16px;
 }
@@ -227,10 +232,13 @@
   display: block;
   font-weight: 700;
 }
+.known-audiences li li {
+  padding: 0;
+  border-bottom: 0;
+}
 .known-audience-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
+  list-style: disc !important;
+  padding-left: 1.4em !important;
 }
 .known-audience-links a {
   display: inline-flex;
@@ -298,6 +306,11 @@
 }
 .known-share .on {
   background: var(--navy);
+}
+.known-share-legend {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+  color: var(--sub);
 }
 .known-figure figcaption {
   margin: 0 0 6px;

@@ -28,6 +28,11 @@ function CertaintyMark({ certainty }: { certainty: KnownFinding["certainty"] }) 
   );
 }
 
+/** 3 つの四角が何かを文字でも書く（作者の指摘: 分母が分からない） */
+function CertaintyScale() {
+  return <span className="known-certainty-scale">（高い・中くらい・低いの 3 段階）</span>;
+}
+
 const AUDIENCES: readonly Audience[] = ["farm", "small", "neighbor"];
 
 /**
@@ -79,6 +84,7 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
                     <span className="known-certainty">
                       <CertaintyMark certainty={f.certainty} />
                       {f.certainty}
+                      <CertaintyScale />
                     </span>
                     <span className="known-scope">評価の対象: {f.scope}</span>
                   </td>
@@ -106,7 +112,7 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
       ) : null}
       {shown.length > 0 ? (
         <section className="known-audiences" aria-labelledby="known-audiences-heading">
-          <h2 id="known-audiences-heading">読む方ごとに、まず見るところ</h2>
+          <h2 id="known-audiences-heading">お立場別の、関係の深い項目</h2>
           <ul>
             {AUDIENCES.map((a) => {
               const mine = shown.filter((f) => f.audiences.includes(a));
@@ -114,13 +120,13 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
               return (
                 <li key={a} data-audience={a}>
                   <span className="known-audience-label">{AUDIENCE_LABEL[a]}</span>
-                  <span className="known-audience-links">
+                  <ul className="known-audience-links">
                     {mine.map((f) => (
-                      <a key={f.id} href={`#${f.id}`}>
-                        {f.heading}
-                      </a>
+                      <li key={f.id}>
+                        <a href={`#${f.id}`}>{f.heading}</a>
+                      </li>
                     ))}
-                  </span>
+                  </ul>
                 </li>
               );
             })}
@@ -176,6 +182,7 @@ function FindingItem({ f }: { f: KnownFinding }) {
         <span className="known-certainty">
           <CertaintyMark certainty={f.certainty} />
           確からしさ: {f.certainty}
+          <CertaintyScale />
         </span>
         <span className="known-scope">評価の対象: {f.scope}</span>
       </p>
