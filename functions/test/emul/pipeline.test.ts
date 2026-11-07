@@ -292,6 +292,79 @@ describe("事例への流し込み", () => {
   });
 });
 
+describe("公開の確認中を自動で外す（その県の家きんの発生でないとき）", () => {
+  // 県の常設ページに、他県の野鳥の知らせが足された形（作った文）。「家きん」の否定の文があるので、発生を示す語の判定は true
+  const TITLE_PAGE = "高病原性鳥インフルエンザの発生状況";
+  const TEXT = [
+    TITLE_PAGE,
+    "A県B市で回収された死亡野鳥から、高病原性鳥インフルエンザウイルス（H5亜型）が検出されました。",
+    "C県D市の死亡野鳥の簡易検査陽性の事例は、確定検査で陰性となりました。",
+    "県内の家きんでの発生はありません。",
+  ].join("\n");
+  const primaryOf = (kind: string) =>
+    JSON.stringify({ kind, kindQuote: null, multipleCases: false, facts: [], primaryStage: null, primaryDate: null, primaryDateQuote: null, stageEvents: [], radiiKm: [], estimates: [], wildBirds: [] });
+  const secondOf = (kind: string, stage: string | null = null) =>
+    JSON.stringify({ kind, multipleCases: false, prefecture: null, municipality: null, primaryStage: stage, primaryDate: null, wildBirds: [] });
+
+  it("自動で載せる設定が切（既定）: 主が野鳥、別の読み手がお知らせと読めば、公開の確認中（rev-）を作らず、箱に「公開していない」で理由つきで残す", async () => {
+    await seedDoc({ id: "d1", title: TITLE_PAGE, text: TEXT, prefCode: "14" });
+    const { client } = fakeClient({ primary: message(primaryOf("wild_bird")), second: message(secondOf("notice")) });
+    expect(await run("d1", client)).toMatchObject({ status: "done", readState: "review_private", caseId: null });
+    expect(await listIds("cases")).toEqual([]);
+    const item = await getDoc("reviewQueue/doc-d1");
+    expect(item).toMatchObject({ kind: "document", prefCode: "14", hasOutbreakWords: false, resolvedAt: null });
+    expect(item?.reasons).toEqual(expect.arrayContaining(["compare:kind", "not_poultry_here", "both_read:wild_bird+notice", "outbreak_words_present"]));
+    const doc = await getDoc("documents/d1");
+    expect(doc).toMatchObject({ readState: "review_private", kind: "wild_bird" });
+    expect(doc?.reasons).toContain("not_poultry_here");
+  });
+
+  it("自動で載せる設定が入なら、捨てる（公開の確認中も箱の項目も作らない）。理由は文書に残す", async () => {
+    await setSettings({ autoPublishEnabled: true });
+    await seedDoc({ id: "d1", title: TITLE_PAGE, text: TEXT, prefCode: "14" });
+    const { client } = fakeClient({ primary: message(primaryOf("wild_bird")), second: message(secondOf("notice")) });
+    expect(await run("d1", client)).toMatchObject({ status: "done", readState: "discarded", caseId: null });
+    expect(await listIds("cases")).toEqual([]);
+    expect(await listIds("reviewQueue")).toEqual([]);
+    const doc = await getDoc("documents/d1");
+    expect(doc).toMatchObject({ readState: "discarded", kind: "wild_bird" });
+    expect(doc?.reasons).toEqual(expect.arrayContaining(["compare:kind", "not_poultry_here", "both_read:wild_bird+notice", "outbreak_words_present"]));
+  });
+
+  it("入でも、本文（文字層の控え）が取れず PDF だけ読めたときは、題だけで判断せず今までどおり公開の確認中を出す", async () => {
+    await setSettings({ autoPublishEnabled: true });
+    const title = "高病原性鳥インフルエンザの疑い事例の発生について";
+    await seedDoc({ id: "d1", title, text: null, contentType: "pdf", pdf: Buffer.from("%PDF-1.4 test"), prefCode: "14" });
+    const { client } = fakeClient({ primary: message(primaryOf("notice")), second: message(secondOf("irrelevant")) });
+    expect(await run("d1", client)).toMatchObject({ readState: "review_public" });
+    expect(await listIds("cases")).toEqual(["rev-d1"]);
+    expect((await getDoc("documents/d1"))?.reasons).not.toContain("not_poultry_here");
+  });
+
+  it("入でも、別の読み手が家きんの疑いと読めば、今までどおり公開の確認中を出す", async () => {
+    await setSettings({ autoPublishEnabled: true });
+    await seedDoc({ id: "d1", title: TITLE_PAGE, text: TEXT, prefCode: "14" });
+    const { client } = fakeClient({ primary: message(primaryOf("notice")), second: message(secondOf("suspected", "suspected")) });
+    expect(await run("d1", client)).toMatchObject({ readState: "review_public" });
+    expect(await listIds("cases")).toEqual(["rev-d1"]);
+  });
+
+  it("別の読み手が家きんの疑いと読めば、今までどおり公開の確認中を出す", async () => {
+    await seedDoc({ id: "d1", title: TITLE_PAGE, text: TEXT, prefCode: "14" });
+    const { client } = fakeClient({ primary: message(primaryOf("wild_bird")), second: message(secondOf("suspected", "suspected")) });
+    expect(await run("d1", client)).toMatchObject({ readState: "review_public" });
+    expect(await listIds("cases")).toEqual(["rev-d1"]);
+    expect(await getDoc("reviewQueue/doc-d1")).toMatchObject({ hasOutbreakWords: true });
+  });
+
+  it("別の読み手が読めなければ（拒否）、今までどおり公開の確認中を出す", async () => {
+    await seedDoc({ id: "d1", title: TITLE_PAGE, text: TEXT, prefCode: "14" });
+    const { client } = fakeClient({ primary: message(primaryOf("wild_bird")), second: refusal("bio") });
+    expect(await run("d1", client)).toMatchObject({ readState: "review_public" });
+    expect(await listIds("cases")).toEqual(["rev-d1"]);
+  });
+});
+
 describe("県名の扱い（sourcePrefCode）", () => {
   const noPref = () => {
     const sentence = "令和7年12月20日、津山市の養鶏場において、遺伝子検査を実施した結果、疑似患畜と確認しました。";

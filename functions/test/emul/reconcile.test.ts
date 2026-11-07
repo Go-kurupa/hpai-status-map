@@ -1,7 +1,8 @@
 // 国との突き合わせ（I-18）を、模擬環境の Firestore と Storage で確かめる。取得は偽物で、国のサイトへは出ない。メールは偽の送信の口で、実際には送らない。
 import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { DocumentRecord, ReviewItem } from "@hpai/shared/read/types";
+import { makeReviewingCase } from "@hpai/shared/cases";
+import type { DocumentKind, DocumentRecord, ReadResult, ReviewItem, SecondReadResult } from "@hpai/shared/read/types";
 import type { Case, Source, WatchStatus } from "@hpai/shared/types";
 import { bucket, db } from "../../src/admin";
 import { loadGeoStore } from "../../src/geo/loadGeo";
@@ -599,6 +600,130 @@ describe("reading の取り残し", () => {
     expect(await readState("d1")).toBe("review_private");
     expect(await casesNow()).toEqual([]);
     expect((await db.doc("documents/d1").get()).data()!.reasons).toContain("pref_unknown");
+  });
+});
+
+describe("確認中の見直し（その県の家きんの発生でないものを人の確認から外す）", () => {
+  const none = { value: null, quote: null };
+  const primaryRead = (kind: DocumentKind, o: Partial<ReadResult> = {}): ReadResult => ({
+    kind, kindQuote: null, multipleCases: false, prefecture: none, municipality: none, nationalNo: none, prefNo: none, birdUse: none, housing: none,
+    headCount: none, negationBasis: none, primaryStage: null, primaryDate: null, primaryDateQuote: null, stageEvents: [], radiiKm: [], estimates: [], wildBirds: [], ...o,
+  });
+  const secondRead = (kind: DocumentKind, o: Partial<SecondReadResult> = {}): SecondReadResult => ({
+    kind, multipleCases: false, prefecture: null, municipality: null, primaryStage: null, primaryDate: null, wildBirds: [], ...o,
+  });
+  // 県の常設ページに、他県の野鳥の知らせが足された形（作った文）。発生を示す語の判定は true
+  const TEXT = [
+    "A県B市で回収された死亡野鳥から、高病原性鳥インフルエンザウイルス（H5亜型）が検出されました。",
+    "C県D市の死亡野鳥の簡易検査陽性の事例は、確定検査で陰性となりました。",
+    "県内の家きんでの発生はありません。",
+  ].join("\n");
+
+  /** 読み取りが確認中にした状態を置く（文書、本文、公開なら rev-、箱の項目）。 */
+  async function seedReviewing(id: string, o: { primary?: ReadResult | null; second?: SecondReadResult | null; text?: string | null; resolved?: boolean; readState?: DocumentRecord["readState"] } = {}) {
+    const isPublic = (o.readState ?? "review_public") !== "review_private";
+    const rec: DocumentRecord = {
+      id, sourceId: "s", prefCode: "14", url: `https://www.pref.kanagawa.jp/${id}.html`, title: "高病原性鳥インフルエンザの発生状況", contentType: "html",
+      storagePath: `raw/${id}.html`, fetchedAt: "2026-01-15T11:00:00+09:00", fingerprint: "f".repeat(64), hasTextLayer: true,
+      kind: o.primary === undefined ? "wild_bird" : (o.primary?.kind ?? null), readState: o.readState ?? "review_public",
+      primary: o.primary === undefined ? primaryRead("wild_bird") : o.primary, second: o.second === undefined ? secondRead("notice") : o.second,
+      verify: null, compare: { match: false, mismatches: ["kind"] }, caseId: null, error: null, reasons: ["compare:kind", "auto_publish_off"],
+    };
+    await db.doc(`documents/${id}`).set(rec);
+    const text = o.text === undefined ? TEXT : o.text;
+    if (text !== null) await bucket().file(`raw/${id}.txt`).save(text, { resumable: false });
+    if (isPublic) await db.doc(`cases/rev-${id}`).set(makeReviewingCase({ documentId: id, season: 2025, prefCode: "14", sourceUrl: rec.url }, NOW));
+    await db.doc(`reviewQueue/doc-${id}`).set({
+      id: `doc-${id}`, kind: "document", documentId: id, url: rec.url, prefCode: "14", title: rec.title, reasons: ["compare:kind", "auto_publish_off"], hasOutbreakWords: isPublic,
+      createdAt: "2026-01-15T11:00:00+09:00", resolvedAt: o.resolved ? "2026-01-15T11:30:00+09:00" : null,
+      ...(o.resolved ? { resolvedBy: "op", resolvedAction: "dismiss_alert" } : {}),
+    });
+  }
+  const run = () => runReconcile(harness({ pages: {} }).deps);
+  const caseIds = async () => (await casesNow()).map((c) => c.id).sort();
+  const docOf = async (id: string) => (await db.doc(`documents/${id}`).get()).data() as DocumentRecord;
+  const itemOf = async (id: string) => (await db.doc(`reviewQueue/doc-${id}`).get()).data() as Extract<ReviewItem, { kind: "document" }>;
+
+  it("切: 二人とも家きんでない種類と読んだ札を外し、文書は非公開の確認中、箱の項目は「公開していない」にして理由を足す。2 回目は何もしない", async () => {
+    await seedReviewing("d1");
+    await seedReviewing("p1", { readState: "review_private" }); // もともと非公開は、切では触れない
+    const r = await run();
+    expect(r.notPoultry).toEqual({ discarded: [], lowered: ["d1"] });
+    expect((await docOf("p1")).readState).toBe("review_private");
+    expect((await itemOf("p1")).resolvedAt).toBeNull();
+    expect(await caseIds()).toEqual([]);
+    const doc = await docOf("d1");
+    expect(doc.readState).toBe("review_private");
+    expect(doc.reasons).toEqual(["compare:kind", "auto_publish_off", "not_poultry_here", "both_read:wild_bird+notice", "outbreak_words_present"]);
+    const item = await itemOf("d1");
+    expect(item).toMatchObject({ hasOutbreakWords: false, resolvedAt: null });
+    expect(item.reasons).toEqual(["compare:kind", "auto_publish_off", "not_poultry_here", "both_read:wild_bird+notice", "outbreak_words_present"]);
+
+    const again = await run();
+    expect(again.notPoultry).toEqual({ discarded: [], lowered: [] });
+    expect((await queue()).filter((i) => i.kind === "document" && i.resolvedAt === null)).toHaveLength(2);
+  });
+
+  it("入: 公開の札と非公開の確認中の両方を捨て、箱の項目は消さずに「自動で解決」の印と理由を付けて箱から出す。2 回目は何もしない", async () => {
+    await db.doc("usage/settings").set({ autoPublishEnabled: true });
+    await seedReviewing("d1");
+    await seedReviewing("p1", { readState: "review_private" });
+    await enqueueReview({ id: reviewAlertId("watch_failing", "14"), kind: "alert", alert: "watch_failing", prefCode: "14", caseId: null, message: "m" }, NOW);
+    const r = await run();
+    expect(r.notPoultry).toEqual({ discarded: ["d1", "p1"], lowered: [] });
+    expect(await caseIds()).toEqual([]);
+    for (const id of ["d1", "p1"]) {
+      const doc = await docOf(id);
+      expect(doc.readState).toBe("discarded");
+      expect(doc.reasons).toEqual(["compare:kind", "auto_publish_off", "not_poultry_here", "both_read:wild_bird+notice", "outbreak_words_present"]);
+      const item = (await db.doc(`reviewQueue/doc-${id}`).get()).data()!;
+      expect(item).toMatchObject({ resolvedBy: "system", resolvedAction: "auto_not_poultry_here", hasOutbreakWords: false });
+      expect(typeof item.resolvedAt).toBe("string");
+      expect(item.reasons).toContain("not_poultry_here");
+    }
+    // 箱に残るのは文書以外の項目だけ（運営者の画面とメールは resolvedAt が null のものだけを数える）
+    expect((await queue()).filter((i) => i.resolvedAt === null).map((i) => i.kind)).toEqual(["alert"]);
+
+    const again = await run();
+    expect(again.notPoultry).toEqual({ discarded: [], lowered: [] });
+  });
+
+  it("入でも迷うものは触れない（読みが無い、家きんの種類と読んだ、本文を読めない、予算で読んでいない）", async () => {
+    await db.doc("usage/settings").set({ autoPublishEnabled: true });
+    await seedReviewing("noSecond", { second: null, readState: "review_private" });
+    await seedReviewing("suspected", { second: secondRead("suspected", { primaryStage: "suspected" }) });
+    await seedReviewing("noBody", { text: null, readState: "review_private" });
+    await seedReviewing("budget", { primary: null, second: null, readState: "skipped_budget" });
+    const r = await run();
+    expect(r.notPoultry).toEqual({ discarded: [], lowered: [] });
+    expect(await caseIds()).toEqual(["rev-budget", "rev-suspected"]);
+    for (const id of ["noSecond", "suspected", "noBody", "budget"]) expect((await itemOf(id)).resolvedAt).toBeNull();
+  });
+
+  it("迷う札は外さない: 別の読み手が無い、家きんの種類と読んだ、否定と読んだ、本文を読めない、家きんの事例の語がある、箱の項目が解決済み、読みが無い", async () => {
+    await seedReviewing("noSecond", { second: null });
+    await seedReviewing("suspected", { second: secondRead("suspected", { primaryStage: "suspected" }) });
+    await seedReviewing("negated", { primary: primaryRead("negated") });
+    await seedReviewing("noBody", { text: null });
+    await seedReviewing("farmWords", { text: `${TEXT}\nE市の養鶏場で簡易検査の陽性を確認しました。` });
+    await seedReviewing("resolved", { resolved: true });
+    await seedReviewing("noRead", { primary: null, second: null });
+    const r = await run();
+    expect(r.notPoultry).toEqual({ discarded: [], lowered: [] });
+    expect(await caseIds()).toEqual(["rev-farmWords", "rev-negated", "rev-noBody", "rev-noRead", "rev-noSecond", "rev-resolved", "rev-suspected"]);
+    for (const id of ["noSecond", "suspected", "negated", "noBody", "farmWords", "resolved", "noRead"]) {
+      expect((await docOf(id)).readState).toBe("review_public");
+      expect((await itemOf(id)).hasOutbreakWords).toBe(true);
+    }
+  });
+
+  it("文書が公開の確認中でなくなっていれば（運営者が載せた、無関係とした）札にも文書にも触れない。本物の事例は見ない", async () => {
+    await seedReviewing("d1", { readState: "discarded" });
+    await db.doc("cases/14100-2025-12-20-1").set({ ...makeReviewingCase({ documentId: "x", season: 2025, prefCode: "14", sourceUrl: "u" }, NOW), id: "14100-2025-12-20-1", confirmState: "auto", muniCode: "14100", muniName: "横浜市" });
+    const r = await run();
+    expect(r.notPoultry).toEqual({ discarded: [], lowered: [] });
+    expect(await caseIds()).toEqual(["14100-2025-12-20-1", "rev-d1"]);
+    expect((await docOf("d1")).readState).toBe("discarded");
   });
 });
 

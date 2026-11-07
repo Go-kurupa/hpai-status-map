@@ -52,7 +52,27 @@ const REASON_LABELS: Readonly<Record<string, string>> = {
   pipeline_error: "読み取りの処理でエラーが出ました",
   case_changed_during_read: "読んでいる間に事例が変わりました",
   outbreak_words_present: "発生を示す語があります",
+  not_poultry_here: "この県の家きんの発生・疑いではないと、二人の読み手が読みました",
 };
+
+/** 文書の種類（設計書 §9.4 の言い方）。 */
+const KIND_LABELS: Readonly<Record<string, string>> = {
+  suspected: "疑い",
+  confirmed: "確定",
+  progress: "進捗",
+  control_done: "防疫措置の完了",
+  zone_lifted: "区域の解除",
+  negated: "否定",
+  wild_bird: "野鳥",
+  other_pref: "他県の発生",
+  drill: "訓練",
+  notice: "周知",
+  irrelevant: "無関係",
+};
+const kindLabel = (kind: string): string => KIND_LABELS[kind] ?? kind;
+
+/** 公開の「確認中」を自動で外した項目か（読み取りの判断か、突き合わせの見直しが外した）。 */
+export const isAutoDismissed = (reasons: readonly string[] | undefined): boolean => (reasons ?? []).includes("not_poultry_here");
 
 export const fieldLabel = (field: string): string => FIELD_LABELS[field] ?? field;
 export const checkLabel = (check: string): string => CHECK_LABELS[check] ?? check;
@@ -66,7 +86,11 @@ export function reasonText(code: string): string {
     const head = code.slice(0, i);
     const tail = code.slice(i + 1);
     if (head === "compare") return `二重読みの食い違い: ${fieldLabel(tail)}`;
-    if (head === "both_read") return `二人の読み手が「${tail}」と読みました`;
+    if (head === "both_read") {
+      // 「wild_bird」または「wild_bird+notice」（主+別の読み手）
+      const [a, b] = tail.split("+");
+      return b === undefined ? `二人の読み手が「${kindLabel(a!)}」と読みました` : `主の読み手が「${kindLabel(a!)}」、別の読み手が「${kindLabel(b)}」と読みました`;
+    }
     if (head === "operator") return `運営者の操作: ${tail}`;
     if (tail in CHECK_LABELS) return `${fieldLabel(head)}: ${CHECK_LABELS[tail]}`;
   }

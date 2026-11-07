@@ -10,7 +10,7 @@ import { PREFS, prefCodeOfName } from "@hpai/shared/pref";
 import type { CaseStage, MuniCode } from "@hpai/shared/types";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Button } from "../../ui/Button";
-import { checkLabel, fieldLabel, prefNameOf, reasonText, safeHref } from "./operatorText";
+import { checkLabel, fieldLabel, isAutoDismissed, prefNameOf, reasonText, safeHref } from "./operatorText";
 import { useResolver, type ResolveFn } from "./useResolver";
 
 type DocItem = Extract<ReviewItem, { kind: "document" }>;
@@ -248,7 +248,9 @@ export function DocumentItem({ item, resolve, getDetail, loadMunis, now }: Props
       <p>
         {item.hasOutbreakWords
           ? "公開しています（県名と「確認中」と原文のリンクだけ。同じ県の会員にすぐ知らせています）"
-          : "公開していません（発生を示す語がないので、この画面だけに入れています）"}
+          : isAutoDismissed(item.reasons)
+            ? "公開していません（この県の家きんの発生ではないと二人の読み手が読んだので、地図に「確認中」を出していません）"
+            : "公開していません（発生を示す語がないので、この画面だけに入れています）"}
       </p>
       {(item.reasons ?? []).length > 0 && (
         <>

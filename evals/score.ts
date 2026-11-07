@@ -149,9 +149,11 @@ export function scoreDocument(i: ScoreInput): DocScore {
   const compare = read && second ? compareReads(read, second, verify) : null;
   const decision = decidePublication({
     read,
+    second,
     verify,
     compare,
     hasTextLayer: i.hasTextLayer,
+    bodyAvailable: i.text.trim() !== "",
     docText: `${i.answer.title}\n${i.text}`,
     autoPublishEnabled: true, // 自動で載せる設定を入にして測る（false だと公開の誤りが 0 に見える）
   });

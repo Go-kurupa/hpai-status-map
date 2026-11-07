@@ -1,6 +1,6 @@
 // 国との突き合わせ（I-18、設計書 §9.7）。6 時間ごとに、国の報道発表の一覧と作品の事例を比べ、取りこぼしと食い違いを運営者の箱に入れる。
 // 順: 国の一覧を取得 → 本文を読んだことのない発表だけ取得して事実を控える → 欠けた確定を国の情報で載せる → 解除の再適用 → 国にない確定
-//    → 疑いのまま止まった事例 → 見回り全体の停止 → reading の取り残し。メールは reconcileAndNotify が最後に送る。
+//    → 疑いのまま止まった事例 → 見回り全体の停止 → reading の取り残し → 確認中の見直し。メールは reconcileAndNotify が最後に送る。
 // 直さない原則: 否定された事例と国の確定の食い違いは自動で直さず、運営者の確認に回す。事例は消さない。
 import { logger } from "firebase-functions";
 import { displayStage, isStalledSuspect } from "@hpai/shared/cases";
@@ -24,6 +24,7 @@ import { normalizeForMatch } from "@hpai/shared/text";
 import type { Case, IsoDateTime, PrefCode, Source, WatchStatus } from "@hpai/shared/types";
 import { bucket, db } from "../admin";
 import { reviewPlan } from "../read/apply";
+import { dismissNotPoultry } from "../read/dismiss";
 import { upsertCaseIn } from "../read/upsert";
 import { notifyOperator, type NotifyDeps } from "../review/notifyOperator";
 import { enqueueReview, reviewAlertId, type NewReviewItem } from "../review/queue";
@@ -199,6 +200,8 @@ export interface ReconcileReport {
   reappliedLifts: string[];
   queued: number;
   stuckReading: string[];
+  /** その県の家きんの発生ではないと二人が読んだ確認中を、人の確認から外した文書の id（設定が入: 捨てて箱から出した。切: 公開の札を外し非公開に下げた）。 */
+  notPoultry: { discarded: string[]; lowered: string[] };
 }
 
 /** 見回り全体が止まったか。確認の時刻が読めない、24 時間より古い、未来、のどれか。 */
@@ -247,7 +250,7 @@ export async function runReconcile(deps: WatchDeps): Promise<ReconcileReport> {
   const now = deps.now();
   const season = currentSeason(now);
   const errors: unknown[] = [];
-  const report: ReconcileReport = { compared: false, comparedAppOnly: false, factsFetched: 0, appliedConfirmed: [], reappliedLifts: [], queued: 0, stuckReading: [] };
+  const report: ReconcileReport = { compared: false, comparedAppOnly: false, factsFetched: 0, appliedConfirmed: [], reappliedLifts: [], queued: 0, stuckReading: [], notPoultry: { discarded: [], lowered: [] } };
 
   /** 箱に入れる。入れられた（すでにあった場合を含む）なら true、失敗したら false。 */
   const enqueue = async (item: NewReviewItem): Promise<boolean> => {
@@ -325,6 +328,15 @@ export async function runReconcile(deps: WatchDeps): Promise<ReconcileReport> {
       });
       if (moved) report.stuckReading.push(rec.id);
     }
+  });
+
+  // 5. 確認中の見直し。その県の家きんの発生・疑いでないことがはっきりしたものを人の確認から外す（§9.6）。
+  //    読み取りの判断と同じ条件を、保存した二人の読みと本文に当てる（Claude は呼ばない）。迷うものは残す。記録は消さない
+  await step("確認中の見直し", async () => {
+    const r = await dismissNotPoultry(now);
+    report.notPoultry.discarded.push(...r.discarded);
+    report.notPoultry.lowered.push(...r.lowered);
+    if (r.errors.length > 0) throw new AggregateError(r.errors, "確認中の見直しに失敗した文書があります");
   });
 
   if (errors.length > 0) throw new AggregateError(errors, "国との突き合わせに失敗した段があります");

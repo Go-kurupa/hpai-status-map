@@ -1,5 +1,6 @@
 // 保存された新しい文書を読み、照合と二重読みで判断し、事例に流し込む一連の流れ（I-05、設計書 §9.4〜9.6、§15）。
-// 実際の Claude は client の先にあり、試験では偽物に差し替える。確かめられないものは確認中に倒し、発生を示す文書を黙って捨てない。
+// 実際の Claude は client の先にあり、試験では偽物に差し替える。確かめられないものは確認中に倒す。
+// 発生を示す語のある文書を捨てるのは、二人の読み手がともに家きんの発生でないと読み、決まり（語、段階）でも裏が取れたときだけで、理由を documents に残す（§9.6）。
 import type Anthropic from "@anthropic-ai/sdk";
 import { logger } from "firebase-functions";
 import type { DocumentSnapshot, Transaction } from "firebase-admin/firestore";
@@ -67,11 +68,16 @@ export function caseStateKey(c: Case | null): string {
   return `${c.id}|${stages}`;
 }
 
-/** 文書の本文（raw/{id}.txt。PDF は文字層）と PDF。取れなければ空と null（読めなかったことは判断が確認中に倒す）。 */
-async function loadBody(rec: DocumentRecord): Promise<{ text: string; pdfBase64: string | null }> {
+/**
+ * 文書の本文（raw/{id}.txt。PDF は文字層）と PDF。取れなければ空と null（読めなかったことは判断が確認中に倒す）。
+ * textOk は本文を読めたか（PDF だけ読めたときは false。家きんでないとして外す判断を題だけでしないため）。
+ */
+async function loadBody(rec: DocumentRecord): Promise<{ text: string; textOk: boolean; pdfBase64: string | null }> {
   let text = "";
+  let textOk = false;
   try {
     text = (await bucket().file(`raw/${rec.id}.txt`).download())[0].toString("utf8");
+    textOk = true;
   } catch (e) {
     logger.warn("本文を読めませんでした", { documentId: rec.id, message: errMessage(e) });
   }
@@ -83,7 +89,7 @@ async function loadBody(rec: DocumentRecord): Promise<{ text: string; pdfBase64:
       logger.warn("PDF を読めませんでした", { documentId: rec.id, message: errMessage(e) });
     }
   }
-  return { text, pdfBase64 };
+  return { text, textOk, pdfBase64 };
 }
 
 /** 取得元が県の入口（pref_*）なら、その県。国の発表（県をまたぐ）や取得元がなければ null。 */
@@ -116,14 +122,14 @@ async function casesOf(prefCode: PrefCode, season: number): Promise<Case[]> {
   return snap.docs.map((d) => d.data() as Case);
 }
 
-async function judge(rec: DocumentRecord, deps: PipelineDeps, now: Date, settings: RuntimeSettings, text: string, pdfBase64: string | null): Promise<Outcome> {
+async function judge(rec: DocumentRecord, deps: PipelineDeps, now: Date, settings: RuntimeSettings, text: string, pdfBase64: string | null, bodyAvailable: boolean): Promise<Outcome> {
   const docText = `${rec.title}\n${text}`;
   const budget = decideReadBudget(await readUsageMonth(now), settings, rec.title);
 
   // 予算で止めた: 読まない。read:null と同じ扱いで、理由だけ予算にする
   if (budget !== "read") {
     const budgetReason = budget === "stop" ? "budget_stop" : "budget_skip_progress";
-    const d = decidePublication({ read: null, verify: null, compare: null, hasTextLayer: rec.hasTextLayer, docText, autoPublishEnabled: settings.autoPublishEnabled });
+    const d = decidePublication({ read: null, second: null, verify: null, compare: null, hasTextLayer: rec.hasTextLayer, bodyAvailable, docText, autoPublishEnabled: settings.autoPublishEnabled });
     const decision = d.action === "publish" || d.action === "discard" ? d : { ...d, reasons: [budgetReason] };
     return { read: null, second: null, verify: null, compare: null, decision, normalized: null, error: null, outbreak: hasOutbreakWords(docText), judgedKey: null, redo: null };
   }
@@ -151,7 +157,7 @@ async function judge(rec: DocumentRecord, deps: PipelineDeps, now: Date, setting
     compare = second !== null ? compareReads(read, second, verify) : null;
     redo = (previous) => {
       const v = verifyRead(read, doc, deps.geo, previous, opts);
-      const d = decidePublication({ read, verify: v, compare, hasTextLayer: rec.hasTextLayer, docText, autoPublishEnabled: settings.autoPublishEnabled });
+      const d = decidePublication({ read, second, verify: v, compare, hasTextLayer: rec.hasTextLayer, bodyAvailable, docText, autoPublishEnabled: settings.autoPublishEnabled });
       return { verify: v, decision: d, normalized: v.normalized };
     };
     const n = verify.normalized;
@@ -164,7 +170,7 @@ async function judge(rec: DocumentRecord, deps: PipelineDeps, now: Date, setting
       if (previous !== null) verify = verifyRead(read, doc, deps.geo, previous, opts);
     }
   }
-  const decision = decidePublication({ read, verify, compare, hasTextLayer: rec.hasTextLayer, docText, autoPublishEnabled: settings.autoPublishEnabled });
+  const decision = decidePublication({ read, second, verify, compare, hasTextLayer: rec.hasTextLayer, bodyAvailable, docText, autoPublishEnabled: settings.autoPublishEnabled });
   return { read, second, verify, compare, decision, normalized: verify?.normalized ?? null, error, outbreak: hasOutbreakWords(docText), judgedKey, redo };
 }
 
@@ -267,7 +273,7 @@ export async function readDocument(docId: string, deps: PipelineDeps): Promise<R
     const settings = await readRuntimeSettings();
     const body = await loadBody(rec);
     text = body.text;
-    const outcome = await judge(rec, deps, now, settings, body.text, body.pdfBase64);
+    const outcome = await judge(rec, deps, now, settings, body.text, body.pdfBase64, body.textOk && body.text.trim() !== "");
     await deps.afterJudge?.();
     const done = await finalize(rec, outcome, now);
     return { status: "done", ...done };

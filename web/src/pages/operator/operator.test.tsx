@@ -189,6 +189,19 @@ describe("文書の項目", () => {
     expect(screen.getByText(/公開していません/)).toBeTruthy();
     await screen.findByRole("button", { name: "載せる" });
   });
+  it("自動で外した項目は、外した訳と、二人の読み手の種類を日本語で出す。直して載せる操作は残す", async () => {
+    setup(ready(docItem({ hasOutbreakWords: false, reasons: ["compare:kind", "not_poultry_here", "both_read:wild_bird+notice", "outbreak_words_present"] })));
+    const card = screen.getByRole("article");
+    expect(within(card).getByText(/公開していません（この県の家きんの発生ではないと二人の読み手が読んだので、地図に「確認中」を出していません）/)).toBeTruthy();
+    expect(within(card).getByText("この県の家きんの発生・疑いではないと、二人の読み手が読みました", { selector: "li" })).toBeTruthy();
+    expect(within(card).getByText("主の読み手が「野鳥」、別の読み手が「周知」と読みました", { selector: "li" })).toBeTruthy();
+    await screen.findByRole("button", { name: "載せる" });
+  });
+  it("二人が同じ種類と読んだ理由は、種類を日本語で出す", async () => {
+    setup(ready(docItem({ hasOutbreakWords: false, reasons: ["not_poultry_here", "both_read:other_pref"] })));
+    expect(screen.getByText("二人の読み手が「他県の発生」と読みました", { selector: "li" })).toBeTruthy();
+    await screen.findByRole("button", { name: "載せる" });
+  });
   it("読み取りの結果を入力欄の初期値にし、「載せる」で publish_corrected を送る", async () => {
     const { resolve, getDetail } = setup(ready(docItem()));
     const submit = await screen.findByRole("button", { name: "載せる" });
