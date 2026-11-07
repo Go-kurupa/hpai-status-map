@@ -9,7 +9,7 @@ export function MonthBars({ months, loaded, allUnchecked, past }: { months: read
     return (
       <section className="month-bars">
         <h2>月ごとの件数と羽数</h2>
-        <p>まだ読めていません。</p>
+        <p>まだ読み込めていません。</p>
       </section>
     );
   }

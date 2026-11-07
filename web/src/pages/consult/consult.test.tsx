@@ -376,7 +376,7 @@ describe("AIに対策を相談の画面", () => {
     expect(first.queryByRole("alert")).toBeNull();
   });
 
-  it("一覧を読めずに足し済みを知らなかったとき、permission-denied で失敗したら読み直し、足し済みなら「足しました」にする", async () => {
+  it("一覧を読み込めずに足し済みを知らなかったとき、permission-denied で失敗したら読み直し、足し済みなら「足しました」にする", async () => {
     box.reviews.listReviews.mockRejectedValueOnce(new Error("x")).mockResolvedValueOnce(["maff-M07"]);
     box.reviews.addReview.mockRejectedValue(Object.assign(new Error("denied"), { code: "permission-denied" }));
     box.ask.mockResolvedValue(reply());
@@ -548,8 +548,8 @@ describe("AIに対策を相談の画面", () => {
       expect(box.reviews.addReview).toHaveBeenCalledWith("maff-M07");
     });
 
-    it("カードの一覧を読めないときは、今までどおりカードの id だけで判定する（足せなくはしない）", async () => {
-      box.loadCatalog.mockRejectedValue(new Error("読めません"));
+    it("カードの一覧を読み込めないときは、今までどおりカードの id だけで判定する（足せなくはしない）", async () => {
+      box.loadCatalog.mockRejectedValue(new Error("読み込めません"));
       box.reviews.listReviews.mockResolvedValue(["maff-M07"]);
       box.ask.mockResolvedValue(reply({ cards: [ans(CARD_JP_TWIN), ans(CARD_US)] }));
       renderPage();
@@ -855,14 +855,14 @@ describe("AIに対策を相談の画面", () => {
       expect(screen.getByText(CONSULT_TEXT.historyEmpty)).toBeTruthy();
     });
 
-    it("壊れた記録があっても画面は出て、読めない分は捨てる", () => {
+    it("壊れた記録があっても画面は出て、読み込めない分は捨てる", () => {
       localStorage.setItem("hpai.consult.history.v1:u1", "{壊れた");
       renderPage();
       historyOpen();
       expect(screen.getByText(CONSULT_TEXT.historyEmpty)).toBeTruthy();
     });
 
-    it("JSON としては読めても形の違う記録（候補が文字列、中身のないカード）は捨て、画面は落ちない", () => {
+    it("JSON としては読み込めても形の違う記録（候補が文字列、中身のないカード）は捨て、画面は落ちない", () => {
       const good = { id: "g", title: "良い問い", createdAt: 2, updatedAt: Date.now(), turns: [{ question: "良い問い", at: Date.now(), result: reply() }] };
       const badFollow = { id: "b1", title: "候補が壊れた", createdAt: 1, updatedAt: Date.now(), turns: [{ question: "q", at: 1, result: { ...reply(), followUps: "ab" } }] };
       const badCard = { id: "b2", title: "カードが壊れた", createdAt: 1, updatedAt: Date.now(), turns: [{ question: "q", at: 1, result: { ...reply(), cards: [{}] } }] };
@@ -1317,7 +1317,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     }
   });
 
-  it("登録を読めないときは、読み込めなかったと出し、選ぶ欄を出さない（未登録とは言わない）", async () => {
+  it("登録を読み込めないときは、読み込めなかったと出し、選ぶ欄を出さない（未登録とは言わない）", async () => {
     box.getFarm.mockRejectedValue(new Error("offline"));
     renderPage();
     expect(await screen.findByText(CONSULT_TEXT.conditionLoadFailed)).toBeTruthy();

@@ -165,7 +165,7 @@ describe("subscribeWildBirds", () => {
 });
 
 describe("subscribeWatchStatus", () => {
-  it("error では cb([])（読めていない、と画面が分かる）", async () => {
+  it("error では cb([])（読み込めていない、と画面が分かる）", async () => {
     const cb = vi.fn();
     createLiveDataSource().subscribeWatchStatus(cb as (a: WatchStatus[]) => void);
     await tick();
@@ -215,7 +215,7 @@ describe("loadHistory", () => {
     expect(String(fetchMock.mock.calls[0]![0])).toMatch(/history\/cases\.json$/);
   });
 
-  it("読めなければ失敗にする（空の一覧に見せない）", async () => {
+  it("読み込めなければ失敗にする（空の一覧に見せない）", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
     await expect(createLiveDataSource().loadHistory()).rejects.toThrow();
   });

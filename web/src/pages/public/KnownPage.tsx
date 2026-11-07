@@ -109,7 +109,7 @@ export function KnownView({ findings }: { findings: readonly KnownFinding[] }) {
       ) : null}
       {shown.length > 0 ? (
         <section className="known-audiences" aria-labelledby="known-audiences-heading">
-          <h2 id="known-audiences-heading">お立場別の、関係の深い項目</h2>
+          <h2 id="known-audiences-heading">あなたの立場に近い項目</h2>
           <ul>
             {AUDIENCES.map((a) => {
               const mine = shown.filter((f) => f.audiences.includes(a));

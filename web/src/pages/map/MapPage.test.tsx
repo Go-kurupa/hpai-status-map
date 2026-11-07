@@ -133,7 +133,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-/** 自分の町の県のホームページを読み込めていない文。1 回目に読めなかった時刻の記録があれば「〇月〇日 〇:〇〇 から」が入る（2026-11-07 案 B） */
+/** 自分の町の県のホームページを読み込めていない文。1 回目に読み込めなかった時刻の記録があれば「〇月〇日 〇:〇〇 から」が入る（2026-11-07 案 B） */
 const PREF_UNWATCHED = /この県のホームページを(?:、\d+ 月 \d+ 日 \d+:\d{2} から)?読み込めていません。発生がないとは言えません/u;
 
 describe("MapPage", () => {
@@ -144,7 +144,7 @@ describe("MapPage", () => {
     // 過去のシーズンとの比べの表には、過去の実績としての「0 件」（その時期までに発生がなかったシーズン）が出る。ほかの所を見る
     const outsideCompare = [...document.querySelectorAll(".map-page > *")].filter((e) => !e.matches(".season-compare")).map((e) => e.textContent).join("");
     expect(outsideCompare).not.toMatch(/(^|[^0-9])0 件/);
-    expect(document.body.textContent).toContain("まだ読めていません");
+    expect(document.body.textContent).toContain("まだ読み込めていません");
     expect(lastProps().view.loaded).toBe(false);
     expect(lastProps().failedPrefCodes).toHaveLength(47);
   });
@@ -251,13 +251,13 @@ describe("MapPage", () => {
     expect(screen.getByText(/2025年6月〜2026年5月の記録/)).toBeTruthy();
   });
 
-  it("過去の記録が届かないうちの1 年前は『まだ読めていません』で、0 件にしない", async () => {
+  it("過去の記録が届かないうちの1 年前は『まだ読み込めていません』で、0 件にしない", async () => {
     const r = rig({ history: "deferred" });
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([]);
     const bar = screen.getByRole("button", { name: /1 年前/ });
-    expect(bar.textContent).toContain("まだ読めていません");
+    expect(bar.textContent).toContain("まだ読み込めていません");
     fireEvent.click(bar);
     expect(lastProps().view.loaded).toBe(false);
     expect(screen.queryByText(RISK_SENTENCE, { exact: false })).toBeNull();
@@ -313,19 +313,19 @@ describe("MapPage: 自分の町の 1 文", () => {
     localStorage.setItem(TOWN_KEY, "33214");
     show(rig());
     await screen.findByTestId("map");
-    expect(screen.getByText(/読み込んでいます。読めるまで/)).toBeTruthy();
+    expect(screen.getByText(/読み込んでいます。読み込めるまで/)).toBeTruthy();
     expect(tones()).toEqual([]);
     expect(screen.queryByText("全国の動きをお知らせしています")).toBeNull();
   });
 
-  it("真庭市（33214）の隣の津山市の事例で『隣町で発生しました』。過去は『1 年前に隣町で発生しました（記録）』。縁は 33214 と 33203", async () => {
+  it("真庭市（33214）の隣の津山市の事例で『隣の町で発生しました』。過去は『1 年前に隣の町で発生しました（記録）』。縁は 33214 と 33203", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
-    expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
-    expect(await screen.findByText(/1 年前に隣町で発生しました（記録）/)).toBeTruthy();
+    expect(await screen.findByText("隣の町で発生しました")).toBeTruthy();
+    expect(await screen.findByText(/1 年前に隣の町で発生しました（記録）/)).toBeTruthy();
     expect(tones()).toEqual(["lv2"]);
     expect(lastProps().myMuniCode).toBe("33214");
     expect(lastProps().nearMuniCodes).toEqual(["33203"]);
@@ -338,11 +338,11 @@ describe("MapPage: 自分の町の 1 文", () => {
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
-    await screen.findByText("隣町で発生しました");
+    await screen.findByText("隣の町で発生しました");
     fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
     expect(lastProps().view.isCurrent).toBe(false);
     expect(tones()).toEqual(["lv2"]);
-    expect(screen.getByText("隣町で発生しました")).toBeTruthy();
+    expect(screen.getByText("隣の町で発生しました")).toBeTruthy();
     // ページが pastDisclaimer を出しているので、町の過去の行では重ねない
     expect(screen.getAllByText(FIXED_TEXT.pastDisclaimer)).toHaveLength(1);
   });
@@ -379,7 +379,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     fireEvent.change(await screen.findByLabelText("都道府県"), { target: { value: "33" } });
     fireEvent.change(await screen.findByLabelText("市町村"), { target: { value: "33214" } });
     fireEvent.click(screen.getByRole("button", { name: TEXT.decideTown }));
-    expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
+    expect(await screen.findByText("隣の町で発生しました")).toBeTruthy();
     expect(localStorage.getItem(TOWN_KEY)).toBe("33214");
     expect(localStorage.getItem(SPOT_KEY)).toBeNull();
     expect(lastProps().focus?.kind).toBe("rings") /* 町だけの人も町の中心の輪の全体（設計書 2026-11-06-ui-frame 決定 6） */;
@@ -396,7 +396,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(lastProps().pickMode).toBe(true);
     expect(lastProps().onSelectMuni).toBeTypeOf("function");
     act(() => lastProps().onSelectMuni!("33214"));
-    expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
+    expect(await screen.findByText("隣の町で発生しました")).toBeTruthy();
     expect(localStorage.getItem(TOWN_KEY)).toBe("33214");
     expect(lastProps().onSelectMuni).toBeUndefined();
     expect(lastProps().pickMode).toBeFalsy();
@@ -413,7 +413,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "津山市" })).toBeTruthy();
     // 町を押している間は、自分の町の 1 文を欄に替える（CSS で隠す。DOM には残る）
     expect(document.querySelector(".map-page > .town-cases h2")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "選択地域に戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "選んだ地域に戻る" }));
     expect(screen.queryByRole("heading", { level: 2, name: "津山市" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: TEXT.changeTown }));
     expect(lastProps().onSelectMuni).toBeTypeOf("function");
@@ -438,10 +438,10 @@ describe("MapPage: 自分の町の 1 文", () => {
     const r = rig();
     show(r, { section: "compare" });
     await screen.findAllByTestId("map");
-    // 今季を読めていない間は塗らない（空の重ね合わせ。1 シーズン分の普通の塗りも出さない）
+    // 今季を読み込めていない間は塗らない（空の重ね合わせ。1 シーズン分の普通の塗りも出さない）
     expect(lastProps().overlay!.first).toEqual([]);
     expect(lastProps().overlay!.second).toEqual([]);
-    expect(screen.getByText(/今季の発生をまだ読めていません/)).toBeTruthy();
+    expect(screen.getByText(/今季の発生をまだ読み込めていません/)).toBeTruthy();
     r.deliverCases([]);
     await waitFor(() => expect(lastProps().overlay!.first.length).toBeGreaterThan(0));
     expect(screen.getAllByTestId("map")).toHaveLength(1);
@@ -516,7 +516,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(pressedScope()).toEqual(["全国"]);
   });
 
-  it("?region=chugoku で開くと、地域を選んであっても中国に寄せ、選択地域付近へは動かない", async () => {
+  it("?region=chugoku で開くと、地域を選んであっても中国に寄せ、選んだ地域の付近へは動かない", async () => {
     localStorage.setItem(TOWN_KEY, "01100");
     seen.length = 0;
     const r = rig();
@@ -528,15 +528,15 @@ describe("MapPage: 自分の町の 1 文", () => {
     await act(async () => {});
     expect(inChugoku(lastProps().focus!.codes)).toBe(true);
     expect(pressedScope()).toEqual(["中国"]);
-    // 一度も選択地域付近へ動いていない（中国へ寄せる前に近くへ寄って上書きされた、ではない）
+    // 一度も選んだ地域の付近へ動いていない（中国へ寄せる前に近くへ寄って上書きされた、ではない）
     expect(seen.some((p) => p.focus?.kind === "rings" || (p.focus?.codes.includes("01100") ?? false))).toBe(false);
-    // 地域を選んでいるので［選択地域付近］もある。押すとそちらへ
-    fireEvent.click(within(scope()).getByRole("button", { name: "選択地域付近" }));
-    expect(pressedScope()).toEqual(["選択地域付近"]);
+    // 地域を選んでいるので［選んだ地域の付近］もある。押すとそちらへ
+    fireEvent.click(within(scope()).getByRole("button", { name: "選んだ地域の付近" }));
+    expect(pressedScope()).toEqual(["選んだ地域の付近"]);
     expect(lastProps().focus!.codes).toEqual(["01100"]);
   });
 
-  it("くわしい場所まで登録した人が ?region=chugoku で開いても、一度も選択地域付近へ動かず中国に寄せる", async () => {
+  it("くわしい場所まで登録した人が ?region=chugoku で開いても、一度も選んだ地域の付近へ動かず中国に寄せる", async () => {
     const c = (indexJson as unknown as Record<string, { center: [number, number] }>)["01100"]!.center;
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: latLngToMesh3(c[1], c[0]), muniCode: "01100", frequentMuniCodes: [] }));
     seen.length = 0;
@@ -551,7 +551,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(pressedScope()).toEqual(["中国"]);
   });
 
-  it("町の形が届く前に［全国］を押すと、届いた後も選択地域付近へ寄せ直さない（押された印と寄せ先がずれない）", async () => {
+  it("町の形が届く前に［全国］を押すと、届いた後も選んだ地域の付近へ寄せ直さない（押された印と寄せ先がずれない）", async () => {
     localStorage.setItem(TOWN_KEY, "01100");
     const geoMod = (await import("../../geo/loadGeo")) as unknown as { __holdGeo(): void; __releaseGeo(): void };
     geoMod.__holdGeo();
@@ -590,7 +590,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     await waitFor(() => expect(screen.queryByText(TEXT.loading)).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: TEXT.changeTown }));
     act(() => lastProps().onSelectMuni!("33214"));
-    expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
+    expect(await screen.findByText("隣の町で発生しました")).toBeTruthy();
     expect(localStorage.getItem(SPOT_KEY)).toBeNull();
     expect(screen.getByText(/くわしい場所は消しました/)).toBeTruthy();
   });
@@ -626,7 +626,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
     r.deliverWatch(okWatch());
-    await screen.findByText("隣町で発生しました");
+    await screen.findByText("隣の町で発生しました");
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
   });
 });
@@ -719,7 +719,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     fireEvent.click(await screen.findByRole("button", { name: TEXT.changeTown }));
     fireEvent.change(screen.getByLabelText(TEXT.searchLabel), { target: { value: "津山" } });
     r.deliverCases([tsuyamaCase()]);
-    expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
+    expect(await screen.findByText("隣の町で発生しました")).toBeTruthy();
     expect((screen.getByLabelText(TEXT.searchLabel) as HTMLInputElement).value).toBe("津山");
   });
 
@@ -754,7 +754,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(scroll).not.toHaveBeenCalled();
   });
 
-  it("切り替えは最初『選択地域付近』で、押すと地図が動き、押された状態が移る", async () => {
+  it("切り替えは最初『選んだ地域の付近』で、押すと地図が動き、押された状態が移る", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
@@ -788,7 +788,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     expect(aims).toEqual(["rings"]);
   });
 
-  it("地点があれば、最初も『選択地域付近』も輪の全体が入る広さ", async () => {
+  it("地点があれば、最初も『選んだ地域の付近』も輪の全体が入る広さ", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
     const r = rig();
     show(r);
@@ -839,7 +839,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     const box = document.querySelector(".map-box")!;
     r.deliverWatch(okWatch());
     r.deliverCases([tsuyamaCase()]);
-    await screen.findByText("隣町で発生しました");
+    await screen.findByText("隣の町で発生しました");
     const row = document.querySelector(".stat-row")!;
     let banner = document.querySelector(".town-banner")!;
     expect(before(row, banner)).toBe(true);
@@ -859,7 +859,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     r.deliverWatch(okWatch().map((w) => (w.prefCode === "33" ? { ...w, ok: false, failingSince: "2026-11-04T01:00:00+09:00" } : w)));
     r.deliverCases([]);
     await screen.findByText(PREF_UNWATCHED);
-    // 1 回目に読めなかった時刻（2026-11-04T01:00+09:00）を、地図の画面の 1 文にも添える
+    // 1 回目に読み込めなかった時刻（2026-11-04T01:00+09:00）を、地図の画面の 1 文にも添える
     expect(screen.getByText("この県のホームページを、11 月 4 日 1:00 から読み込めていません。発生がないとは言えません")).toBeTruthy();
     expect(before(document.querySelector(".town-banner")!, document.querySelector(".map-box")!)).toBe(true);
   });
@@ -871,7 +871,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     await screen.findByTestId("map");
     r.deliverWatch(okWatch());
     r.deliverCases([tsuyamaCase({ stages: { confirmed: { date: "2026-10-01", time: null } } })]);
-    await screen.findByText("隣町で発生しました");
+    await screen.findByText("隣の町で発生しました");
     const row = document.querySelector(".stat-row")!;
     expect(before(row, document.querySelector(".town-banner")!)).toBe(true);
     expect(before(document.querySelector(".town-banner")!, document.querySelector(".map-box")!)).toBe(true);
@@ -909,11 +909,11 @@ const failed = (codes: string[]): WatchStatus[] =>
 const bannerText = () => document.querySelector(".town-banner")?.textContent ?? "";
 
 describe("MapPage: 確認状況", () => {
-  it("見回りの結果が届く前は、件数の文ではなく『まだ読めていません』。届いたら 47 県の文", async () => {
+  it("見回りの結果が届く前は、件数の文ではなく『まだ読み込めていません』。届いたら 47 県の文", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
-    expect(screen.getByTestId("watch-line").textContent).toContain("まだ読めていません");
+    expect(screen.getByTestId("watch-line").textContent).toContain("まだ読み込めていません");
     expect(screen.getByTestId("watch-line").textContent).not.toMatch(/件を確認/);
     r.deliverWatch(okWatch());
     // 全県確認なら行そのものを出さない（2026-11-06 作者の決定）
@@ -973,14 +973,14 @@ describe("MapPage: 自分の町の県が未確認（W-06 追加の範囲 1）", 
     expect(bannerText()).not.toContain(TEXT.national);
   });
 
-  it("隣町で発生（②）でも、町の県が未確認なら詳細に添える。段階の文と色は変えない", async () => {
+  it("隣の町で発生（②）でも、町の県が未確認なら詳細に添える。段階の文と色は変えない", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
     r.deliverWatch(failed(["33"]));
-    await screen.findByText("隣町で発生しました");
+    await screen.findByText("隣の町で発生しました");
     expect(bannerText()).toMatch(PREF_UNWATCHED);
     expect(tones()).toContain("lv2");
   });
@@ -998,7 +998,7 @@ describe("MapPage: 自分の町の県が未確認（W-06 追加の範囲 1）", 
 });
 
 describe("MapPage: 索引にない市町村の地点（W-06 追加の範囲 2）", () => {
-  it("過去の行を『発生はありません』にせず、読めなかった扱い。1 文も町を選び直す趣旨", async () => {
+  it("過去の行を『発生はありません』にせず、読み込めなかった扱い。1 文も町を選び直す趣旨", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: latLngToMesh3(35.07, 134.0), muniCode: "99999", frequentMuniCodes: [] }));
     const r = rig();
     show(r);
@@ -1051,10 +1051,10 @@ describe("MapPage: 一覧", () => {
     expect(screen.getByRole("button", { name: /今季/ }).textContent).toContain("1 件");
   });
 
-  it("今季の事例が届く前の一覧は『まだ読めていません』。0 件にしない", async () => {
+  it("今季の事例が届く前の一覧は『まだ読み込めていません』。0 件にしない", async () => {
     show(rig());
     await screen.findByTestId("map");
-    expect(listBtn().textContent).toContain("まだ読めていません");
+    expect(listBtn().textContent).toContain("まだ読み込めていません");
     expect(listBtn().textContent).not.toMatch(/0 件/);
   });
 
@@ -1166,12 +1166,12 @@ describe("MapPage: 並びと出典", () => {
     expect(document.querySelector(".map-status")).toBeNull();
   });
 
-  it("今季がまだ読めない間は state-unknown の全文が出て、.map-status はない", async () => {
+  it("今季がまだ読み込めない間は state-unknown の全文が出て、.map-status はない", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
     expect(screen.getByTestId("watch-line").className).toContain("state-unknown");
-    const p = screen.getByText("今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。");
+    const p = screen.getByText("今季の発生をまだ読み込めていません。読み込めるまで、地図に色がなくても発生がないとは言えません。");
     expect(p.className).toBe("state-unknown");
     expect(document.querySelector(".map-status")).toBeNull();
   });
@@ -1218,7 +1218,7 @@ describe("MapPage: 並びと出典", () => {
     expect(scrollMock()).toHaveBeenCalled();
   });
 
-  it("鶏舎の場所の欄は選択地域の行のすぐ下（2026-11-07 作者の決定 A）。ページの下に別の欄はない", async () => {
+  it("鶏舎の場所の欄は選んだ地域の行のすぐ下（2026-11-07 作者の決定 A）。ページの下に別の欄はない", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
@@ -1276,9 +1276,9 @@ describe("MapPage: 並びと出典", () => {
     await waitFor(() => expect(lastProps().focus?.minZoom).toBe(SPOT_MIN_ZOOM));
     expect(lastProps().focus?.kind).toBe("muni");
     expect(lastProps().focus?.codes).toEqual(["33214"]);
-    // ほかの寄せ方（選択地域付近、全国など）には付けない
+    // ほかの寄せ方（選んだ地域の付近、全国など）には付けない
     fireEvent.click(screen.getByRole("button", { name: TEXT.cancel }));
-    fireEvent.click(screen.getByRole("button", { name: "選択地域付近" }));
+    fireEvent.click(screen.getByRole("button", { name: "選んだ地域の付近" }));
     await waitFor(() => expect(lastProps().focus?.kind).toBe("rings"));
     expect(lastProps().focus?.minZoom).toBeUndefined();
     fireEvent.click(screen.getByRole("button", { name: "全国" }));
@@ -1301,7 +1301,7 @@ describe("MapPage: 並びと出典", () => {
   });
 });
 
-describe("MapPage: 読めないとき（T10）", () => {
+describe("MapPage: 読み込めないとき（T10）", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -1310,17 +1310,17 @@ describe("MapPage: 読めないとき（T10）", () => {
   });
   const tick = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
 
-  it("事例が読めないまま 14,999ms では案内を出さず、15,000ms で出る。『読めるまで』の文は残る", () => {
+  it("事例が読み込めないまま 14,999ms では案内を出さず、15,000ms で出る。『読み込めるまで』の文は残る", () => {
     const r = rig();
     show(r);
     tick(14_999);
     expect(document.body.textContent).not.toContain(TEXT.slowLoad);
     tick(1);
     expect(document.body.textContent).toContain(TEXT.slowLoad);
-    expect(document.body.textContent).toContain("今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。");
+    expect(document.body.textContent).toContain("今季の発生をまだ読み込めていません。読み込めるまで、地図に色がなくても発生がないとは言えません。");
   });
 
-  it("15 秒たった後でも、事例が読めると案内が消える", () => {
+  it("15 秒たった後でも、事例が読み込めると案内が消える", () => {
     const r = rig();
     show(r);
     tick(15_000);
@@ -1646,7 +1646,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
         expect(document.querySelector(".map-disclaimer")).toBeNull();
       });
 
-      it("今季の事例がまだ読めていない間は出さない（0 件と言えない）", async () => {
+      it("今季の事例がまだ読み込めていない間は出さない（0 件と言えない）", async () => {
         localStorage.setItem(TOWN_KEY, "33214");
         const r = rig();
         show(r, { section: "now" });
@@ -1703,11 +1703,11 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
   });
 
   describe("直近 14 日", () => {
-    it("読み込み中は『まだ読めていません』で 0 件にしない", async () => {
+    it("読み込み中は『まだ読み込めていません』で 0 件にしない", async () => {
       const r = rig();
       show(r);
       await screen.findByTestId("map");
-      expect(recentValue()).toBe("まだ読めていません");
+      expect(recentValue()).toBe("まだ読み込めていません");
     });
 
     it("47 県とも未確認なら件数を見出しにしない", async () => {
@@ -1781,11 +1781,11 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       const r = rig({ history: "deferred" });
       show(r);
       await screen.findByTestId("map");
-      expect(pastCard()!.querySelector(".stat-value")!.textContent).toBe("まだ読めていません");
+      expect(pastCard()!.querySelector(".stat-value")!.textContent).toBe("まだ読み込めていません");
       await act(async () => {
-        r.historyDeferred.reject(new Error("読めない"));
+        r.historyDeferred.reject(new Error("読み込めない"));
       });
-      expect(pastCard()!.querySelector(".stat-value")!.textContent).toBe("読めませんでした");
+      expect(pastCard()!.querySelector(".stat-value")!.textContent).toBe("読み込めませんでした");
     });
   });
 
@@ -1795,7 +1795,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       const r = rig();
       show(r);
       await screen.findByTestId("map");
-      expect(bandCard()!.textContent).toContain("今季 まだ読めていません");
+      expect(bandCard()!.textContent).toContain("今季 まだ読み込めていません");
       r.deliverWatch(okWatch());
       r.deliverCases([
         tsuyamaCase({ id: "near", stages: onDate("2026-11-02") }),
@@ -1822,7 +1822,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       expect(bandCard()!.textContent).toContain("今季 確認できた範囲では 0 件（1 県は確認できていません）");
     });
 
-    it("過去の記録を読めなければ、過去は『読めませんでした』で今季は出す", async () => {
+    it("過去の記録を読み込めなければ、過去は『読み込めませんでした』で今季は出す", async () => {
       setSpot();
       const r = rig({ history: "deferred" });
       show(r);
@@ -1830,22 +1830,22 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       r.deliverWatch(okWatch());
       r.deliverCases([tsuyamaCase({ stages: onDate("2026-11-02") })]);
       await waitFor(() => expect(bandCard()!.textContent).toContain("今季 1 件"));
-      expect(bandText()).toContain("過去 6 シーズン まだ読めていません");
+      expect(bandText()).toContain("過去 6 シーズン まだ読み込めていません");
       await act(async () => {
-        r.historyDeferred.reject(new Error("読めない"));
+        r.historyDeferred.reject(new Error("読み込めない"));
       });
-      expect(bandText()).toContain("過去 6 シーズン 読めませんでした");
+      expect(bandText()).toContain("過去 6 シーズン 読み込めませんでした");
       expect(bandCard()!.textContent).toContain(TEXT.statFailedNote);
     });
 
-    it("知らない町の事例があり距離を計算できなければ『読めませんでした』で、0 件にしない", async () => {
+    it("知らない町の事例があり距離を計算できなければ『読み込めませんでした』で、0 件にしない", async () => {
       setSpot();
       const r = rig();
       show(r);
       await screen.findByTestId("map");
       r.deliverWatch(okWatch());
       r.deliverCases([tsuyamaCase({ muniCode: "33999" })]);
-      await waitFor(() => expect(bandCard()!.textContent).toContain("今季 読めませんでした"));
+      await waitFor(() => expect(bandCard()!.textContent).toContain("今季 読み込めませんでした"));
       expect(bandCard()!.textContent).toContain(TEXT.statFailedNote);
     });
 
@@ -1949,7 +1949,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       const r = rig();
       show(r);
       await screen.findByTestId("map");
-      await waitFor(() => expect(frequentCard()!.textContent).toContain("まだ読めていません"));
+      await waitFor(() => expect(frequentCard()!.textContent).toContain("まだ読み込めていません"));
       expect(frequentCard()!.textContent).not.toMatch(/ 0 件/u);
       r.deliverCases([]);
       await waitFor(() => expect(frequentCard()!.textContent).toContain("倉敷市 まだ確認できていません"));
@@ -1975,7 +1975,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       ...o,
     });
 
-    it("届くまでは 0 件にしない。読めなければ読めないまま", async () => {
+    it("届くまでは 0 件にしない。読み込めなければ読み込めないまま", async () => {
       const r = rig();
       let cb: ((b: WildBird[]) => void) | null = null;
       r.ds.subscribeWildBirds = (_s, c) => {
@@ -1986,7 +1986,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       await screen.findByTestId("map");
       r.deliverCases([]);
       r.deliverWatch(okWatch());
-      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("まだ読めていません");
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("まだ読み込めていません");
       expect(birdCard()!.textContent).not.toMatch(/\d 件/u);
       act(() => cb!([]));
       expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("0 件");
@@ -2067,7 +2067,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       expect(c.textContent).not.toContain("宮城県"); // 陰性は数えない
     });
 
-    it("/ で鶏舎の付近・選択地域を見ていても、野鳥の札は全国の数で出る", async () => {
+    it("/ で鶏舎の付近・選んだ地域を見ていても、野鳥の札は全国の数で出る", async () => {
       setSpot();
       const r = rig();
       r.ds.subscribeWildBirds = (_s, c) => {
@@ -2099,7 +2099,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       expect(birdCard()!.textContent).toContain("北海道・秋田県・鹿児島県");
     });
 
-    it("/ で読めないうちは 0 件にしない。0 件でも出典を添える（断りの全文は /season）", async () => {
+    it("/ で読み込めないうちは 0 件にしない。0 件でも出典を添える（断りの全文は /season）", async () => {
       const r = rig();
       let cb: ((b: WildBird[]) => void) | null = null;
       r.ds.subscribeWildBirds = (_s, c) => {
@@ -2110,7 +2110,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       await screen.findByTestId("map");
       r.deliverCases([]);
       r.deliverWatch(okWatch());
-      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("まだ読めていません");
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("まだ読み込めていません");
       act(() => cb!([]));
       expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("0 件");
       expect(birdCard()!.textContent).toContain(TEXT.statBirdsWhen);
@@ -2223,7 +2223,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
         await waitFor(() => expect(band()).toBeNull());
       });
 
-      it("選択地域が由利本荘市なら、町の中の秋田の件は地図に印があるので帯に出さない", async () => {
+      it("選んだ地域が由利本荘市なら、町の中の秋田の件は地図に印があるので帯に出さない", async () => {
         localStorage.setItem(TOWN_KEY, "05210");
         const r = rig();
         withBirds(r);
@@ -2431,7 +2431,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(band.textContent).toContain("今季 0 件");
   });
 
-  it("スマホでも、町が分からない発表と読めない断りは町の欄の約 60 km の件数に出る", async () => {
+  it("スマホでも、町が分からない発表と読み込めない断りは町の欄の約 60 km の件数に出る", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
     const r = rig({ history: "deferred" });
     show(r);
@@ -2441,12 +2441,12 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     const more = () => document.querySelector(".town-banner .farm-band")?.textContent;
     await waitFor(() => expect(more()).toContain(TEXT.statBandUnplaced(1)));
     await act(async () => {
-      r.historyDeferred.reject(new Error("読めない"));
+      r.historyDeferred.reject(new Error("読み込めない"));
     });
     expect(more()).toContain(TEXT.statFailedNote);
   });
 
-  it("スマホは数字の列が 4 枚（野鳥を含む）、過去は一覧より後の残りの札。野鳥の札に出典の行を付けない", async () => {
+  it("スマホは数字の列が 4 枚（野鳥を含む）。過去は離れた札にせず、地図のすぐ下に全国の 1 行で出す（2026-11-07 作者の了承 F）。野鳥の札に出典の行を付けない", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
@@ -2456,10 +2456,16 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(row.querySelectorAll(".stat")).toHaveLength(4);
     expect(row.querySelector(".stat-birds")).not.toBeNull();
     expect(row.querySelector(".stat-when")).toBeNull();
-    const rest = document.querySelector(".stat-rest")!;
-    expect(rest.querySelectorAll(".stat")).toHaveLength(1);
-    expect(rest.textContent).toContain("過去 6 シーズンの 11 月 4 日まで");
-    expect(before(document.querySelector(".case-list")!, rest)).toBe(true);
+    expect(document.querySelector(".stat-rest")).toBeNull();
+    expect(document.querySelector(".stat-past")).toBeNull();
+    const line = await waitFor(() => {
+      const el = document.querySelector(".stat-past-line");
+      expect(el).not.toBeNull();
+      return el!;
+    });
+    expect(line.textContent).toMatch(/^全国の過去 6 シーズン、同じ日（11 月 4 日）までの件数は /u);
+    // 地図のすぐ下（地図より上の高さは増やさない）
+    expect(before(document.querySelector(".map-box")!, line)).toBe(true);
     expect(row.querySelector(".stat-time")!.textContent).toContain("11 月 4 日 8:30 時点");
   });
 
@@ -2486,7 +2492,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(screen.queryAllByTestId("watch-line")).toHaveLength(0);
   });
 
-  it("選択地域付近: 確認中の県と町の分からない発表を、地図の下の端の 1 行に出す。『全国で見る』で全国へ。全国の広さでは出さない", async () => {
+  it("選んだ地域の付近: 確認中の県と町の分からない発表を、地図の下の端の 1 行に出す。『全国で見る』で全国へ。全国の広さでは出さない", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
@@ -2507,7 +2513,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(document.querySelector(".near-unmarked")).toBeNull();
   });
 
-  it("選択地域付近: 印のない発表がなければ、1 行を出さない", async () => {
+  it("選んだ地域の付近: 印のない発表がなければ、1 行を出さない", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
@@ -2702,7 +2708,7 @@ describe("県ごとと週ごとの棒", () => {
     expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
   });
 
-  it("読めていない間と、1 県も確認できていない間は枠を出さない", async () => {
+  it("読み込めていない間と、1 県も確認できていない間は枠を出さない", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
@@ -2773,14 +2779,14 @@ describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章�
     expect(has(".season-compare")).toBe(false);
     expect(has(".month-bars")).toBe(false);
     expect(has(".map-links")).toBe(false);
-    // 町を決めていて過去の行が出ると、その中に「選択地域の過去を見る」があるので、地図の下には重ねない（2026-11-07 精査 M3）
+    // 町を決めていて過去の行が出ると、その中に「選んだ地域の過去を見る」があるので、地図の下には重ねない（2026-11-07 精査 M3）
     await waitFor(() => expect(document.querySelector(".town-past")?.textContent).toContain(TEXT.townPastLink));
     const next = within(screen.getByRole("navigation", { name: "次の画面" })).getAllByRole("link");
     expect(next.map((a) => a.getAttribute("href"))).toEqual(["/season", "/compare"]);
     expect(screen.getAllByRole("link", { name: TEXT.townPastLink })).toHaveLength(1);
   });
 
-  it("now（/）で町を決めていなければ、選択地域の過去への入口は地図の下のリンクだけなので残す", async () => {
+  it("now（/）で町を決めていなければ、選んだ地域の過去への入口は地図の下のリンクだけなので残す", async () => {
     const r = rig();
     show(r, { section: "now" });
     await screen.findByTestId("map");
@@ -2792,14 +2798,14 @@ describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章�
     expect(screen.getAllByRole("link", { name: TEXT.townPastLink })).toHaveLength(1);
   });
 
-  it("now（/）で過去の記録が読めないときは、枠の中にリンクが出ないので、地図の下に残す", async () => {
+  it("now（/）で過去の記録が読み込めないときは、枠の中にリンクが出ないので、地図の下に残す", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig({ history: "deferred" });
     show(r, { section: "now" });
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    await act(async () => r.historyDeferred.reject(new Error("読めない")));
+    await act(async () => r.historyDeferred.reject(new Error("読み込めない")));
     await waitFor(() => expect(document.querySelector(".town-past [role=alert]")).not.toBeNull());
     const next = within(screen.getByRole("navigation", { name: "次の画面" })).getAllByRole("link");
     expect(next.map((a) => a.getAttribute("href"))).toEqual(["/town", "/season", "/compare"]);
@@ -2812,7 +2818,7 @@ describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章�
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     await waitFor(() => expect(has(".town-banner")).toBe(true));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("選択地域の過去");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("選んだ地域の過去");
     expect(has(".map-box")).toBe(false);
     expect(has(".stat-row")).toBe(false);
     expect(has(".town-area-link")).toBe(true);
@@ -2856,7 +2862,7 @@ describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章�
     expect(await screen.findByText(FIXED_TEXT.pastDisclaimer)).toBeTruthy();
   });
 
-  it("選択地域付近で比べているときは、その町の地方を数で見るへ渡す。県の番号でない値でも落ちない", async () => {
+  it("選んだ地域の付近で比べているときは、その町の地方を数で見るへ渡す。県の番号でない値でも落ちない", async () => {
     localStorage.setItem(TOWN_KEY, "33203");
     const r = rig();
     show(r, { section: "compare", path: "/compare" });
@@ -2930,7 +2936,7 @@ describe("MapPage: 直近 14 日の赤い枠（2026-11-07 作者の決定）", (
     await waitFor(() => expect(box.textContent).toContain("北海道は確認できていません。"));
   });
 
-  it("野鳥がまだ読めないときも養鶏場などは並べ、野鳥が読めていないことを書き添える", async () => {
+  it("野鳥がまだ読み込めないときも養鶏場などは並べ、野鳥が読み込めていないことを書き添える", async () => {
     const r = rig();
     r.ds.subscribeWildBirds = () => () => {};
     show(r, { section: "now" });

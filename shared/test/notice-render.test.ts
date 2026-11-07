@@ -88,32 +88,32 @@ describe("renderNotice: 段階の文", () => {
       expect(body("suspected", 1, kind)).toContain("区域に入っている可能性があります。県の連絡を確かめてください");
     }
   });
-  it("② 隣町で発生しました（疑いは 隣町で疑いの発表がありました）", () => {
-    expect(body("confirmed", 2, "adjacent")).toContain("隣町で発生しました");
-    expect(body("suspected", 2, "adjacent")).toContain("隣町で疑いの発表がありました");
+  it("② 隣の町で発生しました（疑いは 隣の町で疑いの発表がありました）", () => {
+    expect(body("confirmed", 2, "adjacent")).toContain("隣の町で発生しました");
+    expect(body("suspected", 2, "adjacent")).toContain("隣の町で疑いの発表がありました");
   });
   it("③ 登録した町で発生しました（疑いは 登録した町で疑いの発表がありました）", () => {
     expect(body("confirmed", 3, "frequent")).toContain("登録した町で発生しました");
     expect(body("suspected", 3, "frequent")).toContain("登録した町で疑いの発表がありました");
   });
-  it("level 2 の same_muni は固定文 sameMuniLifted で、「隣町」を含まない", () => {
+  it("level 2 の same_muni は固定文 sameMuniLifted で、「隣の町」を含まない", () => {
     for (const event of ["confirmed", "suspected"] as const) {
       const t = body(event, 2, "same_muni");
       expect(t).toContain(FIXED_TEXT.sameMuniLifted);
-      expect(t).not.toContain("隣町");
+      expect(t).not.toContain("隣の町");
     }
   });
   it("④ や確認中、否定には段階の文を出さない", () => {
     for (const t of [body("negated", 4, null), body("confirmed", 4, null)]) {
-      expect(t).not.toMatch(/区域に入っている可能性|隣町|登録した町/u);
+      expect(t).not.toMatch(/区域に入っている可能性|隣の町|登録した町/u);
     }
-    expect(body("negated", 1, "same_muni")).not.toMatch(/区域に入っている可能性|隣町|登録した町/u);
-    expect(body("reviewing", null, null)).not.toMatch(/区域に入っている可能性|隣町|登録した町/u);
+    expect(body("negated", 1, "same_muni")).not.toMatch(/区域に入っている可能性|隣の町|登録した町/u);
+    expect(body("reviewing", null, null)).not.toMatch(/区域に入っている可能性|隣の町|登録した町/u);
   });
   it("解除には段階の文を出さない。① の搬出制限の解除だけ、表示が続くことを書く", () => {
     for (const [level, kind] of [[2, "adjacent"], [3, "frequent"]] as const) {
-      expect(body("shipment_lifted", level, kind)).not.toMatch(/区域に入っている可能性|隣町|登録した町/u);
-      expect(body("movement_lifted", level, kind)).not.toMatch(/区域に入っている可能性|隣町|登録した町/u);
+      expect(body("shipment_lifted", level, kind)).not.toMatch(/区域に入っている可能性|隣の町|登録した町/u);
+      expect(body("movement_lifted", level, kind)).not.toMatch(/区域に入っている可能性|隣の町|登録した町/u);
     }
     expect(body("shipment_lifted", 1, "within_radius")).toContain("搬出制限は解除されました。区域に入っている可能性の表示は、移動制限の解除まで続きます");
     expect(body("movement_lifted", 1, "within_radius")).not.toContain("表示は、移動制限の解除まで続きます");

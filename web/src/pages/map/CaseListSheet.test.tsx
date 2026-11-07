@@ -79,17 +79,17 @@ describe("CaseListSheet", () => {
     expect(screen.getByText(WILD_ZONE_NOTE)).toBeTruthy();
   });
 
-  it("読めていないときは件数を出さず、『発生がないとは言えません』。0 件にしない", () => {
+  it("読み込めていないときは件数を出さず、『発生がないとは言えません』。0 件にしない", () => {
     show({ rows: [], birds: [], loaded: false });
     const btn = screen.getByRole("button", { name: /一覧/ });
-    expect(btn.textContent).toContain("まだ読めていません");
+    expect(btn.textContent).toContain("まだ読み込めていません");
     expect(btn.textContent).not.toMatch(/0 件/);
     fireEvent.click(btn);
     expect(screen.getByText(/発生がないとは言えません/)).toBeTruthy();
     expect(screen.queryByRole("list", { name: "発生の一覧" })).toBeNull();
   });
 
-  it("読めていて 0 行なら、その旨", () => {
+  it("読み込めていて 0 行なら、その旨", () => {
     show({ rows: [], birds: [] });
     fireEvent.click(screen.getByRole("button", { name: /一覧/ }));
     expect(screen.getByText(/一覧にできる発生の報告はありません/)).toBeTruthy();
@@ -193,9 +193,9 @@ describe("WatchLine", () => {
     expect(screen.queryByTestId("watch-line")).toBeNull();
   });
 
-  it("見回りの結果が未着のときは、文を出さず『まだ読めていません』", () => {
+  it("見回りの結果が未着のときは、文を出さず『まだ読み込めていません』", () => {
     render(<WatchLine loaded={false} line={{ text: "47 都道府県のうち 0 県を確認、47 県は確認できていません（北海道）", asOf: null, failedPrefCodes: ["01"], okCount: 0 }} />);
-    expect(screen.getByTestId("watch-line").textContent).toContain("まだ読めていません");
+    expect(screen.getByTestId("watch-line").textContent).toContain("まだ読み込めていません");
   });
 });
 

@@ -62,7 +62,7 @@ function zip(entries: Record<string, string>, method: 0 | 8): Buffer {
 const colLetter = (i: number): string => String.fromCharCode(65 + i);
 const esc = (s: string): string => s.replace(/&/gu, "&amp;").replace(/</gu, "&lt;");
 
-/** 表 → xlsx。文字は共有文字列（半分）と inlineStr（残り）の両方で書いて、どちらも読めることを確かめる */
+/** 表 → xlsx。文字は共有文字列（半分）と inlineStr（残り）の両方で書いて、どちらも読み込めることを確かめる */
 function xlsx(grid: Cell[][], method: 0 | 8 = 8): Buffer {
   const shared: string[] = [];
   let sheet = "";
@@ -128,7 +128,7 @@ describe("xlsx を読む", () => {
 describe("調査の回を取り出す", () => {
   const x = extractSurveys(parseXlsx(xlsx(fixtureGrid())));
 
-  it("日付はシリアル値と文字の両方を読み、読めない列は数えて飛ばす", () => {
+  it("日付はシリアル値と文字の両方を読み、読み込めない列は数えて飛ばす", () => {
     expect(x.siteName).toBe("試験沼");
     expect(x.surveys.map((s) => s.date)).toEqual(["2026-09-28", "2026-10-05", "2026-10-14"]);
     expect(x.skippedColumns).toBe(1);
@@ -177,7 +177,7 @@ describe("調査の回を取り出す", () => {
     expect(y.surveys.map((s) => s.total)).toEqual([null, 0]);
   });
 
-  it("「報告未着」の列（日付が読めない予定の列も）と、羽数として読めないセルを数える", () => {
+  it("「報告未着」の列（日付が読み込めない予定の列も）と、羽数として読み込めないセルを数える", () => {
     const g: Cell[][] = [
       ["調査地点名", "試験湖", "試験湖", "試験湖"],
       ["調査年月日", serial("2026-09-26"), "10月上旬", "10月中旬"],
@@ -328,7 +328,7 @@ describe("飛来の早さ", () => {
 });
 
 describe("入口のページ", () => {
-  it("リンクと名前を取り出す。番号のかっこと &nbsp; を除き、同じ番号は 1 つ。</a> が抜けたページも読める", () => {
+  it("リンクと名前を取り出す。番号のかっこと &nbsp; を除き、同じ番号は 1 つ。</a> が抜けたページも読み込める", () => {
     const html = `
       <td>&nbsp;<a href="site_csv/10.xlsx">(1)クッチャロ湖</a></td>
       <td><a href="site_csv/65.xls">(6-1)厚岸・別寒辺牛・霧多布（別寒辺牛川下流・厚岸湖）</a></td>
@@ -345,8 +345,8 @@ describe("入口のページ", () => {
   });
 });
 
-describe("取った本体が読めるかの確認（読めないものは保存しない）", () => {
-  it("エラーページ（HTML）、途中で切れた xlsx、調査の回のない xlsx は理由を返す。読めるものは null", () => {
+describe("取った本体が読み込めるかの確認（読み込めないものは保存しない）", () => {
+  it("エラーページ（HTML）、途中で切れた xlsx、調査の回のない xlsx は理由を返す。読み込めるものは null", () => {
     expect(checkXlsxBody(Buffer.from("<html>503 Service Unavailable</html>"))).toMatch(/zip/u);
     const ok = xlsx(fixtureGrid());
     expect(checkXlsxBody(ok)).toBeNull();

@@ -96,11 +96,11 @@ describe("parseMoeTable: 表の向きと欄", () => {
     ["表が無い", [] as PdfItem[], "no_table"],
     ["メンテナンスの表示", [{ page: 1, s: "メンテナンス中です", x: 10, y: 10 }], "no_table"],
     ["件が 0", columnTable([]), "no_rows"],
-    ["回収日が読めない", columnTable([{ ...AKITA, date: "調査中" }]), "row_unreadable"],
+    ["回収日が読み込めない", columnTable([{ ...AKITA, date: "調査中" }]), "row_unreadable"],
     ["暦にない回収日", columnTable([{ ...AKITA, date: "2/30" }]), "row_unreadable"],
     ["見たことのない言い方（低病原性）", columnTable([{ ...AKITA, path: "低病原性" }]), "unknown_result_wording"],
     ["番号があるのに確定でない", columnTable([{ ...AKITA, path: "検査中", screening: "簡易陽性" }]), "numbered_row_not_confirmed"],
-    ["番号の欄が読めない", columnTable([{ ...AKITA, no: "1例目と重複" }]), "national_no_unreadable"],
+    ["番号の欄が読み込めない", columnTable([{ ...AKITA, no: "1例目と重複" }]), "national_no_unreadable"],
     ["同じ番号が 2 件", columnTable([AKITA, { ...AKITA, pref: "北海道", muni: "音更町" }]), "duplicate_national_no"],
     ["「病原性」の項目名が無い（県名の値はある）", columnTable([AKITA], COLUMN_ROWS.filter(([l]) => l !== "病原性")), "labels_missing"],
   ])("%s → 失敗（黙って 0 件や一部だけにしない）", (_, items, reason) => {
@@ -136,7 +136,7 @@ describe("検査の段階と日付と番号", () => {
   });
   it("表の 1 件を wildBirds の形にする。市町村の番号を引き、区域の日付は解除済みだけ to に入れる。種名が無ければ検体の種類", () => {
     const r = parseMoeTable(columnTable([KURIHARA, AKITA, WATER]), 2026);
-    if (!r.ok) throw new Error("読めない");
+    if (!r.ok) throw new Error("読み込めない");
     const [k, a, w] = r.rows.map((row) => rowToWildBird(row, 2026, geo, "https://www.env.go.jp/content/000438579.pdf"));
     expect(k).toMatchObject({ test: "negative", date: "2026-10-27", prefCode: "04", muniName: "栗原市", focusZone: { from: "2026-10-27", to: "2026-10-30" } });
     expect(k!.muniCode).toMatch(/^04\d{3}$/u);

@@ -85,20 +85,20 @@ test.describe("模擬環境（live の DataSource）", () => {
     await page.goto("/?emulator=1");
     await page.waitForTimeout(15_000);
     const main = page.getByRole("main");
-    await expect(main.getByText(/読み込んでいます。読めるまで/)).toBeVisible();
-    // 次の 2 つは、読めないときの正しい表示で、今季の発生の件数や段階の文ではない。除く前に、文そのものを決まった形で確かめる。
+    await expect(main.getByText(/読み込んでいます。読み込めるまで/)).toBeVisible();
+    // 次の 2 つは、読み込めないときの正しい表示で、今季の発生の件数や段階の文ではない。除く前に、文そのものを決まった形で確かめる。
     // ・確認状況の 1 行: 「0 件を確認」は確認できた県の数。設計どおりの文と完全に一致すること（「発生なし」「0 件（発生）」などの別の文が混ざれば落ちる）
     await expect(page.getByTestId("watch-line")).toHaveText(
       /^47 都道府県のうち 0 県を確認、47 県は確認できていません。地図の斜線の県は、発生がないとは言えません。$/u,
     );
     // ・過去の記録の行: 「過去の記録」で始まり「（記録）」で終わる 1 文（同梱の過去データ由来。色なし）。今季の文が紛れ込めば落ちる
     await expect(page.locator(".town-past > p").first()).toHaveText(/^過去の記録 .+（記録）$/u);
-    // ・過去のシーズンとの比べ: 過去の実績の「0 件」（例: 2020/21 は 11 月 4 日まで 0 件）は正しい表示。今季の行は件数ではなく「まだ読めていません」であること
-    await expect(page.locator(".season-compare")).toContainText(/今季（[0-9/]+）は .+までに まだ読めていません/u);
+    // ・過去のシーズンとの比べ: 過去の実績の「0 件」（例: 2020/21 は 11 月 4 日まで 0 件）は正しい表示。今季の行は件数ではなく「まだ読み込めていません」であること
+    await expect(page.locator(".season-compare")).toContainText(/今季（[0-9/]+）は .+までに まだ読み込めていません/u);
     await page.addStyleTag({ content: '.town-past, [data-testid="watch-line"], .season-compare { display: none !important; }' });
     const text = await main.innerText();
     expect(text).not.toMatch(/(^|[^0-9])0 件/);
-    for (const sentence of ["全国の動きをお知らせしています", "隣町で発生しました", "区域に入っている可能性があります"]) {
+    for (const sentence of ["全国の動きをお知らせしています", "隣の町で発生しました", "区域に入っている可能性があります"]) {
       expect(text).not.toContain(sentence);
     }
     await expect(page.locator("[data-tone]")).toHaveCount(0);

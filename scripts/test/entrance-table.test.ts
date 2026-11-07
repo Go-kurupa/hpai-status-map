@@ -371,7 +371,7 @@ describe("check-entrances（コマンド）", () => {
     }
   });
 
-  it("sources.json が読めなければ 2 で終わり、何も書かない", async () => {
+  it("sources.json が読み込めなければ 2 で終わり、何も書かない", async () => {
     const t = setup([]);
     try {
       const code = await runCheckEntrances(["--sources", path.join(t.dir, "none.json"), "--docs-dir", t.docs], {

@@ -81,7 +81,7 @@ export function useDisinfectionLog(enabled: boolean): DisinfectionLog {
         setRecentFailed(false);
       },
       () => {
-        if (!off) setRecentFailed(true); // 読めなくても「やった」は押せる。最近の記録だけ出せない
+        if (!off) setRecentFailed(true); // 読み込めなくても「やった」は押せる。最近の記録だけ出せない
       },
     );
     return () => {

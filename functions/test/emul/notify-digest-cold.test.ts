@@ -50,7 +50,7 @@ describe("冷えた状態から、県をまたぐ事例を朝に送る", () => {
     const { deps, mail } = makeDeps();
     await runMorningDigest(deps, geo);
     expect(mail.sent).toHaveLength(1);
-    expect(mail.sent[0]!.text).toContain("隣町で発生しました");
+    expect(mail.sent[0]!.text).toContain("隣の町で発生しました");
     expect((await sentNoticeDocs())[key]).toMatchObject({ state: "sent" });
   });
 });

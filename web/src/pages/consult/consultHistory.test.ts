@@ -183,7 +183,7 @@ describe("一覧の札と検索", () => {
 
 
 describe("今回使った条件（farm）の記録", () => {
-  it("条件の付いた答えは、条件ごと保存して読み戻せる。条件のない古い記録もそのまま読める", () => {
+  it("条件の付いた答えは、条件ごと保存して読み戻せる。条件のない古い記録もそのまま読み込める", () => {
     const key = historyKey("u1");
     const withFarm = { ...answered("答え"), farm: { production: "layer", rearing: "floor" } } as ConsultAskResponse;
     saveConversations(key, [conv("条件あり", 2, [turn("平飼いの長靴は？", withFarm)]), conv("古い", 1)]);
@@ -192,7 +192,7 @@ describe("今回使った条件（farm）の記録", () => {
     expect("farm" in back.find((c) => c.id === "古い")!.turns[0]!.result).toBe(false);
   });
 
-  it("片方だけの条件も読める。形の違う条件（列挙の外、余計な項目、空）の往復は捨てる", () => {
+  it("片方だけの条件も読み込める。形の違う条件（列挙の外、余計な項目、空）の往復は捨てる", () => {
     const key = historyKey("u1");
     const r = (farm: unknown) => ({ ...answered("答え"), farm }) as unknown as ConsultAskResponse;
     localStorage.setItem(

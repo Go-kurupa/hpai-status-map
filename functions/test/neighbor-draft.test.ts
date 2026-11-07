@@ -253,7 +253,7 @@ describe("handleNeighborDraft: 雛形と結果", () => {
     expect(at.create).not.toHaveBeenCalled();
     expect(at.reserve).not.toHaveBeenCalled(); // 止まっている日は回数を使わせない
   });
-  it("予算を読めないときも Claude を呼ばず、雛形を返す", async () => {
+  it("予算を読み込めないときも Claude を呼ばず、雛形を返す", async () => {
     const t = setup(msg(wire(GOOD)));
     t.deps.month = async () => {
       throw new Error("firestore down");

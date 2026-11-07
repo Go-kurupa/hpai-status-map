@@ -1,5 +1,5 @@
 // X-08: 見本の農場の 3 つの画面（/sample、/sample/todo、/sample/record/*）。M の画面を ReplayFrame（recordStore）で包む。
-// 会員の状態（useAuthUser）と Firebase は一切読まない（読めば試験が落ちる）。通信は静的ファイルの 3 つだけ。
+// 会員の状態（useAuthUser）と Firebase は一切読まない（読み込めば試験が落ちる）。通信は静的ファイルの 3 つだけ。
 import { createGeoStore } from "@hpai/shared/geo";
 import { MORTALITY_TEXT } from "@hpai/shared/mortality";
 import { findForbiddenPhrases, FIXED_TEXT } from "@hpai/shared/wording";
@@ -176,7 +176,7 @@ describe("/sample（入口）", () => {
   it("読み込めなければ、そう書く（空の画面を出さない）。やり直せる", async () => {
     stubFetch({ failSample: true });
     mount("/sample");
-    expect(await screen.findByText(/見本のデータを読めませんでした/)).toBeTruthy();
+    expect(await screen.findByText(/見本のデータを読み込めませんでした/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "もう一度読む" })).toBeTruthy();
     expect(screen.queryByText(FIXED_TEXT.replayBanner)).toBeNull();
   });

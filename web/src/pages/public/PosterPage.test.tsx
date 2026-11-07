@@ -7,7 +7,7 @@ import { DataSourceProvider } from "../../data/context";
 import type { DataSource } from "../../data/types";
 import PosterPage from "./PosterPage";
 
-// 貼り紙（§11）。平時から貼れるよう、発生とは読めない文にする。県や家保の看板に似せない。
+// 貼り紙（§11）。平時から貼れるよう、発生とは読み込めない文にする。県や家保の看板に似せない。
 
 const BANNED = /発生|鳥インフルエンザ|告|法律|罰則|安全|安心|心配/u;
 

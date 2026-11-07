@@ -78,7 +78,7 @@ describe("過去 6 シーズン（実データ）", () => {
     expect(v.suspectedMuniCodes).toEqual([]);
   });
 
-  it("過去の記録が読めていない（history が null）ときは loaded:false で件数を 0 にしない", () => {
+  it("過去の記録が読み込めていない（history が null）ときは loaded:false で件数を 0 にしない", () => {
     const v = buildSeasonView({ season: 2025, current: 2026, currentCases: [], history: null });
     expect(v.loaded).toBe(false);
     expect(v.months).toEqual([]);

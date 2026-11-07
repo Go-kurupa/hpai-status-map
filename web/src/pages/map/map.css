@@ -1834,6 +1834,8 @@
 }
 .recent-alert-toggle {
   all: unset;
+  /* 内訳まで 1 行に収めるため、畳んだ行は本文より少し小さく（14px より大きく） */
+  font-size: 16px;
   box-sizing: border-box;
   cursor: pointer;
   color: var(--lv1);
@@ -1857,4 +1859,9 @@
 .recent-alert-range {
   margin: 0 0 4px;
   color: var(--muted);
+}
+
+/* スマホの全国の過去の同じ日までの 1 行（2026-11-07 作者の了承 F）。件数の枠の中か、地図のすぐ下に置く */
+.stat-past-line {
+  margin: 4px 0 0;
 }

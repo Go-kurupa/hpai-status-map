@@ -619,7 +619,7 @@ describe("RequireMember", () => {
     expect(calls).toEqual(["redeemInvite", "getIdToken:true"]);
   });
 
-  it("ログイン状態を確かめられなければ、招待コードではなく読めなかったと伝える", async () => {
+  it("ログイン状態を確かめられなければ、招待コードではなく読み込めなかったと伝える", async () => {
     auth.currentUser = makeUser();
     auth.currentUser.getIdTokenResult.mockRejectedValue(new Error("network"));
     gate("firestore");

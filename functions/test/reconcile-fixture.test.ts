@@ -43,7 +43,7 @@ describeFixture("国の月別一覧 7 ページの本文の控え（国との突
     updatedAt: `${h.date}T12:00:00+09:00`,
   });
 
-  it("45 本の発表がすべて読め、国の確定の N が 1〜24 の 24 事例で埋まる", () => {
+  it("45 本の発表がすべて読み込め、国の確定の N が 1〜24 の 24 事例で埋まる", () => {
     expect(items.filter((_, i) => facts[i] === null).map((i) => i.url)).toEqual([]);
     const all = facts as NationalFact[];
     expect([...nationalConfirmedNos(all, 2025)].sort((a, b) => a - b)).toEqual(Array.from({ length: 24 }, (_, i) => i + 1));

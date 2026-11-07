@@ -170,7 +170,7 @@ export function CompareOverlay(p: CompareOverlayProps) {
       </div>
       {pair && p.seasons[0] === p.seasons[1] ? <p className="map-notice">{CMP_TEXT.sameSeason}</p> : null}
       <div className="map-box">
-        {/* 読めていない間も重ね合わせの形で渡し、塗りは空にする。1 シーズン分の普通の塗りと県の件数の札を凡例なしで出さない（E8、E13） */}
+        {/* 読み込めていない間も重ね合わせの形で渡し、塗りは空にする。1 シーズン分の普通の塗りと県の件数の札を凡例なしで出さない（E8、E13） */}
         {p.renderMap(
           pair
             ? {

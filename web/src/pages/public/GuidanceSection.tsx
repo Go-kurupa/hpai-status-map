@@ -6,7 +6,7 @@ import { Illust } from "./Illust";
 import type { StatementNote } from "./pageNotes";
 
 export const NOTES_HEADING = "このページからのお願い";
-export const LEAD_HEADING = "要約（作品側のまとめ）";
+export const LEAD_HEADING = "要約（このサイトのまとめ）";
 
 /**
  * 「鶏を飼っていない方へ」の 1 つの節（§11）。国の機関の文は出典と確認日つきで、県のページはリンクだけで示す。
@@ -40,7 +40,7 @@ export function GuidanceSection({
         <span>{heading}</span>
       </h2>
       {lead ? (
-        <aside data-role="section-lead" className="guidance-lead" aria-label={`${heading}の要点（国の文ではない、作品側のまとめ）`}>
+        <aside data-role="section-lead" className="guidance-lead" aria-label={`${heading}の要点（国の文ではない、このサイトのまとめ）`}>
           <h3>{LEAD_HEADING}</h3>
           <p>{lead}</p>
         </aside>
@@ -56,8 +56,8 @@ export function GuidanceSection({
           {(statementNotes ?? [])
             .filter((n) => s.text.includes(n.after))
             .map((n) => (
-              <aside key={n.after} data-role="sourced-note" className="guidance-sourced-note" aria-label="国の文ではない、作品側の要約">
-                <h3>作品側の要約（国の文ではありません）</h3>
+              <aside key={n.after} data-role="sourced-note" className="guidance-sourced-note" aria-label="国の文ではない、このサイトの要約">
+                <h3>このサイトの要約（国の文ではありません）</h3>
                 <p>{n.text}</p>
                 <SourceLine title={n.sourceTitle} url={n.sourceUrl} checkedOn={n.checkedOn} />
               </aside>

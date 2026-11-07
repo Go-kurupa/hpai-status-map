@@ -23,7 +23,7 @@ import { resolveTodo } from "./todoModel";
 // 県の形の読み込みは fetch を使うので、jsdom では実データを fs から読む。試験ごとに作り直し、未読み込み（冷えた状態）から始める
 const geoBox = vi.hoisted(() => ({ store: null as unknown, fail: false }));
 vi.mock("../../geo/loadGeo", () => ({
-  loadWebGeoStore: () => (geoBox.fail ? Promise.reject(new Error("読めません")) : Promise.resolve(geoBox.store)),
+  loadWebGeoStore: () => (geoBox.fail ? Promise.reject(new Error("読み込めません")) : Promise.resolve(geoBox.store)),
 }));
 
 const authState = vi.hoisted(() => ({
@@ -45,7 +45,7 @@ const reviewBox = vi.hoisted(() => ({
 }));
 vi.mock("../consult/reviewStore", () => ({ createReviewStore: () => reviewBox.store }));
 vi.mock("../consult/cardsData", () => ({
-  loadConsultCatalog: () => (reviewBox.catalogFail ? Promise.reject(new Error("読めません")) : Promise.resolve(reviewBox.catalog)),
+  loadConsultCatalog: () => (reviewBox.catalogFail ? Promise.reject(new Error("読み込めません")) : Promise.resolve(reviewBox.catalog)),
 }));
 
 import TodoPage, { orderSections } from "./TodoPage";
@@ -671,7 +671,7 @@ describe("消毒への道、段階 1 の並び、番号の注意", () => {
     expect(container.textContent).toContain(position);
   });
 
-  it("農場が読めているとき確認リストの中に取り消しがない旨が出る。農場がなければ出ない", async () => {
+  it("農場が読み込めているとき確認リストの中に取り消しがない旨が出る。農場がなければ出ない", async () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText("今月の自己点検を確かめましょう");
     openMore();
@@ -863,7 +863,7 @@ describe("AI の相談から足した見直しの欄（会員だけ）", () => {
     expect(sec.queryByText("相談の画面で『対策項目に追加する』を押すと、ここに並びます。")).toBeNull();
   });
 
-  it("会員でない（農場を読めない）ときは欄を出さず、足した項目も読みにいかない", async () => {
+  it("会員でない（農場を読み込めない）ときは欄を出さず、足した項目も読みにいかない", async () => {
     farm = null;
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     await screen.findByText("今月の自己点検を確かめましょう");

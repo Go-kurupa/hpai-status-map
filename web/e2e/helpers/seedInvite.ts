@@ -46,7 +46,7 @@ export async function latestSignInLink(email: string, opts: { host?: string } = 
   const host = opts.host ?? process.env["FIREBASE_AUTH_EMULATOR_HOST"] ?? "127.0.0.1:9099";
   if (!/^[A-Za-z0-9.-]+:\d+$/.test(host)) throw new Error(`模擬環境の host ではありません: ${host}`);
   const res = await fetch(`http://${host}/emulator/v1/projects/${PROJECT}/oobCodes`);
-  if (!res.ok) throw new Error(`oobCodes を読めませんでした（${res.status}）`);
+  if (!res.ok) throw new Error(`oobCodes を読み込めませんでした（${res.status}）`);
   const body = (await res.json()) as { oobCodes?: Array<{ email: string; requestType: string; oobLink: string }> };
   const mine = (body.oobCodes ?? []).filter((c) => c.email === email && c.requestType === "EMAIL_SIGNIN");
   const last = mine.at(-1);

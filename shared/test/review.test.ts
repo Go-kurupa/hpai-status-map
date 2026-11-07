@@ -152,7 +152,7 @@ describe("reviewDetailOf", () => {
     expect(json).not.toContain("簡易検査");
     expect(json).not.toContain("detail");
   });
-  it("読めなかった文書は空の値とエラーの符号を返す", () => {
+  it("読み込めなかった文書は空の値とエラーの符号を返す", () => {
     const d = reviewDetailOf(doc({ kind: null, primary: null, verify: null, compare: null, error: "refusal:cyber" }));
     expect(d).toMatchObject({ kind: null, prefecture: null, municipality: null, primaryStage: null, primaryDate: null, radiiKm: [], issues: [], mismatches: [], error: "refusal:cyber" });
   });

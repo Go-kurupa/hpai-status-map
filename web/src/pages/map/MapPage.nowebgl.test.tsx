@@ -134,7 +134,7 @@ describe("WebGL2 が使えない端末", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { container } = mount();
     const japan = await screen.findByRole("group", { name: TEXT.svgMapAria }, SLOW);
-    // 鶏舎の場所の欄は、選択地域の行のすぐ下（2026-11-07 作者の決定 A）。町を選ぶまでは出さない
+    // 鶏舎の場所の欄は、選んだ地域の行のすぐ下（2026-11-07 作者の決定 A）。町を選ぶまでは出さない
     expect(screen.queryByRole("region", { name: TEXT.spotTitle })).toBeNull();
     // 町を選ぶ（代わりの地図から）
     fireEvent.click(screen.getByRole("button", { name: TEXT.pickTown }));

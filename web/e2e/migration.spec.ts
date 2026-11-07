@@ -58,7 +58,7 @@ test.describe("渡りの経路（環境省の図）", () => {
     }
     await expectNoForbiddenText(page);
 
-    // 遅延読み込みなので、順に見える位置へ出してから読めたか確かめる
+    // 遅延読み込みなので、順に見える位置へ出してから読み込めたか確かめる
     const imgs = root.locator("img");
     await expect(imgs).toHaveCount(5);
     for (let i = 0; i < 5; i++) {

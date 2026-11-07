@@ -58,7 +58,7 @@ function rig(o: { cases?: Case[]; failed?: string[]; historyFails?: boolean; pat
       cb(okWatch(o.failed));
       return () => {};
     },
-    loadHistory: () => (o.historyFails ? Promise.reject(new Error("読めない")) : Promise.resolve(history)),
+    loadHistory: () => (o.historyFails ? Promise.reject(new Error("読み込めない")) : Promise.resolve(history)),
   };
   render(
     <MemoryRouter initialEntries={[o.path ?? "/explore"]}>
@@ -168,7 +168,7 @@ describe("ExplorePage", () => {
     expect(screen.getByRole("link", { name: "地図で中国を見る" }).getAttribute("href")).toBe("/compare?region=chugoku");
   });
 
-  it("過去を読めないときは、もう一度読む口を出し、件数の 1 文は出さない", async () => {
+  it("過去を読み込めないときは、もう一度読む口を出し、件数の 1 文は出さない", async () => {
     rig({ historyFails: true });
     expect(await screen.findByText(EXPLORE_TEXT.historyFailed)).toBeTruthy();
     expect(screen.getByRole("button", { name: EXPLORE_TEXT.retry })).toBeTruthy();

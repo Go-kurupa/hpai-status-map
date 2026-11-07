@@ -120,7 +120,7 @@ describe("採点: 1 文書", () => {
     expect(falsePositive.publishedMandatoryError).toBe(true);
   });
 
-  it("読めなかった文書（拒否、形式エラー、打ち切り、API の失敗）は read が null で、誤りに数えない", () => {
+  it("読み込めなかった文書（拒否、形式エラー、打ち切り、API の失敗）は read が null で、誤りに数えない", () => {
     for (const reason of ["refusal", "format_error", "max_tokens", "api_error"] as const) {
       const s = scoreDocument({ answer: base.answer, text: base.text, hasTextLayer: true, primary: fail(reason), second: ok(base.goodSecond), geo });
       expect(s.read).toBeNull();
@@ -269,7 +269,7 @@ describe("summarize と evalPasses", () => {
 
   const pass = (scores: DocScore[], tamper = { total: 15, rejected: 15 }): boolean => evalPasses(summarize(scores, tamper, { prevSeason: 24, titles: 70 }, 0, NOW), scores);
 
-  it("読めた文書が 30 以上で、市町村、段階、日付、公開の誤りが 0 なら合格。読めた 29 は不合格", () => {
+  it("読み込めた文書が 30 以上で、市町村、段階、日付、公開の誤りが 0 なら合格。読み込めた 29 は不合格", () => {
     expect(pass(many(30))).toBe(true);
     expect(pass(many(29))).toBe(false);
     expect(pass([...many(29), fake({ read: null, primaryFailure: "max_tokens" })])).toBe(false);
@@ -287,8 +287,8 @@ describe("summarize と evalPasses", () => {
   });
 
   // 設計書 §16「読み取り」: 正解つきの発表 30 文書以上で、市町村、段階、日付の誤りが 0。羽数の誤りは照合か二重読みで落ちる。
-  // 読めなかった文書の許容は書かれていないので、形式エラーと打ち切りは 0 件を合格の条件にする。
-  it("形式エラーと打ち切り（主でも別の読み手でも）が 1 件でもあれば、読めた文書が 30 以上でも不合格", () => {
+  // 読み込めなかった文書の許容は書かれていないので、形式エラーと打ち切りは 0 件を合格の条件にする。
+  it("形式エラーと打ち切り（主でも別の読み手でも）が 1 件でもあれば、読み込めた文書が 30 以上でも不合格", () => {
     expect(pass([...many(30), fake({ read: null, primaryFailure: "format_error" })])).toBe(false);
     expect(pass([...many(30), fake({ read: null, primaryFailure: "max_tokens" })])).toBe(false);
     expect(pass([...many(30), fake({ secondFailure: "format_error", second: null, compare: null })])).toBe(false);
@@ -424,7 +424,7 @@ describe("過去分（--backfill）", () => {
 });
 
 describe("summary の型", () => {
-  it("EvalSummary として X-09 が読める形（measuredAt、metrics、unmeasured、costPerDocumentUsd）", () => {
+  it("EvalSummary として X-09 が読み込める形（measuredAt、metrics、unmeasured、costPerDocumentUsd）", () => {
     const s: EvalSummary = summarize(many(30), { total: 15, rejected: 15 }, null, 3, NOW);
     expect(Object.keys(s).sort()).toEqual(["costPerDocumentUsd", "measuredAt", "metrics", "unmeasured"]);
     for (const m of s.metrics) expect(Object.keys(m).sort()).toEqual(["denominator", "name", "note", "unit", "value"]);

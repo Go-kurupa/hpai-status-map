@@ -334,7 +334,7 @@ function DeathsBody({ farm }: { farm: FarmWithId }) {
       setCount("");
       setReason("");
     } catch {
-      setError(RECORD_TEXT.readFailed); // 保存はできている。計算に使う記録だけ読めなかった
+      setError(RECORD_TEXT.readFailed); // 保存はできている。計算に使う記録だけ読み込めなかった
     }
     setBusy(false);
   }

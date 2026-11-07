@@ -50,7 +50,7 @@ describe("measured-usage.json と docs/cost.md", () => {
   const usage = parseMeasuredUsage(JSON.parse(read("data/replay/measured-usage.json")));
   const cost = read("docs/cost.md");
 
-  it("measured-usage.json は読める形", () => {
+  it("measured-usage.json は読み込める形", () => {
     expect(usage).not.toBeNull();
   });
 

@@ -27,7 +27,7 @@ describe("formatAsOf", () => {
     expect(formatAsOf("2025-12-21T00:00:00Z")).toBe("12 月 21 日 9:00 時点");
     expect(formatAsOf("2025-12-31T16:30:00Z")).toBe("1 月 1 日 1:30 時点");
   });
-  it("読めない文字列は『時点』と言わない", () => {
+  it("読み込めない文字列は『時点』と言わない", () => {
     expect(formatAsOf("not a date")).toBe("確認できていません");
   });
 });

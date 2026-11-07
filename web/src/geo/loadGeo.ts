@@ -9,7 +9,7 @@ const base = () => `${import.meta.env.BASE_URL}geo/`;
 
 async function getJson<T>(file: string): Promise<T> {
   const res = await fetch(`${base()}${file}`);
-  if (!res.ok) throw new Error(`地図のデータを読めませんでした（${file}: ${res.status}）`);
+  if (!res.ok) throw new Error(`地図のデータを読み込めませんでした（${file}: ${res.status}）`);
   return (await res.json()) as T;
 }
 

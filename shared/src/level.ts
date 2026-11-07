@@ -211,7 +211,7 @@ export function summarizeWatch(all: readonly WatchStatus[], now: Date): WatchSum
       records.every((w) => {
         if (!w.ok || w.checkedAt === null) return false;
         const age = now.getTime() - Date.parse(w.checkedAt);
-        return Number.isFinite(age) && age >= 0 && age <= WATCH_FRESH_MS; // 読めない時刻は NaN、未来の時刻は負で、どちらも未確認になる
+        return Number.isFinite(age) && age >= 0 && age <= WATCH_FRESH_MS; // 読み込めない時刻は NaN、未来の時刻は負で、どちらも未確認になる
       });
     if (fresh) okCount++;
     else failedPrefCodes.push(pref.code);

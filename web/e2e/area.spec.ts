@@ -2,8 +2,8 @@ import type { Case } from "@hpai/shared/types";
 import { expect, test, type Page } from "@playwright/test";
 import { installFixture } from "./fixtures";
 
-// 市町村の案内 /area/{コード}（W-07）。登録なしで読める。Firebase の認証を呼ばず、農場の情報を載せない。
-// 画面の時計は 2026-11-10。段階 1（同じ町）、2（隣町）、4（全国の動き）のすべてで、段階が距離を見ていないことと
+// 市町村の案内 /area/{コード}（W-07）。登録なしで読み込める。Firebase の認証を呼ばず、農場の情報を載せない。
+// 画面の時計は 2026-11-10。段階 1（同じ町）、2（隣の町）、4（全国の動き）のすべてで、段階が距離を見ていないことと
 // 「どこでも感染のリスクがある」を出し、禁止語（区域の外です・安全・安心）を含まない。
 
 const WATCH_OK = Array.from({ length: 47 }, (_, i) => ({
@@ -58,7 +58,7 @@ test.describe("市町村の案内", () => {
 
   for (const [label, code, cases, expected] of [
     ["段階 1（同じ町）", "33203", [TSUYAMA_CASE], "この町で発生しました"],
-    ["段階 2（隣町）", "33214", [TSUYAMA_CASE], "隣町で発生しました"],
+    ["段階 2（隣の町）", "33214", [TSUYAMA_CASE], "隣の町で発生しました"],
     ["段階 4（全国の動き）", "33214", [] as Case[], "全国の動きをお知らせしています"],
   ] as const) {
     test(`${label}: 段階が距離を見ていないことと riskAnywhere を出し、禁止語がない`, async ({ page }) => {

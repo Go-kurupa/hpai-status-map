@@ -167,7 +167,7 @@ describe("発生農場はどう気づいたか（段階 2）", () => {
     expect(findWordingViolations(sec.textContent ?? "")).toEqual([]);
   });
 
-  it("無ければ枠を出さない。件数の和が読めた数と合わないものは集計ごと拒む（今の表に戻る）", async () => {
+  it("無ければ枠を出さない。件数の和が読み込めた数と合わないものは集計ごと拒む（今の表に戻る）", async () => {
     narrow(false);
     stub(INSIGHTS);
     show();

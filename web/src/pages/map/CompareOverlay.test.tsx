@@ -97,7 +97,7 @@ function rig(o: RigOpts = {}) {
 afterEach(cleanup);
 
 describe("overlayOf", () => {
-  it("今季は疑いも発生ありにする。どちらかが読めていなければ null", () => {
+  it("今季は疑いも発生ありにする。どちらかが読み込めていなければ null", () => {
     const now = view(2026, { currentCases: [nowCase({})] });
     const s = overlayOf(now, view(2024), "both", ["01"])!;
     expect(s.first).toEqual(["33203"]);
@@ -149,11 +149,11 @@ describe("CompareOverlay", () => {
     expect(within(legend).getAllByRole("listitem").map((li) => li.textContent)).toEqual([CMP_TEXT.legendBoth(2)]);
   });
 
-  it("今季を読めていない間は塗らない", () => {
+  it("今季を読み込めていない間は塗らない", () => {
     const r = rig({ first: 2026, firstView: view(2026, { currentCases: null }), currentCases: null });
     // 1 シーズン分の普通の塗りを出さないよう、空の重ね合わせを渡す。確認できていない県は今季なので示す
     expect(r.last().overlay).toEqual<OverlayState>({ first: [], second: [], show: "both", unwatchedPrefCodes: [], names: ["今季", "1 年前"] });
-    // 凡例も町の数も出さない（読めていない断りは MapPage が出す）
+    // 凡例も町の数も出さない（読み込めていない断りは MapPage が出す）
     expect(screen.queryByRole("list", { name: CMP_TEXT.legendAria })).toBeNull();
   });
 

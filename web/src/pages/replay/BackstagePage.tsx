@@ -6,7 +6,7 @@ import type { VerifyCheck } from "@hpai/shared/read/types";
 import { replayNowAt, STAGE_LABEL, watchAt, type BackstageEntry, type BackstageFile, type MeasuredUsage, type ReplayScenario } from "@hpai/shared/replay";
 import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
 import { FIXED_TEXT } from "@hpai/shared/wording";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { watchLine } from "../map/watchLineText";
 import { eventLabel } from "./replayEngine";
@@ -22,11 +22,11 @@ type Load = { status: "loading" } | { status: "failed" } | { status: "ready"; da
 
 async function fetchJson<T>(name: string): Promise<T> {
   const res = await fetch(`${import.meta.env.BASE_URL}replay/${name}`);
-  if (!res.ok) throw new Error(`${name} を読めませんでした（${res.status}）`);
+  if (!res.ok) throw new Error(`${name} を読み込めませんでした（${res.status}）`);
   return (await res.json()) as T;
 }
 
-const UNMEASURED = "未計測";
+const UNMEASURED = "まだ測っていません";
 
 export default function BackstagePage() {
   const [load, setLoad] = useState<Load>({ status: "loading" });
@@ -53,7 +53,7 @@ export default function BackstagePage() {
     return (
       <div>
         <h1>去年の再現の舞台裏</h1>
-        <p role="status">舞台裏のデータを読めませんでした。</p>
+        <p role="status">舞台裏のデータを読み込めませんでした。</p>
         <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>
           もう一度読む
         </button>
@@ -164,7 +164,8 @@ function formatMeasuredAt(iso: string | null): string {
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
-  const id = `bs-${title}`;
+  // 題に空白があっても見出しと節を結べるよう、id は React に作らせる（題から作ると「2 つの AI で読む」の空白で切れる）
+  const id = useId();
   return (
     <section aria-labelledby={id} className="backstage-section">
       <h2 id={id}>{title}</h2>
@@ -176,7 +177,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Unmeasured({ note }: { note?: string }) {
   return (
     <p className="backstage-unmeasured">
-      {UNMEASURED}: {note ?? "まだ実物の文書を読んでいません。"}
+      {UNMEASURED}。{note ?? "まだ実物の文書を読んでいません。"}
     </p>
   );
 }
@@ -199,12 +200,12 @@ function BackstageView({ scenario, backstage, usage }: Data) {
         <p className="replay-time">時点: {formatMeasuredAt(backstage.measuredAt)}</p>
         <p>AI が下書きし、プログラムが確かめる。ここは、再現に出てくる文書を事前に読んだ結果です。迷うものは載せず、運営者に知らせます。</p>
         <p className="replay-hint">
-          <Link to="/replay" className="tap-link">再現にもどる</Link>
+          <Link to="/replay" className="tap-link">再現に戻る</Link>
         </p>
       </section>
 
-      <Section title="二つの読み手">
-        <p className="replay-hint">同じ文書を、主の読み手と別の読み手が、たがいの結果を見ずに読みます。必要な項目が食い違えば、載せずに確認中に回します。</p>
+      <Section title="2 つの AI で読む">
+        <p className="replay-hint">同じ文書を、主の AI と確かめ役の AI が、たがいの結果を見ずに読みます。必要な項目が食い違えば、載せずに確認中に回します。</p>
         {!measured ? <Unmeasured note={backstage.note} /> : backstage.entries.map((e) => <ReadersTable key={e.id} entry={e} label={labelOf(e)} />)}
       </Section>
 
@@ -251,7 +252,7 @@ function BackstageView({ scenario, backstage, usage }: Data) {
               return (
                 <li key={e.id}>
                   {labelOf(e)}: {FIELD_LABEL[d.field] ?? d.field}の「{d.before}」を「{d.after}」に入れ替えると、
-                  {d.rejectedBy === "compare" ? "二つの読み手が食い違い、確認中に回します。" : `検査（${CHECK_LABEL[d.rejectedBy] ?? "項目の検査"}）が落としました。`}
+                  {d.rejectedBy === "compare" ? "2 つの AI の結果が食い違い、確認中に回します。" : `検査（${CHECK_LABEL[d.rejectedBy] ?? "項目の検査"}）が落としました。`}
                   {d.rejectedBy === "radius_sentence" ? "半径は任意の項目なので、落として空にし、ほかの項目は通ります。" : ""}
                 </li>
               );
@@ -266,7 +267,7 @@ function BackstageView({ scenario, backstage, usage }: Data) {
       </Section>
 
       <Section title="入口を直すエージェント">
-        <p>県のホームページの読み先が変わって読めなくなったとき、新しい読み先を提案するエージェントです。提案だけをして、読み先は変えません。運営者が承認して初めて変わります。</p>
+        <p>県のホームページの読み先が変わって読み込めなくなったとき、新しい読み先を提案するエージェントです。提案だけをして、読み先は変えません。運営者が承認して初めて変わります。</p>
         <p>
           動かす方法（定期実行のしくみ）の試行の結論は<strong>未決</strong>です。決まったら、ここに書きます。
         </p>
@@ -301,8 +302,8 @@ function ReadersTable({ entry, label }: { entry: BackstageEntry; label: string }
         <thead>
           <tr>
             <th scope="col">項目</th>
-            <th scope="col">主の読み手</th>
-            <th scope="col">別の読み手</th>
+            <th scope="col">主の AI</th>
+            <th scope="col">確かめ役の AI</th>
             <th scope="col">文書にあった語</th>
           </tr>
         </thead>
@@ -319,10 +320,10 @@ function ReadersTable({ entry, label }: { entry: BackstageEntry; label: string }
       </table>
       <p>
         {entry.compare === null
-          ? "別の読み手の結果がないので、突き合わせていません。"
+          ? "確かめ役の AI の結果がないので、突き合わせていません。"
           : entry.compare.match
-            ? "二つの読み手は一致しました。"
-            : `二つの読み手が食い違いました（${entry.compare.mismatches.map((f) => FIELD_LABEL[f] ?? f).join("、")}）。`}
+            ? "2 つの AI の結果は一致しました。"
+            : `2 つの AI の結果が食い違いました（${entry.compare.mismatches.map((f) => FIELD_LABEL[f] ?? f).join("、")}）。`}
       </p>
     </div>
   );
@@ -339,7 +340,7 @@ function Cost({ usage }: { usage: MeasuredUsage }) {
   const n = (v: number) => v.toLocaleString("en-US");
   return (
     <div>
-      <p>読んだ文書: {usage.documents} 本（それぞれを二つの読み手に渡しました）。</p>
+      <p>読んだ文書: {usage.documents} 本（それぞれを 2 つの AI に渡しました）。</p>
       <ul>
         {rows.map(([model, u]) => (
           <li key={model}>

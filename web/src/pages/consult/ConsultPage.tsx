@@ -638,7 +638,7 @@ function ConsultBody({
     );
     loadConsultCatalog().then(
       (c) => !off && setCatalog(c),
-      () => undefined, // 読めなければ、今までどおりカードの id だけで判定する
+      () => undefined, // 読み込めなければ、今までどおりカードの id だけで判定する
     );
     return () => {
       off = true;

@@ -55,7 +55,7 @@ describe("rowsOf（比べの欄の事例）", () => {
     expect(rowsOf(2024, "33203", p)!.map((r) => r.key)).toEqual(["2024-4"]);
   });
 
-  it("読めていなければ null（記録がないとは言わない）", () => {
+  it("読み込めていなければ null（記録がないとは言わない）", () => {
     expect(rowsOf(2026, "33203", { ...p, currentCases: null })).toBeNull();
     expect(rowsOf(2025, "33203", { ...p, history: null })).toBeNull();
     expect(rowsOf(2026, "33203", { ...p, history: null })).not.toBeNull();

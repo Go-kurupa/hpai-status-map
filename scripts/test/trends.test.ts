@@ -234,7 +234,7 @@ function expectBounds(summary: TrendSummary): void {
 describe("集計（aggregateTrends）", () => {
   const AT = "2026-11-08T10:00:00+09:00";
 
-  it("シーズンごとに、読めた件数と、項目ごとの「書かれていた」「触れていない」を数える。読めなかった行は数えない", () => {
+  it("シーズンごとに、読み込めた件数と、項目ごとの「書かれていた」「触れていない」を数える。読み込めなかった行は数えない", () => {
     const rows = [
       row(2025, 1),
       row(2025, 2, { ...EXTRACT, rodent_signs: item("issue", "ねずみのふんが見られた。") }),

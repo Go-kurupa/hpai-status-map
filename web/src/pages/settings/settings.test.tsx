@@ -181,7 +181,7 @@ describe("farmForm", () => {
     expect(NEW_FARM_NOTIFY).toEqual(DEFAULT_NOTIFY_FIXTURE);
   });
 
-  it("savedAtLabel は日付と時刻を出す。読めなければ null", () => {
+  it("savedAtLabel は日付と時刻を出す。読み込めなければ null", () => {
     expect(savedAtLabel("2026-11-06T10:30:00+09:00")).toBe("最終保存 11月6日 10:30");
     expect(savedAtLabel(undefined)).toBeNull();
     expect(savedAtLabel("昨日")).toBeNull();
@@ -241,7 +241,7 @@ describe("/settings/farm", () => {
     expect(JSON.stringify(saveFarm.mock.calls)).not.toMatch(/35\.68|139\.76|lat|lng/);
   });
 
-  it("選んだ町の外をおすと、はじいて知らせる。保存は押せないまま", async () => {
+  it("選んだ町の外を押すと、はじいて知らせる。保存は押せないまま", async () => {
     farm = null;
     mount("/settings/farm");
     fireEvent.change(await screen.findByLabelText("都道府県"), { target: { value: "13" } });

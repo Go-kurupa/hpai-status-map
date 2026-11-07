@@ -1224,7 +1224,7 @@ describe("毎朝の全国まとめ", () => {
       const text = mail.sent[0]!.text;
       expect(text).not.toContain(AI_LABEL);
       expect(text).toContain("今回新しく載せた発生: まだ確認できていません");
-      expect(text).toContain("県の発表の確認の状況を読めませんでした");
+      expect(text).toContain("県の発表の確認の状況を読み込めませんでした");
       expect(JSON.stringify(calls[0]!.messages)).not.toContain("newCaseCount");
       expect((await overviewOf()).watch).toBeNull();
     });

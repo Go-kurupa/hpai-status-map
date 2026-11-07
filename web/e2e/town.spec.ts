@@ -105,20 +105,20 @@ async function chooseTown(page: Page, pref: string, muni: string) {
 }
 
 test.describe("自分の町の 1 文", () => {
-  test("真庭市（33214）を選ぶと、隣の津山市の事例で『隣町で発生しました』。過去は近くの自治体の件数、/town で『1 年前に隣町で発生しました（記録）』。地図に自分の町と隣の縁", async ({ page }) => {
+  test("真庭市（33214）を選ぶと、隣の津山市の事例で『隣の町で発生しました』。過去は近くの町の件数、/town で『1 年前に隣の町で発生しました（記録）』。地図に自分の町と隣の縁", async ({ page }) => {
     await open(page);
     await expect(page.getByText("農場のある地域を選ぶと、近くの今季の発生と、過去の発生が分かります。")).toBeVisible();
     await chooseTown(page, "33", "33214");
-    await expect(page.getByText("隣町で発生しました", { exact: true })).toBeVisible();
-    // 最初の画面の過去の記録は、近くの自治体の件数の 1 文とボタン（2026-11-06 作者の決定）。過去の 1 文は /town で確かめる
-    await expect(page.locator(".town-past")).toContainText(/約 60 km 以内の \d+ 自治体で、計 \d+ 件発生しました（\d+ 年 6 月〜\d+ 年 5 月）/);
+    await expect(page.getByText("隣の町で発生しました", { exact: true })).toBeVisible();
+    // 最初の画面の過去の記録は、近くの町の件数の 1 文とボタン（2026-11-06 作者の決定）。過去の 1 文は /town で確かめる
+    await expect(page.locator(".town-past")).toContainText(/約 60 km 以内の \d+ 町で、計 \d+ 件発生しました（\d+ 年 6 月〜\d+ 年 5 月）/);
     await filterHas(page, "my-town", "33214");
     await filterHas(page, "near-line", "33203");
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv2");
-    // 最初の画面の自分の町の欄は「選択地域の過去を見る」の 1 本。案内ページは選択地域の過去の画面から（設計書 2026-11-06-town-picker D8）
+    // 最初の画面の自分の町の欄は「選んだ地域の過去を見る」の 1 本。案内ページは選んだ地域の過去の画面から（設計書 2026-11-06-town-picker D8）
     await expect(page.getByRole("link", { name: /この町の案内ページ/ })).toHaveCount(0);
     await page.goto("/town");
-    await expect(page.getByText("1 年前に隣町で発生しました（記録）")).toBeVisible();
+    await expect(page.getByText("1 年前に隣の町で発生しました（記録）")).toBeVisible();
     await expect(page.getByRole("link", { name: "この町の案内ページ（登録なしで開ける・共有用）" })).toHaveAttribute("href", "/area/33214");
   });
 
@@ -152,8 +152,8 @@ test.describe("自分の町の 1 文", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");
     await expect(page.getByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeVisible();
-    // 選択地域の過去（/town）にも、同じ色の文が出る
-    await goViaMenu(page, "選択地域の過去");
+    // 選んだ地域の過去（/town）にも、同じ色の文が出る
+    await goViaMenu(page, "選んだ地域の過去");
     await expect(page).toHaveURL(/\/town$/);
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");
   });

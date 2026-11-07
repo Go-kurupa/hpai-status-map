@@ -245,7 +245,7 @@ export function planCaseNotices(i: {
       relation = relationWithoutBand(farmPoint(farm), basis, geo);
     } catch (e) {
       if (e instanceof GeoNotLoadedError) throw e; // 県を読む前は④にせず、呼び出し側に知らせる
-      console.error("[notify] 農場の位置が読めないので、この農場だけ飛ばしました", { farmId: farm.id });
+      console.error("[notify] 農場の位置が読み込めないので、この農場だけ飛ばしました", { farmId: farm.id });
       continue;
     }
     const notify = { ...DEFAULT_NOTIFY, ...(farm.notify ?? {}) };
@@ -297,7 +297,7 @@ export function wildBirdNotices(i: { bird: WildBird; farms: ReadonlyArray<Farm &
       if (wildBirdsNotifiable(farmPoint(farm), [bird], geo).length === 0) continue;
     } catch (e) {
       if (e instanceof GeoNotLoadedError) throw e;
-      console.error("[notify] 農場の位置が読めないので、この農場だけ飛ばしました", { farmId: farm.id });
+      console.error("[notify] 農場の位置が読み込めないので、この農場だけ飛ばしました", { farmId: farm.id });
       continue;
     }
     for (const uid of uids) {
@@ -591,7 +591,7 @@ function levelSentence(n: Notice): string | null {
   if (n.level === 1) return "区域に入っている可能性があります。県の連絡を確かめてください。";
   if (n.level === 2) {
     if (n.relationKind === "same_muni") return `${FIXED_TEXT.sameMuniLifted}。`; // 移動制限の解除の後の同じ町。「隣町」と書かない
-    return isSuspected ? "隣町で疑いの発表がありました。" : "隣町で発生しました。";
+    return isSuspected ? "隣の町で疑いの発表がありました。" : "隣の町で発生しました。";
   }
   if (n.level === 3) return isSuspected ? "登録した町で疑いの発表がありました。" : "登録した町で発生しました。";
   return null;

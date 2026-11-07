@@ -469,7 +469,7 @@ describe("stage の中身が決まらない commit", () => {
   });
 });
 
-describe("読めない指定は止める（fail-closed）", () => {
+describe("読み込めない指定は止める（fail-closed）", () => {
   const BAD: Array<[string, string]> = [
     ["git add --pathspec-from-file=list.txt && git commit -m x", "pathspec_from_file"],
     ["git commit --pathspec-from-file list.txt -m x", "pathspec_from_file"],
@@ -644,10 +644,10 @@ describe("誤検知と警告", () => {
     expect(r.stderr).toContain("b.md:2:email");
   });
 
-  it("一覧が読めないときは stderr に警告を 1 行出す（一覧が無いときは出さない）", () => {
+  it("一覧が読み込めないときは stderr に警告を 1 行出す（一覧が無いときは出さない）", () => {
     stage({ "a.md": "ok\n" });
     expect(runHook(COMMIT).stderr).toBe("");
-    // ディレクトリにして読めなくする
+    // ディレクトリにして読み込めなくする
     fs.mkdirSync(path.join(repo, "private", "public-denylist.txt"), { recursive: true });
     const r = runHook(COMMIT);
     expect(r.status).toBe(0);

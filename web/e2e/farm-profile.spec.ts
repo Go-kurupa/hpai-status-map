@@ -220,7 +220,7 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   expect(wire).not.toContain(String(spot.lat).slice(0, 7));
   expect(wire).not.toContain(String(spot.lng).slice(0, 8));
 
-  // 札幌市の事例を模擬環境に入れると、『/』に登録した町の 1 文が出て、隣町とは言わない
+  // 札幌市の事例を模擬環境に入れると、『/』に登録した町の 1 文が出て、隣の町とは言わない
   const { date, season } = jstToday();
   const doc = {
     season,
@@ -250,7 +250,7 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
 
   await page.goto("/?emulator=1");
   await expect(page.getByText("登録した町で発生しました")).toBeVisible({ timeout: 30_000 });
-  // 過去の一覧の『（隣町）』ではなく、段階の文（②）が出ていないことを見る
-  await expect(page.getByText("隣町で発生しました")).toHaveCount(0);
+  // 過去の一覧の『（隣の町）』ではなく、段階の文（②）が出ていないことを見る
+  await expect(page.getByText("隣の町で発生しました")).toHaveCount(0);
   await b.close();
 });

@@ -39,7 +39,7 @@ describe("SeasonCharts", () => {
     expect(parseFloat((rows[1]!.querySelector(".month-bar-fill") as HTMLElement).style.width)).toBeCloseTo(100 / 3);
   });
 
-  it("週ごとの棒は最初と最後の週の日付と縦軸の目盛りを書く。読み上げは事例のある週だけで、県と町も読める。0 件を読ませない", () => {
+  it("週ごとの棒は最初と最後の週の日付と縦軸の目盛りを書く。読み上げは事例のある週だけで、県と町も読み込める。0 件を読ませない", () => {
     render(<SeasonCharts {...base} />);
     const list = screen.getByRole("list", { name: "週ごとの全国の発生の棒" });
     const items = within(list).getAllByRole("listitem");
@@ -74,7 +74,7 @@ describe("SeasonCharts", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("読めていないとき、1 県も確認できていないときは、枠を出さない（月の表が断りを書く）", () => {
+  it("読み込めていないとき、1 県も確認できていないときは、枠を出さない（月の表が断りを書く）", () => {
     const { container, rerender } = render(<SeasonCharts {...base} loaded={false} />);
     expect(container.firstChild).toBeNull();
     rerender(<SeasonCharts {...base} allUnchecked />);

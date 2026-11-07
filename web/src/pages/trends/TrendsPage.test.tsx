@@ -69,11 +69,11 @@ describe("戻る道と表の見た目", () => {
     for (const td of Array.from(table.querySelectorAll("tbody td"))) expect(td.classList.contains("num")).toBe(true);
   });
 
-  it.each(["missing", "error", "ready"] as const)("%s の分岐の末尾に、地図にもどると試験の結果を見るがあり、.tap-link", async (r) => {
+  it.each(["missing", "error", "ready"] as const)("%s の分岐の末尾に、地図に戻ると試験の結果を見るがあり、.tap-link", async (r) => {
     stub(r === "ready" ? SUMMARY : r);
     const { container } = show();
     await screen.findByRole(r === "ready" ? "table" : r === "error" ? "alert" : "heading", r === "missing" ? { name: /発生傾向/ } : undefined);
-    const back = within(container).getAllByRole("link", { name: "地図にもどる" });
+    const back = within(container).getAllByRole("link", { name: "地図に戻る" });
     const results = within(container).getAllByRole("link", { name: "試験の結果を見る" });
     expect(back).toHaveLength(1);
     expect(results).toHaveLength(1);
@@ -86,7 +86,7 @@ describe("戻る道と表の見た目", () => {
   it("読み込み中にはリンクを足さない", () => {
     stub(SUMMARY);
     const { container } = show();
-    expect(within(container).queryByRole("link", { name: "地図にもどる" })).toBeNull();
+    expect(within(container).queryByRole("link", { name: "地図に戻る" })).toBeNull();
   });
 });
 
@@ -146,13 +146,13 @@ describe("発生傾向（/trends）", () => {
     expect(findWordingViolations(container.textContent ?? "")).toEqual([]);
   });
 
-  it("読めなかったときは、準備中と分けて知らせる", async () => {
+  it("読み込めなかったときは、準備中と分けて知らせる", async () => {
     stub("error");
     show();
     expect(await screen.findByText(/読み込めませんでした/u)).toBeTruthy();
   });
 
-  it("形の違う集計は読めなかった扱い（市町村や事例のキーを持つものも拒む）", () => {
+  it("形の違う集計は読み込めなかった扱い（市町村や事例のキーを持つものも拒む）", () => {
     expect(parseTrendSummary(SUMMARY)).toEqual(SUMMARY);
     expect(parseTrendSummary({ ...SUMMARY, seasons: "x" })).toBeNull();
     expect(parseTrendSummary({ ...SUMMARY, seasons: [{ ...SUMMARY.seasons[0], muniName: "試験町" }] })).toBeNull();

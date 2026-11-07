@@ -30,7 +30,7 @@ vi.mock("../../geo/loadGeo", () => {
     loadPrefAnchors: () => Promise.resolve(anchorsJson),
   };
 });
-// 代わりの地図は maplibre を読まない（読めば、WebGL のない端末でも重い chunk を取りに行く）
+// 代わりの地図は maplibre を読まない（読み込めば、WebGL のない端末でも重い chunk を取りに行く）
 vi.mock("../../geo/maplibre", () => {
   throw new Error("SvgMap は maplibre を読まない");
 });
@@ -185,7 +185,7 @@ describe("代わりの地図（SVG）", () => {
     rerender(<SvgMap {...props({ onSelectMuni })} />);
     const map = screen.getByRole("group", { name: /岡山県の市町村/ });
     // 読み上げは「自分の町にします」（設計書 2026-11-06-town-picker 3 章）
-    expect(within(map).getByRole("button", { name: /^津山市/ }).getAttribute("aria-label")).toMatch(/。押すとこの町を選択地域にします$/);
+    expect(within(map).getByRole("button", { name: /^津山市/ }).getAttribute("aria-label")).toMatch(/。押すとこの町を選んだ地域にします$/);
     fireEvent.click(within(map).getByRole("button", { name: /^津山市/ }));
     expect(onSelectMuni).toHaveBeenCalledWith("33203");
     // 一覧のボタンからも選べる（小さな町も指で押せる）

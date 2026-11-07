@@ -14,7 +14,7 @@ afterAll(() => {
 });
 
 describe("loadGeoStore", () => {
-  it("data/geo から津山市 33203 を読める。県を読む前は GeoNotLoadedError", async () => {
+  it("data/geo から津山市 33203 を読み込める。県を読む前は GeoNotLoadedError", async () => {
     const geo = await loadGeoStore(path.join(ROOT, "data", "geo"));
     expect(Object.keys(geo.index)).toHaveLength(1747);
     expect(() => geo.geometry("33203")).toThrow(GeoNotLoadedError);
@@ -38,7 +38,7 @@ describe("loadGeoStore", () => {
 });
 
 describe("bundle のあと", () => {
-  it("lib/data/geo/muni-index.json があり、既定の場所（__dirname/data/geo）の形で読める", async () => {
+  it("lib/data/geo/muni-index.json があり、既定の場所（__dirname/data/geo）の形で読み込める", async () => {
     const outdir = fs.mkdtempSync(path.join(os.tmpdir(), "hpai-bundle-"));
     tmpDirs.push(outdir);
     const r = spawnSync("node", [BUNDLE, "--outdir", outdir, "--data-root", path.join(ROOT, "data")], { encoding: "utf8" });

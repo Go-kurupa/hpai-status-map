@@ -194,7 +194,7 @@ export function SpotPicker(p: SpotPickerProps) {
             <Button onClick={stop}>{TEXT.cancel}</Button>
           </div>
           <p className="map-note">{TEXT.spotWhy}</p>
-          {/* 地区の一覧が読めて 1 つ以上あるときだけ。読めなくても十字で決められるので、失敗は出さない */}
+          {/* 地区の一覧が読み込めて 1 つ以上あるときだけ。読み込めなくても十字で決められるので、失敗は出さない */}
           {oazaRows.length > 0 ? (
             <div className="spot-oaza">
               <label htmlFor="spot-oaza">{TEXT.oazaLabel}</label>

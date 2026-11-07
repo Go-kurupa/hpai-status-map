@@ -7,7 +7,7 @@ describe("fakeGeo", () => {
     expect(() => fakeGeo().geometry(GEO_A)).toThrow(GeoNotLoadedError);
   });
 
-  it("ensurePrefs(['33']) の後は 33 の町が読め、別の県の町はまだ投げる", async () => {
+  it("ensurePrefs(['33']) の後は 33 の町が読み込め、別の県の町はまだ投げる", async () => {
     const geo = fakeGeo();
     await geo.ensurePrefs(["33"]);
     expect(geo.geometry(GEO_A).properties.c).toBe(GEO_A);

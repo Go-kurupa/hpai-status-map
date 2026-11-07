@@ -111,7 +111,7 @@ function BandLine({ lead, text }: { lead: string; text: string }) {
 export type MapSection = "now" | "town" | "season" | "compare" | "all";
 
 const SECTION_TITLE: Record<Exclude<MapSection, "now" | "all">, string> = {
-  town: "選択地域の過去",
+  town: "選んだ地域の過去",
   season: "今季の一覧と数",
   compare: "地図で比べる過去の発生",
 };
@@ -159,7 +159,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     geo,
     now: ds.now(),
     unwatchedPrefCodes: d.failedPrefCodes, // 自分の町の県が未確認なら、1 文にそれを加える（④だけで済ませない）
-    unwatchedSince: d.watchSince, // 1 回目に読めなかった時刻を 1 文に添える
+    unwatchedSince: d.watchSince, // 1 回目に読み込めなかった時刻を 1 文に添える
   });
   const past = usePast({
     town,
@@ -431,12 +431,41 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     </>
   );
 
+  // PC の札に添える出典や断り。スマホの数字の 1 行には出さない
+  const whenLine = (text: string) => (narrow ? null : <p className="stat-when">{text}</p>);
+  const casesSource = ds.mode === "replay" ? TEXT.chartsSourceReplay : TEXT.chartsSourceLive;
+  // 過去の同じ日までの札。スマホは一覧より後の残りの札で、PC は数字の列の最後。過去は国の事例一覧から数える
+  // 題の日付（「10 月 21 日」）は途中で折らない
+  const pastDay = monthDay(today);
+  const pastTitle = TEXT.statPastToDate(pastSeasons, pastDay);
+  const pastDayAt = pastTitle.indexOf(pastDay);
+  const pastStat =
+    d.history !== null && pastRange === null ? null : (
+      <div className="stat stat-past">
+        <p className="stat-title">
+          {pastTitle.slice(0, pastDayAt)}
+          <span className="stat-date">{pastDay}</span>
+          {pastTitle.slice(pastDayAt + pastDay.length)}
+        </p>
+        <StatCount text={pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null })} />
+        {whenLine(TEXT.chartsSourceReplay)}
+      </div>
+    );
+  // スマホは、離れた札にせず、件数の枠に 1 行で入れる（2026-11-07 作者の了承 F）。
+  // 鶏舎の場所があれば約 60 km 以内の枠の中、なければ地図のすぐ下（地図より上は最初の画面に地図を収めるため増やさない）
+  const pastLine =
+    pastStat === null ? null : (
+      <p className="stat-past-line">
+        {TEXT.statPastLine(pastSeasons, pastDay, pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null }))}
+      </p>
+    );
   const bandBox = showBand ? (
     <div className="farm-band">
       <p className="farm-band-title">{ownFarm ? TEXT.bandTitle(DISTANCE_BAND_KM) : TEXT.statBand(DISTANCE_BAND_KM)}</p>
       {bandRisk ? riskText("town-note") : null}
       <BandLine lead={TEXT.statBandNow} text={bandNowText(band.now)} />
       <BandLine lead={TEXT.statBandPast(pastSeasons)} text={bandPastText(band.past)} />
+      {narrow && showStats ? pastLine : null}
       {/* 約 60km の件数を 0 と読ませない断り */}
       {unplaced > 0 ? <p className="stat-note">{TEXT.statBandUnplaced(unplaced)}</p> : null}
       {band.now === "failed" || band.past === "failed" ? <p className="stat-note">{TEXT.statFailedNote}</p> : null}
@@ -512,26 +541,6 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const nearPref = town === null ? null : town.slice(0, 2);
   const nearRegion = nearPref !== null && PREF_NAME.has(nearPref) ? regionOf(nearPref) : null;
   const failedWho = failedCount <= 2 ? names(d.failedPrefCodes) : TEXT.watchShortCount(failedCount);
-  // PC の札に添える出典や断り。スマホの数字の 1 行には出さない
-  const whenLine = (text: string) => (narrow ? null : <p className="stat-when">{text}</p>);
-  const casesSource = ds.mode === "replay" ? TEXT.chartsSourceReplay : TEXT.chartsSourceLive;
-  // 過去の同じ日までの札。スマホは一覧より後の残りの札で、PC は数字の列の最後。過去は国の事例一覧から数える
-  // 題の日付（「10 月 21 日」）は途中で折らない
-  const pastDay = monthDay(today);
-  const pastTitle = TEXT.statPastToDate(pastSeasons, pastDay);
-  const pastDayAt = pastTitle.indexOf(pastDay);
-  const pastStat =
-    d.history !== null && pastRange === null ? null : (
-      <div className="stat stat-past">
-        <p className="stat-title">
-          {pastTitle.slice(0, pastDayAt)}
-          <span className="stat-date">{pastDay}</span>
-          {pastTitle.slice(pastDayAt + pastDay.length)}
-        </p>
-        <StatCount text={pastRange ? rangeText(pastRange) : d.historyFailed ? TEXT.statFailed : countText({ count: null })} />
-        {whenLine(TEXT.chartsSourceReplay)}
-      </div>
-    );
   const frequentStat = hasFrequent ? (
     <div className="stat stat-wide stat-frequent">
       <p className="stat-title">{TEXT.statFrequent}</p>
@@ -641,13 +650,13 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
 
       {shownViews.some((v) => v.isCurrent && !v.loaded) ? (
         <p className="state-unknown" role="status">
-          今季の発生をまだ読めていません。読めるまで、地図に色がなくても発生がないとは言えません。
+          今季の発生をまだ読み込めていません。読み込めるまで、地図に色がなくても発生がないとは言えません。
           {d.casesSlow ? <> {TEXT.slowLoad}</> : null}
         </p>
       ) : null}
       {shownViews.some((v) => !v.isCurrent && !v.loaded) ? (
         <p className={d.historyFailed ? "state-unknown" : "state-wait"} role="status">
-          過去の記録をまだ読めていません。
+          過去の記録をまだ読み込めていません。
           {d.historyFailed ? (
             <>
               {" "}
@@ -710,7 +719,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
             </div>
           )}
           {narrow ? null : pastStat}
-          {/* 野鳥の陽性（2026-11-07 作者の決定）。数は全国で、鶏舎の付近・選択地域を見ていても同じ。地図の外の発生も県名で分かるようにする。
+          {/* 野鳥の陽性（2026-11-07 作者の決定）。数は全国で、鶏舎の付近・選んだ地域を見ていても同じ。地図の外の発生も県名で分かるようにする。
               再現は日付を過去に置いた画面なので出さない。/season の札（下の残りの札）と二重に出さないよう、数字の欄があるときはここだけ */}
           {/* 47 県とも未確認で野鳥も 0 件なら出さない（全国の札と同じ「まだ確認できていません」を繰り返さない）。
               スマホで未確認の県がある朝は、大きな数字に素の数を出さない決まり（数字の 1 行）に合わせて太字にしない */}
@@ -893,6 +902,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
 
       {nearCount === 0 ? <p className="map-disclaimer">{TEXT.nearNone}</p> : null}
       {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : ringCenter !== null ? <p className="map-ring-note">{TEXT.ringNoteTown}</p> : null}
+      {/* 全国の過去の同じ日までの 1 行（F）。「確認されていません」の 1 文は地図のすぐ下の決まり（shell.spec）なので、その後ろに置く */}
+      {inMap && narrow && showStats && !showBand ? pastLine : null}
       {/* スマホの印の大きさは、地図のすぐ下の「確認されていません」と輪の断りの後ろ（最初の画面に入れる文を押し下げない。shell.spec） */}
       {narrow && section !== "compare" ? markSizeGroup : null}
       {/* スマホの札の前の短い守る文の出典の名前。URL は本文に出さず、名前をリンクにする */}
@@ -940,23 +951,20 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       />
       ) : null}
 
-      {showStats && ((inMap && narrow && pastStat !== null) || (ds.mode !== "replay" && section === "season")) ? (
+      {showStats && ds.mode !== "replay" && section === "season" ? (
         <div className="stat-rest">
-          {inMap && narrow ? pastStat : null}
           {/* 数字の欄（/ と all）には野鳥の札があるので、ここは /season だけ */}
-          {ds.mode === "replay" || section !== "season" ? null : (
-            <div className="stat stat-wide">
-              <p className="stat-title">{TEXT.statBirds}</p>
-              <p className="stat-value">{birdText}</p>
-              {d.wildBirdsLoaded && birdCounts.total > 0 ? <p className="stat-note">{TEXT.statBirdsBreakdown(birdCounts.confirmed, birdCounts.screening)}</p> : null}
-              <p className="stat-note">{TEXT.statBirdsNote}</p>
-              <p className="stat-note">
-                <Link to="/trends" className="tap-link">
-                  {TEXT.statBirdsLink}
-                </Link>
-              </p>
-            </div>
-          )}
+          <div className="stat stat-wide">
+            <p className="stat-title">{TEXT.statBirds}</p>
+            <p className="stat-value">{birdText}</p>
+            {d.wildBirdsLoaded && birdCounts.total > 0 ? <p className="stat-note">{TEXT.statBirdsBreakdown(birdCounts.confirmed, birdCounts.screening)}</p> : null}
+            <p className="stat-note">{TEXT.statBirdsNote}</p>
+            <p className="stat-note">
+              <Link to="/trends" className="tap-link">
+                {TEXT.statBirdsLink}
+              </Link>
+            </p>
+          </div>
         </div>
       ) : null}
 
@@ -1006,7 +1014,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       {section === "season" || section === "all" ? (
         <MonthBars months={view.months} loaded={view.loaded} allUnchecked={view.isCurrent && noneConfirmed} past={!view.isCurrent} />
       ) : null}
-      {/* 過去の行が出ていれば、その中に「選択地域の過去を見る」があるので、地図の下には重ねない（2026-11-07 精査 M3） */}
+      {/* 過去の行が出ていれば、その中に「選んだ地域の過去を見る」があるので、地図の下には重ねない（2026-11-07 精査 M3） */}
       {section === "now" ? <NextLinks hideTown={town !== null && past.status === "ready"} /> : null}
       {section === "all" ? <MapLinks /> : null}
     </div>

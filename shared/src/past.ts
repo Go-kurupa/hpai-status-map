@@ -27,7 +27,7 @@ export interface PastSummary {
   hits: PastHit[];
 }
 
-export const PAST_NONE = "過去の記録に、この町と隣町の発生はありません（記録）";
+export const PAST_NONE = "過去の記録に、この町と隣の町の発生はありません（記録）";
 
 function order(a: PastHit, b: PastHit): number {
   if (a.date !== b.date) return a.date < b.date ? 1 : -1;
@@ -62,7 +62,7 @@ export function describePast(
 
   const latest = hits.find((h) => !h.related) ?? hits[0] ?? null;
   if (latest === null) return { sentence: PAST_NONE, latest: null, hits };
-  const where = latest.relation === "same" ? "この町" : "隣町";
+  const where = latest.relation === "same" ? "この町" : "隣の町";
   const what = latest.related ? "関連農場がありました" : "発生しました";
   return { sentence: `${latest.ago}に${where}で${what}（記録）`, latest, hits };
 }

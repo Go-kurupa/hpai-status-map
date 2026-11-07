@@ -187,11 +187,11 @@ describe("約 60km 以内の件数", () => {
     }
   });
 
-  it("形を読めなければ投げる（0 件にしない）。知らない町でも投げる", async () => {
+  it("形を読み込めなければ投げる（0 件にしない）。知らない町でも投げる", async () => {
     const geo = createGeoStore({
       index: indexJson as unknown as GeoStore["index"],
       adjacency: adjacencyJson as GeoStore["adjacency"],
-      loadPrefTopo: () => Promise.reject(new Error("読めない")),
+      loadPrefTopo: () => Promise.reject(new Error("読み込めない")),
     });
     await expect(casesWithinBand(MESH, [mkCase()], geo)).rejects.toThrow();
     const { geo: real } = store();
@@ -235,7 +235,7 @@ describe("周辺の過去の表の 2 つの距離", () => {
     for (const t of r.towns) expect(t.distanceKm).toBeCloseTo(distanceToMuniKm(mesh, t.muniCode, geo), 6);
   });
 
-  it("マス目から面まで: 形を読めなければ投げる（0 件にしない）", async () => {
+  it("マス目から面まで: 形を読み込めなければ投げる（0 件にしない）", async () => {
     const geo = createGeoStore({
       index: indexJson as unknown as GeoStore["index"],
       adjacency: adjacencyJson as GeoStore["adjacency"],
@@ -282,7 +282,7 @@ describe("wildBirdCounts（野鳥の陽性）", () => {
   it("否定は除く。検査中と高病原性の確定を分ける（一覧の表示と同じ）", () => {
     expect(wildBirdCounts([bird({ id: "a" }), bird({ id: "b", test: "hpai_confirmed" }), bird({ id: "c", test: "hpai_confirmed" }), bird({ id: "d", test: "negative" })])).toEqual({ total: 3, confirmed: 2, screening: 1 });
   });
-  it("空は 0（読めているかどうかは呼び出し側が分ける）", () => {
+  it("空は 0（読み込めているかどうかは呼び出し側が分ける）", () => {
     expect(wildBirdCounts([])).toEqual({ total: 0, confirmed: 0, screening: 0 });
   });
 });

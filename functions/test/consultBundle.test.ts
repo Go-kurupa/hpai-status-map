@@ -1,4 +1,4 @@
-// bundle のあと、lib/data/consult/cards.json が既定の読み先（__dirname/data/consult）の形で読める。
+// bundle のあと、lib/data/consult/cards.json が既定の読み先（__dirname/data/consult）の形で読み込める。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -14,7 +14,7 @@ afterAll(() => {
 });
 
 describe("bundle のあと（対策の相談のカード）", () => {
-  it("lib/data/consult/cards.json と lib/data/history/cases.json があり、loadConsultData で読め、確認済みのカードだけが入っている", async () => {
+  it("lib/data/consult/cards.json と lib/data/history/cases.json があり、loadConsultData で読み込め、確認済みのカードだけが入っている", async () => {
     const outdir = fs.mkdtempSync(path.join(os.tmpdir(), "hpai-bundle-consult-"));
     tmpDirs.push(outdir);
     const r = spawnSync("node", [BUNDLE, "--outdir", outdir, "--data-root", path.join(ROOT, "data")], { encoding: "utf8" });

@@ -49,7 +49,7 @@ describe("parseRfc822Date: pubDate を厳密に読む（日本時間の日付）
     expect(parseRfc822Date("Sat, 20 Dec 2025 16:00:00")).toBe("2025-12-20");
     expect(parseRfc822Date("Sat, 20 Dec 2025 23:59:59")).toBe("2025-12-20");
   });
-  it("読めない、実在しない、緩い書き方は null", () => {
+  it("読み込めない、実在しない、緩い書き方は null", () => {
     for (const bad of ["", "いつか", "2025-12-20", "Sat, 32 Dec 2025 10:00:00 GMT", "Sat, 20 Foo 2025 10:00:00 GMT", "Sat, 20 Dec 2025 25:00:00 GMT", "Sat, 29 Feb 2025 10:00:00 GMT", "Sat, 20 Dec 2025 10:00:00 +9", "20 Dec 2025", "Dec 20 2025 10:00:00 GMT"]) {
       expect(parseRfc822Date(bad), bad).toBeNull();
     }
@@ -69,7 +69,7 @@ describe("parseIso8601Date: published を厳密に読む（日本時間の日付
     expect(parseIso8601Date("2025-12-20T23:59:59")).toBe("2025-12-20");
     expect(parseIso8601Date("2025-12-20")).toBe("2025-12-20");
   });
-  it("読めない、実在しないは null", () => {
+  it("読み込めない、実在しないは null", () => {
     for (const bad of ["", "いつか", "2025-13-01", "2025-02-30", "2025-12-20T25:00:00Z", "2025/12/20", "20251220", "2025-12-20 10:00:00 +0900x", "Sat, 20 Dec 2025 01:00:00 GMT"]) {
       expect(parseIso8601Date(bad), bad).toBeNull();
     }

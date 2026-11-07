@@ -483,7 +483,7 @@ export function overviewLines(d: OverviewDay, near: NearFacts | null, appUrl: st
   if (d.unknownMuniCount > 0) lines.push(`町が分からない発表 ${d.unknownMuniCount} 件は、距離に入れていません。`);
   lines.push("距離は目安で、発表の区域ではありません。");
 
-  lines.push(d.watch === null ? "県の発表の確認の状況を読めませんでした。" : watchCoverageText(d.watch.okCount, d.watch.failedPrefCodes));
+  lines.push(d.watch === null ? "県の発表の確認の状況を読み込めませんでした。" : watchCoverageText(d.watch.okCount, d.watch.failedPrefCodes));
   lines.push(`農林水産省の発表: ${MAFF_SEASON_URL}`, `環境省の発表: ${MOE_BIRD_URL}`);
   lines.push(`地図で見る: ${appUrl.replace(/\/+$/, "")}/`);
   return lines;

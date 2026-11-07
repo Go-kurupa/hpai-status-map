@@ -228,7 +228,7 @@ describe("SpotPicker: 地区（大字）で地図を寄せる", () => {
     expect(((await screen.findByLabelText(TEXT.oazaLabel)) as HTMLSelectElement).value).toBe("");
   });
 
-  it("町に地区がない、一覧を読めない、寄せ先を受け取らない、地図が描けない端末では出さない（十字で決められる）", async () => {
+  it("町に地区がない、一覧を読み込めない、寄せ先を受け取らない、地図が描けない端末では出さない（十字で決められる）", async () => {
     stubFetch(PREF33);
     const { unmount } = render(<Harness geo={geo} town="33214" onAimAt={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: TEXT.spotStart }));

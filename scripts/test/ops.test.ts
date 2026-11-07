@@ -42,7 +42,7 @@ describe("buildRequest（契約 1.7 の 4 操作）", () => {
     expect(buildRequest(["seed-sources"])).toEqual({ op: "seed-sources" });
   });
 
-  it("set-setting は値を JSON として読み、読めなければ文字列", () => {
+  it("set-setting は値を JSON として読み、読み込めなければ文字列", () => {
     expect(buildRequest(["set-setting", "autoPublishEnabled", "true"])).toEqual({ op: "set-setting", key: "autoPublishEnabled", value: true });
     expect(buildRequest(["set-setting", "softLimitJpy", "1500"])).toMatchObject({ value: 1500 });
     expect(buildRequest(["set-setting", "primaryModel", "claude-opus-5-5"])).toMatchObject({ value: "claude-opus-5-5" });
@@ -211,7 +211,7 @@ describe("runOps", () => {
   });
 });
 
-describe("fetchUsageStatus（setup-agent --unpause が今月の費用を読む。読めなければ null）", () => {
+describe("fetchUsageStatus（setup-agent --unpause が今月の費用を読む。読み込めなければ null）", () => {
   const FAKE = "fake-ops-value-for-test";
   const OK = { ok: true, op: "usage-status", month: "2026-11", estimatedJpy: 10600, hardLimitJpy: 10000 };
   function io(over: { env?: Record<string, string | undefined>; token?: string | null; res?: () => Response | Promise<Response> } = {}) {

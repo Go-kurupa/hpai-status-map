@@ -43,7 +43,7 @@ export function useReviewItems(farmId: string | null): ReviewItems {
     );
     loadConsultCatalog().then(
       (c) => !off && setCatalog(c),
-      () => undefined, // 読めなければ、対策の名前の代わりにカードの id を出す（上の確認は数だけ）
+      () => undefined, // 読み込めなければ、対策の名前の代わりにカードの id を出す（上の確認は数だけ）
     );
     return () => {
       off = true;

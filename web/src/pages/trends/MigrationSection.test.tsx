@@ -113,8 +113,8 @@ describe("渡り鳥の飛来（季節の参考）", () => {
     const { container } = show();
     const link = await screen.findByRole("link", { name: /環境省「渡り鳥の飛来状況」/u });
     expect(link.getAttribute("href")).toBe(SUMMARY.sourceUrl);
-    expect(container.textContent).toContain("この作品が地点ごとの Excel ファイルから水鳥の合計を求め");
-    expect(container.textContent).toContain("編集・加工の主体: この作品の作者");
+    expect(container.textContent).toContain("このサイトが地点ごとの Excel ファイルから水鳥の合計を求め");
+    expect(container.textContent).toContain("編集・加工の主体: このサイトの作者");
     expect(container.textContent).toContain("環境省が作成したものではありません");
   });
 
@@ -126,7 +126,7 @@ describe("渡り鳥の飛来（季節の参考）", () => {
     expect(numa.textContent).toContain("10 月 14 日の調査");
     expect(numa.textContent).toContain("41,860 羽");
     expect(numa.textContent).toContain("12,801 〜 63,962 羽（中央値 36,459 羽）");
-    // 「幅の内」「幅より下」のような、多い・少ないに読める分類はしない
+    // 「幅の内」「幅より下」のような、多い・少ないに読み込める分類はしない
     expect(numa.textContent).not.toMatch(/幅の内|幅より|多い|少ない/u);
     const lake = screen.getByRole("heading", { name: "試験湖" }).closest("li")!;
     expect(lake.textContent).toContain("9 羽");
@@ -185,7 +185,7 @@ describe("渡り鳥の飛来（季節の参考）", () => {
     expect(swan.textContent).toContain("過去 2 シーズンのうち 1 シーズンで記録があり");
   });
 
-  it("禁句と、「多いから危ない」「少ないから安全」と読める言い方がない", async () => {
+  it("禁句と、「多いから危ない」「少ないから安全」と読み込める言い方がない", async () => {
     stub(SUMMARY);
     const { container } = show();
     await screen.findByRole("heading", { name: "渡り鳥の飛来（季節の参考）" });
@@ -220,14 +220,14 @@ describe("渡り鳥の飛来（季節の参考）", () => {
     expect(findWordingViolations(container.textContent ?? "")).toEqual([]);
   });
 
-  it("読めなかったときは、まだ作られていないのとは分けて知らせる", async () => {
+  it("読み込めなかったときは、まだ作られていないのとは分けて知らせる", async () => {
     stub("error");
     show();
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByText(/読み込めませんでした/u)).toBeTruthy();
   });
 
-  it("形の違う集計は読めなかった扱い（知らないキーや、おかしな数も拒む）", () => {
+  it("形の違う集計は読み込めなかった扱い（知らないキーや、おかしな数も拒む）", () => {
     expect(parseMigrationSummary(SUMMARY)).toEqual(SUMMARY);
     expect(parseMigrationSummary({ ...SUMMARY, farm: "x" })).toBeNull();
     expect(parseMigrationSummary({ ...SUMMARY, sites: "x" })).toBeNull();

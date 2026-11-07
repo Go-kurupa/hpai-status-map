@@ -156,15 +156,15 @@ describe("ReplayPage", () => {
 
   it("読み込めなければ、そう書く（空の地図を出さない）", async () => {
     await show({ failScenario: true });
-    expect(await screen.findByText(/再現のデータを読めませんでした/)).toBeTruthy();
+    expect(await screen.findByText(/再現のデータを読み込めませんでした/)).toBeTruthy();
     expect(screen.queryByTestId("map")).toBeNull();
   });
 
-  it("切り替えは『もし区域の近くの農場なら』（既定）と『選択地域で見る』。端末に地点がなければ後者を押せない", async () => {
+  it("切り替えは『もし区域の近くの農場なら』（既定）と『選んだ地域で見る』。端末に地点がなければ後者を押せない", async () => {
     await show();
     await mapReady();
     const near = screen.getByRole("button", { name: "もし区域の近くの農場なら" });
-    const own = screen.getByRole("button", { name: "選択地域で見る" });
+    const own = screen.getByRole("button", { name: "選んだ地域で見る" });
     expect(near.getAttribute("aria-pressed")).toBe("true");
     expect((own as HTMLButtonElement).disabled).toBe(true);
   });
@@ -196,7 +196,7 @@ describe("ReplayPage", () => {
     await mapReady();
     fireEvent.click(item(/1 月 21 日.*津山市.*移動制限の解除/));
     await waitFor(() => expect(screen.queryByText(ZONE)).toBeNull());
-    expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
+    expect(await screen.findByText("隣の町で発生しました")).toBeTruthy();
     const lift = scenario.events.find((e) => e.caseAfter.muniCode === "33203" && eventStage(e) === "movement_lifted")!;
     expect((screen.getByRole("button", { name: "前へ" }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "前へ" }));
@@ -215,7 +215,7 @@ describe("ReplayPage", () => {
     expect((next as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("端末に地点があれば『選択地域で見る』に切り替えられる。切り替えても hpai.spot.v1 と hpai.town.v1 は 1 バイトも変わらない", async () => {
+  it("端末に地点があれば『選んだ地域で見る』に切り替えられる。切り替えても hpai.spot.v1 と hpai.town.v1 は 1 バイトも変わらない", async () => {
     const mine = JSON.stringify({ meshCode: "53331228", muniCode: "31202", frequentMuniCodes: [] });
     localStorage.setItem(SPOT_KEY, mine);
     localStorage.setItem(TOWN_KEY, "31202");
@@ -223,7 +223,7 @@ describe("ReplayPage", () => {
     const removeItem = vi.spyOn(Storage.prototype, "removeItem");
     await show();
     await mapReady();
-    const own = screen.getByRole("button", { name: "選択地域で見る" });
+    const own = screen.getByRole("button", { name: "選んだ地域で見る" });
     expect((own as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(own);
     await waitFor(() => expect(lastProps().myMuniCode).toBe("31202"));
@@ -281,7 +281,7 @@ describe("ReplayPage", () => {
     await mapReady();
     expect(screen.getByRole("link", { name: "地図" }).getAttribute("href")).toBe("/");
     expect(screen.getByRole("link", { name: "見本の農場で試す" }).getAttribute("href")).toBe("/sample");
-    expect(document.body.textContent).toContain("選択地域で見るには、地図で自分の場所を決めてください（この端末の中にだけ保存されます）。");
+    expect(document.body.textContent).toContain("選んだ地域で見るには、地図で自分の場所を決めてください（この端末の中にだけ保存されます）。");
   });
 
   it("帯に出すのは 去年の再現です、題、時点、仮の地点の短い 1 行だけ。残りの注記は『くわしく』に畳み、閉じていても DOM にある", async () => {
@@ -494,25 +494,25 @@ describe("ReplayPage: 全国の流れ", () => {
     expect(document.querySelector(".stat-row")).toBeNull();
   });
 
-  it("過去の記録を読めなければ 4 事例のままそう書き、もう一度押すと読める", async () => {
+  it("過去の記録を読み込めなければ 4 事例のままそう書き、もう一度押すと読み込める", async () => {
     let fail = true;
     await show({ failHistory: () => fail });
     await screen.findByTestId("map");
     fireEvent.click(flowButton(NATIONAL));
-    expect(await screen.findByText("全国の流れを読めませんでした。もう一度押してください。")).toBeTruthy();
+    expect(await screen.findByText("全国の流れを読み込めませんでした。もう一度押してください。")).toBeTruthy();
     expect(flowButton(CASES).getAttribute("aria-pressed")).toBe("true");
     expect(band()).toMatch(/4 事例だけ/);
     fail = false;
     fireEvent.click(flowButton(NATIONAL));
     await screen.findByText(`0 / ${TOTAL}`);
-    expect(screen.queryByText("全国の流れを読めませんでした。もう一度押してください。")).toBeNull();
+    expect(screen.queryByText("全国の流れを読み込めませんでした。もう一度押してください。")).toBeNull();
   });
 
   it("端末の地点で見ると、距離は仮の地点と言わない。端末には書かない", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: scenario.defaultSpot.meshCode, muniCode: "33202", frequentMuniCodes: [] }));
     const setItem = vi.spyOn(Storage.prototype, "setItem");
     await openNational();
-    fireEvent.click(screen.getByRole("button", { name: "選択地域で見る" }));
+    fireEvent.click(screen.getByRole("button", { name: "選んだ地域で見る" }));
     fireEvent.click(item(/12 月 16 日.*姫路市/));
     await waitFor(() => expect(nowLine()).toBe("12 月 16 日 姫路市 確定。この端末の地点から約 40 km"));
     expect(setItem).not.toHaveBeenCalled();

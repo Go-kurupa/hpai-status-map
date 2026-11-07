@@ -198,7 +198,7 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     expect((await h1.boundingBox())!.y).toBeLessThan(370);
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
-    // 仮の地点と注記は「くわしく」の中。閉じていても DOM にあり、開くと読める
+    // 仮の地点と注記は「くわしく」の中。閉じていても DOM にあり、開くと読み込める
     const spot = page.getByText(/^仮の地点で見ています/);
     await expect(spot).toBeAttached();
     await expect(spot).toBeHidden();
@@ -283,7 +283,7 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
     expect((await box(listFold)).y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
     expect((await box(page.getByRole("group", { name: "見る場所", exact: true }))).y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
 
-    // 畳んだ注記は DOM にあり、「くわしく」で読める。押す場所は 44px 以上
+    // 畳んだ注記は DOM にあり、「くわしく」で読み込める。押す場所は 44px 以上
     const fold = page.locator(".replay-band details");
     const folded = fold.getByText(ariaFolded);
     await expect(folded).toBeAttached();
@@ -337,7 +337,7 @@ test.describe("再現の最初の画面に地図の全部が入る", () => {
     [360, 740],
     [360, 640],
   ] as const) {
-    test(`${width}x${height} の全国の流れ: 選択地域付近は 60 km の輪が入る広さで町を塗り、全国の広さは県のバッジのまま`, async ({ page }) => {
+    test(`${width}x${height} の全国の流れ: 選んだ地域の付近は 60 km の輪が入る広さで町を塗り、全国の広さは県のバッジのまま`, async ({ page }) => {
       await openReplay(page, width, height);
       await goNational(page);
       for (let i = 1; i <= 8; i++) await page.getByRole("button", { name: "次へ" }).click();
@@ -487,7 +487,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     { name: "登録した町あり、段階 3", spot: true, frequent: ["33213", "33214"], cases: [BAND], tone: "lv3" },
     { name: "登録した町あり、0 件", spot: true, frequent: ["33213", "33214"], tone: "none" },
     { name: "町だけ、同じ町で発生", town: "33203", cases: [SAME_TOWN], tone: "lv1" },
-    { name: "町だけ、隣町で発生", town: "33203", cases: [NEIGHBOR], tone: "lv2" },
+    { name: "町だけ、隣の町で発生", town: "33203", cases: [NEIGHBOR], tone: "lv2" },
     { name: "町だけ、0 件", town: "33203", tone: "lv4" },
   ];
 
@@ -500,7 +500,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     await page.goto("/");
     await expect(page.locator(".stat-row")).toBeVisible();
     await page.waitForFunction(() => !!(window as unknown as { __hpaiMap?: { getLayer(id: string): unknown } }).__hpaiMap?.getLayer("my-town"), undefined, { timeout: 20_000 });
-    // 段階の文が読めるまで待つ（読み込み中の文で測らない）
+    // 段階の文が読み込めるまで待つ（読み込み中の文で測らない）
     await expect(page.locator(".state-wait").filter({ hasText: "読み込んでいます" })).toHaveCount(0, { timeout: 20_000 });
     await page.waitForLoadState("networkidle");
   }
@@ -553,8 +553,8 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
       const above = await textBeforeMap(page);
       expect(above).not.toContain("https://");
       expect(above).not.toMatch(/過去 \d+ シーズン/);
-      // 選択地域の欄の文は地図の下。町を選ぶ前のボタン「地域を選択」と、切り替えの「選択地域付近」だけは地図の上に置く
-      expect(above.replace("地域を選択", "").replaceAll("選択地域付近", "")).not.toContain("選択地域");
+      // 選んだ地域の欄の文は地図の下。町を選ぶ前のボタン「地域を選択」と、切り替えの「選んだ地域の付近」だけは地図の上に置く
+      expect(above.replace("地域を選択", "").replaceAll("選んだ地域の付近", "")).not.toContain("選んだ地域");
       expect(above).not.toContain("47 都道府県のうち");
       // 「確認されていません」の 1 文は、約 60 km 以内に今季の発生がないときだけ、地図のすぐ下に出す（2026-11-06 作者の決定）
       // FAR（函館市）は約 60 km の外なので、「付近」の発生に数えない
@@ -563,7 +563,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
       if (nearNone) await expect(page.locator(".map-disclaimer")).toHaveText("現時点では、付近での発生は確認されていません。");
       // 輪は地点があればそこから、町だけなら町の中心から描く（設計書 2026-11-06-ui-frame 決定 6）。どちらでもなければ断りもない
       await expect(page.locator(".map-ring-note")).toHaveCount(s.spot || s.town ? 1 : 0);
-      // 確認の行は、確認できない県があるときだけ出し、消さずに地図の下で読める。全県を確認できた朝は出さない（2026-11-06 作者の決定）
+      // 確認の行は、確認できない県があるときだけ出し、消さずに地図の下で読み込める。全県を確認できた朝は出さない（2026-11-06 作者の決定）
       const watchLine = page.getByTestId("watch-line");
       if (s.watch === undefined || s.watch === OK) await expect(watchLine).toHaveCount(0);
       else {
@@ -571,7 +571,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
         expect((await watchLine.boundingBox())!.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
       }
 
-      // 守る文は数字の直前で、短いリンクの出典を持つ。文の全部を読める。出典の名前は地図の下の行で、長い URL は本文に出さない
+      // 守る文は数字の直前で、短いリンクの出典を持つ。文の全部を読み込める。出典の名前は地図の下の行で、長い URL は本文に出さない
       const risk = page.locator(".map-risk");
       if ((await risk.count()) > 0) {
         await expect(page.locator(".map-risk + .stat-row")).toHaveCount(1);
@@ -583,7 +583,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     });
   }
 
-  test("一部未確認: 断りは 1 回だけで、大きな数字に素の数を出さない。読めない県を地図の前に書き、県が多いときは数で書く", async ({ page }) => {
+  test("一部未確認: 断りは 1 回だけで、大きな数字に素の数を出さない。読み込めない県を地図の前に書き、県が多いときは数で書く", async ({ page }) => {
     await openState(page, { name: "1 県", spot: true, watch: ONE });
     const above = await textBeforeMap(page);
     expect(above).toContain("確認できた範囲の件数です。岡山県は確認できていません。地図の斜線の県は、発生がないとは言えません。");
@@ -614,7 +614,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     await expect(page.locator(".stat-row .stat-value b")).toHaveCount(0);
   });
 
-  test("段階 ① の文は地図の前に 1 つだけ。事例の行と過去と町の名は地図の下で、畳まずに読める", async ({ page }) => {
+  test("段階 ① の文は地図の前に 1 つだけ。事例の行と過去と町の名は地図の下で、畳まずに読み込める", async ({ page }) => {
     await openState(page, { name: "段階 1", spot: true, cases: [SAME_TOWN] });
     const canvas = (await page.locator(".map-box .map-canvas").boundingBox())!;
     const lead = page.locator(".town-lead");
@@ -688,7 +688,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     await expect.poll(zoom, { timeout: 10_000 }).toBeCloseTo(start, 1);
   });
 
-  test("県のバッジを押すと、町が読める広さまで寄る（塗りの閾値には連動しない）", async ({ page }) => {
+  test("県のバッジを押すと、町が読み込める広さまで寄る（塗りの閾値には連動しない）", async ({ page }) => {
     await openState(page, { name: "全国", cases: [FAR] });
     const badge = page.locator(".pref-badge:visible").first();
     await expect(badge).toBeVisible();

@@ -8,7 +8,7 @@ import { agencyOf, SECTION_LEADS, SECTION_RELATED, TOPIC_QUESTION } from "./page
 import PublicPage, { PublicView } from "./PublicPage";
 
 // 作り直し（設計書 2026-11-06-public-known-redesign §6）: 疑問のもくじ、いまの発生、相談先、節の要点と関係する画面。
-// 国の文は原文のまま。作品側の文は国の文の枠の外に、見分けのつく見出しで出す。
+// 国の文は原文のまま。このサイトの文は国の文の枠の外に、見分けのつく見出しで出す。
 
 const MEDICAL_ADVICE = /受診|治療|(?<!獣)医師に|病院へ|保健所/u;
 
@@ -41,8 +41,8 @@ describe("もくじ（疑問の形）", () => {
   });
 });
 
-describe("節の要点（作品側のまとめ）", () => {
-  it("全 7 節に、見出しの直後、国の文より前に、作品側と分かる見出しで出る", () => {
+describe("節の要点（このサイトのまとめ）", () => {
+  it("全 7 節に、見出しの直後、国の文より前に、このサイトと分かる見出しで出る", () => {
     const { container } = show();
     expect(Object.keys(SECTION_LEADS).sort()).toEqual(OFFICIAL_GUIDANCE.map((g) => g.topic).sort());
     for (const g of OFFICIAL_GUIDANCE) {
@@ -79,10 +79,10 @@ describe("節の要点（作品側のまとめ）", () => {
 });
 
 describe("相談先", () => {
-  it("役場と家畜保健衛生所の一覧を、作品側のまとめとして 1 か所に出す（受診の案内はしない）", () => {
+  it("役場と家畜保健衛生所の一覧を、このサイトのまとめとして 1 か所に出す（受診の案内はしない）", () => {
     const { container } = show();
     const box = container.querySelector("[data-role='contacts']") as HTMLElement;
-    expect(box.textContent).toContain("作品側のまとめ");
+    expect(box.textContent).toContain("このサイトのまとめ");
     expect(box.textContent).toContain("市町村の役場");
     expect(within(box).getByRole("link", { name: "全国の一覧" }).getAttribute("href")).toBe("https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_kaho/");
     expect(box.textContent).not.toMatch(MEDICAL_ADVICE);

@@ -29,8 +29,8 @@ import "../replay/backstage.css";
 type Src<T> = { s: "none" } | { s: "ready"; v: T } | { s: "failed" };
 type Load = { status: "loading" } | { status: "done"; summary: Src<EvalSummary>; usage: Src<MeasuredUsage> };
 
-const UNMEASURED = "未計測";
-const UNMEASURED_METRIC = "未実測";
+const UNMEASURED = "まだ測っていません";
+const UNMEASURED_METRIC = "まだ測っていません";
 
 async function load<T>(name: string, parse: (x: unknown) => T | null): Promise<Src<T>> {
   try {
@@ -46,7 +46,7 @@ async function load<T>(name: string, parse: (x: unknown) => T | null): Promise<S
       return (res.headers.get("content-type") ?? "").includes("text/html") ? { s: "none" } : { s: "failed" };
     }
     const v = parse(json);
-    return v === null ? { s: "failed" } : { s: "ready", v }; // ファイルはあるが形が違う: 読めなかった
+    return v === null ? { s: "failed" } : { s: "ready", v }; // ファイルはあるが形が違う: 読み込めなかった
   } catch {
     return { s: "failed" };
   }
@@ -85,7 +85,7 @@ export default function ResultsPage({ embedded = false }: { embedded?: boolean }
     <div className="backstage">
       {embedded ? null : <h1 className="backstage-title">試験の結果と費用</h1>}
       <p>
-        AI が読んだ結果を、正解と照らして数えた試験の結果と、Claude にかかった費用です。<strong>実測</strong>は測った数、<strong>計算</strong>は測った数や仮定から出した数で、分けて書きます。測っていないものは「未実測」「未計測」と書きます。
+        AI が読んだ結果を、正解と照らして数えた試験の結果と、Claude にかかった費用です。<strong>実測</strong>は測った数、<strong>計算</strong>は測った数や仮定から出した数で、分けて書きます。測っていないものは「まだ測っていません」と書きます。
       </p>
       {anyFailed && (
         <p>
@@ -108,7 +108,7 @@ export default function ResultsPage({ embedded = false }: { embedded?: boolean }
       </Section>
 
       <p className="replay-hint">
-        {embedded ? null : <><Link to="/" className="tap-link">地図にもどる</Link>　</>}<Link to="/replay/backstage" className="tap-link">去年の再現の舞台裏を見る</Link>　<Link to="/trends" className="tap-link">発生傾向</Link>
+        {embedded ? null : <><Link to="/" className="tap-link">地図に戻る</Link>　</>}<Link to="/replay/backstage" className="tap-link">去年の再現の舞台裏を見る</Link>　<Link to="/trends" className="tap-link">発生傾向</Link>
       </p>
     </div>
   );
@@ -130,11 +130,11 @@ function Unmeasured({ children }: { children: ReactNode }) {
 }
 
 function EvalSection({ src }: { src: Src<EvalSummary> }) {
-  if (src.s === "failed") return <p role="status">時点: 読み込めませんでした。試験の結果を読めませんでした。</p>;
+  if (src.s === "failed") return <p role="status">時点: 読み込めませんでした。試験の結果を読み込めませんでした。</p>;
   if (src.s === "none") {
     return (
       <Unmeasured>
-        時点: 試験はまだ実行していません。各項目は{UNMEASURED_METRIC}です。実行したら、正解のある文書で数えた結果をここに出します。
+        時点: 試験はまだ実行していません。各項目は、{UNMEASURED_METRIC}。実行したら、正解のある文書で数えた結果をここに出します。
       </Unmeasured>
     );
   }
@@ -171,7 +171,7 @@ function EvalSection({ src }: { src: Src<EvalSummary> }) {
 }
 
 function UsageSection({ src, usage }: { src: Src<MeasuredUsage>; usage: MeasuredUsage }) {
-  if (src.s === "failed") return <p role="status">時点: 読み込めませんでした。使用量の記録を読めませんでした。</p>;
+  if (src.s === "failed") return <p role="status">時点: 読み込めませんでした。使用量の記録を読み込めませんでした。</p>;
   if (usage.status !== "measured") {
     return (
       <Unmeasured>
@@ -182,7 +182,7 @@ function UsageSection({ src, usage }: { src: Src<MeasuredUsage>; usage: Measured
   return (
     <div>
       <p>時点: {usage.measuredAt ? formatAt(usage.measuredAt) : UNMEASURED}</p>
-      <p>読んだ文書: {usage.documents} 本（それぞれを二つの読み手に渡しました）。API の応答の使用量の合計です。</p>
+      <p>読んだ文書: {usage.documents} 本（それぞれを 2 つの AI に渡しました）。API の応答の使用量の合計です。</p>
       <ul>
         {Object.entries(usage.byModel).map(([model, t]) => (
           <li key={model}>
@@ -224,7 +224,7 @@ function CalcSection({ usage, summary }: { usage: MeasuredUsage; summary: EvalSu
         <h3>見積もり（推定）。実測ではありません</h3>
         <p>
           1 文書を入力 {n(t.inputTokens)}・出力 {n(t.outputTokens)} トークンの {ASSUMED_MODEL}（${formatUsd(assumed[0]?.usdPerDocument ?? 0)}）と仮定した見積もり（推定）の数です。測った数ではありません。
-          {assumed.length > 1 && "上の行は別の読み手（Haiku）の費用を含みません。下の行は、Haiku にも同じ量を読ませたと仮定して足した数で、実際の増分は未計測です。"}
+          {assumed.length > 1 && "上の行は確かめ役の AI（Haiku）の費用を含みません。下の行は、Haiku にも同じ量を読ませたと仮定して足した数で、実際の増分はまだ測っていません。"}
         </p>
         <CostTable bases={assumed} jpyPerUsd={jpyPerUsd} caption="見積もり（推定）。実測ではありません" />
       </div>
@@ -261,7 +261,7 @@ function CostTable({ bases, jpyPerUsd, caption }: { bases: ReturnType<typeof cos
                 {SCENARIOS.map((c) => (
                   <td role="cell" key={c.label} className="num" data-label={c.label}>{formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases: c.cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy)}</td>
                 ))}
-                <td role="cell" data-label={`月 ${n(MONTHLY_BUDGET_JPY)} 円で読める事例`}>{cap === null ? "—" : `1 か月に ${cap} 事例まで${b.id === "assumed" ? "（別の読み手を除く）" : ""}`}</td>
+                <td role="cell" data-label={`月 ${n(MONTHLY_BUDGET_JPY)} 円で読める事例`}>{cap === null ? "—" : `1 か月に ${cap} 事例まで${b.id === "assumed" ? "（確かめ役の AI を除く）" : ""}`}</td>
               </tr>
             );
           })}

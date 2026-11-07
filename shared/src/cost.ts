@@ -69,14 +69,14 @@ export function costBases(usage: MeasuredUsage, summary: EvalSummary | null): Co
   const replay = replayUsdPerDocument(usage);
   if (replay !== null) bases.push({ id: "replay", measured: true, label: "再現の実測から", usdPerDocument: replay });
   if (summary && summary.costPerDocumentUsd !== null && nonNegative(summary.costPerDocumentUsd))
-    bases.push({ id: "eval", measured: true, label: "読み取りの試験から（別の読み手を含む 1 文書。実行方式は記録なし）", usdPerDocument: summary.costPerDocumentUsd });
+    bases.push({ id: "eval", measured: true, label: "読み取りの試験から（確かめ役の AI を含む 1 文書。実行方式は記録なし）", usdPerDocument: summary.costPerDocumentUsd });
   const tokens = toTokenUsage(ASSUMED_DOCUMENT_TOKENS);
   const primary = estimateUsd(ASSUMED_MODEL, tokens);
-  bases.push({ id: "assumed", measured: false, label: "見積もり（推定）: 主の読み手だけ（別の読み手を含まない）", usdPerDocument: primary });
+  bases.push({ id: "assumed", measured: false, label: "見積もり（推定）: 主の AI だけ（確かめ役の AI を含まない）", usdPerDocument: primary });
   bases.push({
     id: "assumed_with_second",
     measured: false,
-    label: "見積もり（推定）: 別の読み手（Haiku）にも同じ量を読ませたと仮定して足した",
+    label: "見積もり（推定）: 確かめ役の AI（Haiku）にも同じ量を読ませたと仮定して足した",
     usdPerDocument: primary + estimateUsd(ASSUMED_SECOND_MODEL, tokens),
   });
   return bases;

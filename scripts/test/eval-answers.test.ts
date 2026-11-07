@@ -204,7 +204,7 @@ const MAFF_FIXTURES = path.join(ROOT, "data/private/fixtures/maff");
 const realFiles = [...["2510", "2511", "2512", "2601", "2602", "2603", "2604"].map((m) => path.join(MAFF_FIXTURES, `arc-${m}.html`)), ...answers.filter((a) => !a.fabricated).map((a) => answerFilePath(a))];
 describeFixture("正解と原文の控え", realFiles as string[], () => {
   const docs = new Map<string, NonNullable<Awaited<ReturnType<typeof loadEvalDocument>>>>();
-  it("控えがすべて読める（PDF は文字層あり）", async () => {
+  it("控えがすべて読み込める（PDF は文字層あり）", async () => {
     for (const a of answers) {
       const d = await loadEvalDocument(a);
       expect(d, a.id).not.toBeNull();

@@ -11,7 +11,7 @@ describe("data/migration/summary.json（生成物）", () => {
   const file = path.join(ROOT, "data", "migration", "summary.json");
   const raw = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")) as unknown) : null;
 
-  it("画面が読める形で、主な地点だけが入っている", () => {
+  it("画面が読み込める形で、主な地点だけが入っている", () => {
     expect(raw, "scripts/build-migration.ts を回して作る").not.toBeNull();
     const s = parseMigrationSummary(raw);
     expect(s).not.toBeNull();
@@ -52,7 +52,7 @@ describe("出典の文書と README", () => {
 
   it("出典の文、加工の事実と主体、取得の流儀が data-sources.md にある", () => {
     expect(sec.length).toBeGreaterThan(200);
-    for (const s of ["https://www.env.go.jp/nature/dobutsu/bird_flu/migratory/index.html", "加工", "この作品の作者", "politeFetch", "2 秒", "robots.txt", "175 本"]) {
+    for (const s of ["https://www.env.go.jp/nature/dobutsu/bird_flu/migratory/index.html", "加工", "このサイトの作者", "politeFetch", "2 秒", "robots.txt", "175 本"]) {
       expect(sec, s).toContain(s);
     }
   });

@@ -27,7 +27,7 @@ export function MapLinks() {
 }
 
 const NEXT: ReadonlyArray<{ to: string; label: string }> = [
-  { to: "/town", label: "選択地域の過去を見る" },
+  { to: "/town", label: "選んだ地域の過去を見る" },
   { to: "/season", label: "今季の一覧と数を見る" },
   { to: "/compare", label: "過去の発生を地図で比べる" },
 ];

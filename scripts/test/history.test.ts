@@ -152,7 +152,7 @@ describe("parseRawCases", () => {
   it("必須の欄が欠けた行は throw（行の位置を示す）", () => {
     expect(() => parseRawCases([{ season: "2022" }])).toThrow(/0/);
   });
-  it("正しい行は読める", () => {
+  it("正しい行は読み込める", () => {
     expect(parseRawCases([raw()])).toEqual([raw()]);
   });
 });

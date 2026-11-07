@@ -18,7 +18,7 @@ const SUMMARY: EvalSummary = {
   measuredAt: "2026-11-05T17:30:00+09:00",
   metrics: [
     { name: "documents", value: 54, denominator: null, unit: "文書", note: "試みた全文書" },
-    { name: "primary_muni_errors", value: 0, denominator: 54, unit: "文書", note: "読めた文書のうち、市町村の読み違い" },
+    { name: "primary_muni_errors", value: 0, denominator: 54, unit: "文書", note: "読み込めた文書のうち、市町村の読み違い" },
     { name: "primary_stage_errors", value: 0, denominator: 54, unit: "文書", note: null },
     { name: "primary_date_errors", value: 0, denominator: 54, unit: "文書", note: null },
     { name: "tamper_rejected", value: 17, denominator: 17, unit: "件", note: "わざと入れ替えた結果のうち、載らずに落ちた数" },
@@ -88,16 +88,16 @@ describe("formatMetric", () => {
 });
 
 describe("/results（まだ何も測っていない）", () => {
-  it("試験はまだ実行していません、再現の費用は未計測と出す。静的ファイルだけを読む", async () => {
+  it("試験はまだ実行していません、再現の費用はまだ測っていませんと出す。静的ファイルだけを読む", async () => {
     const calls = await show();
     expect(region(/読み取りの試験/).textContent).toContain("試験はまだ実行していません");
-    expect(region(/読み取りの試験/).textContent).toContain("未実測");
-    expect(region(/再現 1 回分/).textContent).toContain("未計測");
-    // 未実測でも『時点』と状態を出す（全画面に時点、§15）
+    expect(region(/読み取りの試験/).textContent).toContain("まだ測っていません");
+    expect(region(/再現 1 回分/).textContent).toContain("まだ測っていません");
+    // まだ測っていませんでも『時点』と状態を出す（全画面に時点、§15）
     expect(region(/読み取りの試験/).textContent).toContain("時点: 試験はまだ実行していません");
     expect(region(/読み取りの試験/).textContent!.split("試験はまだ実行していません").length - 1).toBe(1); // 重ねて書かない
-    expect(region(/再現 1 回分/).textContent).toContain("時点: 未計測");
-    expect(region(/再現 1 回分/).textContent!.split("未計測").length - 1).toBe(1);
+    expect(region(/再現 1 回分/).textContent).toContain("時点: まだ測っていません");
+    expect(region(/再現 1 回分/).textContent!.split("まだ測っていません").length - 1).toBe(1);
     expect(calls.sort()).toEqual(["/evals/summary.json", "/replay/measured-usage.json"]);
   });
 
@@ -133,7 +133,7 @@ describe("/results（まだ何も測っていない）", () => {
 });
 
 describe("/results（試験の結果がある）", () => {
-  it("時点を出し、分母つきの結果と note を並べる。unmeasured と無い指標は『未実測』", async () => {
+  it("時点を出し、分母つきの結果と note を並べる。unmeasured と無い指標は『まだ測っていません』", async () => {
     await show({ summary: SUMMARY });
     const s = region(/読み取りの試験/);
     expect(s.textContent).toContain("2026-11-05 17:30");
@@ -141,26 +141,26 @@ describe("/results（試験の結果がある）", () => {
     expect(s.textContent).toContain("前季の確認の発表が 国の事例の一覧と一致");
     expect(within(s).getAllByText("0/54 文書", { selector: "td" })).toHaveLength(3);
     const row = (label: string) => within(s).getByRole("row", { name: new RegExp(label) });
-    expect(row("国の題の分類").textContent).toContain("未実測"); // unmeasured
-    expect(row("羽数の読み違い").textContent).toContain("未実測"); // metrics に無い
+    expect(row("国の題の分類").textContent).toContain("まだ測っていません"); // unmeasured
+    expect(row("羽数の読み違い").textContent).toContain("まだ測っていません"); // metrics に無い
     expect(s.textContent).not.toContain("試験はまだ実行していません");
   });
 
-  it("unmeasured と metrics の両方にある指標は未実測が勝つ（0 と書かない）", async () => {
+  it("unmeasured と metrics の両方にある指標はまだ測っていませんが勝つ（0 と書かない）", async () => {
     await show({ summary: { ...SUMMARY, unmeasured: ["primary_muni_errors"] } });
     const row = within(region(/読み取りの試験/)).getByRole("row", { name: /市町村/ });
-    expect(row.textContent).toContain("未実測");
+    expect(row.textContent).toContain("まだ測っていません");
     expect(row.textContent).not.toContain("0/54");
   });
 
-  it("ファイルはあるが形が違う summary は、結果とは扱わず、『まだ実行していません』とも言わない（読めなかった）", async () => {
+  it("ファイルはあるが形が違う summary は、結果とは扱わず、『まだ実行していません』とも言わない（読み込めなかった）", async () => {
     stub({ summary: { measuredAt: "2026-11-05T17:30:00+09:00", metrics: "x" } });
     render(
       <MemoryRouter>
         <ResultsPage />
       </MemoryRouter>,
     );
-    await screen.findByText(/読めませんでした/);
+    await screen.findByText(/読み込めませんでした/);
     expect(document.body.textContent).not.toContain("試験はまだ実行していません");
   });
 
@@ -179,7 +179,7 @@ describe("/results（再現 1 回分を測った）", () => {
     expect(s.textContent).toContain("100,000");
     expect(s.textContent).toContain("10,000");
     expect(s.textContent).toContain("2026-11-06 10:00");
-    expect(s.textContent).not.toContain("未計測");
+    expect(s.textContent).not.toContain("まだ測っていません");
   });
 
   it("1 シーズンの計算にその 1 文書あたりの費用を使い、『計算』と分けて書く", async () => {
@@ -193,12 +193,12 @@ describe("/results（再現 1 回分を測った）", () => {
 });
 
 describe("/results（実物の data/replay/measured-usage.json）", () => {
-  it("測り済み: 文書数、モデルごとのトークン数、時点を出し、『未計測』とは言わない。静的ファイルだけを読む", async () => {
+  it("測り済み: 文書数、モデルごとのトークン数、時点を出し、『まだ測っていません』とは言わない。静的ファイルだけを読む", async () => {
     const real = usageJson as unknown as MeasuredUsage;
     expect(real.status).toBe("measured");
     const calls = await show({ usage: real });
     const s = region(/再現 1 回分/);
-    expect(s.textContent).not.toContain("未計測");
+    expect(s.textContent).not.toContain("まだ測っていません");
     expect(s.textContent).toContain(`読んだ文書: ${real.documents} 本`);
     for (const [model, t] of Object.entries(real.byModel)) {
       expect(s.textContent, model).toContain(model);
@@ -216,23 +216,23 @@ describe("/results（実物の data/replay/measured-usage.json）", () => {
   });
 });
 
-describe("/results（読めなかった）", () => {
-  it("通信に失敗したら読めなかったと言い、もう一度読むボタンで読み直す", async () => {
+describe("/results（読み込めなかった）", () => {
+  it("通信に失敗したら読み込めなかったと言い、もう一度読むボタンで読み直す", async () => {
     stub({ summary: "network" });
     render(
       <MemoryRouter>
         <ResultsPage />
       </MemoryRouter>,
     );
-    await screen.findByText(/読めませんでした/);
-    expect(screen.queryByText("試験はまだ実行していません")).toBeNull(); // 読めなかったことを「まだ実行していない」と混ぜない
-    expect(document.body.textContent).toContain("時点: 読み込めませんでした"); // 読めなかったときも『時点』の欄を出す
+    await screen.findByText(/読み込めませんでした/);
+    expect(screen.queryByText("試験はまだ実行していません")).toBeNull(); // 読み込めなかったことを「まだ実行していない」と混ぜない
+    expect(document.body.textContent).toContain("時点: 読み込めませんでした"); // 読み込めなかったときも『時点』の欄を出す
     stub({ summary: SUMMARY });
     fireEvent.click(screen.getByRole("button", { name: /もう一度/ }));
     await waitFor(() => expect(screen.getByText("24/24 件")).toBeTruthy());
   });
 
-  it("JSON として壊れた中身（HTML ではない）も読めなかった扱い", async () => {
+  it("JSON として壊れた中身（HTML ではない）も読み込めなかった扱い", async () => {
     const calls: string[] = [];
     vi.stubGlobal(
       "fetch",
@@ -247,18 +247,18 @@ describe("/results（読めなかった）", () => {
         <ResultsPage />
       </MemoryRouter>,
     );
-    await screen.findByText(/読めませんでした/);
+    await screen.findByText(/読み込めませんでした/);
     expect(document.body.textContent).not.toContain("試験はまだ実行していません");
   });
 
-  it("サーバーの 500 も読めなかった扱い", async () => {
+  it("サーバーの 500 も読み込めなかった扱い", async () => {
     stub({ summary: "error" });
     render(
       <MemoryRouter>
         <ResultsPage />
       </MemoryRouter>,
     );
-    await screen.findByText(/読めませんでした/);
+    await screen.findByText(/読み込めませんでした/);
   });
 });
 
@@ -271,7 +271,7 @@ describe("見積もり（推定）と実測の分離、前提の開示（レビ�
     expect(tables).toHaveLength(2);
     expect(within(tables[0]!).getByText(/実測の 1 文書あたり費用から計算/)).toBeTruthy(); // 題
     expect(within(tables[1]!).getByText("見積もり（推定）。実測ではありません")).toBeTruthy(); // 題
-    expect(tables[0]!.textContent).not.toContain("主の読み手だけ"); // 実測の表に仮定だけの見積もりの行が混ざらない
+    expect(tables[0]!.textContent).not.toContain("主の AIだけ"); // 実測の表に仮定だけの見積もりの行が混ざらない
     expect(tables[0]!.textContent).not.toContain("Haiku にも同じ量");
     expect(estimateBox().contains(tables[1]!)).toBe(true);
   });
@@ -300,12 +300,12 @@ describe("見積もり（推定）と実測の分離、前提の開示（レビ�
     expect(within(region(/計算/)).queryByRole("heading", { name: /実測の使用量から計算/ })).toBeNull();
   });
 
-  it("主の読み手だけの行は別の読み手（Haiku）を含まないと画面に書き、Haiku を足した行も出す。増分は未計測", async () => {
+  it("主の AI だけの行は確かめ役の AI（Haiku）を含まないと画面に書き、Haiku を足した行も出す。増分はまだ測っていません", async () => {
     await show();
     const box = estimateBox();
-    expect(box.textContent).toContain("別の読み手（Haiku）の費用を含みません");
-    expect(box.textContent).toContain("増分は未計測");
-    expect(within(box).getByRole("row", { name: /主の読み手だけ.*別の読み手を含まない/ }).textContent).toContain("（別の読み手を除く）");
+    expect(box.textContent).toContain("確かめ役の AI（Haiku）の費用を含みません");
+    expect(box.textContent).toContain("増分はまだ測っていません");
+    expect(within(box).getByRole("row", { name: /主の AI だけ.*確かめ役の AI を含まない/ }).textContent).toContain("（確かめ役の AI を除く）");
     const withSecond = within(box).getByRole("row", { name: /Haiku.*足した/ });
     // 0.05 + 0.00125（Haiku 5.5 の単価で同じ 5,000/1,500）= 0.05125 ドル → 24 事例 × 12 × 150 = 2,214 円
     expect(withSecond.textContent).toContain("$0.05125");

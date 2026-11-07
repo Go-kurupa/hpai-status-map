@@ -319,7 +319,7 @@ function expectNoLeak(s: NoticingSummary): void {
 describe("集計（aggregateNoticing、checkNoticingSummary）", () => {
   const AT = "2026-11-08T10:00:00+09:00";
 
-  it("シーズンごとと合計で、照合できた値と記載なしだけを数え、確かめられなかったものは別に数える。読めなかった行は failed", () => {
+  it("シーズンごとと合計で、照合できた値と記載なしだけを数え、確かめられなかったものは別に数える。読み込めなかった行は failed", () => {
     const rows = [
       checkedOf(2025, 1, { first_sign: ["mass_death", "ok"], waterside_1km: ["yes", "ok"], waterfowl_seen: ["yes", "ok"], staff_hygiene: ["issue", "ok"] }),
       checkedOf(2025, 2, { first_sign: ["death_increase", "not_found"], other_disease_suspected: ["yes", "ok"], waterside_1km: ["no", "no_quote"] }),
@@ -546,7 +546,7 @@ describe("口（runNoticing）", () => {
     expect(s.seasons[0]!.fields.staff_hygiene).toEqual({ counts: { issue: 1, no_issue: 0, not_mentioned: 0 }, unverified: 0 });
   });
 
-  it("max_tokens で切れた応答は読めなかった行にする（再試行しない）", async () => {
+  it("max_tokens で切れた応答は読み込めなかった行にする（再試行しない）", async () => {
     const { client } = fakeClient(() => okMessage(EXTRACT, "max_tokens"));
     expect(await runNoticing(["--yes"], deps({ makeClient: () => client }))).toBe(0);
     const ex = JSON.parse(fs.readFileSync(path.join(dir, "survey-noticing.json"), "utf8")) as { rows: NoticingRow[] };

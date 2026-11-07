@@ -19,12 +19,12 @@ describe("SeasonBar", () => {
     expect(buttons.map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "true", "false", "false"]);
   });
 
-  it("件数は『24 件』と書き、読めていないものを 0 件に見せない", () => {
+  it("件数は『24 件』と書き、読み込めていないものを 0 件に見せない", () => {
     render(<SeasonBar bars={BARS} selected={2026} onSelect={() => {}} />);
     expect(screen.getByRole("button", { name: /1 年前.*24 件/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /今季.*0 件/ })).toBeTruthy();
     const unread = screen.getByRole("button", { name: /3 年前/ });
-    expect(unread.textContent).toContain("まだ読めていません");
+    expect(unread.textContent).toContain("まだ読み込めていません");
     expect(unread.textContent).not.toMatch(/0 件/);
   });
 
@@ -55,7 +55,7 @@ describe("SeasonBar", () => {
     expect(fills.map((e) => e.classList.contains("is-past"))).toEqual(BARS.map((b) => b.season !== 2026));
   });
 
-  it("棒の長さは件数に比例し、最大でも 100%、読めていないものは 0", () => {
+  it("棒の長さは件数に比例し、最大でも 100%、読み込めていないものは 0", () => {
     const { container } = render(<SeasonBar bars={BARS} selected={2026} onSelect={() => {}} />);
     const widths = [...container.querySelectorAll<HTMLElement>(".season-bar-fill")].map((e) => e.style.width);
     expect(widths.map((w) => parseFloat(w))).toEqual([0, expect.closeTo(47.0588, 3), 100, 0]);

@@ -80,7 +80,7 @@ describe("parseFeed: 発表日（publishedOn）", () => {
     expect("publishedOn" in parseFeed(atom("<updated>2025-12-20T09:00:00+09:00</updated>"))[0]!).toBe(false);
     expect("publishedOn" in parseFeed(one("<dc:date>2025-12-20T09:00:00+09:00</dc:date>"))[0]!).toBe(false);
   });
-  it("日付がない、読めないときは項目に publishedOn を持たせない", () => {
+  it("日付がない、読み込めないときは項目に publishedOn を持たせない", () => {
     expect("publishedOn" in parseFeed(one(""))[0]!).toBe(false);
     expect("publishedOn" in parseFeed(one("<pubDate>いつか</pubDate>"))[0]!).toBe(false);
     expect("publishedOn" in parseFeed(atom("<published>2025/12/20</published>"))[0]!).toBe(false);

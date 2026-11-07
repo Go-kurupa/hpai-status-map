@@ -83,7 +83,7 @@ describe("computeWatchStatuses", () => {
     const recovered = one([src("a", "33")], "33", [prev]);
     expect(recovered).toMatchObject({ ok: true, failingSince: null });
   });
-  it("未来の時刻や読めない時刻は書かない（その入口は未確認として ok にしない）", () => {
+  it("未来の時刻や読み込めない時刻は書かない（その入口は未確認として ok にしない）", () => {
     const future = one([src("a", "33", { lastCheckedAt: new Date(NOW.getTime() + 3_600_000).toISOString() })], "33");
     expect(future.ok).toBe(false);
     expect(future.checkedAt === null || Date.parse(future.checkedAt) <= NOW.getTime()).toBe(true);
@@ -105,10 +105,10 @@ describe("computeWatchStatuses", () => {
 describe("2 回続けて失敗したら確認できていない（1 回だけの失敗では公開の表示を変えない）", () => {
   const J = (minutesAgo: number) => new Date(NOW.getTime() - minutesAgo * 60_000).toISOString();
   const jst = (minutesAgo: number) => new Date(NOW.getTime() - minutesAgo * 60_000 + 9 * 3_600_000).toISOString().slice(0, 19) + "+09:00";
-  // 3 時間ごとの見回り: 3 時間 30 分前に読めて、30 分前に 1 回目の失敗
+  // 3 時間ごとの見回り: 3 時間 30 分前に読み込めて、30 分前に 1 回目の失敗
   const firstFail = (id: string, o: Partial<Source> = {}) => src(id, "33", { failureCount: 1, lastOkAt: J(210), lastCheckedAt: J(30), failingSince: J(30), ...o });
 
-  it("1 回目の失敗は ok のまま、failingSince は null。checkedAt は前に読めた時刻。summarizeWatch でも失敗に数えない", () => {
+  it("1 回目の失敗は ok のまま、failingSince は null。checkedAt は前に読み込めた時刻。summarizeWatch でも失敗に数えない", () => {
     const s = one([firstFail("a")], "33");
     expect(s).toEqual({ prefCode: "33", ok: true, checkedAt: jst(210), lastOkAt: jst(210), failingSince: null });
     expect(shouldAlertFailing(s, NOW)).toBe(false);
@@ -132,22 +132,22 @@ describe("2 回続けて失敗したら確認できていない（1 回だけの
     const prev: WatchStatus = { prefCode: "33", ok: false, checkedAt: J(200), lastOkAt: J(600), failingSince: J(400) };
     expect(one([src("a", "33", { failureCount: 3, failingSince: J(300) })], "33", [prev]).failingSince).toBe(prev.failingSince);
   });
-  it("一度も読めていない入口は、1 回目の失敗で ok:false（慎重な側）。failingSince はその失敗の時刻", () => {
+  it("一度も読み込めていない入口は、1 回目の失敗で ok:false（慎重な側）。failingSince はその失敗の時刻", () => {
     const s = one([firstFail("a", { lastOkAt: null })], "33");
     expect(s).toMatchObject({ ok: false, failingSince: jst(30) });
   });
-  it("前に読めたのが 24 時間より前なら、1 回目の失敗でも ok:false（見回りが長く止まった後の失敗）", () => {
+  it("前に読み込めたのが 24 時間より前なら、1 回目の失敗でも ok:false（見回りが長く止まった後の失敗）", () => {
     expect(one([firstFail("a", { lastOkAt: J(24 * 60 + 1) })], "33").ok).toBe(false);
     expect(one([firstFail("a", { lastOkAt: J(24 * 60) })], "33").ok).toBe(true);
   });
-  it("前に読めた時刻が壊れている・未来なら、1 回目の失敗でも ok:false", () => {
+  it("前に読み込めた時刻が壊れている・未来なら、1 回目の失敗でも ok:false", () => {
     expect(one([firstFail("a", { lastOkAt: "壊れた時刻" })], "33").ok).toBe(false);
     expect(one([firstFail("a", { lastOkAt: new Date(NOW.getTime() + 60_000).toISOString() })], "33").ok).toBe(false);
   });
   it("入口が複数: 1 つが 1 回目の失敗で、ほかが成功なら ok のまま", () => {
     expect(one([firstFail("a"), src("b", "33", { lastCheckedAt: J(90), lastOkAt: J(90) })], "33")).toMatchObject({ ok: true, checkedAt: jst(210), failingSince: null });
   });
-  it("入口が複数: 2 つの入口がそれぞれ 1 回目の失敗なら、県として 2 回続けて読めていないので ok:false。failingSince は早い方", () => {
+  it("入口が複数: 2 つの入口がそれぞれ 1 回目の失敗なら、県として 2 回続けて読み込めていないので ok:false。failingSince は早い方", () => {
     const s = one([firstFail("a", { failingSince: J(30) }), firstFail("b", { lastCheckedAt: J(90), failingSince: J(90) })], "33");
     expect(s).toMatchObject({ ok: false, failingSince: jst(90) });
   });
@@ -157,8 +157,8 @@ describe("2 回続けて失敗したら確認できていない（1 回だけの
     expect(one(pair(60), "33").ok).toBe(true); // ちょうど 30 分は同じ回
     expect(one(pair(61), "33")).toMatchObject({ ok: false, failingSince: jst(61) }); // 30 分 1 秒以上離れたら別の回
   });
-  it("1 回目の失敗の後、次の同じ組の見回り（読めてから 6 時間 30 分）まで、summarizeWatch でも確認できたに数える", () => {
-    // 6 時間 30 分前に読めて、3 時間 30 分前に 1 回目の失敗。次の見回りの記録はまだ
+  it("1 回目の失敗の後、次の同じ組の見回り（読み込めてから 6 時間 30 分）まで、summarizeWatch でも確認できたに数える", () => {
+    // 6 時間 30 分前に読み込めて、3 時間 30 分前に 1 回目の失敗。次の見回りの記録はまだ
     const s = computeWatchStatuses([firstFail("a", { lastOkAt: J(390), lastCheckedAt: J(210), failingSince: J(210) })], [], NOW);
     expect(summarizeWatch(s, NOW).failedPrefCodes).not.toContain("33");
   });
@@ -212,7 +212,7 @@ describe("isRecovered: 見回りの失敗の知らせを自動で閉じてよい
   it("失敗中（ok:false）は閉じない", () => {
     expect(isRecovered(st({ ok: false, failingSince: iso(60 * 30) }), NOW)).toBe(false);
   });
-  it("ok でも、確認が 24 時間より古い・読めない・未来・無いなら閉じない（見回り全体が止まっている）", () => {
+  it("ok でも、確認が 24 時間より古い・読み込めない・未来・無いなら閉じない（見回り全体が止まっている）", () => {
     expect(isRecovered(st({ checkedAt: iso(24 * 60 + 1) }), NOW)).toBe(false);
     expect(isRecovered(st({ checkedAt: "壊れた時刻" }), NOW)).toBe(false);
     expect(isRecovered(st({ checkedAt: iso(-60) }), NOW)).toBe(false);

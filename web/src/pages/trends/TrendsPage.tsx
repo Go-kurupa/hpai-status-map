@@ -13,7 +13,7 @@ import { parseTrendSummary, type TrendSummary } from "./types";
 function BackLinks() {
   return (
     <p>
-      <Link to="/" className="tap-link">地図にもどる</Link>　<Link to="/results" className="tap-link">試験の結果を見る</Link>
+      <Link to="/" className="tap-link">地図に戻る</Link>　<Link to="/results" className="tap-link">試験の結果を見る</Link>
     </p>
   );
 }
@@ -134,7 +134,7 @@ export default function TrendsPage() {
       {seasons.map((s) => (
         <section key={s.season}>
           <h2>{seasonLabel(s.season)}</h2>
-          <p>読めた現地調査の概要: {s.surveyed} 件</p>
+          <p>読み取れた現地調査の概要: {s.surveyed} 件</p>
           <div className="table-scroll">
           <table className="data-table">
             <thead>

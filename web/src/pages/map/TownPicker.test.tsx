@@ -114,13 +114,13 @@ describe("TownPicker", () => {
     expect(screen.queryByRole("button", { name: TEXT.changeTown })).toBeNull();
   });
 
-  it("市町村の一覧がまだ読めていない間は『読み込んでいます』。失敗は失敗と書く", () => {
+  it("市町村の一覧がまだ読み込めていない間は『読み込んでいます』。失敗は失敗と書く", () => {
     setup({ picking: true, geo: null });
     expect(screen.getByText(/読み込んでいます/)).toBeTruthy();
     expect(screen.queryByLabelText("都道府県")).toBeNull();
     cleanup();
     setup({ picking: true, geo: null, geoFailed: true });
-    expect(screen.getByRole("alert").textContent).toContain("読めませんでした");
+    expect(screen.getByRole("alert").textContent).toContain("読み込めませんでした");
   });
 
   it("未選択では『地域を選択』が btn-primary", () => {
@@ -143,7 +143,7 @@ describe("TownPicker", () => {
     expect(decide.disabled).toBe(false);
   });
 
-  it("新しい文言（選ぶ操作は『地域を選択』、選んだ町は『選択地域』）", () => {
+  it("新しい文言（選ぶ操作は『地域を選択』、選んだ町は『選んだ地域』）", () => {
     expect(TEXT.pickTown).toBe("地域を選択");
     expect(TEXT.changeTown).toBe("地域を選択");
     expect(TEXT.decideTown).toBe("この地域にする");

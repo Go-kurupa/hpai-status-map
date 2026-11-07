@@ -68,7 +68,7 @@ describe("applyView", () => {
     expect(filters.get("case-confirmed")).toEqual(IN("c", ["33203"]));
   });
 
-  it("読めなかった県は pref-unwatched の filter に入る（今季）", () => {
+  it("読み込めなかった県は pref-unwatched の filter に入る（今季）", () => {
     const { map, filters } = fakeMap();
     const v = buildSeasonView({ season: 2026, current: 2026, currentCases: [], history: [] });
     applyView(map, { view: v, failedPrefCodes: ["33"], myMuniCode: null, nearMuniCodes: [] });

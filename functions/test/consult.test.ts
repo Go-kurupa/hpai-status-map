@@ -335,7 +335,7 @@ describe("入力の検査", () => {
       expect(user.question).toBe(topic.question);
     }
   });
-  it("カードを読めないときは unavailable。Claude も回数も使わない", async () => {
+  it("カードを読み込めないときは unavailable。Claude も回数も使わない", async () => {
     vi.spyOn(logger, "error").mockImplementation(() => {});
     const t = setup(msg(wire("x", ["boots"])), { dataFails: true });
     expect(await codeOf(ask(t.deps))).toBe("unavailable");
@@ -383,7 +383,7 @@ describe("費用と回数", () => {
     expect(t.reserve).not.toHaveBeenCalled();
     expect(t.record).not.toHaveBeenCalled();
   });
-  it("予算を読めないときも Claude を呼ばない（budget_stop）", async () => {
+  it("予算を読み込めないときも Claude を呼ばない（budget_stop）", async () => {
     vi.spyOn(logger, "error").mockImplementation(() => {});
     const t = setup(msg(wire("x", ["boots"])));
     t.deps.settings = async () => {
@@ -465,11 +465,11 @@ describe("Claude の返事が使えないとき、画面が空にならない（
     const r = await ask(setup(msg(wire("長靴を 9 足そろえます。", ["boots"]))).deps);
     expect(r).toEqual({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: true, notice: null, followUps: [], stats: null });
   });
-  it("鍵を読めない（client() が throw する）ときは unavailable。回数は確保済みで、鍵の中身も文も結果に出ない", async () => {
+  it("鍵を読み込めない（client() が throw する）ときは unavailable。回数は確保済みで、鍵の中身も文も結果に出ない", async () => {
     vi.spyOn(logger, "error").mockImplementation(() => {});
     const t = setup(msg(wire("x", ["boots"])));
     t.deps.client = () => {
-      throw new Error("秘密の鍵 sk-xxx が読めない");
+      throw new Error("秘密の鍵 sk-xxx が読み込めない");
     };
     const r = await ask(t.deps);
     expect(r).toEqual(UNAVAILABLE);

@@ -130,7 +130,7 @@ describe("PRIVACY_NOTICE（文の正）", () => {
 
   it("相談の画面で書いた文（続けて聞くときは直前のやりとりも）を Claude に送ること、保存もログへの記録もしないことが、プライバシーの説明と画面に出る", () => {
     const line =
-      "「AIに対策を相談」で書いた文は、答えを作るために Claude（Anthropic）に渡します。続けて聞くときは、同じ相談の直前のやりとり（問いと答え、3 往復まで）も渡します。農場名、位置、記録は渡しません。入力した文は、この作品のサーバーには保存せず、ログにも残しません。";
+      "「AIに対策を相談」で書いた文は、答えを作るために Claude（Anthropic）に渡します。続けて聞くときは、同じ相談の直前のやりとり（問いと答え、3 往復まで）も渡します。農場名、位置、記録は渡しません。入力した文は、このサイトのサーバーには保存せず、ログにも残しません。";
     expect(PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs).toContain(line);
     renderPage();
     expect(pageText()).toContain(line);
@@ -271,9 +271,9 @@ describe("もくじと戻る道", () => {
     expect(nav.compareDocumentPosition(h2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("末尾に『地図にもどる』があり、href は /", () => {
+  it("末尾に『地図に戻る』があり、href は /", () => {
     renderPage();
-    const link = screen.getByRole("link", { name: "地図にもどる" });
+    const link = screen.getByRole("link", { name: "地図に戻る" });
     expect(link.getAttribute("href")).toBe("/");
     expect(link.className).toContain("tap-link");
   });

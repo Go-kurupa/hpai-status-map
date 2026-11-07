@@ -53,7 +53,7 @@ describe("小さな数の伏せ", () => {
 });
 
 describe("ねずみの根拠の文の出どころ", () => {
-  it("調査のときに見つかった / 農場の人の話 / どちらとも読めない", () => {
+  it("調査のときに見つかった / 農場の人の話 / どちらとも読み込めない", () => {
     expect(rodentSourceOf("調査時、鶏舎内でネズミの糞が確認された。")).toBe("survey");
     expect(rodentSourceOf("鶏舎内でネズミを時折見かけるとのこと。")).toBe("interview");
     expect(rodentSourceOf("ネズミの侵入対策は不十分。")).toBe("unclear");
@@ -70,7 +70,7 @@ describe("aggregateInsights", () => {
   rows[1]!.extract = ex("not_mentioned", "issue", "issue", "調査時、ネズミの糞とかじり跡を確認した。", "金網の破損と壁の隙間が認められた。");
   const s = aggregateInsights(rows, cases, "2026-11-07T00:00:00+09:00");
 
-  it("読めなかったものは数えず、あった・なかった・触れていないの和が読めた数になる", () => {
+  it("読み込めなかったものは数えず、あった・なかった・触れていないの和が読み込めた数になる", () => {
     expect(s.total.surveyed).toBe(22);
     for (const i of s.total.items) expect(i.issue + i.noIssue + i.notMentioned).toBe(22);
     expect(s.total.items.find((i) => i.key === "external_clothing")).toEqual({ key: "external_clothing", issue: 20, noIssue: 1, notMentioned: 1 });
@@ -128,7 +128,7 @@ describe("報告書の文の表", () => {
 describe("parseTrendInsights", () => {
   const s = aggregateInsights(fixture(6, "採卵鶏", "ケージ飼い").rows, fixture(6, "採卵鶏", "ケージ飼い").cases, "2026-11-07T00:00:00+09:00");
   const json = (): Record<string, unknown> => JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
-  it("正しい形は読める", () => {
+  it("正しい形は読み込める", () => {
     expect(parseTrendInsights(json())).not.toBeNull();
   });
   it("知らないキーや市町村の手がかりのキーを拒む", () => {

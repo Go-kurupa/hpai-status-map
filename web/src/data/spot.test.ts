@@ -67,7 +67,7 @@ describe("parseSpot", () => {
     expect(Object.keys(p!).sort()).toEqual(["frequentMuniCodes", "meshCode", "muniCode"]);
   });
 
-  it("JSON の文字列も読める", () => {
+  it("JSON の文字列も読み込める", () => {
     expect(parseSpot(JSON.stringify(SPOT))).toEqual(SPOT);
   });
 

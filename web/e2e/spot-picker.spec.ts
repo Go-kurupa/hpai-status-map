@@ -61,9 +61,9 @@ const CASES = [
 
 test.describe("鶏舎の場所を決める", () => {
   for (const c of CASES) {
-    test(`${c.w}px、${c.name}: 鶏舎の場所の欄は選択地域の行のすぐ下。押すと十字は地図の中央、十字と［ここに決める］が同じ画面に入り、十字の下は選んだ町。そのまま決めると町の名前で確かめられる`, async ({ page }) => {
+    test(`${c.w}px、${c.name}: 鶏舎の場所の欄は選んだ地域の行のすぐ下。押すと十字は地図の中央、十字と［ここに決める］が同じ画面に入り、十字の下は選んだ町。そのまま決めると町の名前で確かめられる`, async ({ page }) => {
       await openWithTown(page, c.w, c.h, c.town);
-      // 鶏舎の場所の欄は町の欄の中、選択地域の行のすぐ下（2026-11-07 作者の決定 A）。ページの下に別の欄はない
+      // 鶏舎の場所の欄は町の欄の中、選んだ地域の行のすぐ下（2026-11-07 作者の決定 A）。ページの下に別の欄はない
       await expect(page.locator(".town-banner .town-name-row + .spot-picker")).toBeVisible();
       await expect(page.locator(".spot-picker")).toHaveCount(1);
       await page.getByRole("button", { name: "地図で場所を合わせる" }).click();

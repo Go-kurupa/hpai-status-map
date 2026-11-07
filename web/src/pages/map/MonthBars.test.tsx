@@ -30,10 +30,10 @@ describe("MonthBars", () => {
     expect(container.querySelector(".month-bars.is-past")).toBeNull();
   });
 
-  it("読めていないときは表でなく、読めていないと書く", () => {
+  it("読み込めていないときは表でなく、読み込めていないと書く", () => {
     render(<MonthBars months={[]} loaded={false} />);
     expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.getByText(/まだ読めていません/)).toBeTruthy();
+    expect(screen.getByText(/まだ読み込めていません/)).toBeTruthy();
   });
 
   it("allUnchecked では表を出さず、まだ確認できていないと書く", () => {
@@ -43,9 +43,9 @@ describe("MonthBars", () => {
     expect(document.body.textContent).not.toContain("0 件");
   });
 
-  it("allUnchecked でも読めていないときは今のまま", () => {
+  it("allUnchecked でも読み込めていないときは今のまま", () => {
     render(<MonthBars months={[]} loaded={false} allUnchecked />);
-    expect(screen.getByText(/まだ読めていません/)).toBeTruthy();
+    expect(screen.getByText(/まだ読み込めていません/)).toBeTruthy();
     expect(screen.queryByText(TEXT.listNoneChecked)).toBeNull();
   });
 });

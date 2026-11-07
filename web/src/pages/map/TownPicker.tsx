@@ -151,7 +151,7 @@ export function TownPicker(p: TownPickerProps) {
         p.geo ? (
           <Chooser geo={p.geo} town={p.town} hasSpot={p.hasSpot ?? false} mapHint={p.mapHint ?? true} onChoose={p.onChoose} onClose={() => p.onPickingChange(false)} />
         ) : p.geoFailed ? (
-          <p role="alert">市町村の一覧を読めませんでした。ページを読み込み直してください。</p>
+          <p role="alert">市町村の一覧を読み込めませんでした。ページを読み込み直してください。</p>
         ) : (
           <p role="status">市町村の一覧を読み込んでいます</p>
         )

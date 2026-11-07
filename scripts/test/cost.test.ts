@@ -208,7 +208,7 @@ describe("runCostReport（ファイルから読む入口）", () => {
     }
   });
 
-  it("壊れた JSON は黙って 0 にせず、読めなかったと出す", () => {
+  it("壊れた JSON は黙って 0 にせず、読み込めなかったと出す", () => {
     const dir = withRoot({ "data/replay/measured-usage.json": "{ not json", "evals/results/summary.json": "[]" });
     try {
       const text = runCostReport(dir);

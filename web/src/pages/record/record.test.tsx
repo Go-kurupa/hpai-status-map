@@ -98,7 +98,7 @@ beforeEach(() => {
   saveCheck.mockResolvedValue(undefined);
   listDeaths.mockReset();
   listDeaths.mockImplementation(async (from, to) => {
-    if (failListDeaths) throw new Error("読めません");
+    if (failListDeaths) throw new Error("読み込めません");
     return deaths.filter((d) => d.date >= from && d.date <= to);
   });
   deleteCall.mockReset();
@@ -658,7 +658,7 @@ describe("SelfCheckPanel", () => {
   });
 
   it("読み込みに失敗したら保存は disabled のまま。saveCheck は呼ばれない", async () => {
-    store = { ...store, listChecks: vi.fn(async () => { throw new Error("読めません"); }) } as unknown as RecordStore;
+    store = { ...store, listChecks: vi.fn(async () => { throw new Error("読み込めません"); }) } as unknown as RecordStore;
     mount(<SelfCheckPanel />);
     expect((await screen.findByRole("alert")).textContent).toBe(RECORD_TEXT.readFailed);
     const btn = screen.getByRole("button", { name: RECORD_TEXT.selfSave }) as HTMLButtonElement;
@@ -843,7 +843,7 @@ describe("ExportPanel", () => {
 });
 
 describe("所属が複数のとき（M-01: 止まる）", () => {
-  it("getFarm が失敗すれば、どの画面にも保存と削除を出さず、読めない案内を出す", async () => {
+  it("getFarm が失敗すれば、どの画面にも保存と削除を出さず、読み込めない案内を出す", async () => {
     const { MultipleFarmsError } = await import("../auth/firestoreRecordStore");
     store = { ...store, getFarm: vi.fn(async () => { throw new MultipleFarmsError(); }) } as unknown as RecordStore;
     for (const [ui, name] of [

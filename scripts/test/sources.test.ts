@@ -128,7 +128,7 @@ describe("buildSources", () => {
     expect(() => buildSources(tsv("北海道\t(見つからず)\thpai_fixed\t200\tyes\t"))).toThrow(/URL/);
   });
 
-  it("県名が読めない行は throw する", () => {
+  it("県名が読み込めない行は throw する", () => {
     expect(() => buildSources(tsv("東北\thttps://www.pref.aomori.lg.jp/a\thpai_fixed\t200\tyes\t"))).toThrow(/県/);
   });
 
@@ -277,7 +277,7 @@ describe("runBuildSources（コマンド）", () => {
       expect(seeds.find((s) => s.url === "https://www.pref.hokkaido.lg.jp/a.html")!.confirmedOn).toBe("2026-11-10");
       expect(seeds.find((s) => s.url === "https://www.pref.kyoto.jp/birdflu/")!.note).toBe("古い TLS で未到達（2026-11-10）");
       expect(t.lines.join("")).toMatch(/届いた 1/);
-      // reached_no_content が無いので 0。文言は「失敗」とは読めない
+      // reached_no_content が無いので 0。文言は「失敗」とは読み込めない
       expect(t.lines.join("")).toContain("届いた（語なし。平時は正常な入口もある） 0");
       expect(t.lines.join("")).not.toContain("内容が違う");
     } finally {
@@ -299,7 +299,7 @@ describe("runBuildSources（コマンド）", () => {
     }
   });
 
-  it("引数が足りなければ 2 で終わる／読めない TSV の行は throw でなく 2 で知らせる", () => {
+  it("引数が足りなければ 2 で終わる／読み込めない TSV の行は throw でなく 2 で知らせる", () => {
     const t = setup();
     try {
       expect(runBuildSources([], { write: t.write, now: () => new Date() })).toBe(2);

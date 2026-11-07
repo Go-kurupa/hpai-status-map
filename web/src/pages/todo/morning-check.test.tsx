@@ -1,6 +1,6 @@
 // F3: 対策項目（/todo）の見出しの直下の「けさの確認」。会員で農場があるときだけ。
-// 4 項目（最新の発生・今日の死亡数・後でやる/まだの対策・次の報告期限）の正常・未入力・読めない・読み込み中と入口を確かめる。
-// 未入力を 0 羽、読めないを「変化なし」にしない。前回との比べ、AI の判定は出さない。
+// 4 項目（最新の発生・今日の死亡数・後でやる/まだの対策・次の報告期限）の正常・未入力・読み込めない・読み込み中と入口を確かめる。
+// 未入力を 0 羽、読み込めないを「変化なし」にしない。前回との比べ、AI の判定は出さない。
 import type { DeathRecord, Farm, House, Season, WatchStatus } from "@hpai/shared/types";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -22,7 +22,7 @@ const reviewBox = vi.hoisted(() => ({
 }));
 vi.mock("../consult/reviewStore", () => ({ createReviewStore: () => reviewBox.store }));
 vi.mock("../consult/cardsData", () => ({
-  loadConsultCatalog: () => (reviewBox.catalogFail ? Promise.reject(new Error("読めません")) : Promise.resolve(reviewBox.catalog)),
+  loadConsultCatalog: () => (reviewBox.catalogFail ? Promise.reject(new Error("読み込めません")) : Promise.resolve(reviewBox.catalog)),
 }));
 
 import { findForbiddenPhrases } from "@hpai/shared/wording";
@@ -250,7 +250,7 @@ describe("2 今日の死亡数", () => {
     expect(p.queryAllByRole("listitem")).toHaveLength(0);
   });
 
-  it("読めなければ「読み込めませんでした」（未入力や 0 羽と出さない）。記録の画面への入口は残す", async () => {
+  it("読み込めなければ「読み込めませんでした」（未入力や 0 羽と出さない）。記録の画面への入口は残す", async () => {
     listDeaths.mockRejectedValue(new Error("permission-denied"));
     mount();
     const p = await part(/今日の死亡数/);
@@ -354,7 +354,7 @@ describe("3 後でやる・まだの対策", () => {
     expect(lower.id).toBe("todo-reviews");
   });
 
-  it("カードの一覧を読めなければ、数だけを出す", async () => {
+  it("カードの一覧を読み込めなければ、数だけを出す", async () => {
     reviewBox.catalogFail = true;
     reviewBox.store.listReviewItems.mockResolvedValue([review("c1", { status: "later" }), review("c3")]);
     mount();
@@ -381,7 +381,7 @@ describe("3 後でやる・まだの対策", () => {
     expect(p.queryByText(/件/)).toBeNull();
   });
 
-  it("読めなければ「読み込めませんでした」（0 件と出さない）", async () => {
+  it("読み込めなければ「読み込めませんでした」（0 件と出さない）", async () => {
     reviewBox.store.listReviewItems.mockRejectedValue(new Error("permission-denied"));
     mount();
     const p = await part(/後でやる・まだの対策/);

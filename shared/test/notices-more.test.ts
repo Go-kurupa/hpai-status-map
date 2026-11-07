@@ -72,7 +72,7 @@ describe("wildBirdNotices", () => {
     expect(wildBirdNotices({ bird: bird(), farms: [bare], geo: geo() })).toHaveLength(1);
   });
 
-  it("配信を止めた会員には届かない。読めない農場（欄が配列でない）は飛ばす", () => {
+  it("配信を止めた会員には届かない。読み込めない農場（欄が配列でない）は飛ばす", () => {
     const f = farmWithId("near", "u1", { meshCode: NEAR_B, muniCode: GEO_B, memberUids: ["u1", "u9"], unsubscribedUids: ["u9"] });
     expect(wildBirdNotices({ bird: bird(), farms: [f], geo: geo() }).map((n) => n.uid)).toEqual(["u1"]);
     const broken = { ...f, unsubscribedUids: undefined } as unknown as F;

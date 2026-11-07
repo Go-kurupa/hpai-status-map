@@ -20,7 +20,7 @@ type Load = { status: "loading" } | { status: "failed" } | { status: "ready"; sc
 
 async function fetchScenario(): Promise<ReplayScenario> {
   const res = await fetch(`${import.meta.env.BASE_URL}replay/scenario.json`);
-  if (!res.ok) throw new Error(`再現のデータを読めませんでした（${res.status}）`);
+  if (!res.ok) throw new Error(`再現のデータを読み込めませんでした（${res.status}）`);
   return (await res.json()) as ReplayScenario;
 }
 
@@ -49,7 +49,7 @@ export default function ReplayPage() {
     return (
       <div>
         <h1>去年の再現</h1>
-        <p role="status">再現のデータを読めませんでした。</p>
+        <p role="status">再現のデータを読み込めませんでした。</p>
         <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>
           もう一度読む
         </button>
@@ -208,7 +208,7 @@ function ReplayControls({
           </div>
         </div>
         {flowStatus === "loading" ? <p role="status">全国の流れを読み込んでいます</p> : null}
-        {flowStatus === "failed" ? <p role="status">全国の流れを読めませんでした。もう一度押してください。</p> : null}
+        {flowStatus === "failed" ? <p role="status">全国の流れを読み込めませんでした。もう一度押してください。</p> : null}
         <div className="replay-now-row">
           <p className="replay-position">{`${order} / ${total}`}</p>
           <p className="replay-now" aria-live="polite">
@@ -228,7 +228,7 @@ function ReplayControls({
           </section>
         ) : null}
         {!isNational && view === "zone" && current && !preview ? <p className="replay-hint">この出来事では、この地点にメールは届きません。</p> : null}
-        {!isNational && view === "own" ? <p className="replay-hint">選択地域では、メールの下書きは出しません。</p> : null}
+        {!isNational && view === "own" ? <p className="replay-hint">選んだ地域では、メールの下書きは出しません。</p> : null}
         {current ? (
           <p className="replay-source">
             {formatMonthDay(current.date)}の出来事の出典:{" "}
@@ -261,10 +261,10 @@ function ReplayControls({
             {isNational ? "作者の村から見る" : "もし区域の近くの農場なら"}
           </button>
           <button type="button" className="btn" aria-pressed={view === "own"} disabled={!canOwn} onClick={() => onView("own")}>
-            選択地域で見る
+            選んだ地域で見る
           </button>
         </div>
-        {!canOwn ? <p className="replay-hint">選択地域で見るには、<Link to="/">地図</Link>で自分の場所を決めてください（この端末の中にだけ保存されます）。</p> : null}
+        {!canOwn ? <p className="replay-hint">選んだ地域で見るには、<Link to="/">地図</Link>で自分の場所を決めてください（この端末の中にだけ保存されます）。</p> : null}
         <p className="replay-hint">
           <Link to="/replay/backstage">舞台裏（AI が読んだ結果と、プログラムの検査）を見る</Link>
           {" / "}

@@ -230,7 +230,7 @@ describe("planApply: 確認中と破棄", () => {
     expect(p.reviews).toEqual([{ id: "doc-d1", kind: "document", documentId: "d1", url: "https://example.test/a", prefCode: "33", title: "題", reasons: ["compare:municipality"], hasOutbreakWords: true }]);
   });
 
-  it("県が分からなければ review_private（国の文書で読めなかったとき）", () => {
+  it("県が分からなければ review_private（国の文書で読み込めなかったとき）", () => {
     const p = planApply({ doc: doc({ prefCode: null }), decision: { action: "review_public", reasons: ["read_failed"] }, normalized: null, existing: [], now: NOW });
     expect(p.cases).toEqual([]);
     expect(p.readState).toBe("review_private");

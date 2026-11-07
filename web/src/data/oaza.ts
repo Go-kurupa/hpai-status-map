@@ -15,7 +15,7 @@ export function fetchOazaPref(prefCode: string): Promise<OazaPref> {
   let p = cache.get(prefCode);
   if (!p) {
     p = fetch(`${import.meta.env.BASE_URL}oaza/${prefCode}.json`).then((res) => {
-      if (!res.ok) throw new Error(`地区の一覧を読めませんでした（${res.status}）`);
+      if (!res.ok) throw new Error(`地区の一覧を読み込めませんでした（${res.status}）`);
       return res.json() as Promise<OazaPref>;
     });
     // 失敗は覚えない（次に開いたときにもう一度読む）

@@ -203,7 +203,7 @@ describe("既定の地点（仮の地点）", () => {
     expect(distanceToMuniKm(scenario.defaultSpot.meshCode, "33203", geo)).toBeLessThanOrEqual(5);
   });
 
-  it("12/19 から 1/20 までは level 1（within_radius）。1/21 以降は level 1 でない（隣町の 2）。12/16 の姫路市（約 40km 先）から 12/18 までは距離の帯の 3。それより前は 4", () => {
+  it("12/19 から 1/20 までは level 1（within_radius）。1/21 以降は level 1 でない（隣の町の 2）。12/16 の姫路市（約 40km 先）から 12/18 までは距離の帯の 3。それより前は 4", () => {
     const first = orderOn("2025-12-19");
     const band = events.find((e) => e.caseAfter.muniCode === "28201")!.order;
     const lift = events.find((e) => e.caseAfter.muniCode === "33203" && eventStage(e) === "movement_lifted")!.order;

@@ -176,10 +176,10 @@ test.describe("去年の再現（/replay）", () => {
     await expect(page.getByText(ZONE)).toBeVisible();
     await expect(page.getByText("搬出制限は解除されました")).toBeVisible();
 
-    // 1/21 津山市の移動制限の解除で、区域の文は消える（隣町になる）
+    // 1/21 津山市の移動制限の解除で、区域の文は消える（隣の町になる）
     await (await item(page, /1 月 21 日.*津山市.*移動制限の解除/)).click();
     await expect(page.getByText(ZONE)).toHaveCount(0);
-    await expect(page.getByText("隣町で発生しました", { exact: true })).toBeVisible();
+    await expect(page.getByText("隣の町で発生しました", { exact: true })).toBeVisible();
 
     // 通信: 本物のデータの口（Firestore）にも Claude にも出ない
     const urls = requests.map((r) => r.url());
@@ -199,16 +199,16 @@ test.describe("去年の再現（/replay）", () => {
     await expect(page.getByRole("button", { name: "前へ" })).toBeDisabled();
   });
 
-  test("端末に地点がなければ『選択地域で見る』は押せない。あれば切り替えられ、端末の地点は変わらない", async ({ page }) => {
+  test("端末に地点がなければ『選んだ地域で見る』は押せない。あれば切り替えられ、端末の地点は変わらない", async ({ page }) => {
     await open(page);
-    await expect(page.getByRole("button", { name: "選択地域で見る" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "選んだ地域で見る" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "もし区域の近くの農場なら" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("端末の地点（米子市）で見ると、米子市の確定で区域の文が出る。localStorage の hpai.spot.v1 は変わらない", async ({ page }) => {
     const mine = JSON.stringify({ meshCode: "53331228", muniCode: "31202", frequentMuniCodes: [] });
     await open(page, { "hpai.spot.v1": mine });
-    await page.getByRole("button", { name: "選択地域で見る" }).click();
+    await page.getByRole("button", { name: "選んだ地域で見る" }).click();
     await (await item(page, /12 月 2 日.*米子市.*確定/)).click();
     await expect(page.getByText(ZONE)).toBeVisible();
     await expect(page.getByText("仮の地点で見ています", { exact: false })).toHaveCount(0);

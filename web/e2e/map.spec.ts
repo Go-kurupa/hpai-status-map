@@ -182,9 +182,9 @@ test.describe("地図（入口）", () => {
     await expect(page.getByRole("navigation", { name: "メイン" })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "ほかのページ" })).toHaveCount(0);
     const next = page.getByRole("navigation", { name: "次の画面" });
-    await expect(next.getByRole("link")).toHaveText(["選択地域の過去を見る", "今季の一覧と数を見る", "過去の発生を地図で比べる"]);
+    await expect(next.getByRole("link")).toHaveText(["選んだ地域の過去を見る", "今季の一覧と数を見る", "過去の発生を地図で比べる"]);
     for (const [name, path] of [
-      ["選択地域の過去を見る", "/town"],
+      ["選んだ地域の過去を見る", "/town"],
       ["今季の一覧と数を見る", "/season"],
       ["過去の発生を地図で比べる", "/compare"],
     ] as const) {
@@ -434,10 +434,10 @@ test.describe("地図（入口）", () => {
     });
 
     // 設計書 2026-11-06-ui-frame 決定 6: 地点がなく町だけ選んだ人も、町の中心から輪を描く
-    test("町だけ選んだ人は、町の中心から輪が描かれ、選択地域付近は約 60 km の輪の全体が入る。断りは町の中心の文", async ({ page }) => {
+    test("町だけ選んだ人は、町の中心から輪が描かれ、選んだ地域の付近は約 60 km の輪の全体が入る。断りは町の中心の文", async ({ page }) => {
       await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
       await open(page, 1280);
-      await expect(page.getByText("※ 輪は自治体の中心からの距離の目安で、発表の区域ではありません。")).toBeVisible();
+      await expect(page.getByText("※ 輪は町の中心からの距離の目安で、発表の区域ではありません。")).toBeVisible();
       await expect(page.getByText(RING_NOTE)).toHaveCount(0);
       await expect
         .poll(() => page.evaluate(() => window.__hpaiMap!.queryRenderedFeatures(undefined, { layers: ["distance-rings"] }).length), { timeout: 10_000 })
@@ -503,7 +503,7 @@ test.describe("地図（入口）", () => {
     await expect.poll(() => page.evaluate(() => window.__hpaiMap!.isMoving()), { timeout: 15_000 }).toBe(false);
     await scope.getByRole("button", { name: "中国" }).click();
     await expect(scope.getByRole("button", { name: "中国" })).toHaveAttribute("aria-pressed", "true");
-    await expect(scope.getByRole("button", { name: "選択地域付近" })).toHaveAttribute("aria-pressed", "false");
+    await expect(scope.getByRole("button", { name: "選んだ地域の付近" })).toHaveAttribute("aria-pressed", "false");
     await centerIn(page, CHUGOKU);
     // 津山市を押す
     await page.evaluate(() => window.__hpaiMap!.jumpTo({ center: [134.0, 35.07], zoom: 9 }));
@@ -519,7 +519,7 @@ test.describe("地図（入口）", () => {
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(["1 年前（2025 年 6 月〜2026 年 5 月）", "今季（2026 年 6 月〜2027 年 5 月）"]);
   });
 
-  test("スマホ: 数で見るの「地図で中国を見る」から開くと、選択地域があっても中国地方に寄せる。見せ方の切り替えはなく、いつも重ねる（津山市が重ね合わせの層に入る）", async ({ page }) => {
+  test("スマホ: 数で見るの「地図で中国を見る」から開くと、選んだ地域があっても中国地方に寄せる。見せ方の切り替えはなく、いつも重ねる（津山市が重ね合わせの層に入る）", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "01100"));
     await open(page, 390, "/explore");
     await page.getByRole("group", { name: "地方" }).getByRole("button", { name: /^中国/ }).click();
@@ -538,7 +538,7 @@ test.describe("地図（入口）", () => {
       await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
       await open(page, 1280);
       const panel = page.locator(".town-cases");
-      // 近くの自治体のボタンは、選択地域の欄の「過去の記録」にある（2026-11-06 作者の決定。同じ町が 2 か所に並ばないように）
+      // 近くの町のボタンは、選んだ地域の欄の「過去の記録」にある（2026-11-06 作者の決定。同じ町が 2 か所に並ばないように）
       const pick = page.locator(".town-past .town-cases-picks").getByRole("button", { name: /^美作市 \d+ 件$/ });
       await expect(pick).toBeVisible({ timeout: 20_000 });
       // 輪の広さへ動いている最中に押すと動きが止まり、町の塗りのない広さに残る。真ん中に自分の町の塗りが描かれてから押す
@@ -564,18 +564,18 @@ test.describe("地図（入口）", () => {
       const box = (await panel.boundingBox())!;
       expect(box.x).toBeGreaterThan(canvas.x + canvas.width);
       expect(Math.abs(box.y - canvas.y)).toBeLessThanOrEqual(2);
-      await panel.getByRole("button", { name: "選択地域に戻る" }).click();
+      await panel.getByRole("button", { name: "選んだ地域に戻る" }).click();
       await expect(panel).toHaveCount(0);
       await pick.click();
       await expect(panel.getByRole("heading", { level: 2, name: "美作市" })).toBeFocused();
       await expect(panel.getByText("2020 年 12 月 11 日")).toBeVisible();
       await expect(panel.getByRole("link", { name: "資料を開く" }).first()).toHaveAttribute("rel", /noopener/);
       // 戻ると、開いた元の美作市のボタンへフォーカスが戻る
-      await panel.getByRole("button", { name: "選択地域に戻る" }).click();
+      await panel.getByRole("button", { name: "選んだ地域に戻る" }).click();
       await expect(pick).toBeFocused();
     });
 
-    test("欄は今季の発生の地図だけ。過去の発生（/compare）と選択地域のまわり（/town）には出ない", async ({ page }) => {
+    test("欄は今季の発生の地図だけ。過去の発生（/compare）と選んだ地域のまわり（/town）には出ない", async ({ page }) => {
       await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33643"));
       for (const path of ["/compare", "/town"]) {
         await open(page, 1280, path);

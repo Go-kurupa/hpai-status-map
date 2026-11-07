@@ -13,7 +13,7 @@ export const ABOUT_TEXT = {
     privacy: "集める情報と消し方",
   },
   sourcesLead: "国、県、国土交通省、国土地理院が公開しているデータと、「AIに対策を相談」では海外の公的機関の資料と論文を使っています。県の連絡が正です。",
-  sourcesMore: "利用条件と加工の詳しい記録は、この作品のリポジトリの文書（docs/data-sources.md）にあります。",
+  sourcesMore: "利用条件と加工の詳しい記録は、このサイトのリポジトリの文書（docs/data-sources.md）にあります。",
 } as const;
 
 /**
@@ -48,7 +48,7 @@ export const DATA_SOURCES: readonly DataSource[] = [
   },
   {
     name: "都道府県の発表",
-    use: "県内の発生（疑い、確定）の速報。47 都道府県の発表の入口を見回っています",
+    use: "県内の発生（疑い、確定）の速報。47 都道府県の発表のページを、定期的に確かめています",
     url: null,
   },
   {
@@ -68,12 +68,12 @@ export const DATA_SOURCES: readonly DataSource[] = [
   },
   {
     name: "国土交通省 国土数値情報「行政区域データ N03 2026 年版」",
-    use: "市町村の形（この作品の作者が、形の簡略化、政令市の区の統合、隣り合いの計算を行って作成）",
+    use: "市町村の形（このサイトの作者が、形の簡略化、政令市の区の統合、隣り合いの計算を行って作成）",
     url: "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html",
   },
   {
     name: "国土交通省「大字・町丁目位置参照情報」（令和 7 年）",
-    use: "くわしい場所を決めるとき、地区（大字）を選んで地図を寄せる目安の点（この作品の作者が、県ごとの一覧に作成）",
+    use: "くわしい場所を決めるとき、地区（大字）を選んで地図を寄せる目安の点（このサイトの作者が、県ごとの一覧に作成）",
     url: "https://nlftp.mlit.go.jp/isj/index.html",
   },
   {

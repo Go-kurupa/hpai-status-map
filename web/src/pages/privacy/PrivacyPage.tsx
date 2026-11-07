@@ -34,7 +34,7 @@ export function PrivacyContent({ reviewedOn, embedded = false }: { reviewedOn: I
   return (
     <div className="privacy">
       {embedded ? null : <h1>プライバシー</h1>}
-      <p>この作品が何を集め、どこに保存し、どう消せるかの説明です。</p>
+      <p>このサイトが何を集め、どこに保存し、どう消せるかの説明です。</p>
       <ReviewStatus reviewedOn={reviewedOn} />
       {embedded ? null : (
         <nav aria-label="もくじ" className="privacy-toc">
@@ -73,7 +73,7 @@ export function PrivacyContent({ reviewedOn, embedded = false }: { reviewedOn: I
       {embedded ? null : (
         <p>
           <Link to="/" className="tap-link">
-            地図にもどる
+            地図に戻る
           </Link>
         </p>
       )}

@@ -156,7 +156,7 @@ describe("PublicPage", () => {
   });
 
   // 「市場に出回ることはありません」（農林水産省）の文は残し、その直後に、防疫指針の卵の出荷の例外を、出典つきの注として添える（利用者の決定 Q-j の C）
-  describe("卵の出荷の例外の注（作品側の要約）", () => {
+  describe("卵の出荷の例外の注（このサイトの要約）", () => {
     const MARKET_SENTENCE =
       "国内の家きん飼養農場で高病原性鳥インフルエンザ、低病原性鳥インフルエンザが発生した場合、家畜伝染病予防法に基づき、発生した農場の飼養家きんの殺処分、焼却又は埋却、消毒、移動制限など必要な防疫措置を実施します。このため、発生が確認された農場の家きん、鶏卵などが市場に出回ることはありません。";
     const GUIDELINE_URL = "https://www.maff.go.jp/j/syouan/douei/katiku_yobo/k_bousi/attach/pdf/index-75.pdf";
@@ -171,7 +171,7 @@ describe("PublicPage", () => {
       expect(text).toContain("発生した農場の周りの");
       expect(text).toContain("出荷");
       expect(text).toContain("陰性");
-      // 国の文ではなく、作品側の要約だと分かる
+      // 国の文ではなく、このサイトの要約だと分かる
       expect(text).toContain("国の文ではありません");
       expect(note!.closest("[data-role='official']")).toBeNull();
       expect(note!.closest("blockquote")).toBeNull();

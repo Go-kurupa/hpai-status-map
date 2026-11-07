@@ -126,7 +126,7 @@ const okWatch = (): WatchStatus[] =>
 
 const tone = () => document.querySelector("[data-tone]")?.getAttribute("data-tone");
 const bodyText = () => document.body.textContent ?? "";
-/** 発生が 0 件、発生はありません、と読める言い方（見回りの「0 件は確認できていません」は別） */
+/** 発生が 0 件、発生はありません、と読み込める言い方（見回りの「0 件は確認できていません」は別） */
 const ZERO_CLAIM = /(発生|事例|報告)[^。（]{0,8}[^0-9]0 件|0 件の(発生|事例)|発生はありません|報告はありません/u;
 
 beforeEach(() => localStorage.clear());
@@ -185,7 +185,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     expect(findForbiddenPhrases(bodyText())).toEqual([]);
   });
 
-  it("段階 2（隣町）: 『隣町で発生しました』。areaNoDistance と riskAnywhere を必ず出す", async () => {
+  it("段階 2（隣の町）: 『隣の町で発生しました』。areaNoDistance と riskAnywhere を必ず出す", async () => {
     const r = rig();
     show(r, "33214");
     await screen.findByText("真庭市の状況");
@@ -211,14 +211,14 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     expect(findForbiddenPhrases(bodyText())).toEqual([]);
   });
 
-  it("移動制限の解除の後の同じ市町村は sameMuniLifted。『隣町』と書かない（契約 2.4）", async () => {
+  it("移動制限の解除の後の同じ市町村は sameMuniLifted。『隣の町』と書かない（契約 2.4）", async () => {
     const r = rig();
     show(r, "33203");
     await screen.findByText("津山市の状況");
     r.deliverCases([mkCase({ id: "c1", stages: { confirmed: { date: "2026-11-02", time: null }, movement_lifted: { date: "2026-11-20", time: null } } })]);
     await screen.findByText(FIXED_TEXT.sameMuniLifted);
     expect(tone()).toBe("lv2");
-    expect(document.querySelector("[data-tone]")!.textContent).not.toContain("隣町"); // 過去の行の「隣町」は別
+    expect(document.querySelector("[data-tone]")!.textContent).not.toContain("隣の町"); // 過去の行の「隣の町」は別
     expect(bodyText()).toContain(FIXED_TEXT.areaNoDistance);
     expect(bodyText()).toContain(RISK_LINE_TEXT);
   });
@@ -265,7 +265,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     const small = main.filter((h) => h.headCount !== null && h.headCount < 3000).length;
     expect(bodyText()).toContain(TEXT.smallFlocks(6, main.length, main.filter((h) => h.headCount !== null).length, small));
     expect(findForbiddenPhrases(bodyText())).toEqual([]);
-    // 既存の『この町』『隣町』の 1 文と一覧は残る
+    // 既存の『この町』『隣の町』の 1 文と一覧は残る
     expect(document.querySelector(".past-details")).toBeTruthy();
     expect(bodyText()).toContain(FIXED_TEXT.pastDisclaimer);
   });
@@ -284,7 +284,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     expect(findForbiddenPhrases(bodyText())).toEqual([]);
   });
 
-  it("過去の記録が読めない間は 0 件の表を出さない。読めなければ失敗の文だけ", async () => {
+  it("過去の記録が読み込めない間は 0 件の表を出さない。読み込めなければ失敗の文だけ", async () => {
     const r = rig();
     let reject = (_: Error) => {};
     r.ds.loadHistory = () => new Promise((_res, rej) => (reject = rej));
@@ -347,13 +347,13 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     }
   });
 
-  it("市町村の形を読めなかったら、段階の文を出さずに『読めませんでした』", async () => {
+  it("市町村の形を読み込めなかったら、段階の文を出さずに『読み込めませんでした』", async () => {
     vi.mocked(loadWebGeoStore).mockRejectedValueOnce(new Error("offline"));
     const r = rig();
     show(r, "33214");
     r.deliverCases([]);
     await screen.findAllByRole("alert");
-    expect(bodyText()).toContain("読めませんでした");
+    expect(bodyText()).toContain("読み込めませんでした");
     expect(document.querySelector("[data-tone]")).toBeNull();
     expect(bodyText()).not.toContain("この市町村は見つかりません");
   });
@@ -396,7 +396,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
 });
 
 describe("隣の県のホームページを読み込めていないとき（2026-11-07 作者の決定、案 B）", () => {
-  it("真庭市で鳥取県だけ読めていなければ、1 回目に読めなかった時刻つきで伝える。「見回り」の語は使わない", async () => {
+  it("真庭市で鳥取県だけ読み込めていなければ、1 回目に読み込めなかった時刻つきで伝える。「見回り」の語は使わない", async () => {
     const r = rig();
     show(r, "33214");
     r.deliverWatch(okWatch().map((w) => (w.prefCode === "31" ? { ...w, ok: false, failingSince: "2026-11-04T06:13:00+09:00" } : w)));

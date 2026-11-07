@@ -367,7 +367,7 @@ describe("reviewingCoveredMembers: 同じ県の確認中が開いている間に
     expect(run([rec("f1", "u1", "rev-d1", { queuedAt: edge })]).size).toBe(1);
     expect(run([rec("f1", "u1", "rev-d1", { queuedAt: old })]).size).toBe(0);
   });
-  it("時刻が読めない記録は数えない（減らさない側）", () => {
+  it("時刻が読み込めない記録は数えない（減らさない側）", () => {
     expect(run([rec("f1", "u1", "rev-d1", { queuedAt: "x" })]).size).toBe(0);
   });
   it("開いている確認中がなければ空", () => {
@@ -406,7 +406,7 @@ describe("planCaseNotices: 設定、配信停止、記録", () => {
     // 別の出来事の記録は関係しない
     expect(table(run(farms(), "confirmed", [sent("f1", "u1", c.id, "suspected")]))).toEqual({ f1: "immediate/1", f2: "morning/2", f3: "morning/3" });
   });
-  it("会員の読めない農場（配信停止の欄が配列でない）は送らない側に倒す", () => {
+  it("会員の読み込めない農場（配信停止の欄が配列でない）は送らない側に倒す", () => {
     const broken = patch("f1", { unsubscribedUids: undefined as unknown as string[] });
     expect(table(run(broken))).toEqual({ f2: "morning/2", f3: "morning/3" });
     const noMembers = patch("f1", { memberUids: undefined as unknown as string[] });

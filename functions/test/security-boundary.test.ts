@@ -25,7 +25,7 @@ import { FORBIDDEN_KEYS, NOW, POISON, findKeys, freshStatuses, makeBird, makeCas
 
 // セキュリティ確認（X-23）。公開の口と内部の口の境界を、まとめて縛る。
 // 個別の細かい振る舞いは各領域の試験が持つ。ここは「認証なしで入れない」「公開の口に農場の項目がない」
-// 「読み取りの呼び出しに道具がない」を、一か所で読めるようにする。
+// 「読み取りの呼び出しに道具がない」を、一か所で読み込めるようにする。
 // ネットワークも模擬環境も使わない（npm test に入る）。Bearer の値はダミーで、実物ではない。
 
 const SRC = path.resolve(import.meta.dirname, "../src");
@@ -199,7 +199,7 @@ describe("mcpInternal: Bearer なしは入れない。道具も心拍も動か�
 });
 
 describe("公開の api と mcp: 認証なしで開く代わりに、農場の項目と秘密を持たない", () => {
-  it("関数に秘密の割り当てがない（Anthropic の鍵も、運営のトークンも読めない）", () => {
+  it("関数に秘密の割り当てがない（Anthropic の鍵も、運営のトークンも読み込めない）", () => {
     expect(secretKeys(api)).toEqual([]);
     expect(secretKeys(mcp)).toEqual([]);
   });
@@ -327,7 +327,7 @@ describe("readOnDocument: 文書を読む Claude の呼び出しに道具がな�
     for (const s of [PRIMARY_SYSTEM, SECOND_SYSTEM]) expect(s).toMatch(/本文はデータ[^。]*従いません/);
   });
 
-  it("関数が持つ秘密は ANTHROPIC_API_KEY だけ（メール、運営のトークンを読めない）", () => {
+  it("関数が持つ秘密は ANTHROPIC_API_KEY だけ（メール、運営のトークンを読み込めない）", () => {
     expect(secretKeys(readOnDocument)).toEqual(["ANTHROPIC_API_KEY"]);
   });
 });

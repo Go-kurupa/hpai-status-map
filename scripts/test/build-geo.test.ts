@@ -168,7 +168,7 @@ describe("data/geo の形のファイル", () => {
 });
 
 describe("loadScriptGeoStore", () => {
-  it("津山市の形を読め、隣り合いと距離が引ける", async () => {
+  it("津山市の形を読み込め、隣り合いと距離が引ける", async () => {
     const geo = await loadScriptGeoStore();
     await geo.ensurePrefs(["33", "31"]);
     expect(geo.geometry("33203").properties.c).toBe("33203");

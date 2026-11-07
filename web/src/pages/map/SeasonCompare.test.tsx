@@ -75,9 +75,9 @@ describe("SeasonCompare", () => {
     expect(findWordingViolations(text())).toEqual([]);
     expect(text()).not.toMatch(/多くなる|増える|減る|少なくなる|予測します/);
   });
-  it("今季が読めていない、確認できていない県があるときは 0 件と書かない", () => {
+  it("今季が読み込めていない、確認できていない県があるときは 0 件と書かない", () => {
     const { rerender } = render(<SeasonCompare {...base} currentCases={null} />);
-    expect(screen.getByTestId("compare-lead").textContent).toContain("まだ読めていません");
+    expect(screen.getByTestId("compare-lead").textContent).toContain("まだ読み込めていません");
     rerender(<SeasonCompare {...base} unchecked={3} />);
     expect(screen.getByTestId("compare-lead").textContent).toContain("確認できた範囲では 0 件（3 県は確認できていません）");
     rerender(<SeasonCompare {...base} unchecked={47} allUnchecked />);
@@ -96,9 +96,9 @@ describe("SeasonCompare", () => {
     expect(text()).toContain("今季のデータの時点: 11 月 4 日 8:30 時点");
     expect(text()).not.toContain("最後に確認を試した");
   });
-  it("過去の記録が読めていなくても、但し書きと時点は出て、件数は出さない", () => {
+  it("過去の記録が読み込めていなくても、但し書きと時点は出て、件数は出さない", () => {
     render(<SeasonCompare {...base} history={null} />);
-    expect(text()).toContain("まだ読めていません");
+    expect(text()).toContain("まだ読み込めていません");
     expect(text()).toContain(COMPARE_DISCLAIMER);
     expect(screen.queryByRole("table")).toBeNull();
   });

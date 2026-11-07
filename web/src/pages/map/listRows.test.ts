@@ -95,7 +95,7 @@ describe("listRows（新しい順、label は displayStage）", () => {
     expect(listRows([negated("2026-11-13T09:00:00+09:00")], NOW)[0]!.label).toBe("否定されました");
   });
 
-  it("negatedAt が読めないときは消さない（隠すより残す）", () => {
+  it("negatedAt が読み込めないときは消さない（隠すより残す）", () => {
     expect(listRows([mk({ id: "n", negation: "negated", negatedAt: null })], NOW)).toHaveLength(1);
     expect(listRows([mk({ id: "n", negation: "negated", negatedAt: "xx" })], NOW)).toHaveLength(1);
   });

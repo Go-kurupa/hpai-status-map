@@ -114,7 +114,7 @@ describe("decidePublication: 確認中", () => {
   });
 });
 
-describe("decidePublication: 読めなかった、文字層がない", () => {
+describe("decidePublication: 読み込めなかった、文字層がない", () => {
   it("read が null なら read_failed（発生の語で public/private）", () => {
     expect(decide({ read: null, verify: null, compare: null })).toEqual({ action: "review_public", reasons: ["read_failed"] });
     expect(decide({ read: null, verify: null, compare: null, docText: QUIET })).toEqual({ action: "review_private", reasons: ["read_failed"] });
@@ -170,7 +170,7 @@ describe("notPoultryHereReasons: 自動で外してよいか", () => {
     expect([...NOT_POULTRY_KINDS].sort()).toEqual(["drill", "irrelevant", "notice", "other_pref", "wild_bird"]);
     for (const k of ["suspected", "confirmed", "progress", "control_done", "zone_lifted", "negated"] as const) expect(NOT_POULTRY_KINDS.has(k)).toBe(false);
   });
-  it("二人とも野鳥と読めば外す。理由は語だけ（引用や値を入れない）", () => {
+  it("二人とも野鳥と読み込めば外す。理由は語だけ（引用や値を入れない）", () => {
     expect(notPoultryHereReasons({ read: read("wild_bird"), second: second("wild_bird"), hasTextLayer: true, bodyAvailable: true, docText: WILD_NEWS })).toEqual([
       "not_poultry_here", "both_read:wild_bird", "outbreak_words_present",
     ]);
@@ -184,13 +184,13 @@ describe("notPoultryHereReasons: 自動で外してよいか", () => {
     ]);
   });
   it.each(["suspected", "confirmed", "progress", "control_done", "zone_lifted", "negated"] as const)(
-    "どちらかが家きんの事例の種類（%s）と読めば外さない（主でも別の読み手でも）",
+    "どちらかが家きんの事例の種類（%s）と読み込めば外さない（主でも別の読み手でも）",
     (k) => {
       expect(notPoultryHereReasons({ read: read(k), second: second("wild_bird"), hasTextLayer: true, bodyAvailable: true, docText: WILD_NEWS })).toBeNull();
       expect(notPoultryHereReasons({ read: read("wild_bird"), second: second(k), hasTextLayer: true, bodyAvailable: true, docText: WILD_NEWS })).toBeNull();
     },
   );
-  it("読めなかった（主か別の読み手が無い）、文字層がないときは外さない", () => {
+  it("読み込めなかった（主か別の読み手が無い）、文字層がないときは外さない", () => {
     expect(notPoultryHereReasons({ read: null, second: second("wild_bird"), hasTextLayer: true, bodyAvailable: true, docText: WILD_NEWS })).toBeNull();
     expect(notPoultryHereReasons({ read: read("wild_bird"), second: null, hasTextLayer: true, bodyAvailable: true, docText: WILD_NEWS })).toBeNull();
     expect(notPoultryHereReasons({ read: read("wild_bird"), second: second("wild_bird"), hasTextLayer: false, bodyAvailable: true, docText: WILD_NEWS })).toBeNull();
@@ -207,7 +207,7 @@ describe("notPoultryHereReasons: 自動で外してよいか", () => {
       expect(notPoultryHereReasons({ read: read("wild_bird"), second: second("wild_bird", { primaryStage: stage }), hasTextLayer: true, bodyAvailable: true, docText: WILD_NEWS })).toBeNull();
     },
   );
-  it("本文を読めない（空、または取れず題だけ）ときは外さない（家きんの語を題だけで見ることになる）", () => {
+  it("本文を読み込めない（空、または取れず題だけ）ときは外さない（家きんの語を題だけで見ることになる）", () => {
     const title = "高病原性鳥インフルエンザの疑い事例の発生について\n";
     expect(notPoultryHereReasons({ read: read("notice"), second: second("irrelevant"), hasTextLayer: true, bodyAvailable: false, docText: title })).toBeNull();
     expect(decide({ read: read("notice"), second: second("irrelevant"), compare: kindMismatch, bodyAvailable: false, docText: title })).toMatchObject({ action: "review_public" });

@@ -124,7 +124,7 @@ function Detail({ v, k }: { v: TrendInsights; k: TrendKey }) {
       ) : null}
       {k === "rodent_signs" ? (
         <p className="tr-note">
-          根拠の文の出どころ: 調査のときに見つかった {v.rodentSource.survey} 件、農場の人の話（「時々見かける」など）{v.rodentSource.interview} 件、どちらとも読めない {v.rodentSource.unclear} 件。
+          根拠の文の出どころ: 調査のときに見つかった {v.rodentSource.survey} 件、農場の人の話（「時々見かける」など）{v.rodentSource.interview} 件、どちらとも読み込めない {v.rodentSource.unclear} 件。
         </p>
       ) : null}
       {k === "wall_net_damage" ? <p className="tr-note">鶏舎のほか、堆肥舎などの破損も入っています。</p> : null}
@@ -238,7 +238,7 @@ export default function TrendsInsights({ v }: { v: TrendInsights }) {
               <summary>数の表を見る</summary>
               <div className="table-scroll">
                 <table className="data-table">
-                  <caption>{season === "all" ? `${v.seasons.length} シーズン合計` : `${seasonShort(season)} シーズン`}（読めた概要 {shown.surveyed} 件）</caption>
+                  <caption>{season === "all" ? `${v.seasons.length} シーズン合計` : `${seasonShort(season)} シーズン`}（読み取れた概要 {shown.surveyed} 件）</caption>
                   <thead>
                     <tr>
                       <th scope="col">項目</th>

@@ -21,7 +21,7 @@ type Load = { status: "loading" } | { status: "failed" } | ({ status: "ready" } 
 
 async function fetchJson<T>(name: string): Promise<T> {
   const res = await fetch(`${import.meta.env.BASE_URL}replay/${name}`);
-  if (!res.ok) throw new Error(`${name} を読めませんでした（${res.status}）`);
+  if (!res.ok) throw new Error(`${name} を読み込めませんでした（${res.status}）`);
   return (await res.json()) as T;
 }
 

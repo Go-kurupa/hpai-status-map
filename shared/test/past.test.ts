@@ -31,9 +31,9 @@ function row(o: Partial<HistoryCase> & { season: number; muniCode: string }): Hi
 const BANNED = /また発生しやすい|危ない|うつる|危険地帯|ホットスポット|確率/;
 
 describe("describePast", () => {
-  it("隣町の 2 年前の発生は『2 年前に隣町で発生しました（記録）』", () => {
+  it("隣の町の 2 年前の発生は『2 年前に隣の町で発生しました（記録）』", () => {
     const r = describePast(TOWN, [row({ season: 2024, muniCode: NEIGHBOR })], geo, 2026);
-    expect(r.sentence).toBe("2 年前に隣町で発生しました（記録）");
+    expect(r.sentence).toBe("2 年前に隣の町で発生しました（記録）");
     expect(r.latest?.relation).toBe("adjacent");
     expect(r.latest?.ago).toBe("2 年前");
   });
@@ -47,7 +47,7 @@ describe("describePast", () => {
   it("いちばん新しいものを選ぶ", () => {
     const rows = [row({ season: 2022, muniCode: TOWN }), row({ season: 2024, muniCode: NEIGHBOR }), row({ season: 2023, muniCode: TOWN })];
     const r = describePast(TOWN, rows, geo, 2026);
-    expect(r.sentence).toBe("2 年前に隣町で発生しました（記録）");
+    expect(r.sentence).toBe("2 年前に隣の町で発生しました（記録）");
     expect(r.hits.map((h) => h.season)).toEqual([2024, 2023, 2022]);
   });
 
@@ -65,8 +65,8 @@ describe("describePast", () => {
     const r = describePast(TOWN, [row({ season: 2025, muniCode: FAR })], geo, 2026);
     expect(r.hits).toEqual([]);
     expect(r.latest).toBeNull();
-    expect(r.sentence).toBe("過去の記録に、この町と隣町の発生はありません（記録）");
-    expect(describePast(TOWN, [], geo, 2026).sentence).toBe("過去の記録に、この町と隣町の発生はありません（記録）");
+    expect(r.sentence).toBe("過去の記録に、この町と隣の町の発生はありません（記録）");
+    expect(describePast(TOWN, [], geo, 2026).sentence).toBe("過去の記録に、この町と隣の町の発生はありません（記録）");
   });
 
   it("知らない市町村コードは、隣がない扱い（投げない）。同じ町だけ拾う", () => {
@@ -78,7 +78,7 @@ describe("describePast", () => {
     const rows = [row({ season: 2025, muniCode: NEIGHBOR }), row({ season: 2026, muniCode: NEIGHBOR })];
     const r = describePast(TOWN, rows, geo, 2025);
     expect(r.hits).toEqual([]);
-    expect(r.sentence).toBe("過去の記録に、この町と隣町の発生はありません（記録）");
+    expect(r.sentence).toBe("過去の記録に、この町と隣の町の発生はありません（記録）");
   });
 
   it("関連農場は hits に入る。本体があれば sentence は本体から（関連のほうが新しくても）", () => {
@@ -89,7 +89,7 @@ describe("describePast", () => {
     const r = describePast(TOWN, rows, geo, 2026);
     expect(r.hits).toHaveLength(2);
     expect(r.hits.map((h) => h.related)).toEqual([true, false]);
-    expect(r.sentence).toBe("3 年前に隣町で発生しました（記録）");
+    expect(r.sentence).toBe("3 年前に隣の町で発生しました（記録）");
     expect(r.latest?.related).toBe(false);
   });
 
@@ -118,14 +118,14 @@ describe("describePast", () => {
     }
   });
 
-  it("関連農場だけなら『2 年前に隣町で関連農場がありました（記録）』", () => {
+  it("関連農場だけなら『2 年前に隣の町で関連農場がありました（記録）』", () => {
     const r = describePast(TOWN, [row({ season: 2024, muniCode: NEIGHBOR, related: true })], geo, 2026);
-    expect(r.sentence).toBe("2 年前に隣町で関連農場がありました（記録）");
+    expect(r.sentence).toBe("2 年前に隣の町で関連農場がありました（記録）");
     expect(r.latest?.related).toBe(true);
   });
 
   it("実データ: 真庭市の1 年前は隣の津山市の発生。再現の今季 2025 では何も数えない", () => {
-    expect(describePast(TOWN, real, geo, 2026).sentence).toBe("1 年前に隣町で発生しました（記録）");
+    expect(describePast(TOWN, real, geo, 2026).sentence).toBe("1 年前に隣の町で発生しました（記録）");
     expect(describePast(NEIGHBOR, real, geo, 2026).sentence).toBe("1 年前にこの町で発生しました（記録）");
     const replay = describePast(TOWN, real, geo, 2025);
     expect(replay.hits.every((h) => h.season < 2025)).toBe(true); // 再現の今季 2025 は数えない

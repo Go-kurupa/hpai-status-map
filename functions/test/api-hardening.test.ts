@@ -339,7 +339,7 @@ describe("2回目 3: 公開 MCP は本文の形を自分で確かめる", () => 
 });
 
 describe("2回目 4: 形が不正で省いた記録は、件数をログに出し、答えに一文を足す", () => {
-  const NOTE = "一部の記録は形が読めず省きました";
+  const NOTE = "一部の記録は形が読み込めず省きました";
   it("事例、野鳥、/areas の答えに一文。省いた記録がなければ出さない。replay と negative は数えない", async () => {
     const clean = await makeDeps({ cases: [makeCase({ id: "r", confirmState: "replay" })], birds: [makeBird({ id: "n", test: "negative" })] });
     for (const p of ["/api/v1/cases", "/api/v1/wild-birds", "/api/v1/areas/33203"]) expect((await get(clean.deps, p)).body.notices.join("\n"), p).not.toContain(NOTE);
@@ -356,7 +356,7 @@ describe("2回目 4: 形が不正で省いた記録は、件数をログに出�
 // ── 修正 3 回目 ──
 
 describe("3回目 1: 古い答えには最大の古さ（ttl の 10 倍）がある", () => {
-  it("staleOk でも 10 分を過ぎたら読み直す。同時の読み直しは 1 回。読めなければ古い答えを返さず失敗する", async () => {
+  it("staleOk でも 10 分を過ぎたら読み直す。同時の読み直しは 1 回。読み込めなければ古い答えを返さず失敗する", async () => {
     let t = 0;
     let calls = 0;
     const cache = createCache(60_000, () => t);
@@ -397,7 +397,7 @@ describe("3回目 1: 古い答えには最大の古さ（ttl の 10 倍）があ
     expect(await cache("k", async () => "ok")).toBe("ok" as never); // 直れば通る（失敗の記録は 5 秒で消える）
   });
 
-  it("答えに読んだ時刻（dataAsOf）。60 秒より古ければ、何分前に読んだ記録かを notices に出す。読めなければ 503", async () => {
+  it("答えに読んだ時刻（dataAsOf）。60 秒より古ければ、何分前に読んだ記録かを notices に出す。読み込めなければ 503", async () => {
     const { deps } = await makeDeps({ cases: [makeCase()] });
     const fresh: ApiDeps = { ...deps, dataAt: () => NOW.getTime() - 5_000 };
     const r1 = await get(fresh, "/api/v1/cases");

@@ -11,5 +11,5 @@ export const VMAP0_NOTICE =
 export const MAP_ATTRIBUTION: string[] = [
   `<a href="https://maps.gsi.go.jp/development/ichiran.html" ${NEW_TAB}>地理院タイル</a>に行政区域を追記して掲載`,
   VMAP0_NOTICE,
-  `国土交通省 <a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html" ${NEW_TAB}>国土数値情報「行政区域データ N03 2026 年版」</a>をもとに、この作品の作者が形の簡略化、政令市の区の統合、隣り合いの計算を行って作成`,
+  `国土交通省 <a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html" ${NEW_TAB}>国土数値情報「行政区域データ N03 2026 年版」</a>をもとに、このサイトの作者が形の簡略化、政令市の区の統合、隣り合いの計算を行って作成`,
 ];

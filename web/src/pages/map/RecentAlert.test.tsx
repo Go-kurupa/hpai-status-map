@@ -129,10 +129,11 @@ describe("RecentAlert", () => {
 
   it("スマホ（compact）は件数だけの 1 行に畳む。押すと期間と全部の行が開く（2026-11-07 作者の決定 案 A）", () => {
     show(<RecentAlert items={items(4)} today={TODAY} limit={3} uncheckedNote={null} compact />);
-    const toggle = screen.getByRole("button", { name: /直近 14 日の発生 4 件/ });
+    // 内訳を添える（養鶏場などの件数と野鳥の件数を取り違えない。2026-11-07 作者の了承）
+    const toggle = screen.getByRole("button", { name: /直近 14 日：養鶏場など 4 件/ });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
-    expect(screen.getByRole("region", { name: /直近 14 日の発生/ }).textContent).toBe("直近 14 日の発生 4 件▸");
+    expect(screen.getByRole("region", { name: /直近 14 日の発生/ }).textContent).toBe("直近 14 日：養鶏場など 4 件▸");
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
@@ -146,5 +147,15 @@ describe("RecentAlert", () => {
     expect(toggle.textContent).not.toMatch(/件/);
     fireEvent.click(toggle);
     expect(screen.getByRole("region", { name: /直近 14 日の発生/ }).textContent).toContain("北海道は確認できていません。");
+  });
+
+  it("畳んだ行は、養鶏場などと野鳥を分けて数える（野鳥だけの日に、養鶏場の件数と読ませない）", () => {
+    const birdsOnly = recentAlertItems({ cases: [], birds: [bird({ id: "x" }), bird({ id: "y", date: "2026-11-10" })], current: 2026, today: TODAY });
+    show(<RecentAlert items={birdsOnly} today={TODAY} limit={3} uncheckedNote={null} compact />);
+    expect(screen.getByRole("button", { name: /直近 14 日：野鳥 2 件/ })).toBeTruthy();
+    cleanup();
+    const both = recentAlertItems({ cases: [mk({ id: "a" })], birds: [bird({ id: "x" })], current: 2026, today: TODAY });
+    show(<RecentAlert items={both} today={TODAY} limit={3} uncheckedNote={null} compact />);
+    expect(screen.getByRole("button", { name: /直近 14 日：養鶏場など 1・野鳥 1 件/ })).toBeTruthy();
   });
 });

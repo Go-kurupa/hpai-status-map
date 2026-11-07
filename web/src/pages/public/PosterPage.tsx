@@ -62,7 +62,7 @@ export default function PosterPage() {
         <h1>掲示用の貼り紙</h1>
         <p>A4 の紙に印刷して、農場の入口に貼ります。連絡先は、印刷した紙に手で書き込んでください。</p>
         <p>
-          QR コードは、この作品の <Link to="/public">鶏を飼っていない方へ</Link> のページにつながります。
+          QR コードは、このサイトの <Link to="/public">鶏を飼っていない方へ</Link> のページにつながります。
         </p>
         <Button variant="primary" onClick={() => window.print()}>
           印刷する

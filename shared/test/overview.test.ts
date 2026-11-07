@@ -126,7 +126,7 @@ describe("全国の数え方", () => {
     expect(d.muniCounts).toEqual({ [GEO_A]: 4 });
   });
 
-  it("過去の記録を読めなければ幅は null（0 にしない）", () => {
+  it("過去の記録を読み込めなければ幅は null（0 にしない）", () => {
     expect(day({ history: null }).past).toBeNull();
   });
 
@@ -190,7 +190,7 @@ describe("本文", () => {
     expect(findWordingViolations(text)).toEqual([]);
   });
 
-  it("近くの件数を出せないときは 0 と書かず、読めなかったと書く", () => {
+  it("近くの件数を出せないときは 0 と書かず、読み込めなかったと書く", () => {
     const text = overviewLines(day(), null, "https://app.example.test").join("\n");
     expect(text).not.toContain("約 60km 以内の今季の発生: 0 件");
     expect(text).toContain("約 60km 以内の今季の発生は、今朝は出せませんでした");
@@ -206,9 +206,9 @@ describe("本文", () => {
     expect(watchCoverageText(46, ["23"])).toBe("47 都道府県のうち 46 県を確認、1 県は確認できていません（愛知県）");
   });
 
-  it("確認の状況を読めないときは、そのことを書く", () => {
+  it("確認の状況を読み込めないときは、そのことを書く", () => {
     const text = overviewLines({ ...day(), watch: null }, null, "https://app.example.test").join("\n");
-    expect(text).toContain("確認の状況を読めませんでした");
+    expect(text).toContain("確認の状況を読み込めませんでした");
   });
 
   it("位置、マス目を書かない", async () => {
@@ -240,7 +240,7 @@ describe("本文", () => {
       expect(text).toContain("約 60km 以内の今季の発生: 確認できた範囲では 2 件（2 県は確認できていません）");
       expect(text).toContain("登録した町の今季の発生: 確認できた範囲では 1 件（2 県は確認できていません）");
     });
-    it.each([["全県が未確認", [] as WatchStatus[]], ["確認の状況を読めない", null]])("%s: 件数を見出しにしない", (_name, watch) => {
+    it.each([["全県が未確認", [] as WatchStatus[]], ["確認の状況を読み込めない", null]])("%s: 件数を見出しにしない", (_name, watch) => {
       const text = render(watch);
       expect(text).toContain("今季の全国の発生: まだ確認できていません");
       expect(text).toContain("直近 14 日の全国の発生: まだ確認できていません");
@@ -262,7 +262,7 @@ describe("本文", () => {
         expect(text).not.toContain("今回新しく載せた発生: 0 件");
         expect(findWordingViolations(text)).toEqual([]);
       });
-      it.each([["全県が未確認", [] as WatchStatus[]], ["確認の状況を読めない", null]])("%s: 0 件と書かない", (_name, watch) => {
+      it.each([["全県が未確認", [] as WatchStatus[]], ["確認の状況を読み込めない", null]])("%s: 0 件と書かない", (_name, watch) => {
         const text = body(watch, seen);
         expect(text).toContain("今回新しく載せた発生: まだ確認できていません");
         expect(text).not.toMatch(/今回新しく載せた発生: .*0 件/u);
@@ -272,7 +272,7 @@ describe("本文", () => {
         expect(text).toContain("今回新しく載せた発生: 確認できた範囲では 1 件（2 県は確認できていません）");
         expect(text).toContain("・岡山県町A（11月4日）");
       });
-      it.each([["全県が未確認", [] as WatchStatus[]], ["確認の状況を読めない", null]])("%s: 載せる町があれば、町の見出しを「まだ確認できていません」にしない（町が未確認と読める）", (_name, watch) => {
+      it.each([["全県が未確認", [] as WatchStatus[]], ["確認の状況を読み込めない", null]])("%s: 載せる町があれば、町の見出しを「まだ確認できていません」にしない（町が未確認と読み込める）", (_name, watch) => {
         const text = body(watch, NO_SEEN);
         expect(text).toContain("今回新しく載せた発生: 確認できた範囲では 1 件（47 県は確認できていません）");
         expect(text).toContain("・岡山県町A（11月4日）");
@@ -724,7 +724,7 @@ describe("総括の検査", () => {
     });
   });
 
-  it("過去の記録を読めないのに例年の数字を書いたら落ちる", () => {
+  it("過去の記録を読み込めないのに例年の数字を書いたら落ちる", () => {
     const d = day({ history: null });
     expect(check("過去 2 シーズンの同じ日までは 1〜2 件です。", d).failures).toContain("number_mismatch:past");
   });

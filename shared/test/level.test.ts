@@ -778,7 +778,7 @@ describe("summarizeWatch", () => {
     expect(s.failedCount).toBe(1);
   });
 
-  it("ok が false、checkedAt が null、読めない時刻は確認できていない扱い", () => {
+  it("ok が false、checkedAt が null、読み込めない時刻は確認できていない扱い", () => {
     const s = summarizeWatch(
       all47((c) =>
         c === "03" ? { ok: false } : c === "04" ? { checkedAt: null } : c === "05" ? { checkedAt: "不正" } : {},

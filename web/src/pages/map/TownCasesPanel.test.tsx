@@ -87,12 +87,12 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
     expect(farm.map((e) => e.querySelector("p")!.textContent)).toEqual(["2026 年 11 月 4 日 8:30 時点で、記録はありません。", "記録はありません。"]);
     expect(document.body.textContent).not.toMatch(/安全|安心|0 件/);
     cleanup();
-    // 時点が読めなければ日付を書かない（端末の時計で日付を作らない）
+    // 時点が読み込めなければ日付を書かない（端末の時計で日付を作らない）
     render(<TownCasesPanel {...base} asOf={null} muniCode="33643" muniName="西粟倉村" currentCases={[]} history={[]} />);
     expect([...document.querySelectorAll(".town-kind.is-farm > p")].filter((e) => e.textContent === "記録はありません。")).toHaveLength(2);
   });
 
-  it("町を押していなければ何も出さない（近くの自治体のボタンは選択地域の欄の過去の記録へ移した。2026-11-06 作者の決定）", () => {
+  it("町を押していなければ何も出さない（近くの町のボタンは選んだ地域の欄の過去の記録へ移した。2026-11-06 作者の決定）", () => {
     const { container } = render(<TownCasesPanel {...base} muniCode={null} muniName={null} currentCases={[]} history={[]} />);
     expect(container.firstChild).toBeNull();
   });
@@ -118,10 +118,10 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
     expect(document.querySelector(".town-cases")!.textContent).not.toContain("2019 年");
   });
 
-  it("国の事例一覧を読めなかったら、読み込み中とは分けて『もう一度読む』を出す", () => {
+  it("国の事例一覧を読み込めなかったら、読み込み中とは分けて『もう一度読む』を出す", () => {
     const onRetryHistory = vi.fn();
     render(<TownCasesPanel {...base} muniCode="33203" muniName="津山市" currentCases={[]} history={null} historyFailed onRetryHistory={onRetryHistory} />);
-    expect(screen.getByText(/過去の記録をまだ読めていません。/)).toBeTruthy();
+    expect(screen.getByText(/過去の記録をまだ読み込めていません。/)).toBeTruthy();
     expect(screen.queryByText("読み込んでいます")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "もう一度読む" }));
     expect(onRetryHistory).toHaveBeenCalled();
@@ -130,7 +130,7 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
   it("町を押すと題へフォーカスが移る。閉じると開いた元のボタンへ戻る。町を選んでいない人には『閉じる』", () => {
     vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
     try {
-      // 開いた元は、選択地域の欄の過去の記録にある自治体のボタン（欄の外）
+      // 開いた元は、選んだ地域の欄の過去の記録にある町のボタン（欄の外）
       const view = (muniCode: string | null, onClose = () => {}) => (
         <MemoryRouter>
           <ul className="town-cases-picks">
@@ -147,7 +147,7 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
       screen.getByRole("button", { name: "津山市 1 件" }).focus();
       rerender(view("33203", () => rerender(view(null))));
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2 }));
-      fireEvent.click(screen.getByRole("button", { name: "選択地域に戻る" }));
+      fireEvent.click(screen.getByRole("button", { name: "選んだ地域に戻る" }));
       act(() => vi.runAllTimers());
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "津山市 1 件" }));
     } finally {
@@ -156,7 +156,7 @@ describe("TownCasesPanel（地図で押した町の事例）", () => {
     cleanup();
     render(<TownCasesPanel {...base} hasTown={false} muniCode="33203" muniName="津山市" currentCases={[]} history={[]} />);
     expect(screen.getByRole("button", { name: "閉じる" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "選択地域に戻る" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "選んだ地域に戻る" })).toBeNull();
   });
 });
 
@@ -225,7 +225,7 @@ describe("TownCasesPanel の野鳥の段", () => {
     expect(document.querySelector(".town-kind.is-bird h4")!.textContent).toBe(TEXT.panelBirdsHead + TEXT.panelKindCount(2));
   });
 
-  it("野鳥の陽性がない町は、段の題の下に「この町の発表はありません」（0 件と書かない）。読めていないとき（null）は段を出さない", () => {
+  it("野鳥の陽性がない町は、段の題の下に「この町の発表はありません」（0 件と書かない）。読み込めていないとき（null）は段を出さない", () => {
     show([wb({ id: "n", test: "negative" })]);
     const sec = document.querySelector<HTMLElement>(".town-kind.is-bird")!;
     expect(sec.querySelector("h4")!.textContent).toBe(TEXT.panelBirdsHead);

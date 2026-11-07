@@ -16,7 +16,7 @@ export function RouteError() {
         <h1>表示中に問題が起きました</h1>
         <p>ページを開き直してください。直らないときは、時間をおいてもう一度開いてください。</p>
         <p>
-          <Link to="/">トップにもどる</Link>
+          <Link to="/">トップに戻る</Link>
         </p>
       </main>
       <p className="app-operator-note">{OPERATOR_NOTE}</p>

@@ -83,7 +83,7 @@ describeFixture("国の月別一覧 2510〜2604 の 7 ページ（控え）", [.
     }
   });
 
-  it("解除 21 本がすべて読め、251210 は [3,4]、260318 は [18,19]、県と市町村は前季の事例と一致する", () => {
+  it("解除 21 本がすべて読み込め、251210 は [3,4]、260318 は [18,19]、県と市町村は前季の事例と一致する", () => {
     const lifts = items.filter((i) => i.type === "movement_lifted").map((i) => ({ url: i.url, l: parseMaffLift(pageOf(i.url).text) }));
     expect(lifts.filter((x) => x.l === null).map((x) => x.url)).toEqual([]);
     expect(lifts.find((x) => x.url.endsWith("/251210.html"))!.l!.nationalNos).toEqual([3, 4]);

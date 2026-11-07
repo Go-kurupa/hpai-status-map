@@ -4,7 +4,7 @@ import { TEXT } from "./texts";
 
 /** 1 行の文。関連農場は「関連農場」と明示し、日付は本体の発生日として出す（関連農場の日付は本体から借りた行がある） */
 function hitText(h: PastHit): string {
-  const where = h.relation === "same" ? `${h.muniNameThen}（この町）` : `${h.muniNameThen}（隣町）`;
+  const where = h.relation === "same" ? `${h.muniNameThen}（この町）` : `${h.muniNameThen}（隣の町）`;
   if (h.related) {
     // 関連農場の日付は、本体から借りたものがある。自分の発生日として見せず、本体の発生日として出す
     const of = h.parentDate ? `（${monthDay(h.parentDate)}の発生に関連）` : "";

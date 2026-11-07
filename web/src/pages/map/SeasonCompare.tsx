@@ -42,7 +42,7 @@ export function countThisSeasonToDate(cases: readonly Case[], current: Season, t
 }
 
 function currentText(p: SeasonCompareProps, n: number | null): string {
-  if (n === null) return "まだ読めていません";
+  if (n === null) return "まだ読み込めていません";
   if (p.allUnchecked) return "まだ確認できていません";
   if (p.unchecked > 0) return `確認できた範囲では ${n} 件（${p.unchecked} 県は確認できていません）`;
   return `${n} 件`;
@@ -66,7 +66,7 @@ export function SeasonCompare(p: SeasonCompareProps) {
       <h2>過去のシーズンとの比べ</h2>
       {rows === null ? (
         <p className={p.historyFailed ? "state-unknown" : "state-wait"} role="status">
-          過去のシーズンの記録をまだ読めていません。{p.historyFailed ? "ページを読み込み直してください。" : null}
+          過去のシーズンの記録をまだ読み込めていません。{p.historyFailed ? "ページを読み込み直してください。" : null}
         </p>
       ) : (
         <>
@@ -96,7 +96,7 @@ export function SeasonCompare(p: SeasonCompareProps) {
                 <th scope="row">今季 {seasonSpan(p.current)}</th>
                 <td>―</td>
                 <td className="num">
-                  {nowCount === null ? "読めていません" : p.allUnchecked ? "確認できていません" : `${nowCount} 件`}
+                  {nowCount === null ? "読み込めていません" : p.allUnchecked ? "確認できていません" : `${nowCount} 件`}
                   {nowCount !== null && !p.allUnchecked ? bar(nowCount, max) : null}
                 </td>
                 <td className="num">途中</td>

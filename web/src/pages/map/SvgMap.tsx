@@ -592,7 +592,7 @@ export default function SvgMap(props: SvgMapProps) {
       if (sets.mine.has(s.code)) parts.push(TEXT.myTown);
       if (sets.near.has(s.code)) parts.push(TEXT.svgNear);
       if (unwatched) parts.push(TEXT.svgUnwatched);
-      return parts.join("、") + (picking ? "。押すとこの町を選択地域にします" : select ? "。押すとこの町の発生を見ます" : "");
+      return parts.join("、") + (picking ? "。押すとこの町を選んだ地域にします" : select ? "。押すとこの町の発生を見ます" : "");
     };
     const munis = pref?.munis ?? [];
     body = (

@@ -4,7 +4,7 @@ import { DEFAULT_RUNTIME_SETTINGS } from "@hpai/shared/types";
 import { seasonOf } from "@hpai/shared/season";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 
-describe("functions から @hpai/shared を読める", () => {
+describe("functions から @hpai/shared を読み込める", () => {
   it("shared の関数と値を import できる", () => {
     expect(normalizeForMatch("⻲岡市")).toBe("亀岡市");
     expect(hasHpaiWord("⿃インフルエンザ")).toBe(true);

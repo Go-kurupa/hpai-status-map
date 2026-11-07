@@ -13,18 +13,18 @@ describe("regionMuniCodes", () => {
 });
 
 describe("ScopeButtons", () => {
-  it("1 段に［選択地域付近］［全国］と 8 地方。押された印は 1 つだけ", () => {
+  it("1 段に［選んだ地域の付近］［全国］と 8 地方。押された印は 1 つだけ", () => {
     const onRegion = vi.fn();
     render(<ScopeButtons hasNear picked="chugoku" onNear={() => {}} onJapan={() => {}} onRegion={onRegion} />);
     const group = screen.getByRole("group", { name: CMP_TEXT.scopeAria });
     const names = within(group).getAllByRole("button").map((b) => b.textContent);
-    expect(names).toEqual(["選択地域付近", "全国", "北海道", "東北", "関東", "中部", "近畿", "中国", "四国", "九州・沖縄"]);
+    expect(names).toEqual(["選んだ地域の付近", "全国", "北海道", "東北", "関東", "中部", "近畿", "中国", "四国", "九州・沖縄"]);
     expect(within(group).getAllByRole("button").filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.textContent)).toEqual(["中国"]);
     fireEvent.click(within(group).getByRole("button", { name: "近畿" }));
     expect(onRegion).toHaveBeenCalledWith("kinki");
   });
 
-  it("地域を選んでいなければ［選択地域付近］を出さない", () => {
+  it("地域を選んでいなければ［選んだ地域の付近］を出さない", () => {
     render(<ScopeButtons hasNear={false} picked="japan" onNear={() => {}} onJapan={() => {}} onRegion={() => {}} />);
     expect(screen.queryByRole("button", { name: CMP_TEXT.scopeNear })).toBeNull();
     expect(screen.getByRole("button", { name: CMP_TEXT.scopeJapan }).getAttribute("aria-pressed")).toBe("true");

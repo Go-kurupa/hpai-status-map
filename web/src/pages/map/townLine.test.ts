@@ -70,19 +70,19 @@ describe("levelLine（§5 の文）", () => {
     expect(l.details).toContain("津山市で疑い（12 月 19 日）");
   });
 
-  it("② 隣町で発生しました（lv2）", () => {
+  it("② 隣の町で発生しました（lv2）", () => {
     const l = levelLine(result({ level: 2, reasons: [reason("c1", 2, "adjacent")] }), [c1]);
-    expect(l).toMatchObject({ tone: "lv2", main: "隣町で発生しました" });
+    expect(l).toMatchObject({ tone: "lv2", main: "隣の町で発生しました" });
   });
 
-  it("移動制限の解除の後の同じ市町村（level 2、same_muni）は sameMuniLifted で、どこにも『隣町』がない", () => {
+  it("移動制限の解除の後の同じ市町村（level 2、same_muni）は sameMuniLifted で、どこにも『隣の町』がない", () => {
     const l = levelLine(
       result({ level: 2, reasons: [reason("c1", 2, "same_muni"), reason("c3", 2, "adjacent")] }),
       [c1, mkCase({ id: "c3", muniCode: "33214", muniName: "真庭市" })],
     );
     expect(l.main).toBe(FIXED_TEXT.sameMuniLifted);
     expect(l.tone).toBe("lv2");
-    expect(textOf(l)).not.toMatch(/隣町/);
+    expect(textOf(l)).not.toMatch(/隣の町/);
   });
 
   it("③ 登録した町で発生しました（lv3）", () => {
@@ -190,16 +190,16 @@ describe("areaLine（/area と町だけを選んだとき。距離を見ない�
     expect(l.details).toContain("津山市で確定（12 月 20 日）");
   });
 
-  it("level 2 隣町: 『隣町で発生しました』", () => {
+  it("level 2 隣の町: 『隣の町で発生しました』", () => {
     const l = areaLine(area({ level: 2, adjacentCases: [tsuyama] }));
-    expect(l).toMatchObject({ tone: "lv2", main: "隣町で発生しました" });
+    expect(l).toMatchObject({ tone: "lv2", main: "隣の町で発生しました" });
   });
 
-  it("level 2 で sameMuniCases がある（移動制限の解除の後の同じ町）は sameMuniLifted で、隣町と書かない", () => {
+  it("level 2 で sameMuniCases がある（移動制限の解除の後の同じ町）は sameMuniLifted で、隣の町と書かない", () => {
     const lifted1 = mkCase({ id: "c1", stages: { confirmed: { date: "2026-12-20", time: null }, movement_lifted: lifted("2027-01-20") } });
     const l = areaLine(area({ level: 2, muniCode: "33203", sameMuniCases: [lifted1], adjacentCases: [mkCase({ id: "c9", muniCode: "33214", muniName: "真庭市" })] }));
     expect(l.main).toBe(FIXED_TEXT.sameMuniLifted);
-    expect(textOf(l)).not.toMatch(/隣町/);
+    expect(textOf(l)).not.toMatch(/隣の町/);
   });
 
   it("level 4: 全国の動きをお知らせしています", () => {
@@ -285,12 +285,12 @@ describe("resolveTownLine", () => {
     expect(line).toEqual(expected);
   });
 
-  it("spot がなければ town で computeAreaStatus。真庭市の隣の津山市の事例は『隣町で発生しました』", async () => {
+  it("spot がなければ town で computeAreaStatus。真庭市の隣の津山市の事例は『隣の町で発生しました』", async () => {
     const { geo } = realGeo();
     const cases = [mkCase({ id: "c1" })];
     const line = await resolveTownLine({ ...base, spot: null, town: "33214", cases, geo });
     expect(line).toEqual(areaLine(computeAreaStatus({ muniCode: "33214", cases, wildBirds: [], geo, asOf: ASOF, season: SEASON })));
-    expect(line.main).toBe("隣町で発生しました");
+    expect(line.main).toBe("隣の町で発生しました");
   });
 
   it("spot も town もなければ『町を選んでください』（色なし）", async () => {
@@ -306,7 +306,7 @@ describe("resolveTownLine", () => {
     expect(line.main).toBe(TEXT.unknownTown);
   });
 
-  it("索引にない市町村コードの地点は、④にせず『読めませんでした』の趣旨（色なし）。県を読みにも行かない", async () => {
+  it("索引にない市町村コードの地点は、④にせず『読み込めませんでした』の趣旨（色なし）。県を読みにも行かない", async () => {
     const { geo, loaded } = realGeo();
     const lost: FarmPoint = { meshCode: spot.meshCode, muniCode: "99999", frequentMuniCodes: [] };
     const line = await resolveTownLine({ ...base, spot: lost, town: null, cases: [tottori], geo });
@@ -321,7 +321,7 @@ describe("resolveTownLine", () => {
     expect(line.tone).toBe("lv4");
   });
 
-  it("県の形を読めないときは投げる（④に倒して『何もない』と見せない）", async () => {
+  it("県の形を読み込めないときは投げる（④に倒して『何もない』と見せない）", async () => {
     const geo = createGeoStore({
       index: indexJson as unknown as Parameters<typeof createGeoStore>[0]["index"],
       adjacency: adjacencyJson as Parameters<typeof createGeoStore>[0]["adjacency"],
@@ -398,7 +398,7 @@ describe("withWatchState（自分の町の県が未確認のとき）", () => {
     expect(withWatchState(lv4, "33", [])).toBe(lv4);
   });
 
-  it("町が未選択、読めなかったとき（色なし）は足さない。県が分からなくても足さない", () => {
+  it("町が未選択、読み込めなかったとき（色なし）は足さない。県が分からなくても足さない", () => {
     const none: TownLine = { tone: "none", main: TEXT.noTown, details: [] };
     expect(withWatchState(none, "33", ["33"])).toBe(none);
     expect(withWatchState(lv4, null, ["33"])).toBe(lv4);
@@ -412,7 +412,7 @@ describe("withWatchState（自分の町の県が未確認のとき）", () => {
   });
 });
 
-// ── 隣の県が未確認（W-06 レビュー I-1）。区域は県をまたぐので、④で何も出ないと安全と読める ──
+// ── 隣の県が未確認（W-06 レビュー I-1）。区域は県をまたぐので、④で何も出ないと安全と読み込める ──
 describe("neighborPrefsOf / withWatchState（隣の県）", () => {
   const { geo } = realGeo();
   const lv4: TownLine = { tone: "lv4", main: TEXT.national, details: [FIXED_TEXT.riskAnywhere] };
@@ -455,7 +455,7 @@ describe("neighborPrefsOf / withWatchState（隣の県）", () => {
     expect(l.details[0]).not.toContain("広島県");
   });
 
-  it("1 回目に読めなかった時刻があれば「〇月〇日 〇:〇〇 から」を添える（日本時間）。時刻は県ごと", () => {
+  it("1 回目に読み込めなかった時刻があれば「〇月〇日 〇:〇〇 から」を添える（日本時間）。時刻は県ごと", () => {
     const own = withWatchState(lv4, "33", ["33"], [], { "33": "2026-11-07T09:29:19+09:00" });
     expect(own.main).toBe("この県のホームページを、11 月 7 日 9:29 から読み込めていません。発生がないとは言えません");
     const one = withWatchState(lv4, "33", ["28"], ["28"], { "28": "2026-11-07T00:29:19Z" });
@@ -464,7 +464,7 @@ describe("neighborPrefsOf / withWatchState（隣の県）", () => {
     expect(two.details[0]).toBe("隣の県（兵庫県、鳥取県）のホームページを読み込めていません（兵庫県は 11 月 7 日 9:29 から、鳥取県は 11 月 7 日 6:13 から）。発生がないとは言えません");
     const partly = withWatchState(lv2, "33", ["28", "31"], ["28", "31"], { "28": "2026-11-07T09:29:00+09:00" });
     expect(partly.details[0]).toBe("隣の県（兵庫県、鳥取県）のホームページを読み込めていません（兵庫県は 11 月 7 日 9:29 から）。発生がないとは言えません");
-    // 確認できている県の時刻は使わない、読めない時刻は付けない
+    // 確認できている県の時刻は使わない、読み込めない時刻は付けない
     expect(withWatchState(lv4, "33", ["33"], [], { "33": "not-a-date" }).main).toBe(TEXT.prefUnwatched);
   });
 

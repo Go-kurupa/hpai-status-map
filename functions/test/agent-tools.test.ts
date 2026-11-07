@@ -81,7 +81,7 @@ describe("buildPrefDomains の差し戻し", () => {
     ["形は合うが県の公式の表にない（他人の取ったドメイン）", [seed("33", "https://www.pref.attacker.jp/a")]],
     ["同じ県に別のドメインが混ざる", [seed("33", "https://www.pref.okayama.jp/a"), seed("33", "https://www.pref.hyogo.lg.jp/a")]],
     ["別の県が同じドメインを名乗る", [seed("33", "https://www.pref.okayama.jp/a"), seed("34", "https://www.pref.okayama.jp/b")]],
-    ["URL を読めない", [seed("33", "not a url")]],
+    ["URL を読み込めない", [seed("33", "not a url")]],
   ])("%s は例外", (_n, input) => {
     expect(() => buildPrefDomains(input)).toThrow();
   });
@@ -184,7 +184,7 @@ describe("isAllowedUrl（県とドメインの束縛）", () => {
     expect(changed).toEqual([]);
   });
 
-  it("normalizeUrl はフラグメントを除き、読めなければ null", () => {
+  it("normalizeUrl はフラグメントを除き、読み込めなければ null", () => {
     expect(normalizeUrl("https://www.pref.okayama.jp/a#top")).toBe("https://www.pref.okayama.jp/a");
     expect(normalizeUrl("nope")).toBeNull();
   });
@@ -292,7 +292,7 @@ describe("fetchPrefPage の関門", () => {
     expect(r.links).toEqual([{ href: "https://www.pref.okayama.jp/a", text: "リンク" }]);
   });
 
-  it("読めない PDF は ok にしない", async () => {
+  it("読み込めない PDF は ok にしない", async () => {
     const h = harness();
     h.fetchMock.mockResolvedValueOnce(okOutcome({ contentType: "application/pdf", body: Buffer.from("%PDF-broken") }));
     expect(await h.tools.fetchPrefPage("33", "https://www.pref.okayama.jp/a.pdf")).toMatchObject({ ok: false, error: "pdf_no_text" });

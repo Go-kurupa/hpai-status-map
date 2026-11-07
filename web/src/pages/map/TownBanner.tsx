@@ -208,7 +208,7 @@ export function TownBanner(p: TownBannerProps) {
       {p.spotRow}
       {now}
       <PastRow past={p.past} nearby={p.nearby} town={p.muniCode} line={p.line} showDisclaimer={p.showPastDisclaimer} riskShownAbove={p.riskShownAbove ?? false} brief={p.pastBrief ?? false} onPickTown={p.onPickTown} />
-      {/* 最初の画面は「選択地域の過去を見る」の 1 本にする。案内ページへは選択地域の過去の画面から（設計書 2026-11-06-town-picker D8） */}
+      {/* 最初の画面は「選んだ地域の過去を見る」の 1 本にする。案内ページへは選んだ地域の過去の画面から（設計書 2026-11-06-town-picker D8） */}
       {p.pastBrief ? null : (
         <p className="town-area-link">
           <Link to={`/area/${p.muniCode}`} className="tap-link">{TEXT.areaLink}</Link>

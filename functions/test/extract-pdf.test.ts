@@ -61,7 +61,7 @@ describe("extractPdfText", () => {
     expect(r.pages).toBe(2);
     expect(r.hasTextLayer).toBe(false);
   });
-  it("読めない PDF は throw せず空を返す", async () => {
+  it("読み込めない PDF は throw せず空を返す", async () => {
     expect(await extractPdfText(Buffer.from("これは PDF ではありません"))).toEqual({ text: "", pages: 0, hasTextLayer: false });
     expect(await extractPdfText(Buffer.alloc(0))).toEqual({ text: "", pages: 0, hasTextLayer: false });
   });

@@ -123,7 +123,7 @@ describe("runSmoke", () => {
     expect(failed(r)[0]!.name).toContain("/mcp");
   });
 
-  it("/mcp が event-stream の形で返しても読める", async () => {
+  it("/mcp が event-stream の形で返しても読み込める", async () => {
     const sse = `event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id: 1, result: { tools: PUBLIC_TOOLS.map((name) => ({ name })) } })}\n\n`;
     const r = await runSmoke(BASE, INTERNAL, fake((c) => (new URL(c.url).pathname === "/mcp" ? new Response(sse, { status: 200, headers: { "content-type": "text/event-stream" } }) : undefined)).fetch);
     expect(failed(r)).toEqual([]);
@@ -386,7 +386,7 @@ describe("runPrePublishChecks", () => {
     expect(failed(runPrePublishChecks(root, {})).map((x) => x.name)).toEqual([expect.stringContaining("AGENT_EVAL_HIDE_PREFS")]);
   });
 
-  it("ファイルが読めないときは、通さず落とす（黙って通らない）", () => {
+  it("ファイルが読み込めないときは、通さず落とす（黙って通らない）", () => {
     const r = runPrePublishChecks(root, {});
     expect(r).toHaveLength(7);
     // 6 つ（確認日 2 つ、記録の文書、運営者名、運営者と地域、URL の印）は落ちる。設定の値を隠す確認だけは、設定のファイルがなければ「値なし」で通る

@@ -73,7 +73,7 @@ describe("SpotProvider", () => {
     expect(screen.getAllByTestId("spot")[0]!.textContent).toBe("13102/53394612");
   });
 
-  it("農場がない（null）か、読めない（reject）ときは端末内の地点のまま", async () => {
+  it("農場がない（null）か、読み込めない（reject）ときは端末内の地点のまま", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
     for (const getFarm of [() => Promise.resolve(null), () => Promise.reject(new Error("permission-denied"))]) {
       const { store } = fakeStore(getFarm);
@@ -118,7 +118,7 @@ describe("SpotProvider", () => {
     expect(localStorage.getItem(TOWN_KEY)).toBeNull();
   });
 
-  it("fixed を外す（再現の『選択地域で見る』）と、端末内の地点が使える。fixed のあいだは書かない", async () => {
+  it("fixed を外す（再現の『選んだ地域で見る』）と、端末内の地点が使える。fixed のあいだは書かない", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
     const tree = (fixed: FarmPoint | null) => (
       <SpotProvider fixed={fixed}>
@@ -259,7 +259,7 @@ describe("農場の読み直し（場所は 1 回選べば済む。作者 11/7�
     expect(screen.getByTestId("spot").textContent).toBe("13102/53394612");
   });
 
-  it("読み直しに失敗しても、読めていた農場の場所のまま（一時的な通信の失敗で端末の場所に戻らない）", async () => {
+  it("読み直しに失敗しても、読み込めていた農場の場所のまま（一時的な通信の失敗で端末の場所に戻らない）", async () => {
     localStorage.setItem(SPOT_KEY, JSON.stringify(DEVICE));
     let fail = false;
     const { store } = fakeStore(() => (fail ? Promise.reject(new Error("unavailable")) : Promise.resolve(FARM)));

@@ -4,7 +4,7 @@
 
 ## N03 の出典と加工
 
-**出典（表示する文）:** 国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、この作品の作者が形の簡略化、政令市の区の統合、隣り合いの計算を行って作成
+**出典（表示する文）:** 国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、このサイトの作者が形の簡略化、政令市の区の統合、隣り合いの計算を行って作成
 
 - 配布ページ: https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html （`KsjTmplt-N03-2026.html`）
 - 版: N03-20260101（2026 年 1 月 1 日時点）。取得は `N03-20260101_GML.zip` を 1 回だけ。展開した `N03-20260101.geojson` は `data/private/n03/` に置き、リポジトリに入れない。
@@ -52,7 +52,7 @@
 - **画面に常に全文で出す出典（3 つ。`web/src/geo/attribution.ts` の `MAP_ATTRIBUTION`。幅 360px のスマホでも畳まず折り返す）:**
   1. 地理院タイルに行政区域を追記して掲載（「地理院タイル」は一覧ページ `https://maps.gsi.go.jp/development/ichiran.html` へのリンク）
   2. Shoreline data is derived from: United States. National Imagery and Mapping Agency. "Vector Map Level 0 (VMAP0)." Bethesda, MD: Denver, CO: The Agency; USGS Information Services, 1997.
-  3. 国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、この作品の作者が形の簡略化、政令市の区の統合、隣り合いの計算を行って作成（「国土数値情報「行政区域データ N03 2026 年版」」は N03 の配布ページ `https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html` へのリンク。CC BY 4.0 が求める加工の表示を含む）
+  3. 国土交通省 国土数値情報「行政区域データ N03 2026 年版」をもとに、このサイトの作者が形の簡略化、政令市の区の統合、隣り合いの計算を行って作成（「国土数値情報「行政区域データ N03 2026 年版」」は N03 の配布ページ `https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html` へのリンク。CC BY 4.0 が求める加工の表示を含む）
 - 淡色地図の ZL5〜8（500 万分の 1 の小縮尺地図）には、出所の明示を追加する（同ページ）。Vector Map Level 0 の文: Shoreline data is derived from: United States. National Imagery and Mapping Agency. "Vector Map Level 0 (VMAP0)." Bethesda, MD: Denver, CO: The Agency; USGS Information Services, 1997.
 - 標準地図の ZL5〜8 を使う場合は、上に加えて GEBCO と海上保安庁許可の文も要る。本作品は淡色地図（`pale`）を使うので、必要なのは上の VMAP0 の文。
 - アクセス数の上限: 一覧ページには記載が見つからなかった。アクセス数の上限は未確認（確かめた日 2026-11-03）。
@@ -77,7 +77,7 @@
 
 画面の「渡り鳥の飛来（季節の参考）」（`/trends`）の元データ。環境省が全国の定点で数えた水鳥の数を、同じ地点の過去の同じ時期と並べた小さな集計。農場の危険度や警報ではなく、感染の情報は含まず、予測もしない。
 
-**出典（表示する文）:** 出典：環境省「渡り鳥の飛来状況」（https://www.env.go.jp/nature/dobutsu/bird_flu/migratory/index.html）。地点ごとの Excel ファイルから水鳥の合計を求め、過去のシーズンと並べる加工を、この作品の作者が行った。
+**出典（表示する文）:** 出典：環境省「渡り鳥の飛来状況」（https://www.env.go.jp/nature/dobutsu/bird_flu/migratory/index.html）。地点ごとの Excel ファイルから水鳥の合計を求め、過去のシーズンと並べる加工を、このサイトの作者が行った。
 
 - 取った原本: 入口のページ（今季と過去 6 シーズンの 7 本）と、地点ごとの Excel（`site_csv/{地点番号}.xlsx`）175 本。取得日 2026-11-04（日本時間）。過去のシーズンのフォルダは `ap_wr_transit{NN}`（`NN` = シーズンの年 - 1999。今季は番号なし）。
 - 取り方: `scripts/build-migration.ts`。Claude は呼ばない。取得は `functions/src/watch/politeFetch.ts` を通す（名乗る、robots.txt に従う、環境省のホストへ 1 本ずつ）。さらに 1 本ごとに 2 秒あける。環境省の `robots.txt`（確かめた日 2026-11-04）は `/cgi-bin/` だけを禁止していて、取るパスは対象外。手元の写し（`data/private/migration-cache/`、公開しない）にあるファイルは取り直さない。今季のファイルと入口のページだけ、取得した日が今日でなければ取り直す。失敗した URL は再試行しない。取った本体は、xlsx（入口のページはリンクのあるページ）として読めてから保存し、読めなければ保存せず記録も更新しない。`.xls` は取らない。地点が 0 件、または前回の集計の半分未満になったときは書き出さず、終了コード 1 で終わる。
@@ -158,7 +158,7 @@
   - 2025年～2026年シーズン: https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_98/attach/pdf/kakin_98-12.pdf
   - 2024年～2025年シーズン: https://www.maff.go.jp/j/council/seisaku/eisei/kakin/kakin_94/attach/pdf/kakin_94-10.pdf
   - 2023年～2024年シーズン: https://www.maff.go.jp/j/syouan/douei/tori/attach/pdf/r5_hpai_kokunai-157.pdf
-- 利用条件: 上の「国と県の公開文書の利用条件」の農林水産省と同じ。公共データ利用規約（第1.0版）（PDL1.0）。出典の記載と、加工したときはその旨を別に書くことを求め、国が作ったかのように見せてはいけない（確かめた日 2026-11-04、https://www.maff.go.jp/j/use/link.html ）。加工はこの作品の作者が行い、農林水産省が作成したものではない。
+- 利用条件: 上の「国と県の公開文書の利用条件」の農林水産省と同じ。公共データ利用規約（第1.0版）（PDL1.0）。出典の記載と、加工したときはその旨を別に書くことを求め、国が作ったかのように見せてはいけない（確かめた日 2026-11-04、https://www.maff.go.jp/j/use/link.html ）。加工はこのサイトの作者が行い、農林水産省が作成したものではない。
 
 **作り方（台本）**
 
@@ -190,7 +190,7 @@
 
 ## 大字・町丁目の目安の点（data/oaza/）
 
-- 出典: 国土交通省「大字・町丁目位置参照情報」令和 7 年（版 19.0b）、47 都道府県。表示は「大字・町丁目位置参照情報　国土交通省」（位置参照情報利用約款 第2条3 の例）。整備年は令和 7 年、ファイルは `{県コード}000-19.0b.zip` の `{県コード}_2025.csv`。編集・加工はこの作品の作者。
+- 出典: 国土交通省「大字・町丁目位置参照情報」令和 7 年（版 19.0b）、47 都道府県。表示は「大字・町丁目位置参照情報　国土交通省」（位置参照情報利用約款 第2条3 の例）。整備年は令和 7 年、ファイルは `{県コード}000-19.0b.zip` の `{県コード}_2025.csv`。編集・加工はこのサイトの作者。
 - 利用条件（原本で確認、2026-11-06）: 位置参照情報利用約款 https://nlftp.mlit.go.jp/isj/agreement.html 。「本サービスは無償で利用できます。」（利用約款 第2条1）。位置参照情報と、それを編集・加工した成果物の転載・引用は、出典を明記する（位置参照情報利用約款 第2条3）。「公共測量等の高度な精度が要求される測量、各種証明等には使用することができません。」（同 第2条2）。複製・再配布の個別の規定と禁止事項の一覧はない。誤りの可能性がある（第5条4）。
 - 取り方: 位置参照情報ダウンロードサービス（https://nlftp.mlit.go.jp/isj/index.html ）で「都道府県単位」→ 県 →「大字・町丁目」令和 7 年 → 利用約款に同意。ファイルは `https://nlftp.mlit.go.jp/isj/dls/data/19.0b/{県コード}000-19.0b.zip`（47 県、合計 3.2MB）。ZIP から CSV（Shift_JIS）を取り出し、`npx tsx scripts/build-oaza.ts --input <CSV のフォルダ>` で `data/oaza/{県コード}.json` を作る（47 県、191,106 地区。地図の市町村の一覧にない市町村があれば書かずに止まる）。元の ZIP と CSV はリポジトリに入れない。
 - 加工: 列のうち、市区町村コード、大字町丁目名、緯度、経度だけを使う。緯度経度は小数 4 桁（約 10m）に丸める。政令市の区は、地図と同じく市のコードにまとめ（scripts/lib/designated-cities.ts の表で市の名前から引く）、地区の名前の頭に区の名前を付ける（例「北区 葵町」）。

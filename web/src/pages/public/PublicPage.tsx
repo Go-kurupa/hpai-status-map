@@ -45,7 +45,7 @@ export function PublicView({ reviewedOn }: { reviewedOn: IsoDate | null }) {
       </nav>
       <PublicNow />
       <aside data-role="contacts" className="guidance-notes public-contacts" aria-labelledby="public-contacts-heading">
-        <h2 id="public-contacts-heading">相談先（国の文にある窓口。作品側のまとめ）</h2>
+        <h2 id="public-contacts-heading">相談先（国の文にある窓口。このサイトのまとめ）</h2>
         <ul>
           <li>死んだ野鳥のこと: お近くの都道府県や市町村の役場</li>
           <li>飼っている鳥が、原因の分からないまま続けて死んだとき: 獣医師や、お近くの都道府県、市町村の役場</li>
@@ -62,7 +62,7 @@ export function PublicView({ reviewedOn }: { reviewedOn: IsoDate | null }) {
         このページは、近くの養鶏場や、鳥インフルエンザのことで、ご近所の方からよく聞かれることを、国の文書にそって示したものです。
       </p>
       <p>
-        各節の「要約（作品側のまとめ）」は、この作品が国の文をもとに短くまとめた文で、国の文ではありません。国の文は、その下に原文のまま載せています。
+        各節の「要約（このサイトのまとめ）」は、このサイトが国の文をもとに短くまとめた文で、国の文ではありません。国の文は、その下に原文のまま載せています。
       </p>
       <p>
         質問に答える機能はありません。文章は固定で、出典と、原本を確かめた日を、それぞれ付けています。国や県の文書は、あとで変わることがあります。くわしくは、お住まいの県の窓口に聞いてください。

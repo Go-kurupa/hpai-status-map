@@ -88,7 +88,7 @@ describe("watchLine（§9.7、§2）", () => {
     expect(w.failedPrefCodes).toHaveLength(47);
   });
 
-  it("読めない checkedAt は asOf に使わない。すべて読めなければ null", () => {
+  it("読み込めない checkedAt は asOf に使わない。すべて読み込めなければ null", () => {
     expect(watchLine([okRow("01", "not-a-date")], NOW).asOf).toBeNull();
     expect(watchLine([okRow("01", "not-a-date"), okRow("02", "2026-11-04T08:00:00+09:00")], NOW).asOf).toBe("2026-11-04T08:00:00+09:00");
   });

@@ -133,7 +133,7 @@ describe("buildProbeTargets", () => {
     expect(targets.some((t) => t.url.includes("example.lg.jp"))).toBe(false);
   });
 
-  it("列の順が違っても見出しの名前で読む／CRLF でも読める", () => {
+  it("列の順が違っても見出しの名前で読む／CRLF でも読み込める", () => {
     const tsv = "kind\turl\tpref\tstatus\thas_hpai_word\r\nhpai_fixed\thttps://www.pref.okayama.jp/a.html\t岡山県\t200\tyes\r\n";
     const t = buildProbeTargets(tsv, ent()).find((x) => x.prefCode === "33");
     expect(t).toMatchObject({ url: "https://www.pref.okayama.jp/a.html", kind: "hpai_fixed", dev: { ok: true, hasWord: true } });

@@ -76,7 +76,11 @@ export function RecentAlert({
         // 畳んだときは件数だけの 1 行にする（最新の 1 件まで入れると幅 360px で途中で切れて読めない。地図を最初の画面に収める）
         <h2 className="recent-alert-head">
           <button type="button" className="recent-alert-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-            <span className="recent-alert-count">{TEXT.recentAlertFolded(uncheckedNote === null ? items.length : null)}</span>
+            <span className="recent-alert-count">{TEXT.recentAlertFolded(
+                uncheckedNote === null
+                  ? { farms: items.filter((i) => i.kind === "farm").length, birds: items.filter((i) => i.kind === "bird").length }
+                  : null,
+              )}</span>
             <span className="recent-alert-mark" aria-hidden="true">{open ? "▾" : "▸"}</span>
           </button>
         </h2>

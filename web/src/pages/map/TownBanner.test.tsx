@@ -9,9 +9,9 @@ import { TownBanner, type TownBannerProps } from "./TownBanner";
 import { TEXT } from "./texts";
 import type { TownLine } from "./townLine";
 
-const LINE: TownLine = { tone: "lv2", main: "隣町で発生しました", details: ["津山市で確定（12 月 20 日）"] };
+const LINE: TownLine = { tone: "lv2", main: "隣の町で発生しました", details: ["津山市で確定（12 月 20 日）"] };
 const PAST: PastSummary = {
-  sentence: "1 年前に隣町で発生しました（記録）",
+  sentence: "1 年前に隣の町で発生しました（記録）",
   latest: null,
   hits: [
     {
@@ -74,7 +74,7 @@ function show(p: TownBannerProps) {
 
 afterEach(cleanup);
 
-describe("TownBanner: 読めないとき（T10）", () => {
+describe("TownBanner: 読み込めないとき（T10）", () => {
   it("slow でなければ読み込み直しの案内を出さない", () => {
     show(props({ loaded: false, line: null }));
     expect(screen.getByText(TEXT.loading)).toBeTruthy();
@@ -89,7 +89,7 @@ describe("TownBanner: 読めないとき（T10）", () => {
 });
 
 describe("TownBanner", () => {
-  it("鶏舎の場所の行は、選択地域の行のすぐ下、段階の文より前に描く（2026-11-07 作者の決定 A）", () => {
+  it("鶏舎の場所の行は、選んだ地域の行のすぐ下、段階の文より前に描く（2026-11-07 作者の決定 A）", () => {
     const { container } = show(props({ spotRow: <div className="spot-row-probe">鶏舎の場所</div> }));
     const row = container.querySelector(".town-name-row")!;
     expect(row.nextElementSibling?.className).toBe("spot-row-probe");
@@ -108,25 +108,25 @@ describe("TownBanner", () => {
     const toned = container.querySelectorAll("[data-tone]");
     expect(toned).toHaveLength(1);
     expect(toned[0]!.getAttribute("data-tone")).toBe("lv2");
-    expect(toned[0]!.textContent).toContain("隣町で発生しました");
-    const past = screen.getByText(/1 年前に隣町で発生しました（記録）/).closest(".town-past")!;
+    expect(toned[0]!.textContent).toContain("隣の町で発生しました");
+    const past = screen.getByText(/1 年前に隣の町で発生しました（記録）/).closest(".town-past")!;
     expect(past.querySelector("[data-tone]")).toBeNull();
     expect(past.closest("[data-tone]")).toBeNull();
     expect(past.textContent).toContain(FIXED_TEXT.pastDisclaimer);
   });
 
-  it("今季の事例を読めていない間は『読み込んでいます』で、段階の文も色もない（§2）", () => {
+  it("今季の事例を読み込めていない間は『読み込んでいます』で、段階の文も色もない（§2）", () => {
     const { container } = show(props({ loaded: false, line: null }));
     expect(screen.getByText(/読み込んでいます/)).toBeTruthy();
     expect(container.querySelector("[data-tone]")).toBeNull();
-    expect(screen.queryByText("隣町で発生しました")).toBeNull(); // 段階の文（過去の行の「…（記録）」とは別）
+    expect(screen.queryByText("隣の町で発生しました")).toBeNull(); // 段階の文（過去の行の「…（記録）」とは別）
     expect(screen.queryByText("津山市で確定（12 月 20 日）")).toBeNull();
     expect(document.body.textContent).not.toContain("全国の動きをお知らせしています");
   });
 
-  it("段階の計算に失敗したときは『読めませんでした』で、段階の文も色もない", () => {
+  it("段階の計算に失敗したときは『読み込めませんでした』で、段階の文も色もない", () => {
     const { container } = show(props({ line: null, lineFailed: true }));
-    expect(screen.getByRole("alert").textContent).toContain("読めませんでした");
+    expect(screen.getByRole("alert").textContent).toContain("読み込めませんでした");
     expect(container.querySelector("[data-tone]")).toBeNull();
   });
 
@@ -135,7 +135,7 @@ describe("TownBanner", () => {
     expect(screen.getByRole("link", { name: "この町の案内ページ（登録なしで開ける・共有用）" }).getAttribute("href")).toBe("/area/33214");
   });
 
-  it("最初の画面では案内ページへのリンクを出さない（選択地域の過去を見るの 1 本。設計書 2026-11-06-town-picker D8）", () => {
+  it("最初の画面では案内ページへのリンクを出さない（選んだ地域の過去を見るの 1 本。設計書 2026-11-06-town-picker D8）", () => {
     show(props({ pastBrief: true }));
     expect(screen.queryByRole("link", { name: TEXT.areaLink })).toBeNull();
     expect(screen.getByRole("link", { name: TEXT.townPastLink })).toBeTruthy();
@@ -161,12 +161,12 @@ describe("TownBanner", () => {
     expect(screen.getByText("選び方")).toBeTruthy();
   });
 
-  it("過去の記録が読めていない間は、読み込み中と失敗を分けて書く（0 件にしない）", () => {
+  it("過去の記録が読み込めていない間は、読み込み中と失敗を分けて書く（0 件にしない）", () => {
     show(props({ past: { status: "loading" } }));
     expect(screen.getByText(/過去の記録を読み込んでいます/)).toBeTruthy();
     cleanup();
     show(props({ past: { status: "failed" } }));
-    expect(screen.getByText(/過去の記録を読めませんでした/)).toBeTruthy();
+    expect(screen.getByText(/過去の記録を読み込めませんでした/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/発生はありません/);
   });
 
@@ -176,13 +176,13 @@ describe("TownBanner", () => {
   });
 
   it("過去の記録が空でも『何もない』で終わらせない。riskAnywhere を添える（今季の行にまだなければ）", () => {
-    show(props({ past: { status: "ready", summary: { sentence: "過去の記録に、この町と隣町の発生はありません（記録）", latest: null, hits: [] } } }));
+    show(props({ past: { status: "ready", summary: { sentence: "過去の記録に、この町と隣の町の発生はありません（記録）", latest: null, hits: [] } } }));
     expect(screen.getByText(RISK_SENTENCE, { exact: false })).toBeTruthy();
     cleanup();
     show(
       props({
         line: { tone: "lv4", main: "全国の動きをお知らせしています", details: [FIXED_TEXT.riskAnywhere] },
-        past: { status: "ready", summary: { sentence: "過去の記録に、この町と隣町の発生はありません（記録）", latest: null, hits: [] } },
+        past: { status: "ready", summary: { sentence: "過去の記録に、この町と隣の町の発生はありません（記録）", latest: null, hits: [] } },
       }),
     );
     expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
@@ -211,10 +211,10 @@ describe("TownBanner: 周辺の町の過去の発生", () => {
     current: 2026,
   };
 
-  it("畳んだ外に合計を出し、開くと近い順の表と距離の説明がある。既存の『この町』『隣町』の文は残る", () => {
+  it("畳んだ外に合計を出し、開くと近い順の表と距離の説明がある。既存の『この町』『隣の町』の文は残る", () => {
     show(props({ nearby: NEARBY }));
-    expect(screen.getByText(/1 年前に隣町で発生しました（記録）/)).toBeTruthy();
-    expect(within(screen.getByRole("list", { name: "過去の発生" })).getAllByRole("listitem")[0]!.textContent).toContain("隣町");
+    expect(screen.getByText(/1 年前に隣の町で発生しました（記録）/)).toBeTruthy();
+    expect(within(screen.getByRole("list", { name: "過去の発生" })).getAllByRole("listitem")[0]!.textContent).toContain("隣の町");
     const box = document.querySelector(".nearby-past")!;
     expect(box.closest("[data-tone]")).toBeNull();
     expect(box.querySelector("details:not([open])")).toBeTruthy();
@@ -243,17 +243,17 @@ describe("TownBanner: 周辺の町の過去の発生", () => {
 
   it("周辺に記録がなくても『何もない』で終わらせない。表を出さず、riskAnywhere を 1 つだけ添える", () => {
     const summary = { towns: [], total: 0, seasonsWithCases: 0, windowSeasons: 6 };
-    const none: PastSummary = { sentence: "過去の記録に、この町と隣町の発生はありません（記録）", latest: null, hits: [] };
+    const none: PastSummary = { sentence: "過去の記録に、この町と隣の町の発生はありません（記録）", latest: null, hits: [] };
     show(props({ nearby: { ...NEARBY, summary }, past: { status: "ready", summary: none } }));
     expect(document.querySelector(".nearby-past table")).toBeNull();
     expect(document.querySelector(".nearby-past")!.textContent).toContain(TEXT.nearbyNone(60, 6));
     expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
     cleanup();
-    show(props({ nearby: { ...NEARBY, summary } })); // 町と隣町に記録があり、今季の行に riskAnywhere がない
+    show(props({ nearby: { ...NEARBY, summary } })); // 町と隣の町に記録があり、今季の行に riskAnywhere がない
     expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
   });
 
-  it("読み込み中と失敗を分ける。0 件と書かない。過去の行が読めていない間は重ねて出さない", () => {
+  it("読み込み中と失敗を分ける。0 件と書かない。過去の行が読み込めていない間は重ねて出さない", () => {
     show(props({ nearby: { status: "loading" } }));
     expect(screen.getByText(TEXT.nearbyLoading)).toBeTruthy();
     cleanup();
@@ -298,7 +298,7 @@ describe("過去の発生の一覧（PastList）", () => {
     const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(2);
     expect(items[0]!.textContent).toContain("津山市");
-    expect(items[0]!.textContent).toContain("隣町");
+    expect(items[0]!.textContent).toContain("隣の町");
     expect(items[0]!.textContent).toContain("12 月 20 日");
     expect(items[1]!.textContent).toContain("関連農場");
     expect(items[1]!.textContent).toMatch(/8 例目/);
@@ -341,7 +341,7 @@ describe("過去の発生の一覧（PastList）", () => {
   });
 });
 
-describe("TownBanner: 最初の画面の過去の記録（近くの自治体のボタン）", () => {
+describe("TownBanner: 最初の画面の過去の記録（近くの町のボタン）", () => {
   const NEARBY: NearbyPastState = {
     status: "ready",
     basis: "center",
@@ -402,7 +402,7 @@ describe("TownBanner: 最初の画面の過去の記録（近くの自治体の�
     }
   });
 
-  it("hideNationalHead でなければ見出しを出す。全国でない行（隣町など）は hideNationalHead でも見出しが残る", () => {
+  it("hideNationalHead でなければ見出しを出す。全国でない行（隣の町など）は hideNationalHead でも見出しが残る", () => {
     const line: TownLine = { tone: "lv4", main: TEXT.national, details: [FIXED_TEXT.riskAnywhere] };
     show(props({ line }));
     expect(document.querySelector("p.town-main")!.textContent).toBe(TEXT.national);

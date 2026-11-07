@@ -85,28 +85,28 @@ async function show(over: Parameters<typeof stub>[0] = {}) {
 
 const section = (name: RegExp | string) => screen.getByRole("region", { name });
 
-describe("舞台裏の画面（データが未計測）", () => {
-  it("帯: 去年の再現の舞台裏であることと、『時点』は未計測", async () => {
+describe("舞台裏の画面（データがまだ測っていません）", () => {
+  it("帯: 去年の再現の舞台裏であることと、『時点』はまだ測っていません", async () => {
     await show();
     const band = screen.getByRole("region", { name: "去年の再現の舞台裏" });
     expect(within(band).getByText(/去年の再現です/)).toBeTruthy();
-    expect(within(band).getByText(/時点/).textContent).toContain("未計測");
+    expect(within(band).getByText(/時点/).textContent).toContain("まだ測っていません");
     expect(within(band).getByText(/AI が下書きし、プログラムが確かめる/)).toBeTruthy();
   });
 
   it("実物を読んでいないことを正直に出す（作り話の数字や読み取り結果を出さない）", async () => {
     await show();
-    expect(section("二つの読み手").textContent).toContain("未計測");
-    expect(section("検査").textContent).toContain("未計測");
-    expect(section("入れ替えた値").textContent).toContain("未計測");
-    expect(section("費用").textContent).toContain("未計測");
+    expect(section("2 つの AI で読む").textContent).toContain("まだ測っていません");
+    expect(section("検査").textContent).toContain("まだ測っていません");
+    expect(section("入れ替えた値").textContent).toContain("まだ測っていません");
+    expect(section("費用").textContent).toContain("まだ測っていません");
     expect(screen.queryByText(/トークン/)).toBeNull();
     expect(document.body.textContent).not.toMatch(/\d+ 円/);
   });
 
   it("必要な節がある: 二つの読み手、検査、入れ替えた値、県のホームページの確認の状況、入口を直すエージェント、試験の結果", async () => {
     await show();
-    for (const name of ["二つの読み手", "検査", "入れ替えた値", "県のホームページの確認の状況", "入口を直すエージェント", "試験の結果"]) {
+    for (const name of ["2 つの AI で読む", "検査", "入れ替えた値", "県のホームページの確認の状況", "入口を直すエージェント", "試験の結果"]) {
       expect(section(name), name).toBeTruthy();
     }
   });
@@ -148,11 +148,11 @@ describe("舞台裏の画面（測った後）", () => {
   it("『時点』に測った時刻。二つの読み手の値と、検査の行と、入れ替えた値が出る", async () => {
     await show({ backstage: MEASURED, usage: MEASURED_USAGE });
     expect(screen.getByRole("region", { name: "去年の再現の舞台裏" }).textContent).toContain("2026-11-06");
-    expect(screen.getByRole("region", { name: "去年の再現の舞台裏" }).textContent).not.toContain("未計測");
-    const readers = section("二つの読み手");
+    expect(screen.getByRole("region", { name: "去年の再現の舞台裏" }).textContent).not.toContain("まだ測っていません");
+    const readers = section("2 つの AI で読む");
     expect(readers.textContent).toContain("津山市");
-    expect(readers.textContent).toContain("主の読み手");
-    expect(readers.textContent).toContain("別の読み手");
+    expect(readers.textContent).toContain("主の AI");
+    expect(readers.textContent).toContain("確かめ役の AI");
     const checks = section("検査");
     expect(checks.textContent).toContain("半径が区域の文にある");
     expect(checks.textContent).not.toMatch(/[a-z]+_[a-z_]+/);
@@ -163,7 +163,7 @@ describe("舞台裏の画面（測った後）", () => {
     expect(demo.textContent).toContain("落としました");
     expect(demo.textContent).toContain("確認中に回します");
     expect(demo.textContent).not.toMatch(/quote_exists|compare|radius_sentence/);
-    expect(demo.textContent).toContain("二つの読み手が食い違い、確認中に回します。");
+    expect(demo.textContent).toContain("2 つの AI の結果が食い違い、確認中に回します。");
     expect(demo.textContent).toContain("検査（半径が区域の文にある）が落としました。");
     expect(within(demo).getAllByRole("listitem").length).toBeGreaterThanOrEqual(2);
   });
@@ -201,7 +201,7 @@ describe("舞台裏の画面（測った後）", () => {
 
   it("測った項目に、出来事の名前と原文へのリンク（本文は出さない）", async () => {
     await show({ backstage: MEASURED, usage: MEASURED_USAGE });
-    const link = within(section("二つの読み手")).getAllByRole("link", { name: /原文/ })[0]!;
+    const link = within(section("2 つの AI で読む")).getAllByRole("link", { name: /原文/ })[0]!;
     expect(link.classList.contains("tap-link")).toBe(true); // 押せる高さ（44px 以上）
     expect(link.getAttribute("href")).toBe("https://example.test/confirmed");
     expect(link.getAttribute("rel")).toContain("noopener");
@@ -212,13 +212,13 @@ describe("舞台裏の画面（実物の data/replay/）", () => {
   const real = backstageJson as unknown as BackstageFile;
   const realUsage = usageJson as unknown as MeasuredUsage;
 
-  it("測り済み: 『時点』は測った日。『未計測』とは言わず、文書ごとの項目、入れ替えた値の例、費用が出る", async () => {
+  it("測り済み: 『時点』は測った日。『まだ測っていません』とは言わず、文書ごとの項目、入れ替えた値の例、費用が出る", async () => {
     expect(real.status).toBe("measured");
     await show({ backstage: real, usage: realUsage });
     const band = screen.getByRole("region", { name: "去年の再現の舞台裏" });
     expect(band.textContent).toContain(real.measuredAt!.slice(0, 10));
-    expect(document.body.textContent).not.toContain("未計測");
-    expect(within(section("二つの読み手")).getAllByRole("link", { name: /原文/ })).toHaveLength(real.entries.length);
+    expect(document.body.textContent).not.toContain("まだ測っていません");
+    expect(within(section("2 つの AI で読む")).getAllByRole("link", { name: /原文/ })).toHaveLength(real.entries.length);
     expect(within(section("検査")).getAllByRole("heading", { level: 3 })).toHaveLength(real.entries.length);
     expect(within(section("入れ替えた値")).getAllByRole("listitem").length).toBeGreaterThanOrEqual(2);
     expect(section("費用").textContent).toContain(`${realUsage.documents} 本`);
@@ -305,30 +305,30 @@ describe("舞台裏の画面（実物の検査の一覧と、リンク）", () =
     await show();
     const sample = screen.getByRole("link", { name: "見本の農場で試す" });
     expect(sample.getAttribute("href")).toBe("/sample");
-    for (const l of [sample, screen.getByRole("link", { name: "再現にもどる" }), screen.getByRole("link", { name: /試験の結果を見る/ })]) expect(l.classList.contains("tap-link")).toBe(true);
+    for (const l of [sample, screen.getByRole("link", { name: "再現に戻る" }), screen.getByRole("link", { name: /試験の結果を見る/ })]) expect(l.classList.contains("tap-link")).toBe(true);
   });
 });
 
 describe("読み込みの失敗", () => {
-  it("backstage.json を読めなくても throw せず、状況を出して、もう一度読むボタンがある", async () => {
+  it("backstage.json を読み込めなくても throw せず、状況を出して、もう一度読むボタンがある", async () => {
     stub({ failBackstage: true });
     render(
       <MemoryRouter>
         <BackstagePage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("読めませんでした"));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("読み込めませんでした"));
     expect(screen.getByRole("button", { name: "もう一度読む" })).toBeTruthy();
   });
 
-  it("scenario を読めなくても同じ", async () => {
+  it("scenario を読み込めなくても同じ", async () => {
     stub({ failScenario: true });
     render(
       <MemoryRouter>
         <BackstagePage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("読めませんでした"));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("読み込めませんでした"));
   });
 
   it("fetch がない環境（経路の試験など）でも throw しない", async () => {
@@ -338,6 +338,6 @@ describe("読み込みの失敗", () => {
         <BackstagePage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("読めませんでした"));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("読み込めませんでした"));
   });
 });

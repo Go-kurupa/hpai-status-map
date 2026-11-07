@@ -21,7 +21,7 @@ describe("SectionTabs（今季の発生／過去の発生の中の見方）", ()
     expect(within(screen.getByRole("navigation", { name: "今季の発生の見方" })).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/", "/season"]);
     expect(current()).toEqual(["一覧と数"]);
   });
-  it("過去: 地図で比べる、数で見るの 2 つ（2026-11-07 作者の決定 案 A で名前を変えた）。選択地域のまわり（/town）は最初の画面と重なるので並べない（作者 11/7）。去年の再現も並べない（決定 16）", () => {
+  it("過去: 地図で比べる、数で見るの 2 つ（2026-11-07 作者の決定 案 A で名前を変えた）。選んだ地域のまわり（/town）は最初の画面と重なるので並べない（作者 11/7）。去年の再現も並べない（決定 16）", () => {
     render(<MemoryRouter initialEntries={["/explore"]}><SectionTabs group="past" /></MemoryRouter>);
     expect(within(screen.getByRole("navigation", { name: "過去の発生の見方" })).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/compare", "/explore"]);
     expect(current()).toEqual(["数で見る"]);
@@ -30,7 +30,7 @@ describe("SectionTabs（今季の発生／過去の発生の中の見方）", ()
 
 describe("AboutPage（このサイトについて）", () => {
   beforeEach(() => {
-    // 試験の結果の JSON は読めない扱い（読めなくても画面は出る）
+    // 試験の結果の JSON は読み込めない扱い（読み込めなくても画面は出る）
     vi.stubGlobal("fetch", () => Promise.resolve(new Response("", { status: 404 })));
   });
   it("題は 1 つで、目次は 5 つ。利用上のご案内、運営者、データの出典、AI の読み取りの確かさと費用、集める情報と消し方の順", async () => {

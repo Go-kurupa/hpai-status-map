@@ -166,7 +166,7 @@ describe("note の決まり", () => {
       }
     }
 
-    it("資料を読めている（空でない）", () => {
+    it("資料を読み込めている（空でない）", () => {
       expect(sentences.size).toBeGreaterThan(100);
     });
 

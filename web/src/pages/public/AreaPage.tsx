@@ -71,7 +71,7 @@ export default function AreaPage() {
     history: d.history,
     historyFailed: d.historyFailed,
     geo,
-    geoFailed: false, // 市町村の形が読めないときは、過去の行を出さずに 1 つの失敗の文だけにする
+    geoFailed: false, // 市町村の形が読み込めないときは、過去の行を出さずに 1 つの失敗の文だけにする
     current: d.current,
   });
 
@@ -177,7 +177,7 @@ export default function AreaPage() {
         <Link to="/known#recurrence">再発した農場がある</Link>、<Link to="/known#neighbor-cases">近くの農場で続いた例と、その範囲</Link>
       </p>
       <p>
-        <Link to="/">地図にもどる</Link>
+        <Link to="/">地図に戻る</Link>
       </p>
     </div>
   );

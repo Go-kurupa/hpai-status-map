@@ -51,7 +51,7 @@ async function init(): Promise<FirebaseHandles> {
     return { app, auth, db, functions };
   }
   const res = await fetch("/__/firebase/init.json");
-  if (!res.ok) throw new Error(`Firebase の設定を読めませんでした（${res.status}）`);
+  if (!res.ok) throw new Error(`Firebase の設定を読み込めませんでした（${res.status}）`);
   const config = (await res.json()) as FirebaseOptions;
   const app = getApps()[0] ?? initializeApp(config);
   return { app, auth: getAuth(app), db: getFirestore(app), functions: getFunctions(app, REGION) };

@@ -53,7 +53,7 @@ const LABEL_MAX = 20;
 const LABEL = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々a-zA-Z0-9 　・()（）\-/、]+$/u;
 
 /** 形が読めず省いた記録があるときに添える文。 */
-export const DROPPED_NOTICE = "一部の記録は形が読めず省きました。件数を完全とは見なさず、県の連絡で確かめてください";
+export const DROPPED_NOTICE = "一部の記録は形が読み込めず省きました。件数を完全とは見なさず、県の連絡で確かめてください";
 
 /** 記録を読んだ時刻が 60 秒より古いときに添える文（全体の上限のとき、キャッシュから答える）。 */
 export function staleNotice(minutesAgo: number): string {

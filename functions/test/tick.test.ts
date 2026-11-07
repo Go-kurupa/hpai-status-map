@@ -137,8 +137,8 @@ describe("runTick: 途中で throw しても、それまでの結果を失わな
     expect(aborted.report.checked.map((c) => c.id)).toEqual(["a"]); // b は更新に失敗したので checked に入らない
     expect(patches.map((p) => p.id)).toEqual(["a"]); // c は回らない
   });
-  it("入口の一覧が読めないときは report がまだないので、元の例外のまま投げる", async () => {
-    const boom = new Error("一覧が読めない");
+  it("入口の一覧が読み込めないときは report がまだないので、元の例外のまま投げる", async () => {
+    const boom = new Error("一覧が読み込めない");
     const io: TickIo = { listSources: async () => Promise.reject(boom), updateSource: async () => {} };
     await expect(runTick(deps(noFetch, at(0)), io, {})).rejects.toBe(boom);
   });
