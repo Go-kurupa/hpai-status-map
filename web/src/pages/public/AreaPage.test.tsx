@@ -393,3 +393,14 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     expect(bodyText()).not.toContain("採卵鶏");
   });
 });
+
+describe("隣の県のホームページを読み込めていないとき（2026-11-07 作者の決定、案 B）", () => {
+  it("真庭市で鳥取県だけ読めていなければ、1 回目に読めなかった時刻つきで伝える。「見回り」の語は使わない", async () => {
+    const r = rig();
+    show(r, "33214");
+    r.deliverWatch(okWatch().map((w) => (w.prefCode === "31" ? { ...w, ok: false, failingSince: "2026-11-04T06:13:00+09:00" } : w)));
+    r.deliverCases([]);
+    await screen.findByText("隣の県（鳥取県）のホームページを、11 月 4 日 6:13 から読み込めていません。発生がないとは言えません");
+    expect(bodyText()).not.toContain("見回り");
+  });
+});

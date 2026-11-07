@@ -260,13 +260,13 @@ function BackstageView({ scenario, backstage, usage }: Data) {
         )}
       </Section>
 
-      <Section title="見回りの状況">
+      <Section title="県のホームページの確認の状況">
         <p>{watch.text}</p>
-        <p className="replay-hint">これは説明のための例です。実際の見回りの結果ではありません。</p>
+        <p className="replay-hint">これは説明のための例です。実際の結果ではありません。</p>
       </Section>
 
       <Section title="入口を直すエージェント">
-        <p>県のサイトの見回り先が壊れたとき、新しい入口を提案するエージェントです。提案だけをして、見回り先は変えません。運営者が承認して初めて変わります。</p>
+        <p>県のホームページの読み先が変わって読めなくなったとき、新しい読み先を提案するエージェントです。提案だけをして、読み先は変えません。運営者が承認して初めて変わります。</p>
         <p>
           動かす方法（定期実行のしくみ）の試行の結論は<strong>未決</strong>です。決まったら、ここに書きます。
         </p>

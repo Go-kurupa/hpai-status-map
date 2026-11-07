@@ -19,10 +19,15 @@ import { PREFS } from "@hpai/shared/pref";
 import { SURVEILLANCE_NOTE, TEXT } from "./texts";
 
 export interface TownLine {
-  /** 今季の段階の色。lv3 は「距離の帯」と「登録した町」、none は町が未選択か読めなかったとき、または町の県が見回りで確認できていない④（withWatchState） */
+  /** 今季の段階の色。lv3 は「距離の帯」と「登録した町」、none は町が未選択か読めなかったとき、または町の県のホームページを読み込めていない④（withWatchState） */
   tone: "lv1" | "lv2" | "lv3" | "lv4" | "none";
   main: string;
   details: string[];
+  /**
+   * スマホで地図の前に出す短い文と、地図の下の行の先頭に添える行（2026-11-07 作者の決定）。
+   * 時刻つきの文は地図の前で 3 行になり、地図が最初の画面からはみ出すので、地図の前は時刻なし、時刻は地図の下に出す。PC は main のまま
+   */
+  lead?: { main: string; note: string };
 }
 
 const MAX_CASE_LINES = 5;
@@ -124,7 +129,7 @@ export function areaLine(status: AreaStatus): TownLine {
   return { tone: "lv4", main: TEXT.national, details: [...birds, ...tail] };
 }
 
-/** 町の隣の市町村が属する県（自分の県を除く）。区域は県をまたぐので、これらの県の見回りも町の 1 文に関わる */
+/** 町の隣の市町村が属する県（自分の県を除く）。区域は県をまたぐので、これらの県の確認の結果も町の 1 文に関わる */
 export function neighborPrefsOf(townCode: MuniCode, geo: Pick<GeoStore, "index" | "adjacency">): PrefCode[] {
   const own = geo.index[townCode]?.prefCode;
   const prefs = new Set<PrefCode>();
@@ -137,8 +142,18 @@ export function neighborPrefsOf(townCode: MuniCode, geo: Pick<GeoStore, "index" 
 
 const PREF_NAME = new Map(PREFS.map((p) => [p.code, p.name]));
 
+/** "2026-11-07T09:29:19+09:00" → "11 月 7 日 9:29"（日本時間）。読めなければ null */
+export function sinceLabel(iso: IsoDateTime | null): string | null {
+  if (iso === null) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const j = new Date(t + 9 * 3_600_000);
+  return `${j.getUTCMonth() + 1} 月 ${j.getUTCDate()} 日 ${j.getUTCHours()}:${String(j.getUTCMinutes()).padStart(2, "0")}`;
+}
+
 /**
- * 自分の町の県、または隣の県が見回りで確認できていないとき、1 文にそれを加える（同期。見回りの結果が変わるたびに計算し直さない）。
+ * 自分の町の県、または隣の県のホームページを読み込めていないとき、1 文にそれを加える（同期。確認の結果が変わるたびに計算し直さない）。
+ * failingSince は県ごとの 1 回目に読めなかった時刻。あれば「〇月〇日 〇:〇〇 から」を添え、なければ時刻を付けない（推測で書かない）。
  * ④は「全国の動き」だけにせず、確認できていないことを主文にして色も段階の色にしない。
  * ①②③は段階の文と色を保ち、先頭の詳細に足す。町が未選択か読めなかったとき（色なし）は足さない。
  * 隣の県の文は、隣の市町村より先に届く区域（地点は 10.85km）までは見ていない最低線。
@@ -148,18 +163,34 @@ export function withWatchState(
   townPref: PrefCode | null,
   failedPrefCodes: readonly PrefCode[],
   neighborPrefs: readonly PrefCode[] = [],
+  failingSince: Readonly<Partial<Record<PrefCode, IsoDateTime>>> = {},
 ): TownLine {
   if (townPref === null || line.tone === "none") return line;
-  const notes: string[] = [];
-  if (failedPrefCodes.includes(townPref)) notes.push(TEXT.prefUnwatched);
+  const since = (p: PrefCode): string | null => sinceLabel(failingSince[p] ?? null);
+  // 文ごとに、時刻のない短い文と、地図の下に添える時刻の行（時刻がなければ null）を持つ
+  const notes: Array<{ text: string; short: string; note: string | null }> = [];
+  if (failedPrefCodes.includes(townPref)) {
+    const own = since(townPref);
+    notes.push(
+      own === null
+        ? { text: TEXT.prefUnwatched, short: TEXT.prefUnwatched, note: null }
+        : { text: TEXT.prefUnwatchedSince(own), short: TEXT.prefUnwatched, note: TEXT.unwatchedSinceNote([{ name: null, since: own }]) },
+    );
+  }
   const failedNeighbors = neighborPrefs.filter((p) => p !== townPref && failedPrefCodes.includes(p));
   if (failedNeighbors.length > 0) {
-    const names = failedNeighbors.map((p) => PREF_NAME.get(p) ?? p).join("、");
-    notes.push(`隣の県（${names}）は、見回りで確認できていません。発生がないとは言えません`);
+    const prefs = failedNeighbors.map((p) => ({ name: PREF_NAME.get(p) ?? p, since: since(p) }));
+    const undated = prefs.map((p) => ({ ...p, since: null }));
+    const dated = prefs.filter((p) => p.since !== null);
+    notes.push({ text: TEXT.neighborUnwatched(prefs), short: TEXT.neighborUnwatched(undated), note: dated.length === 0 ? null : TEXT.unwatchedSinceNote(prefs.length === 1 ? [{ name: null, since: dated[0]!.since }] : dated) });
   }
   if (notes.length === 0) return line;
-  if (line.tone === "lv4") return { tone: "none", main: notes[0]!, details: [...notes.slice(1), ...line.details] };
-  return { ...line, details: [...notes, ...line.details] };
+  if (line.tone === "lv4") {
+    const [head, ...rest] = notes;
+    const out: TownLine = { tone: "none", main: head!.text, details: [...rest.map((n) => n.text), ...line.details] };
+    return head!.note === null ? out : { ...out, lead: { main: head!.short, note: head!.note } };
+  }
+  return { ...line, details: [...notes.map((n) => n.text), ...line.details] };
 }
 
 export interface ResolveInput {

@@ -130,6 +130,9 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** 自分の町の県のホームページを読み込めていない文。1 回目に読めなかった時刻の記録があれば「〇月〇日 〇:〇〇 から」が入る（2026-11-07 案 B） */
+const PREF_UNWATCHED = /この県のホームページを(?:、\d+ 月 \d+ 日 \d+:\d{2} から)?読み込めていません。発生がないとは言えません/u;
+
 describe("MapPage", () => {
   it("今季の事例がまだ届かないうちは『0 件』と書かず、riskAnywhere も出さない。県はすべて確認できていない扱い", async () => {
     show(rig());
@@ -801,7 +804,9 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     await screen.findByTestId("map");
     r.deliverWatch(okWatch().map((w) => (w.prefCode === "33" ? { ...w, ok: false, failingSince: "2026-11-04T01:00:00+09:00" } : w)));
     r.deliverCases([]);
-    await screen.findByText(TEXT.prefUnwatched);
+    await screen.findByText(PREF_UNWATCHED);
+    // 1 回目に読めなかった時刻（2026-11-04T01:00+09:00）を、地図の画面の 1 文にも添える
+    expect(screen.getByText("この県のホームページを、11 月 4 日 1:00 から読み込めていません。発生がないとは言えません")).toBeTruthy();
     expect(before(document.querySelector(".town-banner")!, document.querySelector(".map-box")!)).toBe(true);
   });
 
@@ -897,7 +902,7 @@ describe("MapPage: 自分の町の県が未確認（W-06 追加の範囲 1）", 
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(failed(["33"]));
-    await waitFor(() => expect(bannerText()).toContain(TEXT.prefUnwatched));
+    await waitFor(() => expect(bannerText()).toMatch(PREF_UNWATCHED));
     expect(bannerText()).not.toContain(TEXT.national);
     expect(tones()).not.toContain("lv4");
     // 0 件の数字より前に守る文がある（町の文からは札の前へ移す）
@@ -910,7 +915,7 @@ describe("MapPage: 自分の町の県が未確認（W-06 追加の範囲 1）", 
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([]);
-    await waitFor(() => expect(bannerText()).toContain(TEXT.prefUnwatched));
+    await waitFor(() => expect(bannerText()).toMatch(PREF_UNWATCHED));
     expect(bannerText()).not.toContain(TEXT.national);
   });
 
@@ -922,7 +927,7 @@ describe("MapPage: 自分の町の県が未確認（W-06 追加の範囲 1）", 
     r.deliverCases([tsuyamaCase()]);
     r.deliverWatch(failed(["33"]));
     await screen.findByText("隣町で発生しました");
-    expect(bannerText()).toContain(TEXT.prefUnwatched);
+    expect(bannerText()).toMatch(PREF_UNWATCHED);
     expect(tones()).toContain("lv2");
   });
 
@@ -934,7 +939,7 @@ describe("MapPage: 自分の町の県が未確認（W-06 追加の範囲 1）", 
     r.deliverCases([]);
     r.deliverWatch(failed(["13"]));
     await screen.findByText(TEXT.national);
-    expect(bannerText()).not.toContain(TEXT.prefUnwatched);
+    expect(bannerText()).not.toMatch(PREF_UNWATCHED);
   });
 });
 
@@ -1020,7 +1025,7 @@ describe("MapPage: レビュー指摘の修正（1 回目）", () => {
     r.deliverWatch(failed(["31"]));
     await waitFor(() => expect(bannerText()).toContain("隣の県（鳥取県）"));
     expect(bannerText()).not.toContain(TEXT.national);
-    expect(bannerText()).not.toContain(TEXT.prefUnwatched);
+    expect(bannerText()).not.toMatch(PREF_UNWATCHED);
     // 0 件の数字より前に守る文がある（町の文からは札の前へ移す）
     expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(FIXED_TEXT.riskAnywhere);
   });
@@ -2246,7 +2251,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(failing(["33"]));
-    const main = await screen.findByText(TEXT.prefUnwatched);
+    const main = await screen.findByText(PREF_UNWATCHED);
     const box = document.querySelector(".map-box")!;
     expect(main.closest(".town-lead")).not.toBeNull();
     expect(before(main, box)).toBe(true);

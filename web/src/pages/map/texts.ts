@@ -24,8 +24,22 @@ export const TEXT = {
   // 15 秒たっても事例が読めないときの案内（SeasonCompare の既存の案内と同じ。状態を言う句は足さない）
   slowLoad: "ページを読み込み直してください。",
   loadFailed: "読めませんでした。ページを読み込み直してください。読めるまで、発生がないとは言えません",
-  // 自分の町の県が、見回りで確認できていない（結果が未着を含む）。④の「全国の動き」だけで済ませない
-  prefUnwatched: "この県は、見回りで確認できていません。発生がないとは言えません",
+  // 自分の町の県のホームページを読み込めていない（自動の確認の結果が未着を含む）。④の「全国の動き」だけで済ませない
+  // 「県から発表がない」ではなく「こちらが読めていない」と分かる言い方にする（2026-11-07 作者の決定、案 B）。時刻は 1 回目に読めなかった時刻
+  prefUnwatched: "この県のホームページを読み込めていません。発生がないとは言えません",
+  prefUnwatchedSince: (since: string): string => `この県のホームページを、${since} から読み込めていません。発生がないとは言えません`,
+  /** スマホで地図の下の行の先頭に添える時刻。name が null なら県名を付けない（1 県のとき） */
+  unwatchedSinceNote: (prefs: ReadonlyArray<{ name: string | null; since: string | null }>): string =>
+    `読み込めなくなったのは${prefs.map((p) => (p.name === null ? ` ${p.since} から` : `、${p.name}は ${p.since} から`)).join("")}`,
+  /** 隣の県。since は県ごとの時刻（分からなければ null） */
+  neighborUnwatched: (prefs: ReadonlyArray<{ name: string; since: string | null }>): string => {
+    const names = prefs.map((p) => p.name).join("、");
+    const times = [...new Set(prefs.map((p) => p.since))];
+    if (times.length === 1 && times[0] !== null) return `隣の県（${names}）のホームページを、${times[0]} から読み込めていません。発生がないとは言えません`;
+    const dated = prefs.filter((p) => p.since !== null);
+    if (dated.length === 0) return `隣の県（${names}）のホームページを読み込めていません。発生がないとは言えません`;
+    return `隣の県（${names}）のホームページを読み込めていません（${dated.map((p) => `${p.name}は ${p.since} から`).join("、")}）。発生がないとは言えません`;
+  },
   // 町の選び方（高齢の人が迷わないよう、仕事の言葉で）
   pickTown: "地域を選択",
   changeTown: "地域を選択",
@@ -191,7 +205,7 @@ export const TEXT = {
   pastFailed: "過去の記録を読めませんでした",
   areaLink: "この町の案内ページ（登録なしで開ける・共有用）",
   // 確認状況（W-06）
-  watchNotLoaded: "見回りの結果をまだ読めていません。どの県も確認できていない扱いです。",
+  watchNotLoaded: "各県のホームページの確認の結果を、まだ読めていません。どの県も確認できていない扱いです。",
   watchFailedTail: "地図の斜線の県は、発生がないとは言えません。",
   // スマホの地図の前に出す短い 1 文。確認の行の全文は地図の下に置く
   watchShortRange: "確認できた範囲の件数です。",
@@ -205,7 +219,7 @@ export const TEXT = {
   listEmptyPartial: "確認できた範囲では、一覧にできる発生の報告はありません",
   listNoneCheckedShort: "まだ確認できていません",
   mapLoadFailed: "地図の形を読み込めませんでした。ページを読み込み直してください。それまで地図に色がなくても、発生がないとは言えません。",
-  listNoneChecked: "まだ確認できていません。見回りの結果が出るまで、発生がないとは言えません。",
+  listNoneChecked: "まだ確認できていません。各県のホームページの確認の結果が出るまで、発生がないとは言えません。",
   listPartialLabel: "確認できた範囲では",
   watchAttemptOnly: "確認できた県はありません。最後に確認を試したのは",
   listAria: "発生の一覧",
@@ -217,7 +231,7 @@ export const TEXT = {
   svgMapAria: "発生状況の地図（都道府県）",
   svgPrefHint: "県を押すと、その県の市町村の図になります。",
   svgBack: "全国の図へ戻る",
-  svgUnwatched: "見回りで確認できていません",
+  svgUnwatched: "県のホームページを読み込めていません",
   svgReviewing: "確認中の発表があります",
   svgSuspected: "疑い",
   svgConfirmed: "確定",

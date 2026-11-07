@@ -6,7 +6,7 @@ import { toJstIso } from "@hpai/shared/dates";
 import { pastCasesOf } from "@hpai/shared/history";
 import { isCountable } from "@hpai/shared/level";
 import { countSmallFlocks, describePast, type NearbyPastSummary } from "@hpai/shared/past";
-import type { Case, FarmPoint, HistoryCase, MeshCode, MuniCode, PrefCode, Season, WildBird } from "@hpai/shared/types";
+import type { Case, FarmPoint, HistoryCase, IsoDateTime, MeshCode, MuniCode, PrefCode, Season, WildBird } from "@hpai/shared/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { NearbyPastState } from "./NearbyPast";
 import { casesWithinBand, nearbyPastByCenter, nearbyPastFromMesh, pastSeasonsOf } from "./overviewCounts";
@@ -47,8 +47,10 @@ export interface TownViewInput {
   season: Season;
   geo: GeoStore | null;
   now: Date;
-  /** 見回りで確認できていない県（結果が届く前は 47 県すべて）。自分の町の県と隣の県がここにあれば、1 文にそれを加える */
+  /** 確認できていない県（結果が届く前は 47 県すべて）。自分の町の県と隣の県がここにあれば、1 文にそれを加える */
   unwatchedPrefCodes?: readonly PrefCode[];
+  /** 確認できていない県の、1 回目に読めなかった時刻。あれば 1 文に「〇月〇日 〇:〇〇 から」を添える */
+  unwatchedSince?: Readonly<Partial<Record<PrefCode, IsoDateTime>>>;
 }
 
 /** 1 文。入力（地点、町）が変わった直後は古い結果を出さず、読み込み中にする */
@@ -79,12 +81,13 @@ export function useTownLine(i: TownViewInput): { line: TownLine | null; failed: 
   const townCode = spot?.muniCode ?? town;
   const townPref = townCode === null ? null : (geo?.index[townCode]?.prefCode ?? townCode.slice(0, 2));
   const unwatched = i.unwatchedPrefCodes;
+  const since = i.unwatchedSince;
   const freshLine = fresh?.line ?? null;
   // 区域は県をまたぐので、隣の市町村がある県の未確認も伝える
   const neighborPrefs = useMemo(() => (geo && townCode !== null ? neighborPrefsOf(townCode, geo) : []), [geo, townCode]);
   const line = useMemo(
-    () => (freshLine !== null && unwatched !== undefined ? withWatchState(freshLine, townPref, unwatched, neighborPrefs) : freshLine),
-    [freshLine, townPref, unwatched, neighborPrefs],
+    () => (freshLine !== null && unwatched !== undefined ? withWatchState(freshLine, townPref, unwatched, neighborPrefs, since) : freshLine),
+    [freshLine, townPref, unwatched, neighborPrefs, since],
   );
   return { line, failed: fresh !== null && fresh.line === null, nearMuniCodes: fresh?.near ?? [] };
 }

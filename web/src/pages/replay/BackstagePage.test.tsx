@@ -104,16 +104,16 @@ describe("舞台裏の画面（データが未計測）", () => {
     expect(document.body.textContent).not.toMatch(/\d+ 円/);
   });
 
-  it("必要な節がある: 二つの読み手、検査、入れ替えた値、見回りの状況、入口を直すエージェント、試験の結果", async () => {
+  it("必要な節がある: 二つの読み手、検査、入れ替えた値、県のホームページの確認の状況、入口を直すエージェント、試験の結果", async () => {
     await show();
-    for (const name of ["二つの読み手", "検査", "入れ替えた値", "見回りの状況", "入口を直すエージェント", "試験の結果"]) {
+    for (const name of ["二つの読み手", "検査", "入れ替えた値", "県のホームページの確認の状況", "入口を直すエージェント", "試験の結果"]) {
       expect(section(name), name).toBeTruthy();
     }
   });
 
-  it("見回りの状況: 47 都道府県のうち N 件を確認、M 件は確認できていません（愛知県）。説明のための例", async () => {
+  it("県のホームページの確認の状況: 47 都道府県のうち N 件を確認、M 件は確認できていません（愛知県）。説明のための例", async () => {
     await show();
-    const s = section("見回りの状況");
+    const s = section("県のホームページの確認の状況");
     expect(s.textContent).toContain("47 都道府県のうち 46 件を確認、1 件は確認できていません（愛知県）");
     expect(s.textContent).toContain("説明のための例");
   });

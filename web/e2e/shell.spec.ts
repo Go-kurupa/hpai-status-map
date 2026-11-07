@@ -598,7 +598,7 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
     await openState(page, { name: "自分の県", spot: true, watch: FIVE });
     const canvas = (await page.locator(".map-box .map-canvas").boundingBox())!;
     const lead = page.locator(".town-lead");
-    await expect(lead).toHaveText("この県は、見回りで確認できていません。発生がないとは言えません");
+    await expect(lead).toHaveText("この県のホームページを読み込めていません。発生がないとは言えません");
     const box = (await lead.boundingBox())!;
     expect(box.y + box.height).toBeLessThanOrEqual(canvas.y);
   });

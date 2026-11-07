@@ -155,6 +155,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     geo,
     now: ds.now(),
     unwatchedPrefCodes: d.failedPrefCodes, // 自分の町の県が未確認なら、1 文にそれを加える（④だけで済ませない）
+    unwatchedSince: d.watchSince, // 1 回目に読めなかった時刻を 1 文に添える
   });
   const past = usePast({
     town,

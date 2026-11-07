@@ -148,7 +148,7 @@ test.describe("確認状況", () => {
     await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33214"));
     await open(page, { watch: watchWith33Failed() });
     // 幅 390px は、段階の文を地図の前の .town-lead に置く
-    await expect(page.locator(".town-lead")).toContainText("この県は、見回りで確認できていません");
+    await expect(page.locator(".town-lead")).toContainText("この県のホームページを読み込めていません");
     await expect(page.locator(".town-lead")).not.toContainText("全国の動きをお知らせしています");
     await expect(page.locator(".town-banner")).not.toContainText("全国の動きをお知らせしています");
   });

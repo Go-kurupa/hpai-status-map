@@ -376,11 +376,11 @@ describe("withWatchState（自分の町の県が未確認のとき）", () => {
   const lv4: TownLine = { tone: "lv4", main: TEXT.national, details: [FIXED_TEXT.riskAnywhere] };
   const lv1: TownLine = { tone: "lv1", main: TEXT.zone, details: ["津山市で確定（11 月 2 日）"] };
 
-  it("④で県が未確認: main が『この県は確認できていません』になり、色は段階ではなくなる。riskAnywhere は残る", () => {
+  it("④で県が未確認: main が『この県のホームページを読み込めていません』になり、色は段階ではなくなる。riskAnywhere は残る", () => {
     const l = withWatchState(lv4, "33", ["33"]);
     expect(l.main).toBe(TEXT.prefUnwatched);
-    expect(l.main).toContain("この県は");
-    expect(l.main).toContain("確認できていません");
+    expect(l.main).toBe("この県のホームページを読み込めていません。発生がないとは言えません");
+    expect(l.main).not.toContain("見回り");
     expect(l.main).not.toBe(TEXT.national);
     expect(l.tone).toBe("none");
     expect(l.details).toContain(FIXED_TEXT.riskAnywhere);
@@ -427,10 +427,9 @@ describe("neighborPrefsOf / withWatchState（隣の県）", () => {
     expect(neighborPrefsOf("99999", geo)).toEqual([]);
   });
 
-  it("自分の県は確認できていて、隣の県（鳥取県）だけ未確認: ④は主文を『隣の県（鳥取県）は確認できていません』にする", () => {
+  it("自分の県は確認できていて、隣の県（鳥取県）だけ未確認: ④は主文を『隣の県（鳥取県）のホームページを読み込めていません』にする", () => {
     const l = withWatchState(lv4, "33", ["31"], ["31"]);
-    expect(l.main).toContain("隣の県（鳥取県）");
-    expect(l.main).toContain("確認できていません");
+    expect(l.main).toBe("隣の県（鳥取県）のホームページを読み込めていません。発生がないとは言えません");
     expect(l.main).not.toBe(TEXT.national);
     expect(l.tone).toBe("none");
     expect(l.details).toContain(FIXED_TEXT.riskAnywhere);
@@ -454,6 +453,32 @@ describe("neighborPrefsOf / withWatchState（隣の県）", () => {
     const l = withWatchState(lv2, "33", ["28", "31"], ["28", "31", "34"]);
     expect(l.details[0]).toContain("兵庫県、鳥取県");
     expect(l.details[0]).not.toContain("広島県");
+  });
+
+  it("1 回目に読めなかった時刻があれば「〇月〇日 〇:〇〇 から」を添える（日本時間）。時刻は県ごと", () => {
+    const own = withWatchState(lv4, "33", ["33"], [], { "33": "2026-11-07T09:29:19+09:00" });
+    expect(own.main).toBe("この県のホームページを、11 月 7 日 9:29 から読み込めていません。発生がないとは言えません");
+    const one = withWatchState(lv4, "33", ["28"], ["28"], { "28": "2026-11-07T00:29:19Z" });
+    expect(one.main).toBe("隣の県（兵庫県）のホームページを、11 月 7 日 9:29 から読み込めていません。発生がないとは言えません");
+    const two = withWatchState(lv2, "33", ["28", "31"], ["28", "31"], { "28": "2026-11-07T09:29:00+09:00", "31": "2026-11-07T06:13:00+09:00" });
+    expect(two.details[0]).toBe("隣の県（兵庫県、鳥取県）のホームページを読み込めていません（兵庫県は 11 月 7 日 9:29 から、鳥取県は 11 月 7 日 6:13 から）。発生がないとは言えません");
+    const partly = withWatchState(lv2, "33", ["28", "31"], ["28", "31"], { "28": "2026-11-07T09:29:00+09:00" });
+    expect(partly.details[0]).toBe("隣の県（兵庫県、鳥取県）のホームページを読み込めていません（兵庫県は 11 月 7 日 9:29 から）。発生がないとは言えません");
+    // 確認できている県の時刻は使わない、読めない時刻は付けない
+    expect(withWatchState(lv4, "33", ["33"], [], { "33": "not-a-date" }).main).toBe(TEXT.prefUnwatched);
+  });
+
+  it("④で時刻つきの文が主文になるときは、スマホの地図の前に出す短い文（時刻なし）と、地図の下に添える時刻の行を持つ", () => {
+    const own = withWatchState(lv4, "33", ["33"], [], { "33": "2026-11-04T01:00:00+09:00" });
+    expect(own.lead).toEqual({ main: TEXT.prefUnwatched, note: "読み込めなくなったのは 11 月 4 日 1:00 から" });
+    const nb = withWatchState(lv4, "33", ["28"], ["28"], { "28": "2026-11-07T09:29:00+09:00" });
+    expect(nb.lead).toEqual({ main: "隣の県（兵庫県）のホームページを読み込めていません。発生がないとは言えません", note: "読み込めなくなったのは 11 月 7 日 9:29 から" });
+    const two = withWatchState(lv4, "33", ["28", "31"], ["28", "31"], { "28": "2026-11-07T09:29:00+09:00", "31": "2026-11-07T06:13:00+09:00" });
+    expect(two.lead?.note).toBe("読み込めなくなったのは、兵庫県は 11 月 7 日 9:29 から、鳥取県は 11 月 7 日 6:13 から");
+    // 時刻がなければ、短い文も時刻の行も要らない（主文がそのまま短い）
+    expect(withWatchState(lv4, "33", ["33"]).lead).toBeUndefined();
+    // ①②③は段階の文が主文で、未確認の文は地図の下の行なので、短い文は要らない
+    expect(withWatchState(lv2, "33", ["31"], ["31"], { "31": "2026-11-07T06:13:00+09:00" }).lead).toBeUndefined();
   });
 
   it("隣の県が確認できていれば、そのまま（同じ参照）。禁止語もない", () => {

@@ -143,7 +143,7 @@ export function TownBanner(p: TownBannerProps) {
           </p>
         ) : (
           <div className="town-now" data-tone={p.line?.tone} role="status">
-            <p className="town-main">{p.line?.main}</p>
+            <p className="town-main">{p.line?.lead?.main ?? p.line?.main}</p>
           </div>
         )}
       </section>
@@ -151,12 +151,13 @@ export function TownBanner(p: TownBannerProps) {
   }
   if (part === "rest") {
     // 段階の文と読めない断りは地図の前にあるので、ここでは残りの行だけを描く
+    const rest = p.line ? [...(p.line.lead ? [p.line.lead.note] : []), ...p.line.details] : [];
     now =
-      !p.lineFailed && p.line && p.line.details.length > 0 ? (
+      !p.lineFailed && p.line && rest.length > 0 ? (
         // 段階の色は地図の前の文だけが持つ
         <div className="town-now">
           <ul className="town-details">
-            {p.line.details.map((d, i) => (
+            {rest.map((d, i) => (
               <li key={i}>{d}</li>
             ))}
           </ul>

@@ -57,12 +57,12 @@ export default function AreaPage() {
         season: d.current,
       });
       // この町の県、隣の県が見回りで確認できていないときは、それを 1 文に足す（④だけで済ませない）
-      const line = withWatchState(areaLine(status), entry.prefCode, d.failedPrefCodes, neighborPrefsOf(muniCode, geo));
+      const line = withWatchState(areaLine(status), entry.prefCode, d.failedPrefCodes, neighborPrefsOf(muniCode, geo), d.watchSince);
       return { kind: "ready", name: entry.name, line, status };
     } catch {
       return { kind: "failed", name: entry.name }; // 壊れた記録で画面を落とさない。「発生なし」にも見せない
     }
-  }, [geo, geoFailed, muniCode, d.currentCases, d.wildBirds, d.current, d.failedPrefCodes, nowMinute]);
+  }, [geo, geoFailed, muniCode, d.currentCases, d.wildBirds, d.current, d.failedPrefCodes, d.watchSince, nowMinute]);
 
   const known = geo !== null && Object.hasOwn(geo.index, muniCode);
   const past = usePast({

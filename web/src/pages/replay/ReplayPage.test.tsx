@@ -99,7 +99,7 @@ afterEach(() => {
 });
 
 describe("ReplayPage", () => {
-  it("最初は order 0。『去年の再現です』『仮の地点』『時点』と、4 事例だけ・見回りは例・メールは送らない、の説明がある", async () => {
+  it("最初は order 0。『去年の再現です』『仮の地点』『時点』と、4 事例だけ・県のホームページの確認は例・メールは送らない、の説明がある", async () => {
     await show();
     await mapReady();
     expect(screen.getAllByText(FIXED_TEXT.replayBanner).length).toBeGreaterThan(0);
@@ -300,7 +300,7 @@ describe("ReplayPage", () => {
     const notes = fold.querySelector(".replay-notes")!;
     expect([...notes.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
       "この再現が流すのは 4 事例だけです（米子市、姫路市、津山市、亀岡市）。ほかの発生は入っていません。",
-      "見回りの状況（地図の斜線）は説明のための例です。実際の見回りの結果ではありません。",
+      "県のホームページの確認の状況（地図の斜線）は、説明のための例です。実際の結果ではありません。",
       "メールは実際には送りません。『このときメールが届く』は、届くとしたらこうなる、という表示です。",
       "時刻の記載がない発表は『時刻の記載なし』とし、その日の終わりに置いています。",
     ]);

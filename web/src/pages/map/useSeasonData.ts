@@ -29,9 +29,11 @@ export interface SeasonData {
   listCases: Case[] | null;
   /** 確認状況の 1 行（結果が届く前は 47 県すべて確認できていない扱い） */
   watch: WatchLineResult;
-  /** 見回りで確認できていない県（結果が届く前は 47 県すべて） */
+  /** 確認できていない県（ホームページを読み込めていない。結果が届く前は 47 県すべて） */
   failedPrefCodes: PrefCode[];
-  /** 見回りの結果を受け取れている */
+  /** 確認できていない県の、1 回目に読めなかった時刻（記録のある県だけ） */
+  watchSince: Partial<Record<PrefCode, IsoDateTime>>;
+  /** 確認の結果を受け取れている */
   watchLoaded: boolean;
   /** 直近の確認の時刻。確認できた県がなければ null */
   asOf: IsoDateTime | null;
@@ -112,6 +114,11 @@ export function useSeasonData(): SeasonData {
 
   // minute は再計算の合図（now が変わるので、依存に入れる）
   const line = useMemo(() => watchLine(watch ?? [], now), [watch, minute]); // eslint-disable-line react-hooks/exhaustive-deps
+  const watchSince = useMemo(() => {
+    const out: Partial<Record<PrefCode, IsoDateTime>> = {};
+    for (const w of watch ?? []) if (w.failingSince && line.failedPrefCodes.includes(w.prefCode)) out[w.prefCode] = w.failingSince;
+    return out;
+  }, [watch, line]);
   const listCases = useMemo<Case[] | null>(() => {
     if (!view.loaded) return null;
     return view.isCurrent ? (cases ?? []).filter((c) => c.season === view.season) : [...view.cases];
@@ -130,6 +137,7 @@ export function useSeasonData(): SeasonData {
     listCases,
     watch: line,
     failedPrefCodes: line.failedPrefCodes,
+    watchSince,
     watchLoaded: watch !== null,
     asOf: line.asOf,
     casesSlow,

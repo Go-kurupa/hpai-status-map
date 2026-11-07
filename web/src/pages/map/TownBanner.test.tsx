@@ -398,3 +398,26 @@ describe("TownBanner: 最初の画面の過去の記録（近くの自治体の�
     expect(document.querySelector("p.town-main")!.textContent).toBe(LINE.main);
   });
 });
+
+describe("時刻つきの文（スマホの地図の前は短い文、時刻は地図の下。2026-11-07 作者の決定）", () => {
+  const timed = {
+    tone: "none" as const,
+    main: "この県のホームページを、11 月 4 日 1:00 から読み込めていません。発生がないとは言えません",
+    details: ["全国どこでも"],
+    lead: { main: "この県のホームページを読み込めていません。発生がないとは言えません", note: "読み込めなくなったのは 11 月 4 日 1:00 から" },
+  };
+  it("地図の前（lead）は短い文だけ", () => {
+    const { container } = show(props({ line: timed, part: "lead" }));
+    expect(container.querySelector(".town-main")?.textContent).toBe(timed.lead.main);
+    expect(container.textContent).not.toContain("1:00");
+  });
+  it("地図の下（rest）は、時刻の行を先頭に、残りの行を続ける", () => {
+    const { container } = show(props({ line: timed, part: "rest" }));
+    expect([...container.querySelectorAll(".town-details li")].map((li) => li.textContent)).toEqual([timed.lead.note, "全国どこでも"]);
+  });
+  it("PC（all）は時刻つきの 1 文のまま。時刻の行は重ねない", () => {
+    const { container } = show(props({ line: timed }));
+    expect(container.querySelector(".town-main")?.textContent).toBe(timed.main);
+    expect(container.textContent).not.toContain(timed.lead.note);
+  });
+});
