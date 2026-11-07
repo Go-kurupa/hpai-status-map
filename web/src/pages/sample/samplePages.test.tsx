@@ -298,7 +298,7 @@ describe("/sample/record", () => {
     recordIn("鶏舎A", "10");
     const result = await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
     expect(result.textContent).toContain(MORTALITY_TEXT.hit);
-    expect(result.textContent).toContain("直ちに家保へ通報してください（基準 項目 32）");
+    expect(result.textContent).toContain("直ちに家畜保健衛生所へ通報してください（基準 項目 32）");
     expect(result.textContent).toContain(`${RECORD_TEXT.hitContact}: 見本の家保（作り物） 00-0000-0000`);
     expect(findForbiddenPhrases(result.textContent ?? "")).toEqual([]);
 

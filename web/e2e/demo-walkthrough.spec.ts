@@ -202,7 +202,7 @@ test.describe("デモの筋", () => {
     await page.getByRole("button", { name: /^(記録する|記録し直す): 鶏舎A$/ }).click();
     const result = page.getByRole("region", { name: "計算の結果" });
     await expect(result).toContainText("届け出の基準に達している可能性があります");
-    await expect(result).toContainText("直ちに家保へ通報してください");
+    await expect(result).toContainText("直ちに家畜保健衛生所へ通報してください");
     await expect(result).toContainText("迷うときは家畜保健衛生所へ確かめてください");
     await expectNoForbiddenText(page);
 

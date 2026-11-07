@@ -409,10 +409,10 @@ describe("MORTALITY_TEXT", () => {
   it("決めた文を使う", () => {
     expect(MORTALITY_TEXT.insufficient).toBe("まだ計算できません");
     expect(MORTALITY_TEXT.invalidInput).toBe("入力を確かめてください");
-    expect(MORTALITY_TEXT.hit).toBe("設備の故障など明らかな理由がなければ、直ちに家保へ通報してください（基準 項目 32）");
+    expect(MORTALITY_TEXT.hit).toBe("設備の故障など明らかな理由がなければ、直ちに家畜保健衛生所へ通報してください（基準 項目 32）");
     expect(MORTALITY_TEXT.definition).toContain("2 倍以上");
     expect(MORTALITY_TEXT.definition).toContain("通算 21 日間");
-    expect(MORTALITY_TEXT.reading).toContain("家保へ確かめてください");
+    expect(MORTALITY_TEXT.reading).toContain("家畜保健衛生所へ確かめてください");
     expect(MORTALITY_TEXT.exceptions).toContain("この画面は例に当たるかを判定しません");
   });
 });

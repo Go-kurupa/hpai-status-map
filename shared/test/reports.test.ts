@@ -44,7 +44,7 @@ describe("自己点検の項目", () => {
     expect(SELF_CHECK_ITEMS.map((i) => i.no)).toEqual(["17", "18", "19", "22", "23", "25", "27"]);
   });
   it("出典の注意書きは索引 Q12 の既定のまま", () => {
-    expect(SELF_CHECK_SOURCE_NOTE).toBe("ある家保の様式の例です。項目と期限は県や家保で違います");
+    expect(SELF_CHECK_SOURCE_NOTE).toBe("ある家畜保健衛生所の様式の例です。項目と期限は県や家畜保健衛生所で違います");
   });
 });
 

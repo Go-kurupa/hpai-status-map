@@ -87,7 +87,7 @@ describe("handleDeathWrite", () => {
     const r = await hit();
     await handleDeathWrite(deps, "f1", idOf(r), r);
     expect(mail.sent.map((m) => m.to).sort()).toEqual(["u1@example.test", "u2@example.test"]);
-    expect(mail.sent[0]!.subject).toBe("【死亡数】11月5日の死亡率が基準に当たる可能性があります");
+    expect(mail.sent[0]!.subject).toBe("【死亡数】11月5日の死亡率が届け出の基準に達している可能性があります");
     expect(mail.sent[0]!.text).toContain("https://app.example.test/record/deaths");
     const docs = await sentNoticeDocs();
     expect(docs[`f1__u1__${idOf(r)}__mortality_hit`]).toMatchObject({ state: "sent", timing: "immediate", subjectId: idOf(r) });
@@ -161,7 +161,7 @@ describe("handleDeathWrite", () => {
     const yesterday = await hit("h2", addDays(TODAY, -1));
     await handleDeathWrite(deps, "f1", idOf(yesterday), yesterday);
     expect(mail.sent).toHaveLength(1);
-    expect(mail.sent[0]!.subject).toBe("【死亡数】11月4日の死亡率が基準に当たる可能性があります");
+    expect(mail.sent[0]!.subject).toBe("【死亡数】11月4日の死亡率が届け出の基準に達している可能性があります");
   });
 
   it("配信を止めた会員には届かない。notify の設定は見ない", async () => {
@@ -260,7 +260,7 @@ describe("handleDeathWrite", () => {
 
     await runRetryFailed(ok.deps, fakeGeo());
     expect(ok.mail.sent).toHaveLength(3);
-    expect(ok.mail.sent[2]!.subject).toBe("【死亡数】11月5日の死亡率が基準に当たる可能性があります"); // 1 件だけの文面
+    expect(ok.mail.sent[2]!.subject).toBe("【死亡数】11月5日の死亡率が届け出の基準に達している可能性があります"); // 1 件だけの文面
     expect(await hitStates()).toEqual({
       "2026-11-05_h1": "sent", "2026-11-05_h2": "sent", "2026-11-05_h3": "sent", "2026-11-05_h4": "capped", "2026-11-05_h5": "capped",
     });

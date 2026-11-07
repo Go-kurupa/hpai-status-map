@@ -18,7 +18,7 @@ export const SELF_CHECK_ITEMS: ReadonlyArray<{ no: SelfCheckItemNo; label: strin
 ];
 
 /** 索引 Q12 の既定（A: 地域が出ない書き方） */
-export const SELF_CHECK_SOURCE_NOTE = "ある家保の様式の例です。項目と期限は県や家保で違います";
+export const SELF_CHECK_SOURCE_NOTE = "ある家畜保健衛生所の様式の例です。項目と期限は県や家畜保健衛生所で違います";
 
 /** 消毒の記録の項目 id を言葉にする。知らない id は呼ぶ側でそのまま使う */
 export const DISINFECTION_LABELS: Readonly<Record<string, string>> = {

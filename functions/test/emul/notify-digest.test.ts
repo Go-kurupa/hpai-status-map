@@ -403,7 +403,7 @@ describe("runMorningDigest: 組み立て直し", () => {
     await runRetryFailed(deps, fakeGeo());
     expect(mail.sent).toHaveLength(1);
     expect(mail.sent[0]!.subject).toBe("【朝のまとめ】2 件");
-    expect(mail.sent[0]!.text).toContain("【死亡数】11月5日の死亡率が基準に当たる可能性があります");
+    expect(mail.sent[0]!.text).toContain("【死亡数】11月5日の死亡率が届け出の基準に達している可能性があります");
     expect(mail.sent[0]!.text).toContain("【自己点検】11月7日が期限です");
     const docs = await sentNoticeDocs();
     expect(docs[idOf("f1", "u1", "2026-11-05_h1", "mortality_hit")]).toMatchObject({ state: "sent" });

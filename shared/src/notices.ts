@@ -542,7 +542,7 @@ export function subjectOf(n: Notice): string {
     case "self_check_due":
       return n.facts.date === null ? "【自己点検】期限が近づいています" : `【自己点検】${formatJaDate(n.facts.date)}が期限です`;
     case "mortality_hit":
-      return n.facts.date === null ? "【死亡数】死亡率が基準に当たる可能性があります" : `【死亡数】${formatJaDate(n.facts.date)}の死亡率が基準に当たる可能性があります`;
+      return n.facts.date === null ? "【死亡数】死亡率が届け出の基準に達している可能性があります" : `【死亡数】${formatJaDate(n.facts.date)}の死亡率が届け出の基準に達している可能性があります`;
     case "daily_overview":
       return `【全国の状況】${formatJaDate(n.subjectId)}`;
     default:
@@ -607,7 +607,7 @@ function fixedSentence(n: Notice, ctx: RenderCtx): string {
       return `自己点検の報告は、県の様式に沿って、ご自身で出します。記録の画面で報告の文を作れます: ${app}/record/self-check`;
     case "mortality_hit":
       return [
-        "この知らせは、入力された数字から自動で計算したもので、診断ではありません。迷うときは、家保へ確かめてください。",
+        "この知らせは、入力された数字から自動で計算したもので、診断ではありません。迷うときは、家畜保健衛生所へ確かめてください。",
         MORTALITY_TEXT.symptoms + "。",
         `入力を直しても、このメールは取り消せません。入力に誤りがあるときは、記録の画面で確かめてください: ${app}/record/deaths`,
       ].join("\n");
