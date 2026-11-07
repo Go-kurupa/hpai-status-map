@@ -136,7 +136,7 @@ export async function chooseTown(page: Page, pref: string, muni: string): Promis
   await page.getByRole("button", { name: "この地域にする" }).click();
 }
 
-/** シーズンの切り替えのボタン（今季、昨季、2 年前…）の題を、画面の並びのまま返す */
+/** シーズンの切り替えのボタン（今季、1 年前、2 年前…）の題を、画面の並びのまま返す */
 export async function seasonButtonLabels(page: Page): Promise<string[]> {
   return page.locator('section[aria-label="シーズンの切り替え"] button').evaluateAll((els) => els.map((e) => e.textContent ?? ""));
 }

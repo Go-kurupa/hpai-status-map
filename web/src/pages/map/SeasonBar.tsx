@@ -20,7 +20,7 @@ export function countText(b: Pick<SeasonBarItem, "count" | "unchecked" | "allUnc
 }
 
 /**
- * シーズンの棒グラフ。棒が切り替えのボタンを兼ねる（今季、昨季、2 年前…）。
+ * シーズンの棒グラフ。棒が切り替えのボタンを兼ねる（今季、1 年前、2 年前…）。
  * 色は今季と過去の 2 つ。長さは件数に比例し、数字を棒の横に直に書く。
  */
 export function SeasonBar({

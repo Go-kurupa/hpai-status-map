@@ -172,9 +172,9 @@ describe("月別の棒", () => {
 });
 
 describe("棒の一覧", () => {
-  it("今季、昨季、2 年前…6 年前の順で、件数は履歴から数える", () => {
+  it("今季、1 年前、2 年前…6 年前の順で、件数は履歴から数える", () => {
     const bars = listSeasonBars({ current: 2026, currentCases: [mkCase()], history });
-    expect(bars.map((b) => b.label)).toEqual(["今季", "昨季", "2 年前", "3 年前", "4 年前", "5 年前", "6 年前"]);
+    expect(bars.map((b) => b.label)).toEqual(["今季", "1 年前", "2 年前", "3 年前", "4 年前", "5 年前", "6 年前"]);
     expect(bars.map((b) => b.season)).toEqual([2026, 2025, 2024, 2023, 2022, 2021, 2020]);
     expect(bars.map((b) => b.count)).toEqual([1, 24, 51, 11, 84, 25, 52]);
   });

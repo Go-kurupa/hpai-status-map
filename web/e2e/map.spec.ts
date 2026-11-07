@@ -100,37 +100,37 @@ test.describe("地図（入口）", () => {
     expect(await page.evaluate(() => [window.__hpaiMap!.getBearing(), window.__hpaiMap!.getPitch()])).toEqual([0, 0]);
   });
 
-  test("昨季を押すと『24 件』になる。シーズンの切り替えは /compare にあり、/ にはない", async ({ page }) => {
+  test("1 年前を押すと『24 件』になる。シーズンの切り替えは /compare にあり、/ にはない", async ({ page }) => {
     // シーズンの切り替えは「過去シーズンとの比べ」（/compare）へ移った（設計書 2026-11-06-ui-frame 4.4）。/ には出さない
     await open(page);
-    await expect(page.getByRole("button", { name: /昨季/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /1 年前/ })).toHaveCount(0);
     await goViaMenu(page, "過去シーズンとの比べ");
-    // 比べるシーズンのボタンにも「昨季」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
+    // 比べるシーズンのボタンにも「1 年前」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
     await expect(page).toHaveURL(/\/compare$/);
-    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季/ })).toBeVisible();
-    await page.locator(".season-bar").getByRole("button", { name: /昨季/ }).click();
-    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季.*24 件/ })).toBeVisible();
+    await expect(page.locator(".season-bar").getByRole("button", { name: /1 年前/ })).toBeVisible();
+    await page.locator(".season-bar").getByRole("button", { name: /1 年前/ }).click();
+    await expect(page.locator(".season-bar").getByRole("button", { name: /1 年前/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".season-bar").getByRole("button", { name: /1 年前.*24 件/ })).toBeVisible();
     await page.locator(".season-bar").getByRole("button", { name: /今季/ }).click();
     await expect(page.locator(".season-bar").getByRole("button", { name: /今季/ })).toHaveAttribute("aria-pressed", "true");
   });
 
-  // 比べの地図の塗り。/compare は初め昨季と今季を 1 枚に重ねる（設計書 2026-11-06-data-explore E8）。比べる 2 は今季（試験の今季は 0 件）なので、
-  // 昨季の町は「比べる 1 だけ」の層に入る。下のシーズンの棒は一覧と月の件数のシーズンを選ぶだけで、地図の比べには触らない（11/7 の横断レビュー）。
+  // 比べの地図の塗り。/compare は初め1 年前と今季を 1 枚に重ねる（設計書 2026-11-06-data-explore E8）。比べる 2 は今季（試験の今季は 0 件）なので、
+  // 1 年前の町は「比べる 1 だけ」の層に入る。下のシーズンの棒は一覧と月の件数のシーズンを選ぶだけで、地図の比べには触らない（11/7 の横断レビュー）。
   // 画面は行き先ごとに作り直すので、/ へ戻ると今季に戻る（設計書 2026-11-06-ui-frame 4.1）
-  test("/compare は初め昨季と今季を重ね、cmp-one に 33203 が入る。下の棒を押しても地図の比べは替わらない。/ へ戻ると今季。japan.topo.json の要求は 1 回", async ({ page }) => {
+  test("/compare は初め1 年前と今季を重ね、cmp-one に 33203 が入る。下の棒を押しても地図の比べは替わらない。/ へ戻ると今季。japan.topo.json の要求は 1 回", async ({ page }) => {
     const topoRequests: string[] = [];
     page.on("request", (r) => {
       if (r.url().includes("japan.topo.json")) topoRequests.push(r.url());
     });
     await open(page, 390, "/compare");
-    await page.locator(".season-bar").getByRole("button", { name: /昨季.*24 件/ }).click();
+    await page.locator(".season-bar").getByRole("button", { name: /1 年前.*24 件/ }).click();
     await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("cmp-one"), undefined, { timeout: 20_000 });
     const has = (layer: string) => page.waitForFunction((l) => JSON.stringify(window.__hpaiMap!.getFilter(l)).includes("33203"), layer);
     await has("cmp-one");
     // 重ねている間は、発生の塗り（case-confirmed）を使わない
     expect(JSON.stringify(await page.evaluate(() => window.__hpaiMap!.getFilter("case-confirmed")))).not.toContain("33203");
-    // 下の棒で今季を押すと、棒の印は今季に移るが、比べるシーズン（昨季と今季）と地図の塗りはそのまま
+    // 下の棒で今季を押すと、棒の印は今季に移るが、比べるシーズン（1 年前と今季）と地図の塗りはそのまま
     await page.locator(".season-bar").getByRole("button", { name: /今季/ }).click();
     await expect(page.locator(".season-bar").getByRole("button", { name: /今季/ })).toHaveAttribute("aria-pressed", "true");
     const seasons = page.getByRole("group", { name: /^比べるシーズン/ });
@@ -470,11 +470,11 @@ test.describe("地図（入口）", () => {
       .toBe(true);
   const CHUGOKU: [number, number, number, number] = [131.0, 33.8, 134.5, 35.7];
 
-  test("PC: /compare は 1 枚の地図に昨季と今季を重ね、［中国］で中国地方へ寄せる。町を押すと 2 つのシーズンが 1 つの欄に上下に並ぶ", async ({ page }) => {
+  test("PC: /compare は 1 枚の地図に1 年前と今季を重ね、［中国］で中国地方へ寄せる。町を押すと 2 つのシーズンが 1 つの欄に上下に並ぶ", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "33203"));
     await open(page, 1280, "/compare");
     await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("cmp-one"), undefined, { timeout: 20_000 });
-    // シーズンはボタンで選ぶ（設計書 2026-11-06-data-explore E12）。初めは昨季と今季
+    // シーズンはボタンで選ぶ（設計書 2026-11-06-data-explore E12）。初めは1 年前と今季
     const seasons = page.getByRole("group", { name: /^比べるシーズン/ });
     const seasonBtn = (y: number) => seasons.getByRole("button", { name: new RegExp(`${y}〜`) });
     await expect(seasonBtn(2025)).toHaveAttribute("aria-pressed", "true");
@@ -495,7 +495,7 @@ test.describe("地図（入口）", () => {
     await expect(page.locator(".cmp-count-badge:not([hidden])")).toHaveCount(0);
     await page.evaluate(() => window.__hpaiMap!.jumpTo({ center: [134.0, 35.07], zoom: 9 }));
     await expect.poll(() => page.locator(".cmp-count-badge:not([hidden])").count()).toBeGreaterThan(0);
-    // 元の 2 つ（昨季と今季）に戻す
+    // 元の 2 つ（1 年前と今季）に戻す
     await seasonBtn(2022).click();
     await seasonBtn(2024).click();
     await seasonBtn(2026).click();
@@ -525,7 +525,7 @@ test.describe("地図（入口）", () => {
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(["比べる 1（2025 年 6 月〜2026 年 5 月）", "比べる 2（2026 年 6 月〜2027 年 5 月）"]);
   });
 
-  test("スマホ: 条件で見るの「地図で中国を見る」から開くと、選択地域があっても中国地方に寄せる。見せ方を「1 だけ」にすると、比べる 1 の町が cmp-one に入る", async ({ page }) => {
+  test("スマホ: 条件で見るの「地図で中国を見る」から開くと、選択地域があっても中国地方に寄せる。見せ方の切り替えはなく、いつも重ねる（津山市が重ね合わせの層に入る）", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("hpai.town.v1", "01100"));
     await open(page, 390, "/explore");
     await page.getByRole("group", { name: "地方" }).getByRole("button", { name: /^中国/ }).click();
@@ -534,8 +534,8 @@ test.describe("地図（入口）", () => {
     await page.waitForFunction(() => !!window.__hpaiMap?.getLayer("cmp-one"), undefined, { timeout: 20_000 });
     await expect(page.getByRole("group", { name: "地図の広さ" }).getByRole("button", { name: "中国" })).toHaveAttribute("aria-pressed", "true");
     await centerIn(page, CHUGOKU);
-    await page.getByRole("group", { name: "地図の見せ方" }).getByRole("button", { name: "1 だけ" }).click();
-    await page.waitForFunction(() => JSON.stringify(window.__hpaiMap!.getFilter("cmp-one")).includes("33203") && !JSON.stringify(window.__hpaiMap!.getFilter("cmp-both")).includes("33203"));
+    await expect(page.getByRole("button", { name: "1 だけ" })).toHaveCount(0);
+    await page.waitForFunction(() => ["cmp-one", "cmp-two", "cmp-both"].some((id) => JSON.stringify(window.__hpaiMap!.getFilter(id)).includes("33203")));
   });
 
   // 設計書 2026-11-06-ui-frame 決定 4: 地図で町を押すと、その町の今季と過去の事例が右の列（スマホは地図の下）に出る

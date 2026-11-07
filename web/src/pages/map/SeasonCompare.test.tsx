@@ -26,10 +26,10 @@ const base: SeasonCompareProps = {
 const text = () => document.body.textContent ?? "";
 
 describe("SeasonCompare", () => {
-  it("今季と昨季の文が出る（同じ時期までの件数と合計）", () => {
+  it("今季と1 年前の文が出る（同じ時期までの件数と合計）", () => {
     render(<SeasonCompare {...base} currentCases={[caseOf("2026-11-01"), caseOf("2026-11-03")]} />);
     expect(screen.getByTestId("compare-lead").textContent).toBe(
-      "今季（2026/27）は 11 月 4 日までに 2 件。昨季（2025/26）の同じ時期までは 3 件、シーズンの合計は 24 件でした。",
+      "今季（2026/27）は 11 月 4 日までに 2 件。1 年前（2025/26）の同じ時期までは 3 件、シーズンの合計は 24 件でした。",
     );
   });
   it("6 シーズンの行と合計が表に並ぶ", () => {

@@ -23,8 +23,8 @@ describe("seasonOf / currentSeason / seasonAgoLabel", () => {
     expect(currentSeason(new Date("2026-11-03T00:00:00Z"))).toBe(2026);
   });
 
-  it("今季、昨季、n 年前", () => {
-    expect([2026, 2025, 2024].map((s) => seasonAgoLabel(s, 2026))).toEqual(["今季", "昨季", "2 年前"]);
+  it("今季、1 年前、n 年前", () => {
+    expect([2026, 2025, 2024].map((s) => seasonAgoLabel(s, 2026))).toEqual(["今季", "1 年前", "2 年前"]);
     expect(seasonAgoLabel(2020, 2026)).toBe("6 年前");
   });
 

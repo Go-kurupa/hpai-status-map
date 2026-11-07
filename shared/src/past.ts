@@ -8,7 +8,7 @@ import { seasonAgoLabel } from "./season";
 import type { HistoryCase, IsoDate, MuniCode, Season } from "./types";
 
 export interface PastHit extends HistoryCase {
-  /** 昨季 / 2 年前 … */
+  /** 1 年前 / 2 年前 … */
   ago: string;
   relation: "same" | "adjacent";
   /**

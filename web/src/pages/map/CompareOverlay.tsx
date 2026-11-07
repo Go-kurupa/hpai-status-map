@@ -1,5 +1,5 @@
 // 過去シーズンとの比べを 1 枚の地図に重ねる（設計書 2026-11-06-data-explore E8〜E14）。
-// 比べる 1 だけの町は「／」、比べる 2 だけの町は「＼」、両方の町は「×」。見せ方は「重ねる／1 だけ／2 だけ」。
+// 比べる 1 だけの町は「／」、比べる 2 だけの町は「＼」、両方の町は「×」。いつも重ねて見せる（2026-11-07 作者の決定: 見せ方の切り替え「重ねる／1 だけ／2 だけ」は外した。片方だけ見たいときはシーズンのボタンで選ぶ）。
 // 町を押すと、2 つのシーズンのその町の事例を 1 つの欄に上下に並べる。地図の読み込みの分け方は MapPage が持つので、地図は renderMap で描いてもらう。
 // 読めていない間の断り（「今季の発生をまだ読めていません」など）は MapPage が地図の上に出す。ここでは塗らない（overlay を null にする）だけ
 import { isCountable } from "@hpai/shared/level";
@@ -19,7 +19,7 @@ import "./compare.css";
 type Focus = MapViewProps["focus"];
 
 export interface CompareOverlayProps {
-  /** 選べるシーズン（今季と過去のシーズン）。label は「今季」「昨季」「2 年前」… */
+  /** 選べるシーズン（今季と過去のシーズン）。label は「今季」「1 年前」「2 年前」… */
   options: ReadonlyArray<{ season: Season; label: string }>;
   /** 選んだシーズン（MapPage が古い順にそろえて渡す）。2 つなら重ね合わせ、1 つか 3 つ以上なら最後の発生の色（設計書 E12） */
   seasons: readonly Season[];
@@ -108,7 +108,8 @@ export function latestOf(
 }
 
 export function CompareOverlay(p: CompareOverlayProps) {
-  const [show, setShow] = useState<OverlayShow>("both");
+  // いつも重ねる（2026-11-07 作者の決定。片方だけ見たいときはシーズンのボタンで外す）
+  const show: OverlayShow = "both";
   const [inspected, setInspected] = useState<MuniCode | null>(null);
   const headRef = useRef<HTMLHeadingElement>(null);
   const opener = useRef<Element | null>(null);
@@ -144,11 +145,6 @@ export function CompareOverlay(p: CompareOverlayProps) {
   };
   // 2 つのときは、古い方が比べる 1、新しい方が比べる 2（見本と今の画面の並び）
   const swatchOf = (season: Season) => (pair ? (season === p.seasons[0] ? "is-one" : "is-two") : null);
-  const showButton = (value: OverlayShow, text: string) => (
-    <button type="button" aria-pressed={show === value} onClick={() => setShow(value)}>
-      {text}
-    </button>
-  );
 
   const asOf = asOfText(p.asOf);
   // 欄の並び: 2 つのときは比べる 1・2 の順、3 つ以上のときは新しい順
@@ -171,13 +167,6 @@ export function CompareOverlay(p: CompareOverlayProps) {
         })}
       </div>
       {pair && p.seasons[0] === p.seasons[1] ? <p className="map-notice">{CMP_TEXT.sameSeason}</p> : null}
-      {pair ? (
-        <div className="cmp-show" role="group" aria-label={CMP_TEXT.showAria}>
-          {showButton("both", CMP_TEXT.showBoth)}
-          {showButton("one", CMP_TEXT.showOne)}
-          {showButton("two", CMP_TEXT.showTwo)}
-        </div>
-      ) : null}
       <div className="map-box">
         {/* 読めていない間も重ね合わせの形で渡し、塗りは空にする。1 シーズン分の普通の塗りと県の件数の札を凡例なしで出さない（E8、E13） */}
         {p.renderMap(

@@ -15,14 +15,12 @@
   gap: 8px;
   margin: 0;
 }
-.cmp-show,
 .cmp-scope,
 .cmp-seasons {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
-.cmp-show button,
 .cmp-scope button,
 .cmp-seasons button {
   min-height: var(--tap);

@@ -76,7 +76,7 @@ test.describe("デモの筋", () => {
     await expect(page.locator(".season-bar-count").nth(6)).toContainText("件");
     const counts = await page.locator(".season-bar-count").allTextContents();
     const numbers = counts.map((t) => Number(/(\d+) 件/u.exec(t)?.[1] ?? NaN));
-    const pastSix = numbers.slice(1).reverse(); // 先頭は今季。昨季から古い方へ並ぶので、逆にして古い順
+    const pastSix = numbers.slice(1).reverse(); // 先頭は今季。1 年前から古い方へ並ぶので、逆にして古い順
     expect(pastSix).toEqual([52, 25, 84, 11, 51, 24]);
     expect(pastSix.reduce((a, b) => a + b, 0)).toBe(247);
 

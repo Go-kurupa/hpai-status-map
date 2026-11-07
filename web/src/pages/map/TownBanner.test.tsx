@@ -10,7 +10,7 @@ import type { TownLine } from "./townLine";
 
 const LINE: TownLine = { tone: "lv2", main: "隣町で発生しました", details: ["津山市で確定（12 月 20 日）"] };
 const PAST: PastSummary = {
-  sentence: "昨季に隣町で発生しました（記録）",
+  sentence: "1 年前に隣町で発生しました（記録）",
   latest: null,
   hits: [
     {
@@ -25,7 +25,7 @@ const PAST: PastSummary = {
       headCount: 430000,
       sourceUrl: "https://example.invalid/a",
       related: false,
-      ago: "昨季",
+      ago: "1 年前",
       relation: "adjacent",
       parentDate: null,
     },
@@ -41,7 +41,7 @@ const PAST: PastSummary = {
       headCount: 10000,
       sourceUrl: "https://example.invalid/a",
       related: true,
-      ago: "昨季",
+      ago: "1 年前",
       relation: "adjacent",
       parentDate: "2025-12-20",
     },
@@ -108,7 +108,7 @@ describe("TownBanner", () => {
     expect(toned).toHaveLength(1);
     expect(toned[0]!.getAttribute("data-tone")).toBe("lv2");
     expect(toned[0]!.textContent).toContain("隣町で発生しました");
-    const past = screen.getByText(/昨季に隣町で発生しました（記録）/).closest(".town-past")!;
+    const past = screen.getByText(/1 年前に隣町で発生しました（記録）/).closest(".town-past")!;
     expect(past.querySelector("[data-tone]")).toBeNull();
     expect(past.closest("[data-tone]")).toBeNull();
     expect(past.textContent).toContain(FIXED_TEXT.pastDisclaimer);
@@ -212,7 +212,7 @@ describe("TownBanner: 周辺の町の過去の発生", () => {
 
   it("畳んだ外に合計を出し、開くと近い順の表と距離の説明がある。既存の『この町』『隣町』の文は残る", () => {
     show(props({ nearby: NEARBY }));
-    expect(screen.getByText(/昨季に隣町で発生しました（記録）/)).toBeTruthy();
+    expect(screen.getByText(/1 年前に隣町で発生しました（記録）/)).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "過去の発生" })).getAllByRole("listitem")[0]!.textContent).toContain("隣町");
     const box = document.querySelector(".nearby-past")!;
     expect(box.closest("[data-tone]")).toBeNull();

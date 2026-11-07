@@ -105,7 +105,7 @@ async function chooseTown(page: Page, pref: string, muni: string) {
 }
 
 test.describe("自分の町の 1 文", () => {
-  test("真庭市（33214）を選ぶと、隣の津山市の事例で『隣町で発生しました』。過去は近くの自治体の件数、/town で『昨季に隣町で発生しました（記録）』。地図に自分の町と隣の縁", async ({ page }) => {
+  test("真庭市（33214）を選ぶと、隣の津山市の事例で『隣町で発生しました』。過去は近くの自治体の件数、/town で『1 年前に隣町で発生しました（記録）』。地図に自分の町と隣の縁", async ({ page }) => {
     await open(page);
     await expect(page.getByText("農場のある地域を選ぶと、近くの今季の発生と、過去の発生が分かります。")).toBeVisible();
     await chooseTown(page, "33", "33214");
@@ -118,7 +118,7 @@ test.describe("自分の町の 1 文", () => {
     // 最初の画面の自分の町の欄は「選択地域の過去を見る」の 1 本。案内ページは選択地域の過去の画面から（設計書 2026-11-06-town-picker D8）
     await expect(page.getByRole("link", { name: /この町の案内ページ/ })).toHaveCount(0);
     await page.goto("/town");
-    await expect(page.getByText("昨季に隣町で発生しました（記録）")).toBeVisible();
+    await expect(page.getByText("1 年前に隣町で発生しました（記録）")).toBeVisible();
     await expect(page.getByRole("link", { name: "この町の案内ページ（登録なしで開ける・共有用）" })).toHaveAttribute("href", "/area/33214");
   });
 
@@ -144,12 +144,12 @@ test.describe("自分の町の 1 文", () => {
     await expect(page.getByText("区域に入っている可能性があります。県の連絡を確かめてください")).toBeVisible();
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");
 
-    // / にはシーズンの切り替えがない（設計書 2026-11-06-ui-frame 4.1）。/compare で昨季を選び、画面の中の移動で / へ戻っても、色は lv1 のまま
+    // / にはシーズンの切り替えがない（設計書 2026-11-06-ui-frame 4.1）。/compare で1 年前を選び、画面の中の移動で / へ戻っても、色は lv1 のまま
     // （画面は行き先ごとに作り直すので、/ はいつも今季）
     await goViaMenu(page, "過去シーズンとの比べ");
-    // 比べるシーズンのボタンにも「昨季」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
-    await page.locator(".season-bar").getByRole("button", { name: /昨季/ }).click();
-    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
+    // 比べるシーズンのボタンにも「1 年前」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
+    await page.locator(".season-bar").getByRole("button", { name: /1 年前/ }).click();
+    await expect(page.locator(".season-bar").getByRole("button", { name: /1 年前/ })).toHaveAttribute("aria-pressed", "true");
     await goViaMenu(page, "今季の発生と地図");
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "lv1");

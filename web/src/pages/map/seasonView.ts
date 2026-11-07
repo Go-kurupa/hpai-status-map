@@ -34,7 +34,7 @@ export interface MonthBar {
 
 export interface SeasonView {
   season: Season;
-  /** 今季 / 昨季 / 2 年前 … */
+  /** 今季 / 1 年前 / 2 年前 … */
   label: string;
   isCurrent: boolean;
   /** false は「まだ読めていない」。0 件とは違う */

@@ -70,7 +70,7 @@ export function SeasonCompare(p: SeasonCompareProps) {
             今季（{seasonSpan(p.current)}）は {md}までに {currentText(p, nowCount)}。
             {last ? (
               <>
-                昨季（{seasonSpan(last.season)}）の同じ時期までは {last.countToDate} 件、シーズンの合計は {last.total} 件でした。
+                1 年前（{seasonSpan(last.season)}）の同じ時期までは {last.countToDate} 件、シーズンの合計は {last.total} 件でした。
               </>
             ) : null}
           </p>

@@ -6,7 +6,7 @@ afterEach(cleanup);
 
 const BARS = [
   { season: 2026, label: "今季", count: 0 },
-  { season: 2025, label: "昨季", count: 24 },
+  { season: 2025, label: "1 年前", count: 24 },
   { season: 2024, label: "2 年前", count: 51 },
   { season: 2023, label: "3 年前", count: null },
 ];
@@ -21,7 +21,7 @@ describe("SeasonBar", () => {
 
   it("件数は『24 件』と書き、読めていないものを 0 件に見せない", () => {
     render(<SeasonBar bars={BARS} selected={2026} onSelect={() => {}} />);
-    expect(screen.getByRole("button", { name: /昨季.*24 件/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /1 年前.*24 件/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /今季.*0 件/ })).toBeTruthy();
     const unread = screen.getByRole("button", { name: /3 年前/ });
     expect(unread.textContent).toContain("まだ読めていません");
@@ -45,7 +45,7 @@ describe("SeasonBar", () => {
   it("押すとそのシーズンを渡す", () => {
     const onSelect = vi.fn();
     render(<SeasonBar bars={BARS} selected={2026} onSelect={onSelect} />);
-    fireEvent.click(screen.getByRole("button", { name: /昨季/ }));
+    fireEvent.click(screen.getByRole("button", { name: /1 年前/ }));
     expect(onSelect).toHaveBeenCalledWith(2025);
   });
 

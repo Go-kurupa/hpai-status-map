@@ -119,15 +119,12 @@ describe("CompareOverlay", () => {
     expect(within(legend).getByText(CMP_TEXT.legendBoth(1))).toBeTruthy();
   });
 
-  it("見せ方の切り替え", () => {
+  it("見せ方の切り替え（重ねる・1 だけ・2 だけ）は出さず、いつも重ねる（2026-11-07 作者の決定）", () => {
     const r = rig();
-    const group = screen.getByRole("group", { name: CMP_TEXT.showAria });
-    fireEvent.click(within(group).getByRole("button", { name: CMP_TEXT.showOne }));
-    expect(r.last().overlay!.show).toBe("one");
-    expect(within(group).getByRole("button", { name: CMP_TEXT.showOne }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText(CMP_TEXT.legendOne(2))).toBeTruthy();
-    fireEvent.click(within(group).getByRole("button", { name: CMP_TEXT.showTwo }));
-    expect(r.last().overlay!.show).toBe("two");
+    expect(screen.queryByRole("button", { name: "1 だけ" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "2 だけ" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "重ねる" })).toBeNull();
+    expect(r.last().overlay!.show).toBe("both");
   });
 
   it("町を押すと、2 つのシーズンの事例が 1 つの欄に上下に並ぶ", () => {
@@ -218,9 +215,8 @@ describe("CompareOverlay（3 つ以上）", () => {
     expect(one.picks).toEqual([]);
   });
 
-  it("3 つ選ぶと見せ方のボタンが消え、地図に最後の発生の色を渡す。凡例に各シーズンが最後の町の数", () => {
+  it("3 つ選ぶと、地図に最後の発生の色を渡す。凡例に各シーズンが最後の町の数", () => {
     const r = rig({ seasons: [2023, 2024, 2025], views: [view3(2023), view3(2024), view3(2025)], history: HISTORY3 });
-    expect(screen.queryByRole("group", { name: CMP_TEXT.showAria })).toBeNull();
     expect(r.last().overlay).toBeNull();
     expect(r.last().latest!.colors).toHaveLength(4);
     const legend = screen.getByRole("list", { name: CMP_TEXT.legendAria });

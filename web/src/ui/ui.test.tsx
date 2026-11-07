@@ -562,7 +562,6 @@ describe("機械の検査: css", () => {
     // 条件で見るの月の行（押すとその月に絞る。設計書 E4b）
     '.explore-months button[aria-pressed="true"]',
     // 重ね合わせの見せ方と、地図の広さのボタン（設計書 E8、E15）
-    ".cmp-show button",
     ".cmp-scope button",
     // 比べるシーズンのボタン（設計書 2026-11-06-data-explore E12）
     ".cmp-seasons button",

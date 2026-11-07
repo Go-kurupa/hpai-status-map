@@ -210,18 +210,18 @@ describe("MapPage", () => {
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     const before = lastProps().wildBirds;
-    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
     expect(lastProps().view.isCurrent).toBe(false);
     expect(lastProps().wildBirds).toBe(before);
   });
 
-  it("昨季を押すと『24 件』、pastDisclaimer が出て、riskAnywhere は出ない", async () => {
+  it("1 年前を押すと『24 件』、pastDisclaimer が出て、riskAnywhere は出ない", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    const bar = await screen.findByRole("button", { name: /昨季.*24 件/ });
+    const bar = await screen.findByRole("button", { name: /1 年前.*24 件/ });
     fireEvent.click(bar);
     expect(bar.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText(FIXED_TEXT.pastDisclaimer)).toBeTruthy();
@@ -237,17 +237,17 @@ describe("MapPage", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
     expect(screen.getByText("時点: 過去の記録（国の事例一覧、確認日 2026-11-02）")).toBeTruthy();
     expect(screen.getByText(/2025年6月〜2026年5月の記録/)).toBeTruthy();
   });
 
-  it("過去の記録が届かないうちの昨季は『まだ読めていません』で、0 件にしない", async () => {
+  it("過去の記録が届かないうちの1 年前は『まだ読めていません』で、0 件にしない", async () => {
     const r = rig({ history: "deferred" });
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([]);
-    const bar = screen.getByRole("button", { name: /昨季/ });
+    const bar = screen.getByRole("button", { name: /1 年前/ });
     expect(bar.textContent).toContain("まだ読めていません");
     fireEvent.click(bar);
     expect(lastProps().view.loaded).toBe(false);
@@ -309,14 +309,14 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(screen.queryByText("全国の動きをお知らせしています")).toBeNull();
   });
 
-  it("真庭市（33214）の隣の津山市の事例で『隣町で発生しました』。過去は『昨季に隣町で発生しました（記録）』。縁は 33214 と 33203", async () => {
+  it("真庭市（33214）の隣の津山市の事例で『隣町で発生しました』。過去は『1 年前に隣町で発生しました（記録）』。縁は 33214 と 33203", async () => {
     localStorage.setItem(TOWN_KEY, "33214");
     const r = rig();
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
     expect(await screen.findByText("隣町で発生しました")).toBeTruthy();
-    expect(await screen.findByText(/昨季に隣町で発生しました（記録）/)).toBeTruthy();
+    expect(await screen.findByText(/1 年前に隣町で発生しました（記録）/)).toBeTruthy();
     expect(tones()).toEqual(["lv2"]);
     expect(lastProps().myMuniCode).toBe("33214");
     expect(lastProps().nearMuniCodes).toEqual(["33203"]);
@@ -330,7 +330,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     await screen.findByTestId("map");
     r.deliverCases([tsuyamaCase()]);
     await screen.findByText("隣町で発生しました");
-    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
     expect(lastProps().view.isCurrent).toBe(false);
     expect(tones()).toEqual(["lv2"]);
     expect(screen.getByText("隣町で発生しました")).toBeTruthy();
@@ -424,7 +424,7 @@ describe("MapPage: 自分の町の 1 文", () => {
   });
 
   // 設計書 2026-11-06-data-explore E8、E10、E14（もとは 2026-11-06-ui-frame 4.4 の 2 枚の地図）
-  it("過去シーズンとの比べは 1 枚の地図に重ねる。初めは比べる 1 が昨季、比べる 2 が今季。町を押すと 2 つのシーズンの事例が上下に並び、選び直せる", async () => {
+  it("過去シーズンとの比べは 1 枚の地図に重ねる。初めは比べる 1 が1 年前、比べる 2 が今季。町を押すと 2 つのシーズンの事例が上下に並び、選び直せる", async () => {
     seen.length = 0;
     const r = rig();
     show(r, { section: "compare" });
@@ -440,7 +440,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(lastProps().overlay!.show).toBe("both");
     // 津山市は 2025 年シーズンに国の事例一覧の記録がある
     expect(lastProps().overlay!.first).toContain("33203");
-    expect(lastProps().ariaLabel).toBe("発生状況の地図（比べる 1: 昨季（2025 年 6 月〜2026 年 5 月） と、比べる 2: 今季（2026 年 6 月〜2027 年 5 月） の重ね合わせ）");
+    expect(lastProps().ariaLabel).toBe("発生状況の地図（比べる 1: 1 年前（2025 年 6 月〜2026 年 5 月） と、比べる 2: 今季（2026 年 6 月〜2027 年 5 月） の重ね合わせ）");
     // 今季を選んでいる間は、確認できていない県を灰色で重ねる（確認の状態が届く前は全県）
     expect(lastProps().overlay!.unwatchedPrefCodes).toHaveLength(47);
     expect(screen.getByText("今季は疑いを含みます")).toBeTruthy();
@@ -462,8 +462,8 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(lastProps().overlay).toBeNull();
     expect(screen.queryByRole("group", { name: "地図の見せ方" })).toBeNull();
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
-    // 下のシーズンの棒（一覧と月の件数のシーズン）は、比べるシーズンのボタンとは別。ボタンを押しても棒の選びは昨季のまま
-    expect(screen.getByRole("region", { name: "シーズンの切り替え" }).querySelector('[aria-pressed="true"]')!.textContent).toContain("昨季");
+    // 下のシーズンの棒（一覧と月の件数のシーズン）は、比べるシーズンのボタンとは別。ボタンを押しても棒の選びは1 年前のまま
+    expect(screen.getByRole("region", { name: "シーズンの切り替え" }).querySelector('[aria-pressed="true"]')!.textContent).toContain("1 年前");
     // 棒を押しても、比べるシーズンは黙って替わらない（横断レビューの指摘、11/7）
     fireEvent.click(within(screen.getByRole("region", { name: "シーズンの切り替え" })).getByRole("button", { name: /^今季/ }));
     expect(seasonBtn(2023).getAttribute("aria-pressed")).toBe("true");
@@ -482,9 +482,9 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(screen.getAllByRole("heading", { level: 3 })[1]!.textContent).toBe("比べる 2（2024 年 6 月〜2025 年 5 月）");
     await waitFor(() => expect(lastProps().overlay!.unwatchedPrefCodes).toEqual([]));
 
-    // 見せ方の切り替え
-    fireEvent.click(within(screen.getByRole("group", { name: "地図の見せ方" })).getByRole("button", { name: "1 だけ" }));
-    expect(lastProps().overlay!.show).toBe("one");
+    // 見せ方の切り替えはなく、いつも重ねる（2026-11-07 作者の決定）
+    expect(screen.queryByRole("button", { name: "1 だけ" })).toBeNull();
+    expect(lastProps().overlay!.show).toBe("both");
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     expect(screen.queryByRole("heading", { level: 2, name: "津山市" })).toBeNull();
   });
@@ -886,7 +886,7 @@ describe("MapPage: 確認状況", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(failed(["33"]));
-    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
     expect(screen.queryByTestId("watch-line")).toBeNull();
   });
 
@@ -965,14 +965,14 @@ describe("MapPage: 索引にない市町村の地点（W-06 追加の範囲 2）
 describe("MapPage: 一覧", () => {
   const listBtn = () => screen.getByRole("button", { name: /一覧/ });
 
-  it("閉じると 1 行。押すと aria-expanded true。昨季を選ぶと 24 行で、出典は maff.go.jp", async () => {
+  it("閉じると 1 行。押すと aria-expanded true。1 年前を選ぶと 24 行で、出典は maff.go.jp", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     expect(listBtn().getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
     fireEvent.click(listBtn());
     expect(listBtn().getAttribute("aria-expanded")).toBe("true");
     const rows = within(screen.getByRole("list", { name: "発生の一覧" })).getAllByRole("listitem");
@@ -1074,7 +1074,7 @@ describe("MapPage: レビュー指摘の修正（1 回目）", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(failed(["33"]));
-    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
     expect(screen.getByRole("button", { name: /一覧/ }).textContent).toContain("24 件");
     expect(screen.getByRole("button", { name: /一覧/ }).textContent).not.toContain("確認できた範囲");
   });
@@ -1164,7 +1164,7 @@ describe("MapPage: 並びと出典", () => {
     fireEvent.click(screen.getByRole("button", { name: "地図で場所を合わせる" }));
     expect(scrollMock()).toHaveBeenCalledWith({ block: "start" });
     scrollMock().mockClear();
-    fireEvent.click(screen.getByRole("button", { name: /昨季/ }));
+    fireEvent.click(screen.getByRole("button", { name: /1 年前/ }));
     expect(scrollMock()).toHaveBeenCalled();
   });
 
@@ -1363,7 +1363,7 @@ describe("MapPage: 平面の札（T12）", () => {
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     expect(stats()).toHaveLength(5);
-    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
     expect(stats()).toHaveLength(0);
   });
 
@@ -1638,7 +1638,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       await screen.findByTestId("map");
       r.deliverCases([]);
       r.deliverWatch(okWatch());
-      fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+      fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
       expect(lastProps().farmMeshCode).toBe(FARM_MESH);
       expect(screen.getByText(TEXT.ringNote)).toBeTruthy();
       cleanup();
@@ -1848,7 +1848,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       r.deliverCases([]);
       r.deliverWatch(okWatch());
       await waitFor(() => expect(bandCard()).toBeTruthy());
-      fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+      fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
       expect(bandCard()).toBeUndefined();
     });
   });
@@ -2643,7 +2643,7 @@ describe("県ごとと週ごとの棒", () => {
     r.deliverCases(cases);
     r.deliverWatch(okWatch());
     await waitFor(() => expect(document.querySelector(".season-charts")).not.toBeNull());
-    fireEvent.click(await screen.findByRole("button", { name: /昨季.*24 件/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /1 年前.*24 件/ }));
     expect(document.querySelector(".season-charts")).toBeNull();
   });
 

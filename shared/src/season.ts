@@ -12,11 +12,10 @@ export function currentSeason(now: Date): Season {
   return seasonOf(jstDateOf(now));
 }
 
-/** 今季 / 昨季 / 2 年前 …。未来のシーズンは RangeError。 */
+/** 今季 / 1 年前 / 2 年前 …（2026-11-07 作者の決定: 「昨季」は「1 年前」とそろえる）。未来のシーズンは RangeError。 */
 export function seasonAgoLabel(season: Season, current: Season): string {
   const ago = current - season;
   if (!Number.isInteger(ago) || ago < 0) throw new RangeError(`シーズンが今季より先です: ${season} (今季 ${current})`);
   if (ago === 0) return "今季";
-  if (ago === 1) return "昨季";
   return `${ago} 年前`;
 }

@@ -123,7 +123,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const showMap = inMap || section === "compare";
   const d = useSeasonData();
   const { view } = d;
-  // 比べるシーズン（設計書 2026-11-06-data-explore E12）。地図の上のシーズンのボタンだけで選ぶ（初めは昨季と今季）【AI の既定案】。
+  // 比べるシーズン（設計書 2026-11-06-data-explore E12）。地図の上のシーズンのボタンだけで選ぶ（初めは 1 年前と今季）【AI の既定案】。
   // 下のシーズンの棒（d.selected）は一覧と月の件数のシーズンを選ぶだけで、比べるシーズンには触らない（棒を押して比べのシーズンが
   // 黙って替わらないように。11/7 の横断レビューの指摘）。2 つなら重ね合わせ、1 つか 3 つ以上なら最後の発生の色
   const [cmpSeasons, setCmpSeasons] = useState<Season[]>(() => [d.current - 1, d.current]);

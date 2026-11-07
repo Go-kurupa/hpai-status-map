@@ -78,7 +78,7 @@ async function open(page: Page, o: { watch: WatchStatus[]; cases?: Case[]; wildB
 }
 
 test.describe("一覧", () => {
-  test("『一覧』（/season）を押すと aria-expanded が true。今季の行と注記が 3 つ出る。昨季の切り替えは /compare で『24 件』", async ({ page }) => {
+  test("『一覧』（/season）を押すと aria-expanded が true。今季の行と注記が 3 つ出る。1 年前の切り替えは /compare で『24 件』", async ({ page }) => {
     await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird], path: "/season" });
     const toggle = page.getByRole("button", { name: /一覧/ });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -87,18 +87,18 @@ test.describe("一覧", () => {
     for (const t of ["疑いは、県の発表を見つけられた県だけ出ます", "環境省の野鳥監視重点区域は、防疫指針の区域とは別のものです", "監視強化区域は"]) {
       await expect(page.getByText(t)).toBeVisible();
     }
-    // シーズンの切り替えは /compare。昨季を選ぶと 24 件
+    // シーズンの切り替えは /compare。1 年前を選ぶと 24 件
     await page.goto("/compare");
-    // 比べるシーズンのボタンにも「昨季」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
-    await page.locator(".season-bar").getByRole("button", { name: /昨季.*24 件/ }).click();
-    await expect(page.locator(".season-bar").getByRole("button", { name: /昨季/ })).toHaveAttribute("aria-pressed", "true");
+    // 比べるシーズンのボタンにも「1 年前」があるので、下のシーズンの棒に絞って押す（設計書 2026-11-06-data-explore E12）
+    await page.locator(".season-bar").getByRole("button", { name: /1 年前.*24 件/ }).click();
+    await expect(page.locator(".season-bar").getByRole("button", { name: /1 年前/ })).toHaveAttribute("aria-pressed", "true");
   });
 
-  // 昨季を選んで 24 行を見る。シーズンの切り替えと、選んだシーズンの一覧は /compare にある（設計書 2026-11-06-ui-frame 4.4）。
+  // 1 年前を選んで 24 行を見る。シーズンの切り替えと、選んだシーズンの一覧は /compare にある（設計書 2026-11-06-ui-frame 4.4）。
   // 画面は行き先ごとに作り直すので、選んだシーズンは他の画面へ持ち越さない（/ はいつも今季）
-  test("昨季を /compare で選ぶと、そこの一覧が 24 行で、出典は maff.go.jp", async ({ page }) => {
+  test("1 年前を /compare で選ぶと、そこの一覧が 24 行で、出典は maff.go.jp", async ({ page }) => {
     await open(page, { watch: watchOk(), cases: [reviewing], wildBirds: [bird], path: "/compare" });
-    await page.locator(".season-bar").getByRole("button", { name: /昨季.*24 件/ }).click();
+    await page.locator(".season-bar").getByRole("button", { name: /1 年前.*24 件/ }).click();
     const toggle = page.getByRole("button", { name: /一覧/ });
     await toggle.click();
     const rows = page.getByRole("list", { name: "発生の一覧" }).getByRole("listitem");
