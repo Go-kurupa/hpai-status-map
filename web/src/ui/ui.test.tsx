@@ -200,7 +200,8 @@ describe("メニューの見分け方（2026-11-07 作者の決定 案 A）", ()
     const label = rule(".menu-group-label");
     expect(label).toMatch(/color:\s*var\(--navy\)/);
     expect(label).toMatch(/font-weight:\s*700/);
-    expect(label).toMatch(/font-size:\s*1\.05rem/);
+    // 項目は本文の大きさ（--font-base）。見出しはそれより大きく書く（rem は基準 16px なので、項目より小さくなる。2026-11-07 本番で見落とした）
+    expect(label).toMatch(/font-size:\s*calc\(var\(--font-base\) \+ [1-9]\d*px\)/);
     expect(rule(".menu-group + .menu-group")).toMatch(/border-top:\s*1px solid var\(--hair\)/);
     expect(rule(".menu-group .menu-link")).toMatch(/padding-left:\s*24px/);
   });

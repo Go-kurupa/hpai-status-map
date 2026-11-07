@@ -51,6 +51,36 @@ test.describe("骨格", () => {
     await expect(menuNav(page).getByRole("link", { name: /記録を試す|AIに対策を相談|死亡・消毒の記録|農場と通知の設定/ })).toHaveCount(0);
   });
 
+  // 見出しは項目より大きく、1 行に収まる（2026-11-07 作者の決定 案 A。本番で見出しが項目より小さかったのを直した）
+  for (const [w, h] of [[1280, 860], [390, 844]] as const) {
+    test(`幅 ${w}px のメニューは、どの見出しの文字も項目の文字より大きく、見出しは折り返さない`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await installFixture(page, { now: "2025-12-21T09:00:00+09:00", cases: [], wildBirds: [], watch: [] });
+      await page.goto("/");
+      if (w < 1024) await menuButton(page).click();
+      await expect(menuNav(page)).toBeVisible();
+      const sizes = await menuNav(page).evaluate((nav) => {
+        const px = (e: Element) => parseFloat(getComputedStyle(e).fontSize);
+        // 文字の行の数。Range の矩形は 1 行に 1 つ
+        const lines = (e: Element) => {
+          const r = document.createRange();
+          r.selectNodeContents(e);
+          return r.getClientRects().length;
+        };
+        return {
+          labels: [...nav.querySelectorAll(".menu-group-label")].map((e) => ({ text: e.textContent ?? "", size: px(e), lines: lines(e) })),
+          items: [...nav.querySelectorAll(".menu-link")].map((e) => px(e)),
+        };
+      });
+      expect(sizes.labels.length).toBeGreaterThanOrEqual(3);
+      const maxItem = Math.max(...sizes.items);
+      for (const l of sizes.labels) {
+        expect(l.size, l.text).toBeGreaterThan(maxItem);
+        expect(l.lines, l.text).toBe(1);
+      }
+    });
+  }
+
   test("PC（1280x860）で端末に会員の印があれば、メニューに記録と設定、右上に設定のリンク（決定 15）", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 860 });
     await installFixture(page, { now: "2025-12-21T09:00:00+09:00", cases: [], wildBirds: [], watch: [] });

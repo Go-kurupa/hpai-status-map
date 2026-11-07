@@ -217,9 +217,11 @@ button:focus-visible {
 /* 見出しは紺の太字で項目より大きく、まとまりの間に線を引き、項目は右に下げる（2026-11-07 作者の決定 案 A） */
 .menu-group-label {
   margin: 0;
-  padding: 14px 12px 6px;
+  /* 左右は 8px。PC のメニュー（幅 240px）で「鳥インフルエンザとは」を 1 行に収める */
+  padding: 14px 8px 6px;
   color: var(--navy);
-  font-size: 1.05rem;
+  /* 項目は本文の大きさ（--font-base）。rem は基準 16px なので、見出しは本文の大きさから足して書く */
+  font-size: calc(var(--font-base) + 2px);
   font-weight: 700;
 }
 .menu-group + .menu-group {
