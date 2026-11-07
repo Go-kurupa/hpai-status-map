@@ -571,12 +571,14 @@ test.describe("幅 360px の最初の画面（360x740）に地図の全部が入
         expect((await watchLine.boundingBox())!.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
       }
 
-      // 守る文は数字の直前で、短いリンクの出典を持つ。文の全部を読める
+      // 守る文は数字の直前で、短いリンクの出典を持つ。文の全部を読める。出典の名前は地図の下の行で、長い URL は本文に出さない
       const risk = page.locator(".map-risk");
       if ((await risk.count()) > 0) {
         await expect(page.locator(".map-risk + .stat-row")).toHaveCount(1);
         await expect(risk).toHaveText("件数が少なくても、シーズン中はどこでも感染のリスクがあります（出典）");
         await expect(risk.getByRole("link", { name: /出典/ })).toHaveAttribute("href", /^https:\/\/www\.maff\.go\.jp\//);
+        await expect(page.locator(".map-risk-source")).toHaveText("出典: 農林水産省 疫学調査報告書");
+        await expect(page.getByRole("main")).not.toContainText("https://www.maff.go.jp");
       }
     });
   }

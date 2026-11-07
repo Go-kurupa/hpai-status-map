@@ -2,7 +2,7 @@ import { DISTANCE_BAND_KM } from "@hpai/shared/level";
 import type { NearbyPastSummary, NearbyTown, SmallFlockCount } from "@hpai/shared/past";
 import { seasonAgoLabel } from "@hpai/shared/season";
 import type { MuniCode, Season } from "@hpai/shared/types";
-import { FIXED_TEXT } from "@hpai/shared/wording";
+import { RiskLine } from "../../ui/RiskLine";
 import { TEXT } from "./texts";
 
 export type NearbyPastState =
@@ -69,7 +69,7 @@ export function NearbyPast({ state, town, collapsed = false, riskShown }: { stat
     <div className="nearby-past">
       <h2 className="nearby-title">{TEXT.nearbyTitle(DISTANCE_BAND_KM, summary.windowSeasons)}</h2>
       <p>{hasTowns ? TEXT.nearbyTotal(summary.total, summary.seasonsWithCases, summary.windowSeasons) : TEXT.nearbyNone(DISTANCE_BAND_KM, summary.windowSeasons)}</p>
-      {!hasTowns && !riskShown ? <p className="town-note">{FIXED_TEXT.riskAnywhere}</p> : null}
+      {!hasTowns && !riskShown ? <RiskLine className="town-note" /> : null}
       {table && collapsed ? (
         <details className="past-details">
           <summary>{TEXT.nearbyDetails}</summary>

@@ -1,8 +1,8 @@
-import { FIXED_TEXT } from "@hpai/shared/wording";
 import { PREFS } from "@hpai/shared/pref";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { regionOf, REGIONS, type RegionId } from "../../geo/regions";
+import { RiskLine } from "../../ui/RiskLine";
 import { SectionTabs } from "../../ui/SectionTabs";
 import { countText } from "../map/SeasonBar";
 import { dateText } from "../map/TownCasesPanel";
@@ -146,7 +146,7 @@ export default function ExplorePage() {
             {withCurrent && unchecked > 0 ? (allUnchecked ? T.answerAllUnchecked : T.answerUnchecked(unchecked)) : null}
           </p>
           {/* 件数が少ないことを「発生しない」と読ませない（E6） */}
-          {result.hits.length <= 3 ? <p className="map-notice">{FIXED_TEXT.riskAnywhere}</p> : null}
+          {result.hits.length <= 3 ? <RiskLine className="map-notice" /> : null}
           <p className="explore-note">{T.noDenominator}</p>
           {result.missingUse > 0 ? <p className="explore-note">{T.missingUse(result.missingUse)}</p> : null}
           {result.missingBand > 0 ? <p className="explore-note">{T.missingBand(result.missingBand)}</p> : null}

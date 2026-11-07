@@ -6,6 +6,7 @@ import { FIXED_TEXT } from "@hpai/shared/wording";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { useDataSource } from "../../data/context";
+import { TextItem } from "../../ui/RiskLine";
 import { NearbyPast } from "../map/NearbyPast";
 import { PastList } from "../map/PastList";
 import { TEXT } from "../map/texts";
@@ -120,7 +121,7 @@ export default function AreaPage() {
             {computed.line.details.length > 0 ? (
               <ul className="town-details">
                 {computed.line.details.map((t, i) => (
-                  <li key={i}>{t}</li>
+                  <TextItem key={i} text={t} />
                 ))}
               </ul>
             ) : null}

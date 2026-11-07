@@ -1,6 +1,7 @@
 import { createGeoStore } from "@hpai/shared/geo";
 import { NATIONAL_FLOW_SPOT, eventStage, type ReplayScenario } from "@hpai/shared/replay";
 import { findForbiddenPhrases, findWordingViolations, FIXED_TEXT } from "@hpai/shared/wording";
+import { RISK_SENTENCE } from "../../ui/RiskLine";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -420,7 +421,7 @@ describe("ReplayPage: 全国の流れ", () => {
       expect(el).toBeTruthy();
       return el!;
     });
-    const risk = screen.getAllByText(FIXED_TEXT.riskAnywhere).at(-1)!;
+    const risk = screen.getAllByText(RISK_SENTENCE, { exact: false }).at(-1)!;
     expect(risk.compareDocumentPosition(stats) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(card("野鳥")).toBeNull();
     expect(card("時刻")).toBeNull();

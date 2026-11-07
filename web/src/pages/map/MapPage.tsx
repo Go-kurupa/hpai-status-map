@@ -8,6 +8,7 @@ import { Link, useSearchParams } from "react-router";
 import { MAP_ATTRIBUTION } from "../../geo/attribution";
 import { useDataSource } from "../../data/context";
 import { useFormatAsOf } from "../../ui/AsOf";
+import { RiskLine, RiskSource } from "../../ui/RiskLine";
 import { loadMarkSize, saveMarkSize, type MarkSize } from "../../data/spot";
 import { useSpotState } from "../../data/spotContext";
 import type { MapViewProps } from "./MapView";
@@ -96,10 +97,6 @@ function BandLine({ lead, text }: { lead: string; text: string }) {
     </p>
   );
 }
-
-// 守る文を、文と出典に分ける。文の正は FIXED_TEXT のまま
-const RISK_PARTS = /^(.*)（出典: (.*) (https:\S+)）$/.exec(FIXED_TEXT.riskAnywhere)!;
-const [, RISK_SENTENCE, RISK_SOURCE, RISK_URL] = RISK_PARTS;
 
 /**
  * 入口の画面。DOM の順はスマホで見る順で、上から 確認の行、守る文、数字の札、切り替え、地図、断り、一覧、残りの札、棒。
@@ -401,19 +398,9 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   const bannerLine =
     (riskMovedUp || bandRisk) && townLine.line ? { ...townLine.line, details: townLine.line.details.filter((t) => t !== FIXED_TEXT.riskAnywhere) } : townLine.line;
 
-  // 守る文。スマホは出典を短いリンクにする（URL の全文は地図の下）
-  const riskText = (className: string) =>
-    narrow ? (
-      <p className={className}>
-        {RISK_SENTENCE}（
-        <a href={RISK_URL} target="_blank" rel="noopener noreferrer" aria-label={`${TEXT.listSource}: ${RISK_SOURCE}`}>
-          {TEXT.listSource}
-        </a>
-        ）
-      </p>
-    ) : (
-      <p className={className}>{FIXED_TEXT.riskAnywhere}</p>
-    );
+  // 守る文。「文（出典: 名前）」の形で、名前を出典へのリンクにする（長い URL を本文に出さない）。
+  // スマホの札の前の 1 文だけは短い「文（出典）」にする（360x740 の最初の画面に札と地図を収める。shell.spec）。出典の名前は地図の下の行に出す
+  const riskText = (className: string, short = false) => <RiskLine className={className} short={short} />;
 
   const picker = (
     <>
@@ -668,7 +655,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           <span className="stat-sentence">{TEXT.watchShortWho(failedWho)}</span>
         </p>
       ) : null}
-      {inMap && riskAboveStats ? riskText("map-notice map-risk") : null}
+      {inMap && riskAboveStats ? riskText("map-notice map-risk", narrow) : null}
       {inMap && showStats ? (
         <div className="stat-row">
           <p className="stat-headline">{TEXT.statHeadline}</p>
@@ -887,14 +874,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       {farmMeshCode !== null ? <p className="map-ring-note">{TEXT.ringNote}</p> : ringCenter !== null ? <p className="map-ring-note">{TEXT.ringNoteTown}</p> : null}
       {/* スマホの印の大きさは、地図のすぐ下の「確認されていません」と輪の断りの後ろ（最初の画面に入れる文を押し下げない。shell.spec） */}
       {narrow && section !== "compare" ? markSizeGroup : null}
-      {narrow && riskAboveStats ? (
-        <p className="map-risk-source">
-          {TEXT.listSource}: {RISK_SOURCE}{" "}
-          <a href={RISK_URL} target="_blank" rel="noopener noreferrer">
-            {RISK_URL}
-          </a>
-        </p>
-      ) : null}
+      {/* スマホの札の前の短い守る文の出典の名前。URL は本文に出さず、名前をリンクにする */}
+      {narrow && riskAboveStats ? <RiskSource className="map-risk-source" /> : null}
       {watchAfterMap ? <WatchLine loaded={d.watchLoaded} line={d.watch} /> : null}
       {inMap && showStats && hasFrequent ? <div className="stat-below">{frequentStat}</div> : null}
       {inMap && !promptTop && bannerSlotAfterMap ? banner : null}

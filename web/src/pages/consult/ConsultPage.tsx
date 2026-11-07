@@ -10,6 +10,7 @@ import { FIXED_TEXT } from "@hpai/shared/wording";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useLocation } from "react-router";
 import { Button } from "../../ui/Button";
+import { RiskLine } from "../../ui/RiskLine";
 import { RequireMember } from "../auth/RequireMember";
 import { useAuthUser } from "../auth/useAuthUser";
 import {
@@ -225,7 +226,7 @@ function StatsView({ stats }: { stats: ConsultStats }) {
       )}
       <ul className="consult-stats-notes">
         <li>{FIXED_TEXT.pastDisclaimer}。</li>
-        {stats.query.prefCode !== null ? <li>{FIXED_TEXT.riskAnywhere}</li> : null}
+        {stats.query.prefCode !== null ? <RiskLine as="li" /> : null}
         <li>
           {CONSULT_TEXT.statsCurrent}
           <Link to="/">{CONSULT_TEXT.statsMapLink}</Link>

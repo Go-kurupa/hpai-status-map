@@ -54,3 +54,20 @@ export const FIXED_TEXT = {
   areaNoDistance: "この町の知らせの段階は、農場からの距離を見ていません。地点を登録すると区域の可能性が分かります",
   sameMuniLifted: "この町で発生しました（移動制限は解除されました）",
 } as const;
+
+/** 守る文 riskAnywhere の部品。文の本体、出典の名前、出典の URL */
+export interface RiskAnywhereParts {
+  sentence: string;
+  sourceName: string;
+  url: string;
+}
+
+/**
+ * 守る文 riskAnywhere を、文の本体・出典の名前・URL に分ける。画面で URL を本文に出さず、出典の名前をリンクにするため。
+ * 文の正は FIXED_TEXT.riskAnywhere のまま（API、MCP、メールは 1 本の文字列を使う）。形が変わったら気づけるよう、合わなければ止める。
+ */
+export function riskAnywhereParts(): RiskAnywhereParts {
+  const m = /^(.+)（出典: (.+) (https:\/\/\S+)）$/u.exec(FIXED_TEXT.riskAnywhere);
+  if (!m) throw new Error("FIXED_TEXT.riskAnywhere が「文（出典: 名前 URL）」の形ではありません");
+  return { sentence: m[1]!, sourceName: m[2]!, url: m[3]! };
+}

@@ -7,6 +7,7 @@ import path from "node:path";
 import { createGeoStore } from "@hpai/shared/geo";
 import { latLngToMesh3 } from "@hpai/shared/mesh";
 import { findForbiddenPhrases, FIXED_TEXT } from "@hpai/shared/wording";
+import { RISK_LINE_TEXT, RISK_SENTENCE, RISK_SHORT_TEXT, RISK_SOURCE_NAME, RISK_URL } from "../../ui/RiskLine";
 import { PREFS } from "@hpai/shared/pref";
 import historyJson from "../../../../data/history/cases.json";
 import adjacencyJson from "../../../../data/geo/adjacency.json";
@@ -139,7 +140,7 @@ describe("MapPage", () => {
   it("今季の事例がまだ届かないうちは『0 件』と書かず、riskAnywhere も出さない。県はすべて確認できていない扱い", async () => {
     show(rig());
     await screen.findByTestId("map");
-    expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+    expect(screen.queryByText(RISK_SENTENCE, { exact: false })).toBeNull();
     // 過去のシーズンとの比べの表には、過去の実績としての「0 件」（その時期までに発生がなかったシーズン）が出る。ほかの所を見る
     const outsideCompare = [...document.querySelectorAll(".map-page > *")].filter((e) => !e.matches(".season-compare")).map((e) => e.textContent).join("");
     expect(outsideCompare).not.toMatch(/(^|[^0-9])0 件/);
@@ -164,9 +165,17 @@ describe("MapPage", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    const risk = await screen.findByText(FIXED_TEXT.riskAnywhere);
+    const risk = await screen.findByText(RISK_SENTENCE, { exact: false });
     expect(risk.nextElementSibling?.className).toBe("stat-row");
     expect(risk.nextElementSibling?.textContent).toContain("0 件");
+    // PC は「文（出典: 名前）」で、名前を出典へのリンクにする。長い URL は本文に出さない
+    expect(risk.textContent).toBe(RISK_LINE_TEXT);
+    const link = within(risk).getByRole("link", { name: RISK_SOURCE_NAME });
+    expect(link.getAttribute("href")).toBe(RISK_URL);
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(document.body.textContent).not.toContain(RISK_URL);
+    expect(document.querySelector(".map-risk-source")).toBeNull();
   });
 
   it("今季 0 件が届いたら riskAnywhere を出す。禁句はない", async () => {
@@ -175,7 +184,7 @@ describe("MapPage", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    expect(await screen.findByText(FIXED_TEXT.riskAnywhere)).toBeTruthy();
+    expect(await screen.findByText(RISK_SENTENCE, { exact: false })).toBeTruthy();
     expect(lastProps().failedPrefCodes).toEqual([]);
     expect(findForbiddenPhrases(document.body.textContent ?? "")).toEqual([]);
     expect(screen.queryByText(FIXED_TEXT.pastDisclaimer)).toBeNull();
@@ -225,7 +234,7 @@ describe("MapPage", () => {
     fireEvent.click(bar);
     expect(bar.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText(FIXED_TEXT.pastDisclaimer)).toBeTruthy();
-    expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+    expect(screen.queryByText(RISK_SENTENCE, { exact: false })).toBeNull();
     expect(lastProps().view.total).toBe(24);
     expect(lastProps().view.confirmedMuniCodes).toContain("33203");
     expect(lastProps().failedPrefCodes).toEqual([]);
@@ -251,7 +260,7 @@ describe("MapPage", () => {
     expect(bar.textContent).toContain("まだ読めていません");
     fireEvent.click(bar);
     expect(lastProps().view.loaded).toBe(false);
-    expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+    expect(screen.queryByText(RISK_SENTENCE, { exact: false })).toBeNull();
   });
 
   it("地図の下に固定のリンクが 7 つある。掲示用の貼り紙は入口を外した（2026-11-06 作者の決定）", async () => {
@@ -346,7 +355,7 @@ describe("MapPage: 自分の町の 1 文", () => {
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     expect(await screen.findByText("全国の動きをお知らせしています")).toBeTruthy();
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
   });
 
   it("端末に地点があれば距離まで見る。津山市の中の地点と津山市の事例で『区域に入っている可能性があります』", async () => {
@@ -635,7 +644,7 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    await screen.findByText(FIXED_TEXT.riskAnywhere);
+    await screen.findByText(RISK_SENTENCE, { exact: false });
     const page = document.querySelector(".map-page")!;
     const box = document.querySelector(".map-box")!;
     const above = [...page.children].filter((e) => before(e, box));
@@ -855,8 +864,8 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     const row = document.querySelector(".stat-row")!;
     expect(before(row, document.querySelector(".town-banner")!)).toBe(true);
     expect(before(document.querySelector(".town-banner")!, document.querySelector(".map-box")!)).toBe(true);
-    expect(row.previousElementSibling?.textContent).toBe(FIXED_TEXT.riskAnywhere);
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(row.previousElementSibling?.textContent).toBe(RISK_LINE_TEXT);
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
   });
 
   it("段階 ④ の文が地図の下に動いても、0 件の数字より前に守る文が 1 つだけある", async () => {
@@ -868,8 +877,8 @@ describe("MapPage: 町の選択の並び（T09）", () => {
     r.deliverCases([]);
     await screen.findByText(TEXT.national);
     const row = document.querySelector(".stat-row")!;
-    await waitFor(() => expect(row.previousElementSibling?.textContent).toBe(FIXED_TEXT.riskAnywhere));
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    await waitFor(() => expect(row.previousElementSibling?.textContent).toBe(RISK_LINE_TEXT));
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
     expect(before(row, document.querySelector(".map-box")!)).toBe(true);
     expect(before(document.querySelector(".map-box")!, document.querySelector(".town-banner")!)).toBe(true);
   });
@@ -940,7 +949,7 @@ describe("MapPage: 自分の町の県が未確認（W-06 追加の範囲 1）", 
     expect(bannerText()).not.toContain(TEXT.national);
     expect(tones()).not.toContain("lv4");
     // 0 件の数字より前に守る文がある（町の文からは札の前へ移す）
-    expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(FIXED_TEXT.riskAnywhere);
+    expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(RISK_LINE_TEXT);
   });
 
   it("見回りの結果が未着のときも同じ（結果が届くまで、確認できた扱いにしない）", async () => {
@@ -1061,7 +1070,7 @@ describe("MapPage: レビュー指摘の修正（1 回目）", () => {
     expect(bannerText()).not.toContain(TEXT.national);
     expect(bannerText()).not.toMatch(PREF_UNWATCHED);
     // 0 件の数字より前に守る文がある（町の文からは札の前へ移す）
-    expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(FIXED_TEXT.riskAnywhere);
+    expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(RISK_LINE_TEXT);
   });
 
   it("隣の県が確認できていれば出ない（別の県だけ未確認）", async () => {
@@ -1725,7 +1734,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       r.deliverCases([tsuyamaCase({ stages: onDate("2026-10-01") })]);
       r.deliverWatch(okWatch());
       expect(recentValue()).toBe("0 件");
-      const risk = await screen.findByText(FIXED_TEXT.riskAnywhere);
+      const risk = await screen.findByText(RISK_SENTENCE, { exact: false });
       expect(risk.nextElementSibling?.className).toBe("stat-row");
     });
 
@@ -1737,7 +1746,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       r.deliverWatch(okWatch());
       expect(recentValue()).toBe("1 件");
       expect(document.querySelector(".map-risk")).toBeNull();
-      const risk = screen.getAllByText(FIXED_TEXT.riskAnywhere);
+      const risk = screen.getAllByText(RISK_SENTENCE, { exact: false });
       expect(risk).toHaveLength(1);
       expect(risk[0]!.closest(".season-charts")).not.toBeNull();
     });
@@ -1850,10 +1859,10 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       await waitFor(() => expect(bandCard()!.textContent).toContain("今季 0 件"));
       expect(recentValue()).toBe("1 件");
       const risk = bandCard()!.querySelector(".town-note")!;
-      expect(risk.textContent).toBe(FIXED_TEXT.riskAnywhere);
+      expect(risk.textContent).toBe(RISK_LINE_TEXT);
       expect(risk.nextElementSibling?.textContent).toContain("今季 0 件");
       const banner = bandCard()!.closest(".town-banner")!;
-      expect(banner.textContent!.split(FIXED_TEXT.riskAnywhere).length - 1).toBe(1);
+      expect(banner.textContent!.split(RISK_SENTENCE).length - 1).toBe(1);
     });
 
     it("過去の記録がない町で約 60 km の今季が 0 件でも、守る文は町の欄に 1 回だけ（件数のすぐ前）。ページの下の図にも重ねない", async () => {
@@ -1865,7 +1874,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       r.deliverCases([tsuyamaCase({ prefCode: "01", muniCode: "01100", muniName: "札幌市", stages: onDate("2026-11-02") })]);
       await waitFor(() => expect(bandCard()!.textContent).toContain("今季 0 件"));
       await waitFor(() => expect(document.querySelector(".town-past")).toBeTruthy());
-      const risks = [...document.querySelectorAll("p")].filter((e) => e.textContent === FIXED_TEXT.riskAnywhere);
+      const risks = [...document.querySelectorAll("p, li")].filter((e) => e.textContent?.includes(RISK_SENTENCE));
       expect(risks).toHaveLength(1);
       expect(risks[0]!.closest(".farm-band")).toBeTruthy();
     });
@@ -1921,7 +1930,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       r.deliverWatch(okWatch());
       r.deliverCases([tsuyamaCase({ id: "near", stages: onDate("2026-11-02") })]);
       await waitFor(() => expect(frequentCard()!.textContent).toContain("倉敷市 0 件"));
-      expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(FIXED_TEXT.riskAnywhere);
+      expect(document.querySelector(".stat-row")!.previousElementSibling?.textContent).toBe(RISK_LINE_TEXT);
     });
 
     it("読み込み中は 0 件にしない。その町の県が未確認なら断りを付け、47 県とも未確認なら件数を見出しにしない", async () => {
@@ -2443,7 +2452,7 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(row.querySelector(".stat-time")!.textContent).toContain("11 月 4 日 8:30 時点");
   });
 
-  it("守る文は札のすぐ前で、出典は短いリンクにする。URL の全文は地図の下", async () => {
+  it("守る文は札のすぐ前で、出典は短いリンクにする。出典の名前は地図の下の行で、URL の全文はどこにも出さない", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
@@ -2451,14 +2460,17 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     r.deliverWatch(okWatch());
     const risk = await waitFor(() => document.querySelector(".map-risk")!);
     expect(risk.textContent).toBe("件数が少なくても、シーズン中はどこでも感染のリスクがあります（出典）");
-    expect(FIXED_TEXT.riskAnywhere.startsWith("件数が少なくても、シーズン中はどこでも感染のリスクがあります（出典")).toBe(true);
+    expect(risk.textContent).toBe(RISK_SHORT_TEXT);
     expect(risk.nextElementSibling?.className).toBe("stat-row");
-    const url = FIXED_TEXT.riskAnywhere.match(/https:\S+(?=）)/)![0];
-    expect(within(risk as HTMLElement).getByRole("link", { name: /出典/ }).getAttribute("href")).toBe(url);
-    expect(textBeforeMap()).not.toContain("https://");
+    const link = within(risk as HTMLElement).getByRole("link", { name: `出典: ${RISK_SOURCE_NAME}` });
+    expect(link.getAttribute("href")).toBe(RISK_URL);
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
     const source = document.querySelector(".map-risk-source")!;
     expect(before(document.querySelector(".map-box")!, source)).toBe(true);
-    expect(source.textContent).toContain(url);
+    expect(source.textContent).toBe(`出典: ${RISK_SOURCE_NAME}`);
+    expect(within(source as HTMLElement).getByRole("link", { name: RISK_SOURCE_NAME }).getAttribute("href")).toBe(RISK_URL);
+    expect(document.body.textContent).not.toContain(RISK_URL);
     // 全県確認なので見回りの行は出ない（2026-11-06 作者の決定）。地図の下の位置の確かめは、出る条件の試験（確認状況）が受け持つ
     expect(screen.queryAllByTestId("watch-line")).toHaveLength(0);
   });
@@ -2619,7 +2631,7 @@ describe("県ごとと週ごとの棒", () => {
     await screen.findByTestId("map");
     r.deliverCases(cases);
     r.deliverWatch(okWatch());
-    const risk = await screen.findAllByText(FIXED_TEXT.riskAnywhere);
+    const risk = await screen.findAllByText(RISK_SENTENCE, { exact: false });
     expect(risk).toHaveLength(1);
     expect(risk[0]!.closest(".season-charts")).not.toBeNull();
   });
@@ -2632,7 +2644,7 @@ describe("県ごとと週ごとの棒", () => {
     r.deliverCases(cases);
     r.deliverWatch(okWatch());
     await waitFor(() => expect(document.querySelector(".season-charts")).not.toBeNull());
-    await waitFor(() => expect(screen.getAllByText(FIXED_TEXT.riskAnywhere).length).toBe(1));
+    await waitFor(() => expect(screen.getAllByText(RISK_SENTENCE, { exact: false }).length).toBe(1));
     expect(document.querySelector(".season-charts")!.textContent).not.toContain("どこでも感染のリスク");
   });
 
@@ -2662,7 +2674,7 @@ describe("県ごとと週ごとの棒", () => {
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
-    await screen.findByText(FIXED_TEXT.riskAnywhere);
+    await screen.findByText(RISK_SENTENCE, { exact: false });
     expect(document.querySelector(".season-charts")).toBeNull();
   });
 
@@ -2676,7 +2688,7 @@ describe("県ごとと週ごとの棒", () => {
     expect(charts.textContent).toContain("愛知県は確認できていません。");
     expect(charts.textContent).not.toMatch(/(^|[^0-9])0 件/);
     expect(rows()).toEqual([]);
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
   });
 
   it("読めていない間と、1 県も確認できていない間は枠を出さない", async () => {

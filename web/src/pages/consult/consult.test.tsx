@@ -5,6 +5,7 @@ import { CONSULT_DAILY_LIMIT, type ConsultAnswerCard, type ConsultCard, type Con
 import { OUT_OF_SCOPE_TEXT } from "@hpai/shared/consult/validate";
 import type { HistoryCase } from "@hpai/shared/types";
 import { FIXED_TEXT, findWordingViolations } from "@hpai/shared/wording";
+import { RISK_SENTENCE } from "../../ui/RiskLine";
 import fs from "node:fs";
 import path from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -933,7 +934,7 @@ describe("AIに対策を相談の画面", () => {
         expect(within(table).getByRole("rowheader", { name: "2024 年 6 月〜2025 年 5 月" }).closest("tr")!.textContent).toContain("1 件");
         expect(within(table).getByRole("rowheader", { name: CONSULT_TEXT.statsTotal }).closest("tr")!.textContent).toContain("2 件");
         expect(box1.getByText(`${FIXED_TEXT.pastDisclaimer}。`)).toBeTruthy();
-        expect(box1.getByText(FIXED_TEXT.riskAnywhere)).toBeTruthy(); // 県を指定した表
+        expect(box1.getByText(RISK_SENTENCE, { exact: false })).toBeTruthy(); // 県を指定した表
         expect(box1.getByRole("link", { name: CONSULT_TEXT.statsMapLink }).getAttribute("href")).toBe("/");
         expect(box1.getByRole("link", { name: STATS_SOURCE.label }).getAttribute("href")).toBe(STATS_SOURCE.url);
         expect(box1.getByRole("link", { name: CONSULT_TEXT.statsExploreLink }).getAttribute("href")).toBe("/explore");
@@ -950,7 +951,7 @@ describe("AIに対策を相談の画面", () => {
         fireEvent.change(input(), { target: { value: "2024 年のシーズンは県ごとに何件？" } });
         fireEvent.click(askButton());
         const first = within((await screen.findAllByTestId("consult-stats"))[0]!);
-        expect(first.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+        expect(first.queryByText(RISK_SENTENCE, { exact: false })).toBeNull();
         expect(first.getByRole("table")).toBeTruthy();
         fireEvent.change(input(), { target: { value: "今季は？" } });
         fireEvent.click(askButton());

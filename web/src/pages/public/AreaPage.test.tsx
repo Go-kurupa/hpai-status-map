@@ -4,6 +4,7 @@ import { describePast } from "@hpai/shared/past";
 import { PREFS } from "@hpai/shared/pref";
 import type { Case, HistoryCase, Season, WatchStatus } from "@hpai/shared/types";
 import { findForbiddenPhrases, FIXED_TEXT } from "@hpai/shared/wording";
+import { RISK_LINE_TEXT, RISK_SENTENCE } from "../../ui/RiskLine";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -140,7 +141,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     await screen.findByText("真庭市の状況");
     expect(bodyText()).toContain(TEXT.loading);
     expect(bodyText()).not.toMatch(ZERO_CLAIM);
-    expect(bodyText()).not.toContain(FIXED_TEXT.riskAnywhere);
+    expect(bodyText()).not.toContain(RISK_SENTENCE);
     expect(bodyText()).not.toContain(FIXED_TEXT.areaNoDistance);
     expect(document.querySelector("[data-tone]")).toBeNull();
   });
@@ -179,7 +180,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     expect(tone()).toBe("lv1");
     expect(bodyText()).toContain("津山市で確定（11 月 2 日）");
     expect(bodyText()).toContain(FIXED_TEXT.areaNoDistance);
-    expect(bodyText()).toContain(FIXED_TEXT.riskAnywhere);
+    expect(bodyText()).toContain(RISK_LINE_TEXT);
     expect(bodyText()).not.toContain("区域に入っています");
     expect(findForbiddenPhrases(bodyText())).toEqual([]);
   });
@@ -192,7 +193,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     await screen.findByText(TEXT.adjacent);
     expect(tone()).toBe("lv2");
     expect(bodyText()).toContain(FIXED_TEXT.areaNoDistance);
-    expect(bodyText()).toContain(FIXED_TEXT.riskAnywhere);
+    expect(bodyText()).toContain(RISK_LINE_TEXT);
     expect(findForbiddenPhrases(bodyText())).toEqual([]);
   });
 
@@ -205,7 +206,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     await screen.findByText(TEXT.national);
     expect(tone()).toBe("lv4");
     expect(bodyText()).toContain(FIXED_TEXT.areaNoDistance);
-    expect(bodyText()).toContain(FIXED_TEXT.riskAnywhere);
+    expect(bodyText()).toContain(RISK_LINE_TEXT);
     expect(bodyText()).not.toMatch(ZERO_CLAIM);
     expect(findForbiddenPhrases(bodyText())).toEqual([]);
   });
@@ -219,7 +220,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     expect(tone()).toBe("lv2");
     expect(document.querySelector("[data-tone]")!.textContent).not.toContain("隣町"); // 過去の行の「隣町」は別
     expect(bodyText()).toContain(FIXED_TEXT.areaNoDistance);
-    expect(bodyText()).toContain(FIXED_TEXT.riskAnywhere);
+    expect(bodyText()).toContain(RISK_LINE_TEXT);
   });
 
   it("過去の 1 文（記録）と、過去の発生の一覧に出典の注意書きが付く", async () => {
@@ -274,12 +275,12 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     show(r, "13421"); // 小笠原村（約 60km 以内に過去の発生の記録がない町）
     await screen.findByText(new RegExp(TEXT.nearbyNone(60, 6).replace(/[()（）]/gu, "\\$&")));
     expect(screen.queryByRole("table")).toBeNull();
-    expect(bodyText()).not.toContain(FIXED_TEXT.riskAnywhere);
+    expect(bodyText()).not.toContain(RISK_SENTENCE);
     expect(bodyText()).not.toMatch(/[^0-9]0 件/u); // 既存の過去の 1 文（PAST_NONE）は「記録」と書いた文として残る
     r.deliverWatch(okWatch());
     r.deliverCases([]);
     await screen.findByText(TEXT.national);
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
     expect(findForbiddenPhrases(bodyText())).toEqual([]);
   });
 
@@ -305,7 +306,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     r.deliverCases([]);
     await screen.findByText(TEXT.prefUnwatched);
     await screen.findByRole("table", { name: TEXT.nearbyAria });
-    expect(bodyText()).toContain(FIXED_TEXT.riskAnywhere);
+    expect(bodyText()).toContain(RISK_LINE_TEXT);
   });
 
   it("本文に、7 つの要点への /public#topic のリンクがある（§11）", async () => {
@@ -340,7 +341,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
       r.deliverCases([mkCase({ id: "c1" })]);
       await screen.findByText("この市町村は見つかりません");
       expect(document.querySelector("[data-tone]"), code).toBeNull();
-      expect(bodyText(), code).not.toContain(FIXED_TEXT.riskAnywhere);
+      expect(bodyText(), code).not.toContain(RISK_SENTENCE);
       expect(screen.getByRole("link", { name: /地図/ }).getAttribute("href")).toBe("/");
       unmount();
     }
@@ -379,7 +380,7 @@ describe("AreaPage（/area/{市町村コード}）", () => {
     await screen.findByText(TEXT.prefUnwatched);
     expect(tone()).toBe("none");
     expect(bodyText()).toContain(FIXED_TEXT.areaNoDistance);
-    expect(bodyText()).toContain(FIXED_TEXT.riskAnywhere);
+    expect(bodyText()).toContain(RISK_LINE_TEXT);
   });
 
   it("県の連絡が正であることと、出典のリンクが出る。農場の情報は出さない", async () => {

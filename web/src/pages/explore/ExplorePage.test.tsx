@@ -1,5 +1,6 @@
 import type { Case, HistoryCase, Season, WatchStatus } from "@hpai/shared/types";
-import { findForbiddenPhrases, FIXED_TEXT } from "@hpai/shared/wording";
+import { findForbiddenPhrases } from "@hpai/shared/wording";
+import { RISK_SENTENCE } from "../../ui/RiskLine";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
@@ -121,10 +122,10 @@ describe("ExplorePage", () => {
     press(EXPLORE_TEXT.regionLabel, "中国");
     press(EXPLORE_TEXT.bandLabel, "1,000 羽未満");
     expect(answer()).toMatch(/: 1 件$/);
-    const risk = screen.getByText(FIXED_TEXT.riskAnywhere);
+    const risk = screen.getByText(RISK_SENTENCE, { exact: false });
     expect(document.querySelector(".explore-answer")!.compareDocumentPosition(risk) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     press(EXPLORE_TEXT.bandLabel, "すべて");
-    expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+    expect(screen.queryByText(RISK_SENTENCE, { exact: false })).toBeNull();
   });
 
   it("農場の数で割っていない断りがいつもある", async () => {
@@ -245,7 +246,7 @@ describe("ExplorePage", () => {
     await screen.findByText(/過去 6 シーズンと今季/);
     press(EXPLORE_TEXT.regionLabel, "中国");
     press(EXPLORE_TEXT.bandLabel, "1,000 羽未満");
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
   });
 
   it("問いのボタンは月の絞りを外す", async () => {
@@ -262,11 +263,11 @@ describe("ExplorePage", () => {
     press(EXPLORE_TEXT.useLabel, "肉用鶏");
     press(EXPLORE_TEXT.regionLabel, "中部");
     expect(answer()).toMatch(/: 3 件$/);
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
     press(EXPLORE_TEXT.regionLabel, "中部");
     press(EXPLORE_TEXT.regionLabel, "北海道");
     expect(answer()).toMatch(/: 4 件$/);
-    expect(screen.queryByText(FIXED_TEXT.riskAnywhere)).toBeNull();
+    expect(screen.queryByText(RISK_SENTENCE, { exact: false })).toBeNull();
   });
 
   it("確認できていない県は、選んだ地方の中だけを数える", async () => {

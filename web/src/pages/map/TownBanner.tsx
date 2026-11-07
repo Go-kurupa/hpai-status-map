@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { NearbyPast, type NearbyPastState } from "./NearbyPast";
 import { PastList } from "./PastList";
+import { RiskLine, TextItem } from "../../ui/RiskLine";
 import { TEXT } from "./texts";
 import type { TownLine } from "./townLine";
 
@@ -105,7 +106,7 @@ function PastRow({ past, nearby, town, line, showDisclaimer, riskShownAbove, bri
         <p>
           <span className="town-label">{TEXT.pastLabel}</span> {summary.sentence}
         </p>
-        {riskMissing && hits.length === 0 ? <p className="town-note">{FIXED_TEXT.riskAnywhere}</p> : null}
+        {riskMissing && hits.length === 0 ? <RiskLine className="town-note" /> : null}
         <PastList hits={hits} />
         {nearby ? <NearbyPast state={nearby} town={town} collapsed riskShown={!riskMissing || hits.length === 0} /> : null}
         {showDisclaimer ? <p className="town-note">{FIXED_TEXT.pastDisclaimer}</p> : null}
@@ -158,7 +159,7 @@ export function TownBanner(p: TownBannerProps) {
         <div className="town-now">
           <ul className="town-details">
             {rest.map((d, i) => (
-              <li key={i}>{d}</li>
+              <TextItem key={i} text={d} />
             ))}
           </ul>
         </div>
@@ -184,7 +185,7 @@ export function TownBanner(p: TownBannerProps) {
         {p.line.details.length > 0 ? (
           <ul className="town-details">
             {p.line.details.map((d, i) => (
-              <li key={i}>{d}</li>
+              <TextItem key={i} text={d} />
             ))}
           </ul>
         ) : null}

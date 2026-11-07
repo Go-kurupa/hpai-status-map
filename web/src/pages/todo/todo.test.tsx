@@ -4,6 +4,7 @@ import { latLngToMesh3 } from "@hpai/shared/mesh";
 import { PREFS } from "@hpai/shared/pref";
 import type { Case, CheckRecord, Farm, FarmPoint, Season, WatchStatus } from "@hpai/shared/types";
 import { findForbiddenPhrases, FIXED_TEXT } from "@hpai/shared/wording";
+import { RISK_LINE_TEXT, RISK_SENTENCE, RISK_SOURCE_NAME, RISK_URL } from "../../ui/RiskLine";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -52,15 +53,14 @@ import { STANDARD_NUMBER_NOTE } from "@hpai/shared/checklist/items";
 import { buildChecklist } from "@hpai/shared/checklist";
 
 // 守る文は箇条書きで「文（出典: 名前）」と名前のリンクに分けて出す（URL は本文に出さない）
-const RISK = /^(.*)（出典: (.*) (https:\S+)）$/.exec(FIXED_TEXT.riskAnywhere)!;
-const riskItem = () => screen.queryAllByRole("listitem").find((li) => li.textContent?.startsWith(RISK[1]!)) ?? null;
+const riskItem = () => screen.queryAllByRole("listitem").find((li) => li.textContent?.includes(RISK_SENTENCE)) ?? null;
 function expectRiskItem() {
   const li = riskItem();
-  expect(li?.textContent).toBe(`${RISK[1]}（出典: ${RISK[2]}）`);
-  expect(li?.textContent).not.toContain(RISK[3]);
+  expect(li?.textContent).toBe(RISK_LINE_TEXT);
+  expect(li?.textContent).not.toContain(RISK_URL);
   const a = li!.querySelector("a")!;
-  expect(a.textContent).toBe(RISK[2]);
-  expect(a.getAttribute("href")).toBe(RISK[3]);
+  expect(a.textContent).toBe(RISK_SOURCE_NAME);
+  expect(a.getAttribute("href")).toBe(RISK_URL);
 }
 
 

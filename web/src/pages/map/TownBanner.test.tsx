@@ -1,5 +1,6 @@
 import type { PastSummary } from "@hpai/shared/past";
 import { findForbiddenPhrases, findWordingViolations, FIXED_TEXT } from "@hpai/shared/wording";
+import { RISK_LINE_TEXT, RISK_SENTENCE, RISK_SOURCE_NAME, RISK_URL } from "../../ui/RiskLine";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -176,7 +177,7 @@ describe("TownBanner", () => {
 
   it("過去の記録が空でも『何もない』で終わらせない。riskAnywhere を添える（今季の行にまだなければ）", () => {
     show(props({ past: { status: "ready", summary: { sentence: "過去の記録に、この町と隣町の発生はありません（記録）", latest: null, hits: [] } } }));
-    expect(screen.getByText(FIXED_TEXT.riskAnywhere)).toBeTruthy();
+    expect(screen.getByText(RISK_SENTENCE, { exact: false })).toBeTruthy();
     cleanup();
     show(
       props({
@@ -184,7 +185,7 @@ describe("TownBanner", () => {
         past: { status: "ready", summary: { sentence: "過去の記録に、この町と隣町の発生はありません（記録）", latest: null, hits: [] } },
       }),
     );
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
   });
 
   it("画面の文に禁じた語がない", () => {
@@ -246,10 +247,10 @@ describe("TownBanner: 周辺の町の過去の発生", () => {
     show(props({ nearby: { ...NEARBY, summary }, past: { status: "ready", summary: none } }));
     expect(document.querySelector(".nearby-past table")).toBeNull();
     expect(document.querySelector(".nearby-past")!.textContent).toContain(TEXT.nearbyNone(60, 6));
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
     cleanup();
     show(props({ nearby: { ...NEARBY, summary } })); // 町と隣町に記録があり、今季の行に riskAnywhere がない
-    expect(screen.getAllByText(FIXED_TEXT.riskAnywhere)).toHaveLength(1);
+    expect(screen.getAllByText(RISK_SENTENCE, { exact: false })).toHaveLength(1);
   });
 
   it("読み込み中と失敗を分ける。0 件と書かない。過去の行が読めていない間は重ねて出さない", () => {
@@ -387,6 +388,18 @@ describe("TownBanner: 最初の画面の過去の記録（近くの自治体の�
     expect(document.querySelector("p.town-main")).toBeNull();
     expect(document.body.textContent).not.toContain(TEXT.national);
     expect(document.querySelector(".town-details")!.textContent).toContain("シーズン中はどこでも");
+  });
+
+  it("町の文の箇条書きにある守る文は「出典: 名前」のリンクにし、URL を本文に出さない（地図の下に置く残りの行も同じ）", () => {
+    const line: TownLine = { tone: "lv4", main: TEXT.national, details: [FIXED_TEXT.areaNoDistance, FIXED_TEXT.riskAnywhere] };
+    for (const part of ["all", "rest"] as const) {
+      show(props({ line, part }));
+      const items = [...document.querySelectorAll(".town-details li")].map((li) => li.textContent);
+      expect(items, part).toEqual([FIXED_TEXT.areaNoDistance, RISK_LINE_TEXT]);
+      expect(screen.getByRole("link", { name: RISK_SOURCE_NAME }).getAttribute("href"), part).toBe(RISK_URL);
+      expect(document.body.textContent, part).not.toContain(RISK_URL);
+      cleanup();
+    }
   });
 
   it("hideNationalHead でなければ見出しを出す。全国でない行（隣町など）は hideNationalHead でも見出しが残る", () => {
