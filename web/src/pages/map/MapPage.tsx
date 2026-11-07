@@ -19,6 +19,7 @@ import { birdsFarText, usePrefAnchors } from "./birdOutside";
 import { listRows, wildBirdRows } from "./listRows";
 import { MapChunkBoundary } from "./MapChunkBoundary";
 import { SectionTabs } from "../../ui/SectionTabs";
+import { RecentAlert, recentAlertItems } from "./RecentAlert";
 import { TownCasesPanel } from "./TownCasesPanel";
 import { CompareOverlay } from "./CompareOverlay";
 import { parseRegion, type RegionId } from "../../geo/regions";
@@ -357,6 +358,12 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   );
   const hasFrequent = farmMeshCode !== null && (frequent?.length ?? 0) > 0;
   const birdCounts = useMemo(() => wildBirdCounts(d.wildBirds), [d.wildBirds]);
+  // 最初の画面の赤い枠（直近 14 日の発生）。今季が読めてから並べる。野鳥がまだ読めていなければ養鶏場などだけを並べ、枠にそのことを書き添える
+  // （野鳥が読めないだけで、養鶏場の発生まで黙って消さない。2026-11-07 点検の指摘）
+  const recentItems = useMemo(
+    () => (d.currentCases === null ? [] : recentAlertItems({ cases: d.currentCases, birds: d.wildBirdsLoaded ? d.wildBirds : [], current: d.current, today })),
+    [d.currentCases, d.wildBirdsLoaded, d.wildBirds, d.current, today],
+  );
   const birdPrefs = useMemo(() => birdPrefsText(d.wildBirds), [d.wildBirds]);
   // 野鳥は環境省の発表で、県の見回りとは別。47 県とも未確認のときだけ、0 件を見出しにしない
   const birdText = !d.wildBirdsLoaded
@@ -616,6 +623,17 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       )}
       {/* 地域が未選択のときは、町を選ぶ案内を時点のすぐ下に帯で置く。数字の欄と地図より先に読まれるように（2026-11-07 作者の決定 案 A）。
           守る文は札のすぐ前のまま（この帯はその前に置く） */}
+      {/* 直近 14 日の発生の赤い枠（2026-11-07 作者の決定）。最初の地図の画面だけ。再現は日付を過去に置いた画面なので出さない。
+          地域を選ぶ帯より前で、守る文と札の並び（守る文は札のすぐ前）には入らない */}
+      {section === "now" && ds.mode !== "replay" ? (
+        <RecentAlert
+          items={recentItems}
+          today={today}
+          limit={narrow ? 3 : 5}
+          compact={narrow}
+          uncheckedNote={[d.watchLoaded && failedCount > 0 ? TEXT.watchShortWho(failedWho) : null, d.wildBirdsLoaded ? null : TEXT.recentAlertBirdsPending].filter(Boolean).join("") || null}
+        />
+      ) : null}
       {promptTop ? banner : null}
 
       {shownViews.some((v) => v.isCurrent && !v.loaded) ? (

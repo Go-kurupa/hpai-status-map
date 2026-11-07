@@ -1776,3 +1776,85 @@
     margin: 0 0 12px;
   }
 }
+
+/* 直近 14 日の発生の赤い枠（2026-11-07 作者の決定）。赤は地図の発生と同じ --lv1。角は 4px 以下、文字は 14px より大きく */
+.recent-alert {
+  border: 2px solid var(--lv1);
+  border-left-width: 8px;
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 10px 14px;
+  margin: 0 0 var(--s2);
+}
+.recent-alert-head {
+  color: var(--lv1);
+  font-size: var(--font-base);
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.recent-alert ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.recent-alert li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+.recent-alert-date {
+  font-weight: 700;
+  min-width: 6.5em;
+}
+.recent-alert-kind {
+  color: var(--lv1);
+  font-weight: 700;
+}
+.recent-alert-more,
+.recent-alert-note {
+  margin: 4px 0 0;
+}
+@media (max-width: 767px) {
+  .recent-alert {
+    padding: 8px 12px;
+    margin-bottom: var(--s1);
+  }
+  .recent-alert li {
+    gap: 0 8px;
+  }
+}
+/* スマホは件数だけの 1 行に畳む（2026-11-07 作者の決定 案 A）。
+   幅 360px で地図が最初の画面に収まるよう、枠の上下の余白を詰める */
+.recent-alert.is-compact {
+  padding: 0 10px;
+  margin-bottom: 4px;
+}
+.recent-alert.is-compact .recent-alert-head {
+  margin: 0;
+}
+.recent-alert-toggle {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  color: var(--lv1);
+  font-weight: 700;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+.recent-alert-toggle:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.recent-alert-count {
+  white-space: nowrap;
+}
+.recent-alert-mark {
+  margin-left: auto;
+}
+.recent-alert-range {
+  margin: 0 0 4px;
+  color: var(--muted);
+}

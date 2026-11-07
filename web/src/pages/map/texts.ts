@@ -186,6 +186,16 @@ export const TEXT = {
   // PC の直近 14 日の札の題の頭（スマホは見出しが養鶏場と言うので省く）
   statFarmLead: "養鶏場など ",
   statRecent: "直近 14 日の件数",
+  // 最初の画面の時刻の下の赤い枠（2026-11-07 作者の決定。期間は札と同じ 14 日、全国の新しい順）
+  recentAlertHead: (from: string, to: string): string => `直近 14 日の発生（${from}〜${to}）`,
+  recentAlertKind: (kind: "farm" | "bird", stage: "suspected" | "confirmed" | "screening"): string =>
+    `${kind === "farm" ? "養鶏場など" : "野鳥"}（${stage === "suspected" ? "疑い" : stage === "screening" ? "検査中" : "確定"}）`,
+  recentAlertMore: (n: number): string => `ほか ${n} 件を一覧で見る`,
+  recentAlertBirdsPending: "野鳥の発表はまだ読めていません。",
+  /** スマホの畳んだ行。n が null（確認できていない県がある）なら件数を出さない */
+  recentAlertFolded: (n: number | null): string => (n === null ? "直近 14 日の発生" : `直近 14 日の発生 ${n} 件`),
+  /** スマホで開いたときの期間の行（見出しの「直近 14 日の発生」は繰り返さない） */
+  recentAlertRange: (from: string, to: string): string => `${from}〜${to}`,
   // 札の題のうち、スマホの 1 行で隠す語尾
   statRecentTail: "の件数",
   statPastToDate: (seasons: number, monthDay: string): string => `過去 ${seasons} シーズンの ${monthDay}まで`,

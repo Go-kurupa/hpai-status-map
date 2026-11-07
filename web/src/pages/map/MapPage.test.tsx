@@ -638,6 +638,19 @@ describe("MapPage: 町の選択の並び（T09）", () => {
 
   const childNames = (es: Element[]) => es.map((e) => e.tagName.toLowerCase() + (e.className ? "." + e.className : ""));
 
+  it("直近 14 日に発生があるとき、赤い枠は時点のすぐ下で、町を選ぶ案内の帯と数字の札より前（2026-11-07 作者の決定）", async () => {
+    const r = rig();
+    show(r, { section: "now" });
+    await screen.findByTestId("map");
+    r.deliverCases([tsuyamaCase()]);
+    r.deliverWatch(okWatch());
+    await screen.findByRole("region", { name: /直近 14 日の発生/ });
+    const page = document.querySelector(".map-page")!;
+    const box = document.querySelector(".map-box")!;
+    const above = [...page.children].filter((e) => before(e, box));
+    expect(childNames(above)).toEqual(["nav.section-tabs", "h1", "p.as-of", "section.recent-alert", "section.town-banner town-prompt-band", "div.stat-row"]);
+  });
+
   it("町を選んでいないとき、地図より上は 見出し、時点、町を選ぶ案内の帯、守る文、数字の順（帯は数字より先に読まれる。守る文は札のすぐ前のまま。2026-11-07 作者の決定 案 A）。切り替えは出さず、全国で始める", async () => {
     const r = rig();
     show(r);
@@ -2832,5 +2845,82 @@ describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章�
     expect(has(".town-banner")).toBe(false);
     expect(has(".spot-picker")).toBe(false);
     expect(has(".stat-row")).toBe(false);
+  });
+});
+
+describe("MapPage: 直近 14 日の赤い枠（2026-11-07 作者の決定）", () => {
+  const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const alertBox = () => screen.queryByRole("region", { name: /直近 14 日の発生/ });
+
+  it("最初の地図の画面で、時刻のすぐ下、地域を選ぶ帯と数字の札より前に出る", async () => {
+    const r = rig();
+    show(r, { section: "now" });
+    r.deliverCases([tsuyamaCase()]);
+    r.deliverWatch(okWatch());
+    const box = await screen.findByRole("region", { name: /直近 14 日の発生/ });
+    expect(box.textContent).toContain("岡山県 津山市");
+    expect(box.textContent).toContain("養鶏場など（確定）");
+    const asOf = document.querySelector(".map-page > .as-of, .map-page > .watch-as-of") ?? screen.getByRole("heading", { level: 1 });
+    expect(follows(asOf, box)).toBe(true);
+    expect(follows(box, document.querySelector(".stat-row")!)).toBe(true);
+    const band = document.querySelector(".town-banner");
+    if (band) expect(follows(box, band)).toBe(true);
+  });
+
+  it("14 日に 1 件もなければ出さない", async () => {
+    const r = rig();
+    show(r, { section: "now" });
+    r.deliverCases([tsuyamaCase({ stages: { confirmed: { date: "2026-10-01", time: null } } })]);
+    r.deliverWatch(okWatch());
+    await screen.findAllByText(TEXT.statNational);
+    expect(alertBox()).toBeNull();
+  });
+
+  it("去年の再現では出さない", async () => {
+    const r = rig();
+    render(
+      <MemoryRouter>
+        <DataSourceProvider value={{ ...r.ds, mode: "replay" }}>
+          <SpotProvider>
+            <MapPage section="now" replayStats />
+          </SpotProvider>
+        </DataSourceProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByTestId("map");
+    r.deliverCases([tsuyamaCase()]);
+    r.deliverWatch(okWatch());
+    await screen.findAllByText(TEXT.statNational);
+    expect(alertBox()).toBeNull();
+  });
+
+  it("確認できていない県を枠に書き添える。見回りの結果が届く前は書かない", async () => {
+    const r = rig();
+    show(r, { section: "now" });
+    r.deliverCases([tsuyamaCase()]);
+    const box = await screen.findByRole("region", { name: /直近 14 日の発生/ });
+    expect(box.textContent).not.toContain("確認できていません");
+    r.deliverWatch(failed(["01"]));
+    await waitFor(() => expect(box.textContent).toContain("北海道は確認できていません。"));
+  });
+
+  it("野鳥がまだ読めないときも養鶏場などは並べ、野鳥が読めていないことを書き添える", async () => {
+    const r = rig();
+    r.ds.subscribeWildBirds = () => () => {};
+    show(r, { section: "now" });
+    r.deliverCases([tsuyamaCase()]);
+    r.deliverWatch(okWatch());
+    const box = await screen.findByRole("region", { name: /直近 14 日の発生/ });
+    expect(box.textContent).toContain("岡山県 津山市");
+    expect(box.textContent).toContain(TEXT.recentAlertBirdsPending);
+  });
+
+  it("一覧と数の画面には出さない", async () => {
+    const r = rig();
+    show(r, { section: "season", path: "/season" });
+    r.deliverCases([tsuyamaCase()]);
+    r.deliverWatch(okWatch());
+    await screen.findAllByText(/津山市/);
+    expect(alertBox()).toBeNull();
   });
 });
