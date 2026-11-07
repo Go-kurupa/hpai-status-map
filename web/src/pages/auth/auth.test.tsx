@@ -243,7 +243,7 @@ describe("emailLink.ts", () => {
 describe("/login", () => {
   it("説明の文、LINE の注意、確認日を出し、Google で入るボタンがある", async () => {
     mount("/login");
-    expect(await screen.findByText("メールのリンクか Google で入ります。パスワードはいりません")).toBeTruthy();
+    expect(await screen.findByText("Google かメールのリンクで入ります。パスワードはいりません")).toBeTruthy();
     expect(screen.getByText("LINE の中で開くと Google が使えないことがあります。そのときはメールのリンクで入ってください")).toBeTruthy();
     expect(screen.getByText(/確認日/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Google で入る" })).toBeTruthy();
@@ -505,6 +505,54 @@ describe("/join/:code", () => {
     fireEvent.click(await screen.findByRole("button", { name: "このコードで入る" }));
     await waitFor(() => expect(at()).toBe("/settings/farm"));
     expect(calls).toEqual(["redeemInvite", "getIdToken:true"]);
+  });
+});
+
+// 入る方法の並び（2026-11-07 精査 J1・J2）。いちばん手早い Google を主のボタンにして先に置き、メールのリンクは「または」の後
+describe("入る方法の並びと、リンクを送った後の文", () => {
+  const LINE_NOTE = "LINE の中で開くと Google が使えないことがあります。そのときはメールのリンクで入ってください";
+  /** a が b より前にある（文書の順） */
+  const before = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
+  for (const page of ["/join/CODE123", "/login"]) {
+    it(`${page}: Google で入る（主のボタン）→ または → LINE の注 → メール欄 → ログインのリンクを送る（二次のボタン）`, async () => {
+      mount(page);
+      const google = await screen.findByRole("button", { name: "Google で入る" });
+      const or = screen.getByText("または");
+      const note = screen.getByText(LINE_NOTE);
+      const input = screen.getByLabelText("メールアドレス");
+      const send = screen.getByRole("button", { name: "ログインのリンクを送る" });
+      expect(before(google, or)).toBe(true);
+      expect(before(or, note)).toBe(true);
+      expect(before(note, input)).toBe(true);
+      expect(before(input, send)).toBe(true);
+      expect(google.classList.contains("btn-primary")).toBe(true);
+      expect(send.classList.contains("btn-primary")).toBe(false);
+      expect(screen.getAllByText(LINE_NOTE)).toHaveLength(1); // 注は 1 回だけ
+    });
+  }
+
+  it("/join/:code: h1 の下に、会員になると使えることを書く", async () => {
+    mount("/join/CODE123");
+    const h1 = await screen.findByRole("heading", { level: 1, name: "招待コードで登録" });
+    const lead = h1.nextElementSibling;
+    expect(lead?.textContent).toBe("入ると、農場の設定・死亡や消毒の記録・対策項目・AI への相談が使えます。パスワードはいりません");
+    expect(screen.queryByText(/招待されたので/)).toBeNull();
+  });
+
+  it("リンクを送った後の文は、枠付き・太字の 1 文（role=status）", async () => {
+    mount("/join/CODE123");
+    fireEvent.change(await screen.findByLabelText("メールアドレス"), { target: { value: "me@example.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "ログインのリンクを送る" }));
+    const sent = await screen.findByText(/メールを送りました/);
+    expect(sent.textContent).toBe("メールを送りました。届いたリンクをおしてください。届かないときは迷惑メールも見てください");
+    expect(sent.getAttribute("role")).toBe("status");
+    expect(sent.classList.contains("auth-sent")).toBe(true);
+    // jsdom は css を当てないので、規則を読んで確かめる。色は theme.css の変数
+    const css = fs.readFileSync(path.join(import.meta.dirname, "auth.css"), "utf8");
+    const rule = css.match(/\.auth-sent\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/border:\s*2px solid var\(--[a-z0-9-]+\)/);
+    expect(rule).toMatch(/font-weight:\s*700/);
   });
 });
 

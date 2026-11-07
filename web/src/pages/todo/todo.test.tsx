@@ -722,6 +722,15 @@ describe("DisinfectionPanel", () => {
 describe("AI の相談から足した見直しの欄（会員だけ）", () => {
   const section = () => screen.findByRole("region", { name: TODO_TEXT.reviewsHeading });
 
+  it("欄は「くわしく」のボタンの直後に詰めず、上を 24px（--s3）空ける（2026-11-07 精査 T3）", async () => {
+    reviewBox.store.listReviews.mockResolvedValue([]);
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    expect((await section()).classList.contains("todo-reviews")).toBe(true);
+    // jsdom は css を当てないので、規則を読んで確かめる
+    const css = readFileSync(path.join(import.meta.dirname, "todo.css"), "utf8");
+    expect(css.match(/\.todo-reviews\s*\{([^}]*)\}/)?.[1] ?? "").toMatch(/margin-top:\s*var\(--s3\)/);
+  });
+
   it("足したカードが 1 行ずつ、対策・根拠の札・資料名と、「外す」のボタンで並ぶ", async () => {
     reviewBox.store.listReviews.mockResolvedValue(["maff-M07", "aphis-A01"]);
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });

@@ -908,7 +908,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
           onClose={() => setInspected(null)}
         />
       ) : null}
-      {section === "compare" ? null : <Legend isCurrent={view.isCurrent} hasFarm={ownFarm} />}
+      {section === "compare" ? null : <Legend isCurrent={view.isCurrent} farm={!ownFarm ? null : spotState.source === "farm" ? "farm" : "device"} />}
 
       {mapless ? null : (
         <p className="map-attribution">
@@ -991,7 +991,8 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       {section === "season" || section === "compare" || section === "all" ? (
         <MonthBars months={view.months} loaded={view.loaded} allUnchecked={view.isCurrent && noneConfirmed} past={!view.isCurrent} />
       ) : null}
-      {section === "now" ? <NextLinks /> : null}
+      {/* 過去の行が出ていれば、その中に「選択地域の過去を見る」があるので、地図の下には重ねない（2026-11-07 精査 M3） */}
+      {section === "now" ? <NextLinks hideTown={town !== null && past.status === "ready"} /> : null}
       {section === "all" ? <MapLinks /> : null}
     </div>
   );

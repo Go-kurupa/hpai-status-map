@@ -149,6 +149,8 @@ export const TEXT = {
   markSizeNames: { l: "大", m: "中", s: "小" } as const,
   markSizeNote: "印の大きさは見た目だけです。保存は約 1km のマス目のままです。",
   legendFarm: "鶏舎の場所（この端末の画面だけ）",
+  /** 会員が登録した農場の場所。端末だけではないので「この端末の画面だけ」と書かない（2026-11-07 精査 M1） */
+  legendFarmRegistered: "鶏舎の場所（登録した約 1km のマス目）",
   // 凡例の 3 段（2026-11-07 作者の決定 ア）。赤は養鶏場の発生、墨の鳥は野鳥と読めるように見出しで分ける
   legendGroupFarm: "養鶏場などの発生",
   legendGroupBird: "野鳥（養鶏場の発生ではありません）",

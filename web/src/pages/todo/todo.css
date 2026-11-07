@@ -25,6 +25,10 @@
   color: var(--sub);
   font-size: 1rem;
 }
+/* AI の相談から足した見直し。「くわしく」のボタンの直後に見出しが詰まらないよう、上を空ける（2026-11-07 精査 T3） */
+.todo-reviews {
+  margin-top: var(--s3);
+}
 .lift-region {
   margin: 0 0 16px;
   padding: 12px var(--gutter);

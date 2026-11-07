@@ -606,6 +606,10 @@ describe("MapPage: 自分の町の 1 文", () => {
     expect(screen.queryByRole("button", { name: TEXT.changeTown })).toBeNull();
     expect(document.querySelector(".town-name-row")!.textContent).toContain(TEXT.spotFromFarm);
     expect(screen.queryByText(TEXT.pickingBar)).toBeNull();
+    // 凡例は、端末だけの場所とは書かず、登録したマス目と書く（2026-11-07 精査 M1）
+    const legend = screen.getByRole("group", { name: TEXT.legendAria }).textContent;
+    expect(legend).toContain(TEXT.legendFarmRegistered);
+    expect(legend).not.toContain(TEXT.legendFarm);
   });
 
   it("画面の全文に、禁じた語がない", async () => {
@@ -2724,6 +2728,34 @@ describe("MapPage: 見せるまとまり（設計書 2026-11-06-ui-frame 4 章�
     expect(has(".season-compare")).toBe(false);
     expect(has(".month-bars")).toBe(false);
     expect(has(".map-links")).toBe(false);
+    // 町を決めていて過去の行が出ると、その中に「選択地域の過去を見る」があるので、地図の下には重ねない（2026-11-07 精査 M3）
+    await waitFor(() => expect(document.querySelector(".town-past")?.textContent).toContain(TEXT.townPastLink));
+    const next = within(screen.getByRole("navigation", { name: "次の画面" })).getAllByRole("link");
+    expect(next.map((a) => a.getAttribute("href"))).toEqual(["/season", "/compare"]);
+    expect(screen.getAllByRole("link", { name: TEXT.townPastLink })).toHaveLength(1);
+  });
+
+  it("now（/）で町を決めていなければ、選択地域の過去への入口は地図の下のリンクだけなので残す", async () => {
+    const r = rig();
+    show(r, { section: "now" });
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    await waitFor(() => expect(has(".stat-row")).toBe(true));
+    const next = within(screen.getByRole("navigation", { name: "次の画面" })).getAllByRole("link");
+    expect(next.map((a) => a.getAttribute("href"))).toEqual(["/town", "/season", "/compare"]);
+    expect(screen.getAllByRole("link", { name: TEXT.townPastLink })).toHaveLength(1);
+  });
+
+  it("now（/）で過去の記録が読めないときは、枠の中にリンクが出ないので、地図の下に残す", async () => {
+    localStorage.setItem(TOWN_KEY, "33214");
+    const r = rig({ history: "deferred" });
+    show(r, { section: "now" });
+    await screen.findByTestId("map");
+    r.deliverCases([]);
+    r.deliverWatch(okWatch());
+    await act(async () => r.historyDeferred.reject(new Error("読めない")));
+    await waitFor(() => expect(document.querySelector(".town-past [role=alert]")).not.toBeNull());
     const next = within(screen.getByRole("navigation", { name: "次の画面" })).getAllByRole("link");
     expect(next.map((a) => a.getAttribute("href"))).toEqual(["/town", "/season", "/compare"]);
   });

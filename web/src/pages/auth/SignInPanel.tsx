@@ -11,6 +11,10 @@ const GOOGLE_BLOCKED = "ログインの窓が開けませんでした。もう�
 const GOOGLE_CLOSED = "ログインをやめました";
 const SEND_FAILED = "メールを送れませんでした。メールアドレスを確かめて、もう一度試してください";
 const LINK_FAILED = "このリンクは使えません。もう一度、リンクを送ってください";
+// Google の窓が開かない場面の注。メールのリンクの欄の上に置き、Google がだめならここから入れると分かるようにする
+const LINE_NOTE = "LINE の中で開くと Google が使えないことがあります。そのときはメールのリンクで入ってください";
+// 送った後の文。小さく見落とされないよう枠付き・太字にし、届かないときの見どころも添える（2026-11-07 精査 J2）
+const SENT = "メールを送りました。届いたリンクをおしてください。届かないときは迷惑メールも見てください";
 
 type FirebaseAuth = Awaited<ReturnType<typeof getFirebase>>["auth"];
 
@@ -21,7 +25,7 @@ function authCode(e: unknown): string | null {
 }
 
 /**
- * メールのリンクか Google で入る。招待コード（code）があれば、入った後に会員にする。
+ * Google かメールのリンクで入る。招待コード（code）があれば、入った後に会員にする。
  * メールのリンクから戻ってきたとき（URL に oobCode がある）は、ここで入りを完了する。
  * 終わったら onDone。入っている間は onFlow(true)。
  */
@@ -166,9 +170,17 @@ export function SignInPanel({
     );
   }
 
+  // いちばん手早い Google を主のボタンにして先に置き、メールのリンクは「または」の後（2026-11-07 精査 J1）
   return (
     <div>
+      <div className="auth-form">
+        <Button variant="primary" onClick={google} disabled={busy}>
+          Google で入る
+        </Button>
+      </div>
+      <p className="auth-or">または</p>
       <form className="auth-form" onSubmit={sendLink}>
+        <p className="auth-note">{LINE_NOTE}</p>
         <label htmlFor="login-email">メールアドレス</label>
         <input
           id="login-email"
@@ -180,19 +192,15 @@ export function SignInPanel({
             setSent(false);
           }}
         />
-        <Button type="submit" variant="primary" disabled={busy || email.trim() === ""}>
+        <Button type="submit" disabled={busy || email.trim() === ""}>
           ログインのリンクを送る
         </Button>
         {sent ? (
-          <p role="status">メールを送りました。届いたメールのリンクをおしてください。</p>
+          <p className="auth-sent" role="status">
+            {SENT}
+          </p>
         ) : null}
       </form>
-      <p className="auth-or">または</p>
-      <div className="auth-form">
-        <Button onClick={google} disabled={busy}>
-          Google で入る
-        </Button>
-      </div>
       {busy ? <p role="status">確かめています</p> : null}
       {error ? (
         <p className="auth-error" role="alert">

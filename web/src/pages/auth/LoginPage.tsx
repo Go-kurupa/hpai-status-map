@@ -10,7 +10,7 @@ import "./auth.css";
 
 /**
  * この画面の説明を確かめた日。null は確認前。
- * Google の「アプリ内ブラウザでは使えない」の扱いは、確認のときに最新の説明と突き合わせる。
+ * Google の「アプリ内ブラウザでは使えない」の扱いは、確認のときに最新の説明と突き合わせる（注の文は SignInPanel の LINE_NOTE）。
  */
 export const LOGIN_TEXT_CHECKED_ON: IsoDate | null = "2026-11-05";
 
@@ -18,8 +18,8 @@ export const LOGIN_TEXT_CHECKED_ON: IsoDate | null = "2026-11-05";
 export function LoginText({ checkedOn }: { checkedOn: IsoDate | null }) {
   return (
     <div>
-      <p>メールのリンクか Google で入ります。パスワードはいりません</p>
-      <p className="auth-note">LINE の中で開くと Google が使えないことがあります。そのときはメールのリンクで入ってください</p>
+      <p>Google かメールのリンクで入ります。パスワードはいりません</p>
+      {/* LINE の注はメールの欄の上（SignInPanel。2026-11-07 精査 J1） */}
       {checkedOn === null ? (
         <p className="auth-note">文面は確認中です。確認日はまだありません。</p>
       ) : (

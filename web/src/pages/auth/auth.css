@@ -31,6 +31,14 @@
   background: var(--surface);
   font-weight: 700;
 }
+/* リンクを送った後の 1 文。見落とされないよう枠付き・太字（2026-11-07 精査 J2） */
+.auth-sent {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border: 2px solid var(--accent);
+  background: var(--surface);
+  font-weight: 700;
+}
 .auth-or {
   margin: 4px 0 12px;
   color: var(--sub);

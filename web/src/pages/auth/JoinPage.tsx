@@ -17,8 +17,8 @@ export default function JoinPage() {
   return (
     <section className="auth-page">
       <h1>招待コードで登録</h1>
-      <p>招待されたので、メールのリンクか Google で入ります。パスワードはいりません</p>
-      <p className="auth-note">LINE の中で開くと Google が使えないことがあります。そのときはメールのリンクで入ってください</p>
+      {/* 会員になると何ができるかを先に書く（2026-11-07 精査 J1）。LINE の注はメールの欄の上（SignInPanel） */}
+      <p>入ると、農場の設定・死亡や消毒の記録・対策項目・AI への相談が使えます。パスワードはいりません</p>
       {auth.loading ? (
         <p role="status">確かめています</p>
       ) : auth.user && !flow ? (

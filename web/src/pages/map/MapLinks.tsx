@@ -31,12 +31,16 @@ const NEXT: ReadonlyArray<{ to: string; label: string }> = [
   { to: "/compare", label: "過去シーズンと比べる" },
 ];
 
-/** 最初の画面の地図の下から、次の画面へ（設計書 2026-11-06-ui-frame 4.1）。ほかのページはメニューから */
-export function NextLinks() {
+/**
+ * 最初の画面の地図の下から、次の画面へ（設計書 2026-11-06-ui-frame 4.1）。ほかのページはメニューから。
+ * hideTown: 自分の町の欄の過去の行に「選択地域の過去を見る」が出ているとき、同じリンクを重ねない（2026-11-07 精査 M3）。
+ * 町が未選択や過去が読めないときは、ここが選択地域の過去への入口なので残す
+ */
+export function NextLinks({ hideTown = false }: { hideTown?: boolean }) {
   return (
     <nav className="next-links" aria-label="次の画面">
       <ul>
-        {NEXT.map((l) => (
+        {NEXT.filter((l) => !(hideTown && l.to === "/town")).map((l) => (
           <li key={l.to}>
             <Link to={l.to}>{l.label}</Link>
           </li>

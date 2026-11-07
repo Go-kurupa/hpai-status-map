@@ -15,9 +15,10 @@ export function BirdSwatch({ confirmed }: { confirmed: boolean }) {
 
 /**
  * 地図の見方（2026-11-07 作者の決定 ア）。養鶏場などの発生・野鳥・そのほかの 3 段に分け、赤は養鶏場の発生、墨の鳥は野鳥と読めるようにする。
- * 疑いは斜線、確定は単色、全国の広さでは県ごとの件数の札。確認できていない県は灰色の斜線。鶏舎の場所を決めていれば、その印も
+ * 疑いは斜線、確定は単色、全国の広さでは県ごとの件数の札。確認できていない県は灰色の斜線。鶏舎の場所を決めていれば、その印も。
+ * farm は印の場所の出所。端末に保存した場所（device）と会員が登録した農場の場所（farm）で書き分ける（2026-11-07 精査 M1）
  */
-export function Legend({ isCurrent, hasFarm = false }: { isCurrent: boolean; hasFarm?: boolean }) {
+export function Legend({ isCurrent, farm = null }: { isCurrent: boolean; farm?: "farm" | "device" | null }) {
   const past = isCurrent ? "" : " is-past";
   const id = useId();
   return (
@@ -67,10 +68,10 @@ export function Legend({ isCurrent, hasFarm = false }: { isCurrent: boolean; has
             <span className="swatch swatch-unwatched" aria-hidden="true" />
             確認できていない県
           </li>
-          {hasFarm ? (
+          {farm ? (
             <li>
               <span className="swatch swatch-farm" aria-hidden="true" />
-              {TEXT.legendFarm}
+              {farm === "farm" ? TEXT.legendFarmRegistered : TEXT.legendFarm}
             </li>
           ) : null}
         </ul>

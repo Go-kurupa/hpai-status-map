@@ -160,10 +160,16 @@ describe("Legend", () => {
     expect(items(2)[0]!.querySelector(".swatch-unwatched")).not.toBeNull();
   });
 
-  it("鶏舎の場所を決めていれば「そのほか」の段に載せる", () => {
-    render(<Legend isCurrent={true} hasFarm />);
+  it("鶏舎の場所を端末で決めていれば「そのほか」の段に載せる", () => {
+    render(<Legend isCurrent={true} farm="device" />);
     const other = screen.getByRole("list", { name: "そのほか" });
     expect(within(other).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["確認できていない県", "鶏舎の場所（この端末の画面だけ）"]);
+  });
+
+  it("会員が登録した農場の場所なら、端末だけとは書かず、登録したマス目と書く（2026-11-07 精査 M1）", () => {
+    render(<Legend isCurrent={true} farm="farm" />);
+    const other = screen.getByRole("list", { name: "そのほか" });
+    expect(within(other).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["確認できていない県", "鶏舎の場所（登録した約 1km のマス目）"]);
   });
 
   it("過去のシーズンでは、疑いと確定の見本が過去の色になる", () => {
