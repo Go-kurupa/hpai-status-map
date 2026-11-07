@@ -193,6 +193,31 @@ describe("theme.css", () => {
   });
 });
 
+describe("メニューの見分け方（2026-11-07 作者の決定 案 A）", () => {
+  const rule = (sel: string) => css.match(new RegExp(`${sel.replace(/[.[\]"=+]/g, (c) => `\\${c}`)}\\s*{([^}]*)}`))?.[1] ?? "";
+  const hex = (name: string) => css.match(new RegExp(`--${name}:\\s*#([0-9a-fA-F]{6})`))?.[1] ?? "";
+  it("見出しは紺の太字で、項目（--font-base）より大きく、まとまりの間に線を引く。項目は見出しより右に下げる", () => {
+    const label = rule(".menu-group-label");
+    expect(label).toMatch(/color:\s*var\(--navy\)/);
+    expect(label).toMatch(/font-weight:\s*700/);
+    expect(label).toMatch(/font-size:\s*1\.05rem/);
+    expect(rule(".menu-group + .menu-group")).toMatch(/border-top:\s*1px solid var\(--hair\)/);
+    expect(rule(".menu-group .menu-link")).toMatch(/padding-left:\s*24px/);
+  });
+  it("養鶏事業者の方は薄い緑の枠で、見出しと項目は緑。選択中の線も緑。文字と地の比は 4.5 以上", () => {
+    expect(rule(".menu-group-farm")).toMatch(/background:\s*var\(--farm-soft\)/);
+    expect(rule(".menu-group-farm")).toMatch(/border:\s*1px solid var\(--farm-line\)/);
+    expect(rule(".menu-group-farm .menu-group-label")).toMatch(/color:\s*var\(--farm\)/);
+    expect(rule(".menu-group-farm .menu-link")).toMatch(/color:\s*var\(--farm-ink\)/);
+    expect(rule('.menu-group-farm .menu-link[aria-current="page"]::before')).toMatch(/background:\s*var\(--farm\)/);
+    for (const [fg, bg] of [["farm", "farm-soft"], ["farm-ink", "farm-soft"], ["farm-ink", "farm-hover"], ["farm-ink", "surface"]] as const) {
+      expect(hex(fg), fg).not.toBe("");
+      expect(hex(bg), bg).not.toBe("");
+      expect(contrast(hex(fg), hex(bg)), `${fg} / ${bg}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});
+
 function channel(v: number): number {
   const s = v / 255;
   return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
@@ -265,10 +290,11 @@ describe("shellContextOf", () => {
   });
 });
 
-// 決定 15・16。会員でない人は 8 項目、会員は 10 項目（対策の相談を足した）。審査員向けの見本（記録を試す、去年の再現）は並べない
-const GUEST_HREFS = ["/", "/compare", "/trends", "/todo", "/login", "/known", "/public", "/about"];
-const MEMBER_HREFS = ["/", "/compare", "/trends", "/todo", "/consult", "/record/deaths", "/settings/farm", "/known", "/public", "/about"];
-const SAMPLE_HREFS = ["/", "/compare", "/trends", "/sample/todo", "/sample/record/deaths", "/sample", "/known", "/public", "/about"];
+// 決定 15・16。会員でない人は 8 項目、会員は 10 項目（対策の相談を足した）。審査員向けの見本（記録を試す、去年の再現）は並べない。
+// 養鶏事業者の方は一番下（2026-11-07 作者の決定 案 A）
+const GUEST_HREFS = ["/", "/compare", "/trends", "/known", "/public", "/about", "/todo", "/login"];
+const MEMBER_HREFS = ["/", "/compare", "/trends", "/known", "/public", "/about", "/todo", "/consult", "/record/deaths", "/settings/farm"];
+const SAMPLE_HREFS = ["/", "/compare", "/trends", "/known", "/public", "/about", "/sample/todo", "/sample/record/deaths", "/sample"];
 
 function asMember() {
   localStorage.setItem("hpai.member.v1", "1");
@@ -284,6 +310,14 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
     expect(tabs().some((a) => a.textContent?.includes("会員") && a.textContent !== "会員のログイン")).toBe(false);
     expect(screen.queryByRole("link", { name: "設定" })).toBeNull();
     expect(screen.queryByRole("navigation", { name: "メイン" })).toBeNull();
+  });
+  it("養鶏事業者の方のまとまりは一番下で、関係者向けの目印（menu-group-farm）が付く。ほかのまとまりには付かない（2026-11-07 作者の決定 案 A）", () => {
+    renderShell("/");
+    const groups = [...document.querySelectorAll("#app-menu .menu-group")];
+    const last = groups.at(-1)!;
+    expect(last.querySelector(".menu-group-label")!.textContent).toBe("養鶏事業者の方");
+    expect(last.classList.contains("menu-group-farm")).toBe(true);
+    expect(document.querySelectorAll("#app-menu .menu-group-farm")).toHaveLength(1);
   });
   it("会員の印があれば 10 の行き先と右上の設定。札はない", () => {
     asMember();

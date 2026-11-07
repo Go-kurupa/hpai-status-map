@@ -6,7 +6,8 @@ export const OPERATOR_NOTE = "民間の運営です。国や県の公式のサ�
 
 export type ShellMode = "replay" | "sample" | null;
 export type MenuItem = { to: string; label: string; current: boolean };
-export type MenuGroup = { label: string; items: MenuItem[]; collapsible?: boolean };
+/** farm: 養鶏事業者の方（関係者向け）。一番下に置き、緑の枠と文字で見分ける（2026-11-07 作者の決定 案 A） */
+export type MenuGroup = { label: string; items: MenuItem[]; collapsible?: boolean; farm?: boolean };
 
 function under(path: string, base: string): boolean {
   return path === base || path.startsWith(`${base}/`);
@@ -36,6 +37,7 @@ export function shellContextOf(pathname: string, member = false): { mode: ShellM
     farm.push(item("/login", "会員のログイン", under(path, "/login") || under(path, "/join")));
   }
   // 設計書 2026-11-06-ui-frame 3 章（決定 8〜16）。今季と過去は中の切り替え（SectionTabs）で見方を選ぶ
+  // 養鶏事業者の方は一番下（関係者向け。2026-11-07 作者の決定 案 A）
   const groups: MenuGroup[] = [
     {
       label: "発生状況",
@@ -47,11 +49,6 @@ export function shellContextOf(pathname: string, member = false): { mode: ShellM
       ],
     },
     {
-      label: "養鶏事業者の方",
-      // 掲示用の貼り紙は入口だけ外した（画面と /poster は残す。2026-11-06 作者の決定: 入口の注意の紙は各自で作れる）
-      items: farm,
-    },
-    {
       label: "鳥インフルエンザとは",
       items: [item("/known", "分かっていること", under(path, "/known")), item("/public", "鶏を飼っていない方へ", under(path, "/public"))],
     },
@@ -59,6 +56,12 @@ export function shellContextOf(pathname: string, member = false): { mode: ShellM
       // 1 項目だけなので見出しを出さない（項目と同じ名前を 2 回並べない）
       label: "",
       items: [item("/about", "このサイトについて", under(path, "/about") || under(path, "/results") || under(path, "/privacy"))],
+    },
+    {
+      label: "養鶏事業者の方",
+      // 掲示用の貼り紙は入口だけ外した（画面と /poster は残す。2026-11-06 作者の決定: 入口の注意の紙は各自で作れる）
+      items: farm,
+      farm: true,
     },
   ];
   const currentLabel = groups.flatMap((g) => g.items).find((i) => i.current)?.label ?? null;
@@ -86,7 +89,7 @@ function Menu({ groups, onPick }: { groups: MenuGroup[]; onPick: () => void }) {
             {links}
           </details>
         ) : (
-          <div key={gi} className="menu-group">
+          <div key={gi} className={g.farm ? "menu-group menu-group-farm" : "menu-group"}>
             {g.label ? <p className="menu-group-label">{g.label}</p> : null}
             {links}
           </div>

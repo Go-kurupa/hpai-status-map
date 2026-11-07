@@ -29,6 +29,12 @@
   --on-lv: #ffffff;
   --accent: #0017c1;
   --on-accent: #ffffff;
+  /* 養鶏事業者の方（関係者向け）のメニューの緑。文字と地の比は 4.5 以上（2026-11-07 作者の決定 案 A） */
+  --farm: #1d6b3a;
+  --farm-ink: #14532d;
+  --farm-soft: #edf6ef;
+  --farm-hover: #dcefe1;
+  --farm-line: #9cc9aa;
   --font-base: 18px;
   --tap: 48px;
   --gutter: 16px;
@@ -208,13 +214,20 @@ button:focus-visible {
 .menu-group {
   padding: 8px 8px 0;
 }
+/* 見出しは紺の太字で項目より大きく、まとまりの間に線を引き、項目は右に下げる（2026-11-07 作者の決定 案 A） */
 .menu-group-label {
   margin: 0;
-  padding: 8px 12px 4px;
-  color: var(--sub);
-  font-size: 0.9rem;
+  padding: 14px 12px 6px;
+  color: var(--navy);
+  font-size: 1.05rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+}
+.menu-group + .menu-group {
+  border-top: 1px solid var(--hair);
+  margin-top: 8px;
+}
+.menu-group .menu-link {
+  padding-left: 24px;
 }
 .menu-more > summary {
   display: flex;
@@ -269,6 +282,30 @@ button:focus-visible {
   width: 4px;
   border-radius: 2px;
   background: var(--accent);
+}
+/* 養鶏事業者の方（関係者向け）は一番下に置き、薄い緑の枠と緑の文字で見分ける。選択中の線も緑 */
+.menu-group.menu-group-farm {
+  margin: 12px 8px 8px;
+  padding: 4px 4px 8px;
+  border: 1px solid var(--farm-line);
+  border-radius: 4px;
+  background: var(--farm-soft);
+}
+.menu-group-farm .menu-group-label {
+  color: var(--farm);
+}
+.menu-group-farm .menu-link {
+  color: var(--farm-ink);
+}
+.menu-group-farm .menu-link:hover {
+  background: var(--farm-hover);
+}
+.menu-group-farm .menu-link[aria-current="page"] {
+  background: var(--surface);
+  color: var(--farm-ink);
+}
+.menu-group-farm .menu-link[aria-current="page"]::before {
+  background: var(--farm);
 }
 /* スマホのヘッダの「設定」はメニューの中にあるので出さない（題を 1 行に収める） */
 @media (max-width: 63.99rem) {
