@@ -25,55 +25,136 @@
   color: var(--sub);
   font-size: 1rem;
 }
-/* けさの確認（会員だけ。見出しの直下）。4 項目を 1 つの枠に並べる。広い画面では 2 列、狭い画面では 1 列。
-   色は既存の変数だけ。押せる入口は .tap-link（48px） */
-.morning-check {
+/* 会員の見出しの行（2026-11-07 A）。題の横に時点と発生の地図への入口。狭い幅では折り返す */
+.todo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--s2);
+}
+.todo-head > h1 {
+  margin-bottom: 0.25em;
+}
+.todo-head > .as-of {
+  margin: 0;
+}
+.todo-head-link {
+  margin: 0 0 var(--s1);
+}
+/* 今日のやること（会員だけ）。行の形は 1 種類: [印] 文（小さな補足） … [押すもの]。色は既存の変数だけ */
+.today-list {
   margin: 0 0 var(--s3);
   padding: var(--s2);
   border: 1px solid var(--line);
   background: var(--surface);
 }
-.morning-check > h2 {
-  margin-top: 0;
-}
-.morning-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
-  gap: var(--s2) var(--s3);
-}
-.morning-item {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.morning-item h3 {
-  margin: 0 0 4px;
-}
-.morning-item p {
-  margin: 0;
-}
-.morning-list {
-  margin: 0;
-  padding: 0 0 0 1.2em;
-}
-.morning-count {
-  font-weight: 700;
-}
-.morning-list + .morning-count {
-  margin-top: var(--s1);
-}
-.morning-links {
+.today-head {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
   column-gap: var(--s2);
 }
-/* AI の相談から足した見直し。「確認リストを開く」のボタンの直後に見出しが詰まらないよう、上を空ける（2026-11-07 精査 T3） */
-.todo-reviews {
+.today-head > h2 {
+  margin: 0 0 4px;
+}
+.today-summary {
+  margin: 0 0 var(--s1);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.today-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hair);
+}
+.today-row {
+  display: grid;
+  grid-template-columns: 1.6em minmax(0, 1fr) auto;
+  column-gap: var(--s1);
+  align-items: center;
+  padding: var(--s1) 0;
+  border-bottom: 1px solid var(--hair);
+}
+/* 印は文字（☐ ⏲ ☑）と色の両方。読めない・期限なしは灰色（まだ・済みの色を使わない） */
+.today-mark {
+  align-self: start;
+  padding-top: 0.15em;
+  font-size: 1.25rem;
+  line-height: 1.4;
+  text-align: center;
+}
+.today-row.is-todo .today-mark {
+  color: var(--fg);
+}
+.today-row.is-later .today-mark {
+  color: var(--lv2);
+}
+.today-row.is-done .today-mark {
+  color: var(--farm);
+}
+.today-row.is-unknown .today-mark,
+.today-row.is-info .today-mark {
+  color: var(--sub);
+}
+.today-text {
+  min-width: 0;
+}
+.today-text p {
+  margin: 0;
+}
+.today-act {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s1);
+}
+.today-act .done-row {
+  margin-top: 0;
+}
+.today-more {
+  grid-column: 2 / -1;
+  min-width: 0;
+}
+.today-more p {
+  margin: 4px 0 0;
+}
+/* 消毒の行末の小さな「出典」。押せる高さは 48px（--tap） */
+.today-src {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-size: 1rem;
+}
+.today-fold-body {
+  display: grid;
+  gap: var(--s1);
+  justify-items: start;
+  padding-bottom: var(--s1);
+}
+.today-foot {
+  margin: var(--s1) 0 0;
+}
+/* スマホの幅では押すものを文の下に回す（390px で文が潰れないように） */
+@media (max-width: 40rem) {
+  .today-row {
+    grid-template-columns: 1.6em minmax(0, 1fr);
+  }
+  .today-act {
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+    margin-top: 4px;
+  }
+}
+/* 参照（県の注意、声かけ文、国の指針の一覧）。今日のやることの下 */
+.todo-ref {
   margin-top: var(--s3);
 }
-/* 足した対策の実施の記録。状態の 3 つのボタンとメモ。押せるものは 48px 以上（.btn と --tap）。色は既存の変数だけ */
-.review-mark {
-  margin: var(--s1) 0;
+.todo-ref-more p {
+  margin: 0 0 var(--s1);
 }
+/* 足した対策の実施の記録。状態の 3 つのボタンとメモ。押せるものは 48px 以上（.btn と --tap）。色は既存の変数だけ */
 .review-status {
   display: flex;
   flex-wrap: wrap;
@@ -113,7 +194,7 @@
   color: var(--fg);
   font: inherit;
 }
-.review-mark .btn:focus-visible,
+.review-status .btn:focus-visible,
 .review-note-row input:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;

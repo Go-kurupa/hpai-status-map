@@ -66,6 +66,7 @@ export const RECORD_TEXT = {
 
   // 週の報告文
   weeklyHeading: "週の報告文",
+  weeklyOpen: "週の報告文を作る",
   weeklyLead: "様式の項目に合わせた下書きです。県によって様式は違います。内容を確かめてから使ってください",
   weeklyStart: "週の最初の日",
   weeklyCulled: "廃鶏出荷羽数",
@@ -80,15 +81,15 @@ export const RECORD_TEXT = {
 
   // 自己点検
   selfTitle: "自己点検",
-  selfLead: "7 項目を ○ か × で記録し、報告文をコピーします。送るのは人です",
+  selfLead: "7 項目を「できている」か「できていない」で記録し、報告文をコピーします。送るのは人です",
   selfMonth: (label: string) => `対象の月: ${label}`,
   selfDue: (date: string) => `期限: ${date}`,
   selfDueMissing: "期限を設定してください",
   selfDueLink: "通知の設定を開く",
-  selfMeaning: "○ できている　× できていない",
-  selfOk: "○",
-  selfNg: "×",
-  selfBlank: "未記入",
+  selfMeaning: "押したボタンをもう一度押すと、未記入に戻ります",
+  selfOk: "できている",
+  selfNg: "できていない",
+  selfReportNote: "報告文では、できているを ○、できていないを × と書きます",
   selfSave: "記録する",
   selfReportHeading: "報告文",
   selfReportLabel: "自己点検の報告文",

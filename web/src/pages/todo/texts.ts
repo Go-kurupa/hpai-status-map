@@ -63,8 +63,6 @@ export const TODO_TEXT = {
   reviewsRemoveFailed: "外せませんでした。もう一度お試しください。",
   reviewsGone: "このカードは今の資料にありません。",
   // 実施の記録（人が付ける。AI は付けない）。状態の名前は shared/src/consult/review.ts の REVIEW_STATUS_LABEL
-  /** 記録のない対策（前に足したまま）があるときだけ、一覧の上に 1 回出す */
-  reviewsUnrecordedLead: "「まだ」には、やったかどうかをまだ記録していない対策も入ります。",
   /** 状態のボタンのまとまりの名前（読み上げ用。後ろに対策の文を付ける） */
   reviewsStatusGroup: "実施の状態",
   reviewsNoRecord: "記録なし",
@@ -81,46 +79,56 @@ export const TODO_TEXT = {
 } as const;
 
 /**
- * けさの確認（会員だけ。対策項目の見出しの直下）。朝に探し回らずに見るための入口と、記録の状況だけを並べる。
- * 前回との比べ、安全・危険の判定は書かない。読めないを「変化なし」、未入力を「0 羽」と書かない。
+ * 今日のやること（会員で農場があるときだけ。2026-11-07 A。F3 の「けさの確認」を置き換えた）。
+ * 記録できるものだけを 1 本のリストにする: 死亡数（鶏舎ごと）、消毒、AI の相談から追加した対策、自己点検。
+ * 毎日の義務に見せない（死亡数は週の報告まで、消毒の記録は任意）。前回との比べ、安全・危険の判定は書かない。
+ * 読めないを「変化なし」「済み」、未入力を「0 羽」と書かない。状態の語（まだ・後でやる・やった・記録なし）は F1 のまま。
  */
-export const MORNING_TEXT = {
-  heading: "けさの確認",
+export const TODAY_TEXT = {
+  /** 見出しの横の時点の主語（B）。「発表の確認: 11 月 8 日 6:10 時点」「発表の確認: 未確認」 */
+  asOfSubject: "発表の確認",
+  outbreakLink: "発生の地図を見る",
+  heading: "今日のやること",
   loading: "読み込んでいます",
   failed: "読み込めませんでした",
-  // 1 最新の発生
-  outbreakHeading: "最新の発生",
-  outbreakLink: "発生の地図を見る",
-  // 確認できた時点がないとき。ページの上の時点の行（「確認できていません」）とそろえる
-  outbreakUnchecked: "確認できていません",
-  // 時点は見回り（発生の確認）の時点。発生の時刻と読まれないよう「…時点の確認」と書く
-  outbreakAsOf: (asOf: string): string => `${asOf}の確認`,
-  // 2 今日の死亡数
-  deathsHeading: "今日の死亡数",
-  deathsRecorded: (n: number): string => `記録済み（${n} 羽）`,
-  deathsMissing: "未入力",
-  // 空舎にした鶏舎は記録しないので「未入力」と出さない
-  deathsVacant: "空舎",
-  deathsLink: "死亡数を記録する",
-  // 3 後でやる・まだの対策（相談から足した見直し）
-  reviewsHeading: "後でやる・まだの対策",
-  reviewsCount: (label: string, n: number): string => `${label} ${n} 件`,
-  // 「まだ」のうち、状態を一度も記録していないもの（「まだ」と記録したものと分ける）。0 件なら出さない
-  reviewsUnrecorded: (n: number): string => `（うち記録なし ${n} 件）`,
-  reviewsNote: (note: string): string => `（メモ: ${note}）`,
-  reviewsMore: (n: number): string => `ほか ${n} 件`,
-  reviewsNone: "「後でやる」「まだ」の対策はありません",
-  reviewsLink: "足した対策の一覧へ",
-  // 4 次の報告期限
-  dueHeading: "次の報告期限",
-  dueLine: (date: string, daysLeft: number): string => `次の自己点検の期限: ${date}（${daysLeft === 0 ? "今日" : `あと ${daysLeft} 日`}）`,
+  /** 集計の 1 行。読めない行・期限なし・今の資料にないカードは数えない */
+  summary: (todo: number, later: number, done: number): string => `まだ ${todo} ・ 後でやる ${later} ・ 済み ${done}`,
+  /** 読めない行があるとき、集計の後ろに添える（0 件や済みに見せない） */
+  summaryUnread: (n: number): string => ` ・ 読み込めなかった ${n}`,
+  /** 印の名前（読み上げ用。文字の印と色の両方で示す） */
+  mark: { todo: "まだ", later: "後でやる", done: "済み", unknown: "読み込めませんでした", dueNone: "期限なし", gone: "今の資料にありません" },
+  // 1 死亡数（鶏舎ごと。空舎は出さない）
+  deathsRow: (houseName: string): string => `${houseName}の死亡数`,
+  /** 鶏舎がない・読めないときの 1 行の名前 */
+  deathsAll: "死亡数",
+  deathsMissing: "今日の分は未入力（週の報告までに）",
+  deathsRecorded: (n: number): string => `${n} 羽を記録`,
+  deathsRecord: "記録する",
+  // 2 消毒（記録できる項目だけ）。「記録は任意」と取り消しの断りは、リストの中で 1 回だけ
+  disinfectionOptional: "記録は任意",
+  disinfectionUnread: "今日の記録を読み込めませんでした",
+  /** 行末の小さな出典のリンク。読み上げの名前には資料と項目を入れる（同じ「出典」が並ぶため） */
+  source: "出典",
+  sourceLabel: (title: string, item: string): string => `出典: ${title}（${item}）`,
+  // 3 AI の相談から追加した対策
+  reviewFrom: "AI の相談から追加",
+  reviewMemo: (note: string): string => `メモ: ${note}`,
+  details: "くわしく",
+  // 4 自己点検
+  selfRow: "自己点検",
+  selfDue: (date: string, daysLeft: number): string => `期限 ${date}（${daysLeft === 0 ? "今日" : `あと ${daysLeft} 日`}）`,
+  selfDone: (month: number): string => `${month} 月の分を記録済み`,
+  selfOpen: "自己点検を開く",
+  selfUnread: "今月の記録を読み込めませんでした",
   dueNone: "期限は登録されていません",
-  // 登録はあるが、今日以降の期限がない（期限は 10〜5 月だけ入れられる）
-  // 「今季」と書かず日付で示す（前の季の日付だけが残っていることがある）
+  // 登録はあるが、今日以降の期限がない（期限は 10〜5 月だけ入れられる）。「今季」と書かず日付で示す
   dueAllPast: (lastDate: string): string => `登録した期限（最後は ${lastDate}）はすべて過ぎました`,
-  dueRecordLink: "自己点検を記録する",
-  dueChangeLink: "期限を変える",
   dueSetLink: "通知の設定で期限を入れる",
+  // 下の参照（国の指針の一覧。記録の仕組みのない項目は、リストに混ぜずここに出典つきで残す）
+  refHeading: "参照",
+  refLead: "国の指針で確かめること（出典つき）",
+  refMore: (n: number): string => `一覧を開く（${n} 項目）`,
+  refLess: "一覧を閉じる",
 } as const;
 
 /** 働く人への声かけ文（M-18）。「安全」「安心」「区域の外です」は書かない。人の健康を断定しない。 */

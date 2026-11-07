@@ -143,11 +143,20 @@ describe("並び（農場がないあいだは地点だけ）", () => {
     expect(listHouses).not.toHaveBeenCalled();
   });
 
-  it("地点、農場の情報、行き来する町、鶏舎、家保の連絡先、招待の順に並ぶ", async () => {
+  it("地点、農場の情報、鶏舎、行き来する町、家保の連絡先、招待の順に並ぶ（記録に要る鶏舎は農場の情報のすぐ後）", async () => {
     mount();
     await screen.findByRole("button", { name: "農場の情報を保存" });
     const order = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(order).toEqual(["農場の地点", "農場の情報", "行き来する町", "鶏舎", "家畜保健衛生所の連絡先", "会員を追加する"]);
+    expect(order).toEqual(["農場の地点", "農場の情報", "鶏舎", "行き来する町", "家畜保健衛生所の連絡先", "会員を追加する"]);
+  });
+
+  it("保存のボタンは、どの欄も同じ種類（主のボタン .btn-primary）", async () => {
+    mount();
+    await screen.findByRole("button", { name: "農場の情報を保存" });
+    fireEvent.click(await screen.findByRole("button", { name: "鶏舎を追加する" }));
+    const saves = screen.getAllByRole("button", { name: /を保存$/ });
+    expect(saves.map((b) => b.textContent)).toEqual(["地点を保存", "農場の情報を保存", "鶏舎を保存", "行き来する町を保存", "家畜保健衛生所の連絡先を保存"]);
+    for (const b of saves) expect(b.className.split(" "), b.textContent ?? "").toContain("btn-primary");
   });
 
   it("見出しは『農場の設定』を含まない（ページ見出しだけが持つ）", async () => {
@@ -395,6 +404,46 @@ describe("鶏舎（§8）", () => {
     expect(within(s).getByText(/空舎にします/)).toBeTruthy();
   });
 
+  it("一覧の上に『合計 N 羽（空舎を除く）』を 1 行。数字は 3 桁で区切る", async () => {
+    houses = [
+      h({ id: "h1", name: "1 号舎", flockSize: 1200 }),
+      h({ id: "h2", name: "2 号舎", flockSize: 0, empty: true }),
+      h({ id: "h3", name: "3 号舎", flockSize: 800 }),
+    ];
+    mount();
+    const total = await within(await waitFor(() => form())).findByText("合計 2,000 羽（空舎を除く）");
+    const list = within(form()).getByRole("list");
+    expect(total.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(form()).getAllByText(/^合計/)).toHaveLength(1);
+  });
+
+  it("合計は鶏舎を足すと増え、空舎にすると減る", async () => {
+    houses = [h({ id: "h1", name: "1 号舎", flockSize: 1200 })];
+    mount();
+    expect(await screen.findByText("合計 1,200 羽（空舎を除く）")).toBeTruthy();
+    click("鶏舎を追加する");
+    fireEvent.change(screen.getByLabelText("鶏舎の名前"), { target: { value: "2 号舎" } });
+    fireEvent.change(screen.getByLabelText("鳥の種類"), { target: { value: "採卵鶏" } });
+    fireEvent.change(screen.getByLabelText("飼養羽数"), { target: { value: "10000" } });
+    click("鶏舎を保存");
+    expect(await screen.findByText("合計 11,200 羽（空舎を除く）")).toBeTruthy();
+    click("1 号舎を編集");
+    fireEvent.click(screen.getByLabelText(/空舎（いま鶏がいない）/));
+    click("鶏舎を保存");
+    expect(await screen.findByText("合計 10,000 羽（空舎を除く）")).toBeTruthy();
+  });
+
+  it("鶏舎が 0 件、または全部が空舎なら、合計の行を出さない", async () => {
+    mount();
+    await screen.findByText(/鶏舎はまだ登録していません/);
+    expect(screen.queryByText(/^合計/)).toBeNull();
+    cleanup();
+    houses = [h({ id: "h1", name: "1 号舎", flockSize: 0, empty: true })];
+    mount();
+    await screen.findByText("1 号舎");
+    expect(screen.queryByText(/^合計/)).toBeNull();
+  });
+
   it("鶏舎がなければ『まだありません』。読み込めなかったときは『ない』と言わず読み込めなかったと出す", async () => {
     mount();
     expect(await screen.findByText(/鶏舎はまだ登録していません/)).toBeTruthy();
@@ -457,7 +506,7 @@ describe("鶏舎（§8）", () => {
     await waitFor(() => expect(saveHouse).toHaveBeenCalledTimes(1));
     expect(saveHouse.mock.calls[0]![0]).toEqual({ id: "h1", name: "1 号舎", birdType: "採卵鶏", flockSize: 900, empty: false });
     expect(saveDeath).not.toHaveBeenCalled();
-    expect(await within(form()).findByText(/900 羽/)).toBeTruthy();
+    expect(await within(form()).findByText("900 羽")).toBeTruthy(); // 鶏舎の行（上の合計の行とは別）
     expect(within(form()).getAllByText(/1 号舎/)).toBeTruthy();
     expect(houses).toHaveLength(1);
   });

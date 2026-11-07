@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { latestSignInLink, seedInvite } from "./helpers/seedInvite";
 
-// 農場の設定（農場名、採卵か肉用か、鶏舎の造り、飼い方、行き来する町、鶏舎、家保の連絡先）を保存し、再読み込みで残り、
+// 農場の設定（農場名、採卵か肉用か、鶏舎の造り、飼い方、鶏舎、行き来する町、家保の連絡先）を保存し、再読み込みで残り、
 // 登録した町の発生が『登録した町で発生しました』として出ることを確かめる通し（M-05）。M-01 の member-join と同じ形。
 // 登録した飼い方は「AIに対策を相談」で、本人が選んだときだけ条件として送られる（F2）。模擬環境の Claude の鍵は見本なので、答えは「答えを作れませんでした」。
 // 模擬環境（Auth、Firestore、Functions）が動いていること。実行の例（リポジトリの根から）:
@@ -159,6 +159,9 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   };
   await addHouse("1 号舎", "採卵鶏", "1200");
   await addHouse("2 号舎", "採卵鶏", "800");
+  // 一覧の上に合計（空舎を除く、3 桁区切り）。鶏舎の欄は農場の情報のすぐ後（2026-11-07 精査 D）
+  await expect(page.getByText("合計 2,000 羽（空舎を除く）", { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 2 })).toHaveText(["農場の地点", "農場の情報", "鶏舎", "行き来する町", "家畜保健衛生所の連絡先", "会員を追加する"]);
 
   // 家保の連絡先（見本の語だけ）
   await page.getByLabel("家畜保健衛生所の連絡先", { exact: true }).fill("テスト用の連絡先");
@@ -184,19 +187,21 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await page.getByLabel("飼養羽数", { exact: true }).fill("700");
   await page.getByRole("button", { name: "鶏舎を保存" }).click();
   await expect(page.getByText("700 羽")).toBeVisible();
+  await expect(page.getByText("合計 1,900 羽（空舎を除く）", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /を編集$/ })).toHaveCount(2);
 
-  // 登録した飼い方で相談する（F2）。選んだときだけ条件を送り、質問の文と登録が食い違えば送らずに訂正を促す
+  // 登録した飼い方で相談する（F2、羽数の幅は G）。選んだときだけ条件を送り、質問の文と登録が食い違えば送らずに訂正を促す
   const asks: Record<string, unknown>[] = [];
   page.on("request", (r) => {
     if (r.method() === "POST" && r.url().includes("consultAsk")) asks.push((r.postDataJSON() as { data: Record<string, unknown> }).data);
   });
   await page.goto("/consult?emulator=1");
-  await expect(page.getByText("登録した条件: 採卵鶏・平飼い")).toBeVisible();
+  // 羽数の幅（G）: 鶏舎の合計 1,200＋700＝1,900 羽から「1,000〜2,999 羽」。正確な羽数は送らない
+  await expect(page.getByText("登録した条件: 採卵鶏・平飼い・1,000〜2,999 羽")).toBeVisible();
   const useIt = page.getByRole("checkbox", { name: "この飼い方で相談する" });
   await expect(useIt).not.toBeChecked();
   await useIt.check();
-  await expect(page.getByText("条件として送るのは「採卵鶏・平飼い」だけです。鶏舎の造り・農場名・場所・記録は送りません。")).toBeVisible();
+  await expect(page.getByText("条件として送るのは「採卵鶏・平飼い・1,000〜2,999 羽」だけです。鶏舎の造り・正確な羽数・農場名・場所・記録は送りません。")).toBeVisible();
   await page.getByLabel("聞きたいこと").fill("ケージ飼いの網の穴は？");
   await page.getByRole("button", { name: "送る" }).click();
   await expect(page.getByTestId("consult-conflict")).toContainText("質問ではケージ飼い、登録は平飼いです。登録を直すか、送り方を選んでください。");
@@ -208,10 +213,10 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await page.getByLabel("聞きたいこと").fill("長靴の消毒で、まず見直すことは？");
   await page.getByRole("button", { name: "送る" }).click();
   await expect(page.getByText(UNAVAILABLE)).toBeVisible({ timeout: 120_000 });
-  // 送ったのは食い違いのない 1 回だけで、条件は飼育目的と飼い方だけ（鶏舎の造り・農場名・場所は送らない）
+  // 送ったのは食い違いのない 1 回だけで、条件は飼育目的と飼い方と羽数の幅だけ（鶏舎の造り・正確な羽数・農場名・場所は送らない）
   expect(asks).toHaveLength(1);
-  expect(asks[0]!["farm"]).toEqual({ production: "layer", rearing: "floor" });
-  expect(JSON.stringify(asks[0])).not.toMatch(/open|テスト農場|33203|meshCode/);
+  expect(asks[0]!["farm"]).toEqual({ production: "layer", rearing: "floor", scale: "1000to3000" });
+  expect(JSON.stringify(asks[0])).not.toMatch(/open|テスト農場|33203|meshCode|1900|1200|700|flockSize/);
   // スマホ幅で横にはみ出さない
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 

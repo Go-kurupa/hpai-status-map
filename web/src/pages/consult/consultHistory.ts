@@ -76,7 +76,7 @@ function isStats(v: unknown): boolean {
   return rest === null || (isRecord(rest) && typeof rest["rows"] === "number" && typeof rest["count"] === "number");
 }
 
-/** 今回使った条件（飼育目的と飼い方）。関数の入力の検査と同じ形だけを通す（空・余計な項目・列挙の外は捨てる） */
+/** 今回使った条件（飼育目的と飼い方と、任意の羽数の幅）。関数の入力の検査と同じ形だけを通す（空・余計な項目・列挙の外は捨てる） */
 function isFarm(v: unknown): boolean {
   const r = parseFarmCondition(v);
   return r.ok && r.value !== null;

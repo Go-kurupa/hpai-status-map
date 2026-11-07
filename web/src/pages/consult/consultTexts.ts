@@ -83,8 +83,8 @@ export const CONSULT_TEXT = {
    * 見出しは「条件」。中の「飼い方は未登録」と「飼い方」が重ならないように */
   conditionHead: (label: string) => `登録した条件: ${label}`,
   conditionUse: "この飼い方で相談する",
-  /** 選んだときに出す、条件として送る内容（質問の文と前のやりとりのことは入力欄の下の案内が言う） */
-  conditionSends: (label: string) => `条件として送るのは「${label}」だけです。鶏舎の造り・農場名・場所・記録は送りません。`,
+  /** 選んだときに出す、条件として送る内容（質問の文と前のやりとりのことは入力欄の下の案内が言う）。羽数は幅だけで、正確な羽数は送らない */
+  conditionSends: (label: string) => `条件として送るのは「${label}」だけです。鶏舎の造り・正確な羽数・農場名・場所・記録は送りません。`,
   /** 未登録のとき。「農場の設定」はリンクにする */
   conditionNoneBefore: "登録した条件: 未登録。",
   conditionSettingsLink: "農場の設定",

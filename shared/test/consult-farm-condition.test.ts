@@ -6,6 +6,8 @@ import {
   findFarmConflicts,
   parseFarmCondition,
   registeredLabel,
+  scaleOfHouses,
+  SCALE_LABEL,
 } from "../src/consult/farmCondition";
 
 describe("conditionOfFarm（登録から条件を作る。推測で埋めない）", () => {
@@ -114,5 +116,88 @@ describe("findFarmConflicts（質問の文と登録の食い違い）", () => {
     // 飼い方が未登録なら、質問の「平飼い」とは比べない
     expect(findFarmConflicts("平飼いで長靴は？", { production: "layer" })).toEqual([]);
     expect(findFarmConflicts("長靴は何足？", { production: "broiler", rearing: "cage" })).toEqual([]);
+  });
+});
+
+describe("羽数の幅（scale。空舎を除く鶏舎の飼養羽数の合計から作る。正確な羽数は送らない）", () => {
+  const h = (flockSize: unknown, empty: unknown = false) => ({ flockSize, empty });
+
+  it("境目: 1,000 未満は under1000、1,000 以上 3,000 未満は 1000to3000、3,000 以上は over3000（ちょうど 1,000 と 3,000 は上の幅）", () => {
+    expect(scaleOfHouses([h(1)])).toBe("under1000");
+    expect(scaleOfHouses([h(999)])).toBe("under1000");
+    expect(scaleOfHouses([h(1000)])).toBe("1000to3000");
+    expect(scaleOfHouses([h(2999)])).toBe("1000to3000");
+    expect(scaleOfHouses([h(3000)])).toBe("over3000");
+    expect(scaleOfHouses([h(430000)])).toBe("over3000");
+  });
+
+  it("合計で決める（鶏舎ごとではない）。空舎は除く", () => {
+    expect(scaleOfHouses([h(600), h(400)])).toBe("1000to3000");
+    expect(scaleOfHouses([h(1200), h(700)])).toBe("1000to3000");
+    expect(scaleOfHouses([h(2000), h(1000)])).toBe("over3000");
+    // 空舎（0 羽）は数えない
+    expect(scaleOfHouses([h(900), h(0, true)])).toBe("under1000");
+    // 空舎に羽数が残っていても数えない（空舎は合計に入れない）
+    expect(scaleOfHouses([h(900), h(5000, true)])).toBe("under1000");
+  });
+
+  it("鶏舎が 0 件、全部空舎のときは幅を作らない（null）", () => {
+    expect(scaleOfHouses([])).toBeNull();
+    expect(scaleOfHouses([h(0, true)])).toBeNull();
+    expect(scaleOfHouses([h(0, true), h(0, true)])).toBeNull();
+  });
+
+  it("空舎でない鶏舎の羽数が 1 つでも読めなければ、読めた分だけで作らない（null。少なく見積もった推測にしない）", () => {
+    for (const bad of [h(undefined), h(null), h("1200"), h(-1), h(1.5), h(Number.NaN), h(Number.POSITIVE_INFINITY), h(0)]) {
+      expect(scaleOfHouses([h(5000), bad]), JSON.stringify(bad)).toBeNull();
+    }
+    // 空舎かどうかが読めない鶏舎も同じ
+    expect(scaleOfHouses([h(5000), h(100, "no")])).toBeNull();
+    expect(scaleOfHouses([h(5000), { flockSize: 100 }])).toBeNull();
+    expect(scaleOfHouses([h(5000), null])).toBeNull();
+  });
+
+  it("表示の語", () => {
+    expect(SCALE_LABEL).toEqual({ under1000: "1,000 羽未満", "1000to3000": "1,000〜2,999 羽", over3000: "3,000 羽以上" });
+  });
+
+  it("conditionOfFarm: 幅は飼育目的か飼い方の登録に足す任意の項目。どちらも未登録なら幅だけの条件は作らない", () => {
+    expect(conditionOfFarm({ production: "layer", rearing: "floor" }, "1000to3000")).toEqual({ production: "layer", rearing: "floor", scale: "1000to3000" });
+    expect(conditionOfFarm({ production: "broiler", rearing: null }, "over3000")).toEqual({ production: "broiler", scale: "over3000" });
+    expect(conditionOfFarm({ production: "layer", rearing: "floor" }, null)).toEqual({ production: "layer", rearing: "floor" });
+    expect(conditionOfFarm({ production: null, rearing: null }, "under1000")).toBeNull();
+    expect(conditionOfFarm({ production: null }, "under1000")).toBeNull();
+  });
+
+  it("conditionLabel と registeredLabel は幅を最後に足す。幅がなければ今までどおり（「未登録」とは書かない）", () => {
+    expect(conditionLabel({ production: "layer", rearing: "floor", scale: "1000to3000" })).toBe("採卵鶏・平飼い・1,000〜2,999 羽");
+    expect(conditionLabel({ production: "broiler", scale: "over3000" })).toBe("肉用鶏・3,000 羽以上");
+    expect(registeredLabel({ production: "layer", rearing: "floor" }, "under1000")).toBe("採卵鶏・平飼い・1,000 羽未満");
+    expect(registeredLabel({ production: "layer", rearing: null }, "1000to3000")).toBe("採卵鶏・飼い方は未登録・1,000〜2,999 羽");
+    expect(registeredLabel({ production: "layer", rearing: "floor" }, null)).toBe("採卵鶏・平飼い");
+    // 飼育目的も飼い方もなければ、幅があっても「未登録」（幅だけの条件は作らない）
+    expect(registeredLabel({ production: null, rearing: null }, "over3000")).toBe("未登録");
+  });
+
+  it("parseFarmCondition: scale は列挙だけを通す。列挙の外・型の違い・正確な羽数は拒む。幅だけの条件も拒む", () => {
+    expect(parseFarmCondition({ production: "layer", rearing: "floor", scale: "1000to3000" })).toEqual({ ok: true, value: { production: "layer", rearing: "floor", scale: "1000to3000" } });
+    expect(parseFarmCondition({ rearing: "cage", scale: "under1000" })).toEqual({ ok: true, value: { rearing: "cage", scale: "under1000" } });
+    expect(parseFarmCondition({ production: "layer", scale: null })).toEqual({ ok: true, value: { production: "layer" } });
+    const bad: unknown[] = [
+      { production: "layer", scale: "huge" },
+      { production: "layer", scale: "1,000 羽未満" },
+      { production: "layer", scale: 1900 },
+      { production: "layer", scale: "1900" },
+      { production: "layer", flockSize: 1900 },
+      { production: "layer", scale: "1000to3000", flockSize: 1900 },
+      { scale: "over3000" },
+      { production: null, rearing: null, scale: "under1000" },
+    ];
+    for (const v of bad) expect(parseFarmCondition(v), JSON.stringify(v)).toEqual({ ok: false });
+  });
+
+  it("findFarmConflicts は羽数を見ない（質問の数字と幅を突き合わせない）", () => {
+    expect(findFarmConflicts("うちは 300 羽の平飼いです。網は？", { rearing: "floor", scale: "over3000" })).toEqual([]);
+    expect(findFarmConflicts("5 万羽の鶏舎の網は？", { production: "layer", scale: "under1000" })).toEqual([]);
   });
 });

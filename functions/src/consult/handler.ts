@@ -5,7 +5,8 @@
 // 順序: 入力の検査（question か topicId、前の往復 history の形、農場の条件 farm の形）→ 範囲外の問い → 資料 → 予算 → 回数の確保 → 鍵を読んで client を作る → Claude → 使用量を積む → 返事の検査。
 // 前の往復（history）は Claude に問いの意味を読む材料として渡すだけ。問いが範囲外の語に当たる前の往復は渡さず、答えだけが当たるときは答えを空にする（新しい問いが当たれば決まった文）。数字の検査に使うのは、相談者が書いた問い（新しい問いと前の問いを文ごとに。前の答えは入れない）。
 // 発生の件数の問いは、Claude が選んだ数え方（stats）でプログラムが過去の事例を数え、表を付ける。件数だけの問いは、対策の答えなしで表だけを返す。
-// 農場の条件（farm）は、本人が登録して「この飼い方で相談する」を選んだ飼育目的と飼い方だけ。形を検査して Claude にカードを選ぶ材料として渡し、
+// 農場の条件（farm）は、本人が登録して「この飼い方で相談する」を選んだ飼育目的と飼い方と、画面が鶏舎の合計から作った羽数の幅（scale。正確な羽数は受けない）だけ。
+// 形を検査して Claude にカードを選ぶ材料として渡し、
 // 返事に使った条件を付ける（画面が答えの近くに出す）。条件がなければ今までどおり（Claude にも返事にも farm の項目を作らない）。
 // 入力の問いの文はログにも、エラーの文にも出さない。農場の名前、位置、記録は読まない（条件も Firestore から読まず、送られてきたものだけ）。
 // このファイルは db を受け取らない。予算と回数の読み書きは deps の関数（index.ts が usage/ を差し込む）。
@@ -18,7 +19,7 @@ import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { computeStats, parseStatsQuery } from "@hpai/shared/consult/stats";
 import { jstDateOf } from "@hpai/shared/dates";
 import { findTopic } from "@hpai/shared/consult/topics";
-import { parseFarmCondition } from "@hpai/shared/consult/farmCondition";
+import { SCALE_LABEL, parseFarmCondition } from "@hpai/shared/consult/farmCondition";
 import { CONSULT_DAILY_LIMIT, CONSULT_HISTORY_ANSWER_MAX, CONSULT_MAX_HISTORY, CONSULT_MAX_QUESTION } from "@hpai/shared/consult/types";
 import type { ConsultAnswerCard, ConsultAskResponse, ConsultCard, ConsultFarmCondition, ConsultNotice, ConsultSource, ConsultTurn } from "@hpai/shared/consult/types";
 import { OUT_OF_SCOPE_TEXT, validateAsk, validateFollowUps } from "@hpai/shared/consult/validate";
@@ -115,7 +116,8 @@ function parseHistory(data: unknown): ConsultTurn[] {
 }
 
 /**
- * 農場の条件。項目がない／null は条件なし（null）。列挙の外の値、型の違い、余計な項目、空の条件は invalid-argument（エラーの文に入力を入れない）。
+ * 農場の条件。項目がない／null は条件なし（null）。列挙の外の値（羽数の幅 scale も列挙だけ）、型の違い、余計な項目（正確な羽数など）、
+ * 空の条件、幅だけの条件は invalid-argument（エラーの文に入力を入れない）。
  */
 function parseFarm(data: unknown): ConsultFarmCondition | null {
   const r = parseFarmCondition(isRecord(data) ? data["farm"] : undefined);
@@ -231,7 +233,9 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
   if (!attempt.ok && attempt.reason !== "refusal") return unavailable(who, `claude:${attempt.reason}`);
 
   // 第 3 引数のカードと第 5 引数の相談の文は数字の検査に使う（渡さないと、数字を含む答えが全部落ちる）。5 枚を超えたら先頭の 5 枚だけ使う
-  const result = validateAsk(attempt.ok ? attempt.value : null, allowed.map((c) => c.id), allowed, CONSULT_MAX_CARDS, [...history.map((t) => t.question), question]);
+  // 羽数の幅（「3,000 羽以上」など）も Claude に渡した文なので、答えが条件を言い直したときに落とさないよう加える
+  const scaleText = farm?.scale ? [SCALE_LABEL[farm.scale]] : [];
+  const result = validateAsk(attempt.ok ? attempt.value : null, allowed.map((c) => c.id), allowed, CONSULT_MAX_CARDS, [...history.map((t) => t.question), question, ...scaleText]);
   // 発生の件数の問い: Claude は数え方だけを選ぶ。件数と表の文はプログラムが過去の事例から組む。Claude が範囲外とした問いでは数えない
   const statsQuery = attempt.ok && attempt.value.outOfScope !== true ? parseStatsQuery(attempt.value.stats) : null;
   const stats = statsQuery ? computeStats(pastCases, statsQuery) : null;

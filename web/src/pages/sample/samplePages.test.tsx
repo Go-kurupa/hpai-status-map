@@ -315,6 +315,7 @@ describe("/sample/record", () => {
 
   it("週の報告文をコピーできる（見本の農場名が入る）", async () => {
     mount("/sample/record/deaths");
+    fireEvent.click(await screen.findByRole("button", { name: RECORD_TEXT.weeklyOpen })); // 畳んである（2026-11-07 精査 C）
     const box = (await screen.findByLabelText("週の報告文の下書き")) as HTMLTextAreaElement;
     expect(box.value).toContain("架空の見本農場");
     fireEvent.click(within(box.closest(".copy-box") as HTMLElement).getByRole("button", { name: RECORD_TEXT.copy }));

@@ -1,4 +1,4 @@
-// 自己点検（設計書 §8）。7 項目を ○ か × で記録し、報告文を作ってコピーする。送るのは人（送信のボタンは置かない）。
+// 自己点検（設計書 §8）。7 項目を「できている」「できていない」の押しボタンで記録し、報告文（○×）を作ってコピーする。送るのは人（送信のボタンは置かない）。
 // 期限は農場ごとに設定する（固定しない）。RecordStore と DataSource だけを使う。
 import { jstDateOf } from "@hpai/shared/dates";
 import { formatJaDate } from "@hpai/shared/jaDate";
@@ -92,18 +92,19 @@ function SelfCheckBody({ farm }: { farm: Farm & { id: string } }) {
           <legend>
             {it.no} {it.label}
           </legend>
-          {(
-            [
-              ["ok", RECORD_TEXT.selfOk],
-              ["ng", RECORD_TEXT.selfNg],
-              [null, RECORD_TEXT.selfBlank],
-            ] as const
-          ).map(([v, text]) => (
-            <label key={text} className="self-choice">
-              <input type="radio" name={`self-${it.no}`} checked={answers[it.no] === v} disabled={!loaded} onChange={() => pick(it.no, v)} />
-              {text}
-            </label>
-          ))}
+          <div className="self-answer">
+            {(
+              [
+                ["ok", RECORD_TEXT.selfOk],
+                ["ng", RECORD_TEXT.selfNg],
+              ] as const
+            ).map(([v, text]) => (
+              // 押していない状態が未記入。押してある方をもう一度押すと未記入に戻す（保存の形は ok・ng・null のまま）
+              <Button key={v} aria-pressed={answers[it.no] === v} disabled={!loaded} onClick={() => pick(it.no, answers[it.no] === v ? null : v)}>
+                {text}
+              </Button>
+            ))}
+          </div>
         </fieldset>
       ))}
       <Button variant="primary" disabled={busy || !loaded} onClick={() => void save()}>
@@ -112,6 +113,7 @@ function SelfCheckBody({ farm }: { farm: Farm & { id: string } }) {
       {saved ? <p role="status">{RECORD_TEXT.saved}</p> : null}
       {failed ? <p role="alert">{RECORD_TEXT.saveFailed}</p> : null}
       <h2>{RECORD_TEXT.selfReportHeading}</h2>
+      <p className="record-note">{RECORD_TEXT.selfReportNote}</p>
       <CopyBox label={RECORD_TEXT.selfReportLabel} value={report} />
     </>
   );

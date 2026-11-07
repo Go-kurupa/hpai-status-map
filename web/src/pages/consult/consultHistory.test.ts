@@ -209,6 +209,24 @@ describe("今回使った条件（farm）の記録", () => {
     expect(back[0]!.turns[0]!.result.farm).toEqual({ rearing: "cage" });
   });
 
+  it("羽数の幅（scale）の付いた条件も読み戻せる。幅のない前からの記録もそのまま読める。列挙の外の幅や正確な羽数の往復は捨てる", () => {
+    const key = historyKey("u1");
+    const r = (farm: unknown) => ({ ...answered("答え"), farm }) as unknown as ConsultAskResponse;
+    localStorage.setItem(
+      key,
+      JSON.stringify([
+        conv("幅あり", 5, [turn("q", r({ production: "layer", rearing: "floor", scale: "1000to3000" }))]),
+        conv("幅なし", 4, [turn("q", r({ production: "layer", rearing: "floor" }))]),
+        conv("列挙の外の幅", 3, [turn("q", r({ production: "layer", scale: "huge" }))]),
+        conv("正確な羽数", 2, [turn("q", r({ production: "layer", flockSize: 1900 }))]),
+      ]),
+    );
+    const back = loadConversations(key);
+    expect(back.map((c) => c.id)).toEqual(["幅あり", "幅なし"]);
+    expect(back[0]!.turns[0]!.result.farm).toEqual({ production: "layer", rearing: "floor", scale: "1000to3000" });
+    expect(back[1]!.turns[0]!.result.farm).toEqual({ production: "layer", rearing: "floor" });
+  });
+
   it("続けて聞くときに渡す前の往復には、条件を入れない（問いと答えだけ）", () => {
     const withFarm = { ...answered("a1"), farm: { production: "layer" } } as ConsultAskResponse;
     expect(historyForAsk([turn("1", withFarm)])).toEqual([{ question: "1", answer: "a1" }]);

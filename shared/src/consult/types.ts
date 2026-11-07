@@ -111,13 +111,21 @@ export interface ConsultAskResponse {
 
 /**
  * 相談に付ける農場の条件。本人が農場の設定に登録し、その相談で「この飼い方で相談する」を選んだときだけ送る。
- * 飼育目的（production）と飼い方（rearing）だけ。登録のない側の項目は入れない（推測で埋めない）。鶏舎の造り（housing）は入れない。
+ * 飼育目的（production）と飼い方（rearing）と、任意の羽数の幅（scale）だけ。登録のない側の項目は入れない（推測で埋めない）。鶏舎の造り（housing）は入れない。
+ * scale は飼育目的か飼い方があるときだけ足す（幅だけの条件は作らない）。正確な羽数は入れない。
  * Claude にはカードを選ぶ材料として渡し、根拠にはしない（根拠はカードだけ）。
  */
 export interface ConsultFarmCondition {
   production?: Production;
   rearing?: FarmRearing;
+  scale?: FlockScale;
 }
+
+/**
+ * 羽数の幅。空舎を除く鶏舎の飼養羽数の合計から画面が作る（farmCondition.ts の scaleOfHouses）。
+ * under1000: 1,000 羽未満、1000to3000: 1,000 羽以上 3,000 羽未満、over3000: 3,000 羽以上（ちょうど 3,000 羽はここ）。
+ */
+export type FlockScale = "under1000" | "1000to3000" | "over3000";
 
 /** 続けて聞くときに、画面が関数へ渡す前の往復（同じ相談の直前の分だけ）。根拠にはしない。問いの意味を読む材料。 */
 export interface ConsultTurn {

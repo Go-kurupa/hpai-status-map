@@ -1,4 +1,5 @@
 // AIに対策を相談の画面。相談の関数（consultAskCall）、カードの一覧、足した項目の口は偽物に差し替える。
+import { SCALE_LABEL } from "@hpai/shared/consult/farmCondition";
 import { STATS_SOURCE, computeStats } from "@hpai/shared/consult/stats";
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
 import { CONSULT_DAILY_LIMIT, type ConsultAnswerCard, type ConsultCard, type ConsultSource } from "@hpai/shared/consult/types";
@@ -21,6 +22,8 @@ const box = vi.hoisted(() => ({
   reviews: { addReview: vi.fn(), listReviews: vi.fn(), removeReview: vi.fn() },
   auth: { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} } as unknown,
   getFarm: vi.fn(),
+  // 鶏舎（羽数の幅を作る）。既定は鶏舎なし
+  listHouses: vi.fn(),
   // カードの一覧（/consult/cards.json）。足し済みの判定で、足したカードの id から対策の文を引くのに使う
   loadCatalog: vi.fn(),
 }));
@@ -68,8 +71,12 @@ function reply(over: Partial<ConsultAskResponse> = {}): ConsultAskResponse {
   return { answer: "履き替えの前後で動線を分けてください。", cards: [ans(CARD_JP), ans(CARD_US)], outOfScope: false, notice: null, ...over };
 }
 
-// 農場の登録（飼育目的と飼い方）は getFarm で読む。既定は農場なし
-const store = { mode: "firestore", getFarm: (...a: unknown[]) => box.getFarm(...a) } as unknown as RecordStore;
+// 農場の登録（飼育目的と飼い方）は getFarm、鶏舎の羽数（幅を作る）は listHouses で読む。既定は農場なし・鶏舎なし
+const store = {
+  mode: "firestore",
+  getFarm: (...a: unknown[]) => box.getFarm(...a),
+  listHouses: (...a: unknown[]) => box.listHouses(...a),
+} as unknown as RecordStore;
 function renderPage(url = "/consult") {
   return render(
     <RecordStoreProvider value={store}>
@@ -100,6 +107,7 @@ beforeEach(() => {
   box.reviews.removeReview.mockReset().mockResolvedValue(undefined);
   box.auth = { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} };
   box.getFarm.mockReset().mockResolvedValue(null);
+  box.listHouses.mockReset().mockResolvedValue([]);
   box.loadCatalog.mockReset().mockResolvedValue(catalogOf());
   Element.prototype.scrollIntoView = vi.fn();
   localStorage.clear();
@@ -1271,7 +1279,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor" } }));
     renderPage();
     fireEvent.click(await useIt());
-    expect(within(condition()).getByText("条件として送るのは「採卵鶏・平飼い」だけです。鶏舎の造り・農場名・場所・記録は送りません。")).toBeTruthy();
+    expect(within(condition()).getByText("条件として送るのは「採卵鶏・平飼い」だけです。鶏舎の造り・正確な羽数・農場名・場所・記録は送りません。")).toBeTruthy();
     await askText("長靴は？");
     expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, false, [], { production: "layer", rearing: "floor" });
     const advice = screen.getByTestId("consult-advice");
@@ -1296,7 +1304,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     renderPage();
     fireEvent.click(await useIt());
     expect(within(condition()).getByText("登録した条件: 採卵鶏・飼い方は未登録")).toBeTruthy();
-    expect(within(condition()).getByText("条件として送るのは「採卵鶏」だけです。鶏舎の造り・農場名・場所・記録は送りません。")).toBeTruthy();
+    expect(within(condition()).getByText("条件として送るのは「採卵鶏」だけです。鶏舎の造り・正確な羽数・農場名・場所・記録は送りません。")).toBeTruthy();
     await askText("長靴は？");
     expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, false, [], { production: "layer" });
     expect(screen.getByText("今回の条件: 採卵鶏")).toBeTruthy();
@@ -1530,6 +1538,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     expect(screen.getByText("審査員の方向けの試しの画面です。1 日の回数に上限があり、相談は保存しません。")).toBeTruthy();
     expect(screen.queryByTestId("consult-condition")).toBeNull();
     expect(box.getFarm).not.toHaveBeenCalled();
+    expect(box.listHouses).not.toHaveBeenCalled();
   });
 
   it("条件の欄と食い違いの確認の文に禁止語がない", async () => {
@@ -1541,5 +1550,118 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     await screen.findByTestId("consult-conflict");
     expect(findWordingViolations(condition().textContent ?? "")).toEqual([]);
     expect(findWordingViolations(screen.getByTestId("consult-conflict").textContent ?? "")).toEqual([]);
+  });
+});
+
+describe("羽数の幅（鶏舎の飼養羽数の合計から画面が作る。送るのは幅だけ）", () => {
+  const FARM = {
+    id: "f1", name: "A 農場", memberUids: ["u1"], unsubscribedUids: [], meshCode: "53394611", muniCode: "33203", prefCode: "33",
+    frequentMuniCodes: [], housing: "open", kahoContact: "", notify: { level1: true, level2: true, level3: true, morningDigest: true, selfCheckRemindDays: null },
+    selfCheckDue: {}, updatedAt: "2026-11-07T10:00:00+09:00", production: "layer", rearing: "floor",
+  };
+  const house = (id: string, flockSize: unknown, empty = false) => ({ id, name: `${id} 号舎`, birdType: "採卵鶏", flockSize, empty });
+  const condition = () => screen.getByTestId("consult-condition");
+  const useIt = () => screen.findByRole("checkbox", { name: CONSULT_TEXT.conditionUse });
+
+  it("空舎を除く合計（1,200＋700＝1,900 羽）から「1,000〜2,999 羽」を作り、表示・送る内容・答えの近く・端末の記録に入れる。正確な羽数は送らない", async () => {
+    box.getFarm.mockResolvedValue(FARM);
+    box.listHouses.mockResolvedValue([house("1", 1200), house("2", 700), house("3", 0, true)]);
+    box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor", scale: "1000to3000" } }));
+    renderPage();
+    fireEvent.click(await useIt());
+    expect(within(condition()).getByText("登録した条件: 採卵鶏・平飼い・1,000〜2,999 羽")).toBeTruthy();
+    expect(within(condition()).getByText("条件として送るのは「採卵鶏・平飼い・1,000〜2,999 羽」だけです。鶏舎の造り・正確な羽数・農場名・場所・記録は送りません。")).toBeTruthy();
+    await askText("長靴は？");
+    expect(box.ask.mock.calls).toEqual([[{ question: "長靴は？" }, false, [], { production: "layer", rearing: "floor", scale: "1000to3000" }]]);
+    expect(JSON.stringify(box.ask.mock.calls)).not.toMatch(/1900|1200|700/u);
+    expect(within(screen.getByTestId("consult-advice")).getByText("今回の条件: 採卵鶏・平飼い・1,000〜2,999 羽")).toBeTruthy();
+    const stored = JSON.parse(localStorage.getItem("hpai.consult.history.v1:u1") ?? "[]") as { turns: { result: { farm?: unknown } }[] }[];
+    expect(stored[0]!.turns[0]!.result.farm).toEqual({ production: "layer", rearing: "floor", scale: "1000to3000" });
+  });
+
+  it("境目: 合計 999 は「1,000 羽未満」、ちょうど 3,000 は「3,000 羽以上」", async () => {
+    for (const [houses, label] of [
+      [[house("1", 999)], "1,000 羽未満"],
+      [[house("1", 2000), house("2", 1000)], "3,000 羽以上"],
+    ] as const) {
+      box.getFarm.mockResolvedValue(FARM);
+      box.listHouses.mockResolvedValue(houses);
+      renderPage();
+      await useIt();
+      expect(within(condition()).getByText(`登録した条件: 採卵鶏・平飼い・${label}`)).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("鶏舎なし・全部空舎・羽数が読めない鶏舎がある・鶏舎を読めないときは、幅を作らず（推測で埋めない）、飼育目的と飼い方だけで相談できる", async () => {
+    const cases: [string, () => void][] = [
+      ["鶏舎なし", () => box.listHouses.mockResolvedValue([])],
+      ["全部空舎", () => box.listHouses.mockResolvedValue([house("1", 0, true), house("2", 0, true)])],
+      ["読めない羽数", () => box.listHouses.mockResolvedValue([house("1", 5000), house("2", "たくさん")])],
+      ["読み込みの失敗", () => box.listHouses.mockRejectedValue(new Error("offline"))],
+      [
+        "同期の例外",
+        () =>
+          box.listHouses.mockImplementation(() => {
+            throw new Error("boom");
+          }),
+      ],
+    ];
+    for (const [name, set] of cases) {
+      box.getFarm.mockResolvedValue(FARM);
+      box.listHouses.mockReset();
+      set();
+      box.ask.mockReset().mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor" } }));
+      renderPage();
+      fireEvent.click(await useIt());
+      expect(within(condition()).getByText("登録した条件: 採卵鶏・平飼い"), name).toBeTruthy();
+      expect(within(condition()).queryByText(/羽未満|羽以上|〜3,000 羽/u), name).toBeNull();
+      await askText("長靴は？");
+      expect(box.ask.mock.calls[0]![3], name).toEqual({ production: "layer", rearing: "floor" });
+      cleanup();
+      localStorage.clear();
+    }
+  });
+
+  it("飼育目的も飼い方も未登録なら、鶏舎があっても選ぶ欄を出さない（幅だけの条件は作らない）", async () => {
+    box.getFarm.mockResolvedValue({ ...FARM, production: null, rearing: null });
+    box.listHouses.mockResolvedValue([house("1", 5000)]);
+    renderPage();
+    expect(await within(await screen.findByTestId("consult-condition")).findByText(/^登録した条件: 未登録。/u)).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: CONSULT_TEXT.conditionUse })).toBeNull();
+  });
+
+  it("鶏舎を読み終えるまで選ぶ欄を出さない（最初の 1 回だけ幅なしで送ることがない）", async () => {
+    box.getFarm.mockResolvedValue(FARM);
+    let done: (v: unknown) => void = () => {};
+    box.listHouses.mockReturnValue(new Promise((r) => (done = r)));
+    renderPage();
+    await waitFor(() => expect(box.listHouses).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole("checkbox", { name: CONSULT_TEXT.conditionUse })).toBeNull();
+    done([house("1", 4000)]);
+    await useIt();
+    expect(within(condition()).getByText("登録した条件: 採卵鶏・平飼い・3,000 羽以上")).toBeTruthy();
+  });
+
+  it("幅の語と、幅つきの条件の欄の文に禁止語がない", async () => {
+    for (const label of Object.values(SCALE_LABEL)) expect(findWordingViolations(label), label).toEqual([]);
+    box.getFarm.mockResolvedValue(FARM);
+    box.listHouses.mockResolvedValue([house("1", 4000)]);
+    renderPage();
+    fireEvent.click(await useIt());
+    expect(condition().textContent).toContain("3,000 羽以上");
+    expect(findWordingViolations(condition().textContent ?? "")).toEqual([]);
+  });
+
+  it("質問の羽数と幅は突き合わせない（食い違いの確認を出さない）", async () => {
+    box.getFarm.mockResolvedValue(FARM);
+    box.listHouses.mockResolvedValue([house("1", 4000)]);
+    box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor", scale: "over3000" } }));
+    renderPage();
+    fireEvent.click(await useIt());
+    await askText("うちは 300 羽です。長靴は？");
+    expect(screen.queryByTestId("consult-conflict")).toBeNull();
+    expect(box.ask.mock.calls[0]![3]).toEqual({ production: "layer", rearing: "floor", scale: "over3000" });
   });
 });

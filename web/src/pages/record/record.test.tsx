@@ -238,7 +238,7 @@ describe("RecordTabs 保存の後に『最後の記録』を読み直す", () =>
     );
     expect(await screen.findByText("最後の記録: なし")).toBeTruthy();
     await selfReady();
-    fireEvent.click(within(screen.getByRole("group", { name: /^17 / })).getByLabelText("○"));
+    fireEvent.click(within(screen.getByRole("group", { name: /^17 / })).getByRole("button", { name: RECORD_TEXT.selfOk }));
     fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.selfSave }));
     await waitFor(() => expect(saveCheck).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("最後の記録: 2026年11月6日")).toBeTruthy();
@@ -600,11 +600,49 @@ describe("DeathsPanel 週の報告文", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: vi.fn(async () => {}) }, configurable: true });
   });
 
+  const openWeekly = () => fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.weeklyOpen }));
+
+  it("開いた直後は畳んであり、見出しと『週の報告文を作る』のボタンだけを出す（aria-expanded は false）", async () => {
+    mount(<DeathsPanel />);
+    await ready();
+    expect(screen.getByRole("heading", { name: RECORD_TEXT.weeklyHeading })).toBeTruthy();
+    const btn = screen.getByRole("button", { name: RECORD_TEXT.weeklyOpen });
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByLabelText("週の報告文の下書き")).toBeNull();
+    expect(screen.queryByLabelText(RECORD_TEXT.weeklyStart)).toBeNull();
+    expect(screen.queryByLabelText(RECORD_TEXT.weeklyCulled)).toBeNull();
+    expect(screen.queryByText(/様式の項目に合わせた下書きです/)).toBeNull();
+  });
+
+  it("押すと開き（aria-expanded は true、aria-controls は開いた中身）、もう一度押すと畳む。入れた値は畳んでも残る", async () => {
+    mount(<DeathsPanel />);
+    await ready();
+    openWeekly();
+    const btn = screen.getByRole("button", { name: RECORD_TEXT.weeklyOpen });
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    const body = document.getElementById(btn.getAttribute("aria-controls") ?? "");
+    expect(body).toBeTruthy();
+    expect(within(body!).getByLabelText("週の報告文の下書き")).toBeTruthy();
+    for (const label of [RECORD_TEXT.weeklyStart, RECORD_TEXT.weeklyCulled, RECORD_TEXT.weeklyIntroduced, RECORD_TEXT.weeklyHealth, RECORD_TEXT.weeklyMortality]) {
+      expect(within(body!).getByLabelText(label)).toBeTruthy();
+    }
+    setValue(RECORD_TEXT.weeklyCulled, "7");
+    setValue(RECORD_TEXT.weeklyHealth, "産卵率は横ばい");
+    openWeekly();
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByLabelText(RECORD_TEXT.weeklyCulled)).toBeNull();
+    openWeekly();
+    expect((screen.getByLabelText(RECORD_TEXT.weeklyCulled) as HTMLInputElement).value).toBe("7");
+    expect((screen.getByLabelText(RECORD_TEXT.weeklyHealth) as HTMLTextAreaElement).value).toBe("産卵率は横ばい");
+    expect((screen.getByLabelText("週の報告文の下書き") as HTMLTextAreaElement).value).toContain("廃鶏出荷羽数: 7");
+  });
+
   it("様式の項目に合わせた下書きを出し、コピーでき、保存を呼ばない", async () => {
     deaths = [rec(addDays(TODAY, -1), 2)];
     mount(<DeathsPanel />);
     await ready();
     await screen.findByText(RECORD_TEXT.weeklyHeading);
+    openWeekly();
     expect(screen.getByText(/様式の項目に合わせた下書きです/)).toBeTruthy();
     const report = (await screen.findByLabelText("週の報告文の下書き")) as HTMLTextAreaElement;
     expect(report.value).toContain("農場名: 見本農場");
@@ -633,21 +671,47 @@ describe("SelfCheckPanel", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: vi.fn(async () => {}) }, configurable: true });
   });
 
-  it("○ と × の意味を、項目より先に出す", async () => {
+  const answer = (no: string, text: string) => within(screen.getByRole("group", { name: new RegExp(`^${no} `) })).getByRole("button", { name: text });
+  const pressed = (no: string) =>
+    [RECORD_TEXT.selfOk, RECORD_TEXT.selfNg].map((t) => answer(no, t).getAttribute("aria-pressed"));
+
+  it("項目ごとに『できている』『できていない』の押しボタン 2 つ（aria-pressed）。丸の選択肢と『未記入』の選択肢はない", async () => {
     mount(<SelfCheckPanel />);
-    const legend = await screen.findByText(/^○ できている\s+× できていない$/);
-    const firstItem = (await screen.findAllByRole("group"))[0]!;
-    expect(legend.compareDocumentPosition(firstItem) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await selfReady();
+    for (const no of ["17", "18", "19", "22", "23", "25", "27"]) {
+      const g = screen.getByRole("group", { name: new RegExp(`^${no} `) });
+      expect(within(g).getAllByRole("button").map((b) => b.textContent)).toEqual([RECORD_TEXT.selfOk, RECORD_TEXT.selfNg]);
+      expect(pressed(no)).toEqual(["false", "false"]);
+    }
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    expect(screen.queryByText("未記入")).toBeNull();
+    expect(RECORD_TEXT.selfOk).toBe("できている");
+    expect(RECORD_TEXT.selfNg).toBe("できていない");
   });
 
-  it("読み込み中はラジオも保存も disabled で、読み終えると押せる", async () => {
+  it("使い方（もう一度押すと未記入に戻る）は項目より先に 1 回。報告文の ○× との対応は報告文の近くに 1 回", async () => {
+    const { container } = mount(<SelfCheckPanel />);
+    const how = await screen.findByText(RECORD_TEXT.selfMeaning);
+    const firstItem = (await screen.findAllByRole("group"))[0]!;
+    expect(how.compareDocumentPosition(firstItem) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const map = screen.getByText(RECORD_TEXT.selfReportNote);
+    const reportHeading = screen.getByRole("heading", { name: RECORD_TEXT.selfReportHeading });
+    expect(reportHeading.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(RECORD_TEXT.selfReportNote).toMatch(/○/);
+    expect(RECORD_TEXT.selfReportNote).toMatch(/×/);
+    // ○× の説明は 1 回だけ（断りを繰り返さない）
+    expect((container.textContent ?? "").split("○").length - 1).toBe(1);
+    expect(RECORD_TEXT.selfLead).not.toMatch(/○|×/);
+  });
+
+  it("読み込み中は答えのボタンも保存も disabled で、読み終えると押せる", async () => {
     let release: (v: Array<CheckRecord & { id: string }>) => void = () => {};
     store = { ...store, listChecks: vi.fn(() => new Promise((r) => { release = r as typeof release; })) } as unknown as RecordStore;
     mount(<SelfCheckPanel />);
     const btn = (await screen.findByRole("button", { name: RECORD_TEXT.selfSave })) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
-    const radios = screen.getAllByRole("radio") as HTMLInputElement[];
-    expect(radios.length).toBe(21);
+    const radios = screen.getAllByRole("button", { name: new RegExp(`^(${RECORD_TEXT.selfOk}|${RECORD_TEXT.selfNg})$`) }) as HTMLButtonElement[];
+    expect(radios.length).toBe(14);
     expect(radios.every((r) => r.disabled)).toBe(true);
     // 読み込みは effect で始まる。ボタンは最初の描画で出るので、始まるのを待ってから読み終えさせる（早いと release がまだ空の関数）
     await waitFor(() => expect(store.listChecks).toHaveBeenCalled());
@@ -668,21 +732,30 @@ describe("SelfCheckPanel", () => {
     expect(saveCheck).not.toHaveBeenCalled();
   });
 
-  it("ラベルの文字を押すとその答えが選ばれる", async () => {
+  it("押すとその答えだけが押された状態になり、もう一方を押すと替わり、同じものをもう一度押すと未記入（両方押していない）に戻る", async () => {
     mount(<SelfCheckPanel />);
     await selfReady();
-    const g = screen.getByRole("group", { name: /^17 / });
-    fireEvent.click(within(g).getByText("×"));
-    expect((within(g).getByLabelText("×") as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(answer("17", RECORD_TEXT.selfNg));
+    expect(pressed("17")).toEqual(["false", "true"]);
+    expect(pressed("18")).toEqual(["false", "false"]);
+    fireEvent.click(answer("17", RECORD_TEXT.selfOk));
+    expect(pressed("17")).toEqual(["true", "false"]);
+    fireEvent.click(answer("17", RECORD_TEXT.selfOk));
+    expect(pressed("17")).toEqual(["false", "false"]);
+    fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.selfSave }));
+    await waitFor(() => expect(saveCheck).toHaveBeenCalledTimes(1));
+    expect((saveCheck.mock.calls[0]?.[0] as { answers: Record<string, unknown> }).answers["17"]).toBeNull();
   });
 
-  it("ラジオは 48px の押す部分（record.css）", () => {
+  it("答えのボタンは部品の .btn（高さ --tap）で、押した状態は theme の変数の色（record.css）", () => {
     const css = readFileSync("web/src/pages/record/record.css", "utf-8");
-    const m = css.match(/\.self-choice input\s*\{([^}]*)\}/);
+    const m = css.match(/\.self-answer \.btn\[aria-pressed="true"\]\s*\{([^}]*)\}/);
     expect(m).toBeTruthy();
     const body = m?.[1] ?? "";
-    expect(body).toMatch(/width:\s*48px/);
-    expect(body).toMatch(/height:\s*48px/);
+    expect(body).toMatch(/background:\s*var\(--accent\)/);
+    expect(body).toMatch(/color:\s*var\(--on-accent\)/);
+    expect(body).not.toMatch(/#[0-9a-f]{3,6}/i);
+    expect(css).not.toMatch(/\.self-choice/);
     expect(css).toMatch(/\.death-result-focus:focus\s*\{\s*outline:\s*none/);
   });
 
@@ -694,16 +767,14 @@ describe("SelfCheckPanel", () => {
     expect(screen.queryByRole("button", { name: RECORD_TEXT.selfSave })).toBeNull();
   });
 
-  it("7 項目を番号つきの ○× で保存し、コピーできる。送信のボタンはない", async () => {
+  it("7 項目を番号つきで保存し（形は ok・ng・null のまま）、報告文は ○× でコピーできる。送信のボタンはない", async () => {
     mount(<SelfCheckPanel />);
     await selfReady();
     for (const no of ["17", "18", "19", "22", "23", "25", "27"]) {
       expect(screen.getByRole("group", { name: new RegExp(`^${no} `) })).toBeTruthy();
     }
-    for (const no of ["17", "18", "22", "23", "25"]) {
-      fireEvent.click(within(screen.getByRole("group", { name: new RegExp(`^${no} `) })).getByLabelText("○"));
-    }
-    fireEvent.click(within(screen.getByRole("group", { name: /^19 / })).getByLabelText("×"));
+    for (const no of ["17", "18", "22", "23", "25"]) fireEvent.click(answer(no, RECORD_TEXT.selfOk));
+    fireEvent.click(answer("19", RECORD_TEXT.selfNg));
     fireEvent.click(screen.getByRole("button", { name: RECORD_TEXT.selfSave }));
     await waitFor(() => expect(saveCheck).toHaveBeenCalledTimes(1));
     const answers: Record<SelfCheckItemNo, "ok" | "ng" | null> = {
@@ -749,10 +820,9 @@ describe("SelfCheckPanel", () => {
       },
     ];
     mount(<SelfCheckPanel />);
-    await waitFor(() => {
-      const g = screen.getByRole("group", { name: /^19 / });
-      expect((within(g).getByLabelText("×") as HTMLInputElement).checked).toBe(true);
-    });
+    await waitFor(() => expect(pressed("19")).toEqual(["false", "true"]));
+    expect(pressed("17")).toEqual(["true", "false"]);
+    expect(pressed("18")).toEqual(["false", "false"]);
   });
 });
 

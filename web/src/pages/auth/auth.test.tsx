@@ -532,9 +532,18 @@ describe("入る方法の並びと、リンクを送った後の文", () => {
     });
   }
 
+  it("/join/:code の見出しは『招待を受けて会員になる』（コードの欄はないので『招待コードで登録』と言わない）。/login の見出しは『ログイン』のまま", async () => {
+    mount("/join/CODE123");
+    expect(await screen.findByRole("heading", { level: 1, name: "招待を受けて会員になる" })).toBeTruthy();
+    expect(screen.queryByText("招待コードで登録")).toBeNull();
+    cleanup();
+    mount("/login");
+    expect(await screen.findByRole("heading", { level: 1, name: "ログイン" })).toBeTruthy();
+  });
+
   it("/join/:code: h1 の下に、会員になると使えることを書く", async () => {
     mount("/join/CODE123");
-    const h1 = await screen.findByRole("heading", { level: 1, name: "招待コードで登録" });
+    const h1 = await screen.findByRole("heading", { level: 1, name: "招待を受けて会員になる" });
     const lead = h1.nextElementSibling;
     expect(lead?.textContent).toBe("入ると、農場の設定・死亡や消毒の記録・対策項目・AI への相談が使えます。パスワードはいりません");
     expect(screen.queryByText(/招待されたので/)).toBeNull();

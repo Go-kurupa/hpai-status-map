@@ -41,6 +41,35 @@ export function seasonMonths(season: Season): string[] {
   return months;
 }
 
+/**
+ * 「各月の分」の自己点検の期限の日付。month（"2026-11"）の分は翌月の day 日（"2026-12-05"）。
+ * 翌月にない日（31 日など）は、翌月の末日にする。selfCheckDue の値の形（"YYYY-MM"→"YYYY-MM-DD"）は変えない。
+ * 翌月とするのは、期限の知らせの決まり（shared/src/notices.ts: 5 月分の期限は 6 月 2〜6 日）と同じ向き。
+ */
+export function dueDateOf(month: string, day: number): string {
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  const last = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  return `${ny}-${String(nm).padStart(2, "0")}-${String(Math.min(day, last)).padStart(2, "0")}`;
+}
+
+/** 選べる日（1〜31 日） */
+export const DUE_DAYS: readonly number[] = Array.from({ length: 31 }, (_, i) => i + 1);
+
+/**
+ * 保存済みの期限が、1 つの「翌月の N 日」で作れるか。months（今季の 8 か月）だけを見る。
+ * - 全部の月が空: ""（まだ選んでいない）
+ * - 全部の月が同じ N から作った日: N
+ * - それ以外（一部だけ空、月ごとに違う日、翌月でない日）: null（月ごとの欄で扱い、保存済みの値を壊さない）
+ */
+export function uniformDueDay(due: Readonly<Record<string, string>>, months: readonly string[]): number | "" | null {
+  const values = months.map((m) => due[m] ?? "");
+  if (values.every((v) => v === "")) return "";
+  if (values.some((v) => v === "")) return null;
+  return DUE_DAYS.find((n) => months.every((m, i) => dueDateOf(m, n) === values[i])) ?? null;
+}
+
 /** 「最終保存 12月19日 14:05」。Farm.updatedAt（JST の ISO 8601）をそのまま読む。読めなければ null */
 export function savedAtLabel(updatedAt: IsoDateTime | undefined): string | null {
   const m = updatedAt ? /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(updatedAt) : null;

@@ -203,10 +203,15 @@ test.describe("デモの筋", () => {
     const result = page.getByRole("region", { name: "計算の結果" });
     await expect(result).toContainText("届け出の基準に達している可能性があります");
     await expect(result).toContainText("直ちに家保へ通報してください");
-    await expect(result).toContainText("迷うときは家保へ確かめてください");
+    await expect(result).toContainText("迷うときは家畜保健衛生所へ確かめてください");
     await expectNoForbiddenText(page);
 
-    // 週の報告文: 作ってコピーできる（送るのは人）
+    // 週の報告文: 畳んである。「週の報告文を作る」で開き、作ってコピーできる（送るのは人）
+    const openWeekly = page.getByRole("button", { name: "週の報告文を作る" });
+    await expect(openWeekly).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByLabel("週の報告文の下書き")).toHaveCount(0);
+    await openWeekly.click();
+    await expect(openWeekly).toHaveAttribute("aria-expanded", "true");
     const weekly = page.getByLabel("週の報告文の下書き");
     await expect(weekly).toContainText("架空の見本農場");
     await weekly.locator("xpath=ancestor::div[contains(@class,'copy-box')]").getByRole("button", { name: "コピー" }).click();
@@ -216,6 +221,11 @@ test.describe("デモの筋", () => {
     await page.goto("/sample/record/self-check");
     const report = page.getByLabel("自己点検の報告文");
     await expect(report).toContainText("農場名: 架空の見本農場");
+    // 答えは「できている」「できていない」の押しボタン。見本の記録の 19 は「できていない」（報告文では ×）
+    const item19 = page.getByRole("group", { name: /^19 / });
+    await expect(item19.getByRole("button", { name: "できていない", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(item19.getByRole("button", { name: "できている", exact: true })).toHaveAttribute("aria-pressed", "false");
+    await expect(report).toContainText("19 衛生管理区域に立ち入る車両の消毒等: ×");
     await expect(page.getByRole("button", { name: /送信|送る/ })).toHaveCount(0);
     await expectNoForbiddenText(page);
   });

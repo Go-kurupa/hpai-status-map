@@ -22,6 +22,7 @@ import { parseStatsQuery, type StatsQuery } from "@hpai/shared/consult/stats";
 import { jstDateOf } from "@hpai/shared/dates";
 import { findTopic } from "@hpai/shared/consult/topics";
 import type { ConsultCard, ConsultTurn, ConsultFarmCondition } from "@hpai/shared/consult/types";
+import { SCALE_LABEL } from "@hpai/shared/consult/farmCondition";
 import { OUT_OF_SCOPE_TEXT, validateAsk, validateFollowUps } from "@hpai/shared/consult/validate";
 import { buildAskRequest, CONSULT_MAX_CARDS, CONSULT_MODEL } from "../../functions/src/consult/claude";
 import { decodeMessage } from "../../functions/src/read/claude";
@@ -44,7 +45,7 @@ export interface EvalCase {
   first?: { question: string } | { topicId: string };
   expect: { outOfScope?: boolean; minCards?: number; outOfScopeOrCleanAnswer?: boolean; stats?: StatsQuery[] };
   scopeGuardHit: boolean;
-  /** 本人が「この飼い方で相談する」を選んだときの条件（F2）。無ければ条件なしの相談 */
+  /** 本人が「この飼い方で相談する」を選んだときの条件（F2。羽数の幅 scale は G）。無ければ条件なしの相談 */
   farm?: ConsultFarmCondition;
 }
 
@@ -214,7 +215,9 @@ async function runOne(client: Anthropic, c: EvalCase, cards: ConsultCard[], stam
   const attempt = decodeMessage(message, z.unknown());
   const raw = attempt.ok ? (attempt.value as { outOfScope?: unknown } | null) : null;
   const outOfScopeRaw = typeof raw?.outOfScope === "boolean" ? raw.outOfScope : null;
-  const result = validateAsk(attempt.ok ? attempt.value : null, cards.map((x) => x.id), cards, CONSULT_MAX_CARDS, [...history.map((t) => t.question), q]);
+  // 本番の関数と同じく、羽数の幅の語の数字も許す
+  const scaleText = c.farm?.scale ? [SCALE_LABEL[c.farm.scale]] : [];
+  const result = validateAsk(attempt.ok ? attempt.value : null, cards.map((x) => x.id), cards, CONSULT_MAX_CARDS, [...history.map((t) => t.question), q, ...scaleText]);
   const followUps = !result.outOfScope && attempt.ok ? validateFollowUps((attempt.value as { followUps?: unknown } | null)?.followUps) : [];
   const failures = [...(attempt.ok ? [] : [`claude:${attempt.reason}`]), ...result.failures];
   const rawValue = attempt.ok ? (attempt.value as { outOfScope?: unknown; stats?: unknown } | null) : null;

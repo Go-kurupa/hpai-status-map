@@ -92,7 +92,7 @@ vi.mock("../auth/callables", () => ({
 const resumeCall = vi.hoisted(() => ({ fn: vi.fn() }));
 vi.mock("./resumeMailCall", () => ({ resumeMailCall: resumeCall.fn }));
 
-import { NEW_FARM_NOTIFY, pickToFarmPatch, savedAtLabel, seasonMonths } from "./farmForm";
+import { dueDateOf, NEW_FARM_NOTIFY, pickToFarmPatch, savedAtLabel, seasonMonths, uniformDueDay } from "./farmForm";
 import FarmSettingsPage from "./FarmSettingsPage";
 import NotifySettingsPage from "./NotifySettingsPage";
 
@@ -179,6 +179,33 @@ describe("farmForm", () => {
 
   it("新しい農場の notify は mFixtures の値と同じ", () => {
     expect(NEW_FARM_NOTIFY).toEqual(DEFAULT_NOTIFY_FIXTURE);
+  });
+
+  it("dueDateOf: 『各月の分』の期限は翌月の N 日。月にない日はその月の末日（年またぎ、うるう年も）", () => {
+    expect(dueDateOf("2026-11", 5)).toBe("2026-12-05");
+    expect(dueDateOf("2026-12", 5)).toBe("2027-01-05");
+    expect(dueDateOf("2026-10", 31)).toBe("2026-11-30");
+    expect(dueDateOf("2027-01", 31)).toBe("2027-02-28");
+    expect(dueDateOf("2027-01", 29)).toBe("2027-02-28");
+    expect(dueDateOf("2028-01", 30)).toBe("2028-02-29");
+    expect(dueDateOf("2027-05", 1)).toBe("2027-06-01");
+    expect(dueDateOf("2026-12", 31)).toBe("2027-01-31");
+  });
+
+  it("uniformDueDay: 8 か月が全部空なら ''、全部が同じ N から作った日なら N、それ以外（一部だけ空、日が違う、同じ月の日）は null", () => {
+    const months = seasonMonths(2026);
+    const of = (n: number) => Object.fromEntries(months.map((m) => [m, dueDateOf(m, n)]));
+    expect(uniformDueDay({}, months)).toBe("");
+    expect(uniformDueDay(Object.fromEntries(months.map((m) => [m, ""])), months)).toBe("");
+    expect(uniformDueDay(of(5), months)).toBe(5);
+    expect(uniformDueDay(of(31), months)).toBe(31);
+    expect(uniformDueDay(of(28), months)).toBe(28);
+    // 前季の月は見ない
+    expect(uniformDueDay({ ...of(5), "2025-12": "2026-01-20" }, months)).toBe(5);
+    const { ["2026-11"]: _gone, ...partial } = of(5);
+    expect(uniformDueDay(partial, months)).toBeNull();
+    expect(uniformDueDay({ ...of(5), "2027-02": "2027-03-06" }, months)).toBeNull();
+    expect(uniformDueDay(Object.fromEntries(months.map((m) => [m, `${m}-05`])), months)).toBeNull();
   });
 
   it("savedAtLabel は日付と時刻を出す。読み込めなければ null", () => {
@@ -443,13 +470,21 @@ describe("/settings/notify", () => {
 
   it("期限の保存で『保存しました』が、そのボタンの直下に出る。入力を変えると消える", async () => {
     mount("/settings/notify");
-    fireEvent.change(await screen.findByLabelText("2026年11月の分の期限"), { target: { value: "2026-12-05" } });
+    fireEvent.change(await screen.findByLabelText("各月の分の期限"), { target: { value: "5" } });
     const btn = screen.getByRole("button", { name: "期限を保存" });
     fireEvent.click(btn);
     const status = await screen.findByText("保存しました");
     expect(btn.nextElementSibling).toBe(status);
-    fireEvent.change(screen.getByLabelText("2026年11月の分の期限"), { target: { value: "2026-12-06" } });
+    fireEvent.change(screen.getByLabelText("各月の分の期限"), { target: { value: "6" } });
     expect(screen.queryByText("保存しました")).toBeNull();
+  });
+
+  it("保存のボタンは 2 つとも同じ種類（主のボタン .btn-primary）", async () => {
+    mount("/settings/notify");
+    await screen.findByRole("button", { name: "通知の設定を保存" });
+    const saves = screen.getAllByRole("button", { name: /を保存$/ });
+    expect(saves.map((b) => b.textContent)).toEqual(["通知の設定を保存", "期限を保存"]);
+    for (const b of saves) expect(b.className.split(" "), b.textContent ?? "").toContain("btn-primary");
   });
 
   it("保存に失敗したら、同じボタンの直下に『保存できませんでした』を出す", async () => {
@@ -472,12 +507,110 @@ describe("/settings/notify", () => {
     expect(link.className).toContain("tap-link");
   });
 
-  it("自己点検の期限は月ごとに入れる。既定の日は入れない", async () => {
+  const dueDay = () => screen.getByLabelText("各月の分の期限") as HTMLSelectElement;
+  const perMonth = () => screen.getByRole("button", { name: "月ごとに変える" });
+
+  it("自己点検の期限は『各月の分の期限』の 1 欄（翌月の 1〜31 日）。既定は選ばない。月ごとの 8 欄は畳んである", async () => {
     mount("/settings/notify");
-    const inputs = await screen.findAllByLabelText(/月の分の期限/);
+    await screen.findByLabelText("各月の分の期限");
+    expect(dueDay().value).toBe("");
+    const options = [...dueDay().options].map((o) => o.textContent);
+    expect(options[0]).toBe("選ばない（知らせない）");
+    expect(options.slice(1)).toEqual(Array.from({ length: 31 }, (_, i) => `翌月の ${i + 1} 日`));
+    expect(perMonth().getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryAllByLabelText(/年\d+月の分の期限/)).toHaveLength(0);
+  });
+
+  it("『月ごとに変える』を押すと、今までの月ごとの 8 欄が開く（aria-expanded、aria-controls）。もう一度押すと畳む", async () => {
+    mount("/settings/notify");
+    await screen.findByLabelText("各月の分の期限");
+    fireEvent.click(perMonth());
+    expect(perMonth().getAttribute("aria-expanded")).toBe("true");
+    const box = document.getElementById(perMonth().getAttribute("aria-controls") ?? "");
+    expect(box).toBeTruthy();
+    const inputs = within(box!).getAllByLabelText(/月の分の期限/);
     expect(inputs).toHaveLength(8);
     expect(inputs.map((i) => (i as HTMLInputElement).value)).toEqual(Array(8).fill(""));
     expect(inputs.map((i) => i.getAttribute("name"))).toEqual(seasonMonths(2026).map((m) => `due-${m}`));
+    fireEvent.click(perMonth());
+    expect(perMonth().getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryAllByLabelText(/年\d+月の分の期限/)).toHaveLength(0);
+  });
+
+  it("1 欄で選んだ日から 8 か月分の日付を作って保存する（selfCheckDue の形は変えない。前季の期限は残す）", async () => {
+    farm = { id: "f1", ...farmFixture("u1", { selfCheckDue: { "2025-12": "2026-01-06" } }) };
+    mount("/settings/notify");
+    fireEvent.change(await screen.findByLabelText("各月の分の期限"), { target: { value: "5" } });
+    expect(screen.getByText("例: 2026年11月の分は 12月5日まで")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "期限を保存" }));
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    expect(saveFarm.mock.calls[0]![0]).toEqual({
+      selfCheckDue: {
+        "2025-12": "2026-01-06",
+        "2026-10": "2026-11-05",
+        "2026-11": "2026-12-05",
+        "2026-12": "2027-01-05",
+        "2027-01": "2027-02-05",
+        "2027-02": "2027-03-05",
+        "2027-03": "2027-04-05",
+        "2027-04": "2027-05-05",
+        "2027-05": "2027-06-05",
+      },
+    });
+  });
+
+  it("月にない日は、その月の末日にして保存する（31 日 → 11 月 30 日、2 月 28 日）", async () => {
+    mount("/settings/notify");
+    fireEvent.change(await screen.findByLabelText("各月の分の期限"), { target: { value: "31" } });
+    fireEvent.click(screen.getByRole("button", { name: "期限を保存" }));
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    const due = (saveFarm.mock.calls[0]![0] as { selfCheckDue: Record<string, string> }).selfCheckDue;
+    expect(due["2026-10"]).toBe("2026-11-30");
+    expect(due["2026-11"]).toBe("2026-12-31");
+    expect(due["2027-01"]).toBe("2027-02-28");
+    expect(due["2027-03"]).toBe("2027-04-30");
+  });
+
+  it("全部の月が同じ日で保存済みなら、その日を選んだ状態で畳んで開く。『選ばない』で保存すると今季の期限を消す（前季は残す）", async () => {
+    const five = Object.fromEntries(seasonMonths(2026).map((m) => [m, dueDateOf(m, 5)]));
+    farm = { id: "f1", ...farmFixture("u1", { selfCheckDue: { ...five, "2025-12": "2026-01-06" } }) };
+    mount("/settings/notify");
+    await screen.findByLabelText("各月の分の期限");
+    expect(dueDay().value).toBe("5");
+    expect(perMonth().getAttribute("aria-expanded")).toBe("false");
+    fireEvent.change(dueDay(), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "期限を保存" }));
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    expect(saveFarm.mock.calls[0]![0]).toEqual({ selfCheckDue: { "2025-12": "2026-01-06" } });
+  });
+
+  it("月ごとに違う日（一部だけ入っているときも）が保存済みなら、『月ごとに変える』を開いた状態で開き、触らずに保存しても値を変えない", async () => {
+    const saved = { "2026-11": "2026-12-05", "2026-12": "2027-01-06" };
+    farm = { id: "f1", ...farmFixture("u1", { selfCheckDue: saved }) };
+    mount("/settings/notify");
+    expect(((await screen.findByLabelText("2026年11月の分の期限")) as HTMLInputElement).value).toBe("2026-12-05");
+    expect((screen.getByLabelText("2026年12月の分の期限") as HTMLInputElement).value).toBe("2027-01-06");
+    expect(perMonth().getAttribute("aria-expanded")).toBe("true");
+    expect(dueDay().value).toBe("mixed");
+    expect(dueDay().selectedOptions[0]?.textContent).toBe("月ごとに違う日");
+    fireEvent.click(screen.getByRole("button", { name: "期限を保存" }));
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    expect(saveFarm.mock.calls[0]![0]).toEqual({ selfCheckDue: saved });
+  });
+
+  it("開いた 8 欄は 1 欄で選んだ日で埋まり、1 か月だけ直して保存できる", async () => {
+    mount("/settings/notify");
+    fireEvent.change(await screen.findByLabelText("各月の分の期限"), { target: { value: "5" } });
+    fireEvent.click(perMonth());
+    expect((screen.getByLabelText("2027年2月の分の期限") as HTMLInputElement).value).toBe("2027-03-05");
+    fireEvent.change(screen.getByLabelText("2027年2月の分の期限"), { target: { value: "2027-03-08" } });
+    expect(dueDay().value).toBe("mixed");
+    fireEvent.click(screen.getByRole("button", { name: "期限を保存" }));
+    await waitFor(() => expect(saveFarm).toHaveBeenCalledTimes(1));
+    const due = (saveFarm.mock.calls[0]![0] as { selfCheckDue: Record<string, string> }).selfCheckDue;
+    expect(due["2027-02"]).toBe("2027-03-08");
+    expect(due["2027-01"]).toBe("2027-02-05");
+    expect(Object.keys(due)).toHaveLength(8);
   });
 
   it("期限の保存は saveFarm に selfCheckDue だけ渡し、他のシーズンの期限と空の月の扱いを守る", async () => {

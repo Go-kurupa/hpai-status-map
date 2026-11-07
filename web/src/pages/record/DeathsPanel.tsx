@@ -182,6 +182,8 @@ function WeeklyReport({
   today: IsoDate;
 }) {
   const id = useId();
+  // 畳んで出す（2026-11-07 精査 C。毎日の記録の下に長い欄を広げない）。値はこの部品が持つので、畳んでも残る
+  const [open, setOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<string>(addDays(today, -6));
   const [culled, setCulled] = useState("");
   const [introduced, setIntroduced] = useState("");
@@ -204,23 +206,30 @@ function WeeklyReport({
   return (
     <section className="weekly-report" aria-label={RECORD_TEXT.weeklyHeading}>
       <h2>{RECORD_TEXT.weeklyHeading}</h2>
-      <p>{RECORD_TEXT.weeklyLead}</p>
-      <div className="record-form">
-        <label htmlFor={`${id}-start`}>{RECORD_TEXT.weeklyStart}</label>
-        <input id={`${id}-start`} type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} />
-        <label htmlFor={`${id}-culled`}>{RECORD_TEXT.weeklyCulled}</label>
-        <input id={`${id}-culled`} type="text" inputMode="numeric" value={culled} onChange={(e) => setCulled(e.target.value)} />
-        {culledN.bad ? <p role="alert">{RECORD_TEXT.weeklyNumberBad}</p> : null}
-        <label htmlFor={`${id}-intro`}>{RECORD_TEXT.weeklyIntroduced}</label>
-        <input id={`${id}-intro`} type="text" inputMode="numeric" value={introduced} onChange={(e) => setIntroduced(e.target.value)} />
-        {introducedN.bad ? <p role="alert">{RECORD_TEXT.weeklyNumberBad}</p> : null}
-        <label htmlFor={`${id}-health`}>{RECORD_TEXT.weeklyHealth}</label>
-        <textarea id={`${id}-health`} rows={2} value={healthNote} onChange={(e) => setHealthNote(e.target.value)} />
-        <label htmlFor={`${id}-mort`}>{RECORD_TEXT.weeklyMortality}</label>
-        <textarea id={`${id}-mort`} rows={2} value={mortalityNote} onChange={(e) => setMortalityNote(e.target.value)} />
-      </div>
-      <p className="record-note">{RECORD_TEXT.weeklyNotSaved}</p>
-      {startOk ? <CopyBox label="週の報告文の下書き" value={text} /> : <p role="alert">{RECORD_TEXT.weeklyNumberBad}</p>}
+      <Button aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen(!open)}>
+        {RECORD_TEXT.weeklyOpen}
+      </Button>
+      {open ? (
+        <div id={`${id}-body`} className="weekly-report-body">
+          <p>{RECORD_TEXT.weeklyLead}</p>
+          <div className="record-form">
+            <label htmlFor={`${id}-start`}>{RECORD_TEXT.weeklyStart}</label>
+            <input id={`${id}-start`} type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} />
+            <label htmlFor={`${id}-culled`}>{RECORD_TEXT.weeklyCulled}</label>
+            <input id={`${id}-culled`} type="text" inputMode="numeric" value={culled} onChange={(e) => setCulled(e.target.value)} />
+            {culledN.bad ? <p role="alert">{RECORD_TEXT.weeklyNumberBad}</p> : null}
+            <label htmlFor={`${id}-intro`}>{RECORD_TEXT.weeklyIntroduced}</label>
+            <input id={`${id}-intro`} type="text" inputMode="numeric" value={introduced} onChange={(e) => setIntroduced(e.target.value)} />
+            {introducedN.bad ? <p role="alert">{RECORD_TEXT.weeklyNumberBad}</p> : null}
+            <label htmlFor={`${id}-health`}>{RECORD_TEXT.weeklyHealth}</label>
+            <textarea id={`${id}-health`} rows={2} value={healthNote} onChange={(e) => setHealthNote(e.target.value)} />
+            <label htmlFor={`${id}-mort`}>{RECORD_TEXT.weeklyMortality}</label>
+            <textarea id={`${id}-mort`} rows={2} value={mortalityNote} onChange={(e) => setMortalityNote(e.target.value)} />
+          </div>
+          <p className="record-note">{RECORD_TEXT.weeklyNotSaved}</p>
+          {startOk ? <CopyBox label="週の報告文の下書き" value={text} /> : <p role="alert">{RECORD_TEXT.weeklyNumberBad}</p>}
+        </div>
+      ) : null}
     </section>
   );
 }

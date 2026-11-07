@@ -34,6 +34,7 @@ test("招待リンクを別の文脈で開き、会員になって、地点を�
   const a = await browser.newContext();
   const pageA = await a.newPage();
   await pageA.goto(`/join/${code}?emulator=1`);
+  await expect(pageA.getByRole("heading", { level: 1, name: "招待を受けて会員になる" })).toBeVisible();
   await pageA.getByLabel("メールアドレス").fill(EMAIL);
   await pageA.getByRole("button", { name: "ログインのリンクを送る" }).click();
   await expect(pageA.getByText(/メールを送りました/)).toBeVisible();

@@ -34,10 +34,27 @@ export function useFormatAsOf(): (iso: IsoDateTime) => string | null {
   return (iso) => (precision === "none" ? null : precision === "date" ? formatAsOfDate(iso) : formatAsOf(iso));
 }
 
-/** 全画面に「いつ時点か」を出す（設計書 §15）。null は読めていない */
-export function AsOf({ iso }: { iso: IsoDateTime | null }) {
+/** 主語を付けたときの、確認できた時点がない書き方（「発表の確認: 未確認」） */
+export const AS_OF_UNCONFIRMED = "未確認";
+/** 主語を付けたときの、まだ届いていない書き方 */
+export const AS_OF_LOADING = "読み込んでいます";
+
+/**
+ * 全画面に「いつ時点か」を出す（設計書 §15）。null は読めていない。
+ * subject を渡すと「発表の確認: 11 月 8 日 6:10 時点」「発表の確認: 未確認」と主語を付ける
+ * （「確認できていません」が単独で出ると、何が確認できていないのか分からないため。2026-11-07 B）。
+ * 渡さないときは今のまま（地図と運営者の画面が使う）。loading は subject があるときだけ見る。
+ */
+export function AsOf({ iso, subject, loading = false }: { iso: IsoDateTime | null; subject?: string; loading?: boolean }) {
   const format = useFormatAsOf();
-  if (iso === null) return <p className="as-of">{UNKNOWN}</p>;
+  if (subject === undefined) {
+    if (iso === null) return <p className="as-of">{UNKNOWN}</p>;
+    const text = format(iso);
+    return text === null ? null : <p className="as-of">{text}</p>;
+  }
+  if (loading) return <p className="as-of">{`${subject}: ${AS_OF_LOADING}`}</p>;
+  if (iso === null) return <p className="as-of">{`${subject}: ${AS_OF_UNCONFIRMED}`}</p>;
   const text = format(iso);
-  return text === null ? null : <p className="as-of">{text}</p>;
+  if (text === null) return null;
+  return <p className="as-of">{`${subject}: ${text === UNKNOWN ? AS_OF_UNCONFIRMED : text}`}</p>;
 }

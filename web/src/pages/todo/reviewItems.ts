@@ -1,7 +1,7 @@
-// 相談から足した見直しの読み出し（会員だけ）。対策項目の画面で 1 度だけ読み、下の欄（ReviewsSection）と
-// 上の「けさの確認」が同じ状態を見る。下の欄で状態を変える・外すと、上の数もそのまま変わる。
-// 並びは読み込んだときに「後でやる」「まだ」を上、「やった」を下にする。押すたびには並べ替えない
-// （押した行が指の下から動き、次の行を押し間違えないように）。
+// 相談から足した見直しの読み出し（会員だけ）。対策項目の画面で 1 度だけ読み、「今日のやること」の行
+// （ReviewsSection の ReviewRow）と集計が同じ状態を見る。行で状態を変える・外すと、集計もそのまま変わる。
+// 画面の並び（まだ → 後でやる → 済み）は今日のやること（TodayList）が開いたときに 1 度だけ決める。
+// ここでの並べ替えは、同じ群の中の順（読み込んだときの順）を決めるだけ。押すたびには並べ替えない。
 import { reviewStatusRank } from "@hpai/shared/consult/review";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadConsultCatalog, type ConsultCatalog } from "../consult/cardsData";

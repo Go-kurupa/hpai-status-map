@@ -85,19 +85,27 @@
   padding: 8px 0;
   border-top: 1px solid var(--hair);
 }
-.self-choice {
-  display: inline-flex;
-  align-items: center;
+/* 自己点検の答え。「できている」「できていない」の押しボタン（.btn、高さ --tap）。押した方は塗る（対策項目の .review-status と同じ組み方） */
+.self-answer {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  min-height: var(--tap);
-  margin-right: 16px;
-  cursor: pointer;
 }
-.self-choice input {
-  width: 48px;
-  height: 48px;
-  margin: 0;
-  flex: none;
+.self-answer .btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.self-answer .btn[aria-pressed="true"]:disabled {
+  opacity: 0.6;
+}
+.self-answer .btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+/* 週の報告文（畳んで出す）。開いた中身はボタンの下 */
+.weekly-report-body {
+  margin-top: 12px;
 }
 .death-result-focus:focus {
   outline: none;

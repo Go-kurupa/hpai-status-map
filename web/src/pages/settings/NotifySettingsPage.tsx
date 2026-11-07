@@ -1,3 +1,5 @@
+import { jstDateOf } from "@hpai/shared/dates";
+import { formatJaDate } from "@hpai/shared/jaDate";
 import { currentSeason, seasonOf } from "@hpai/shared/season";
 import type { Farm, NotifySettings } from "@hpai/shared/types";
 import { useEffect, useState } from "react";
@@ -6,7 +8,7 @@ import { useDataSource, useRecordStore } from "../../data/context";
 import { Button } from "../../ui/Button";
 import { MultipleFarmsError } from "../auth/firestoreRecordStore";
 import { RequireMember } from "../auth/RequireMember";
-import { savedAtLabel, seasonMonths } from "./farmForm";
+import { DUE_DAYS, dueDateOf, savedAtLabel, seasonMonths, uniformDueDay } from "./farmForm";
 import { SaveStatus, useSectionSave } from "./sectionSave";
 import "./settings.css";
 
@@ -24,14 +26,29 @@ const monthLabel = (month: string): string => {
 
 function NotifyForm({ farm: initial }: { farm: Saved }) {
   const store = useRecordStore();
-  const season = currentSeason(useDataSource().now());
+  const ds = useDataSource();
+  const season = currentSeason(ds.now());
   const months = seasonMonths(season);
 
   const [farm, setFarm] = useState<Saved>(initial);
   const [notify, setNotify] = useState<NotifySettings>(initial.notify);
+  // 期限の値は月ごとの欄（due）が正。「各月の分の期限」の 1 欄は、選ぶと 8 か月分の日付をまとめて作る入口
   const [due, setDue] = useState<Record<string, string>>(() =>
     Object.fromEntries(months.map((m) => [m, initial.selfCheckDue[m] ?? ""])),
   );
+  const day = uniformDueDay(due, months);
+  const dayValue = day === null ? "mixed" : String(day);
+  // 保存済みの期限が 1 つの日で作れない（月ごとに違う、一部だけ入っている）ときは、月ごとの欄を開いて出す（値を壊さない）
+  const [perMonthOpen, setPerMonthOpen] = useState(() => uniformDueDay(initial.selfCheckDue, months) === null);
+  const thisMonth = jstDateOf(ds.now()).slice(0, 7);
+  const exampleMonth = months.includes(thisMonth) ? thisMonth : months[0]!;
+
+  function pickDay(v: string) {
+    if (v === "mixed") return;
+    const n = v === "" ? null : Number(v);
+    setDue(Object.fromEntries(months.map((m) => [m, n === null ? "" : dueDateOf(m, n)])));
+    dueSave.reset();
+  }
   // 配信を止めているか。確かめられなければ null（止めている表示は出さず、設定の画面は使える）
   const [stopped, setStopped] = useState<boolean | null>(null);
   const [resume, setResume] = useState<"idle" | "busy" | "failed" | "done">("idle");
@@ -182,25 +199,49 @@ function NotifyForm({ farm: initial }: { farm: Saved }) {
       </section>
 
       <section>
-        <h2>自己点検の期限（月ごと）</h2>
-        <p className="settings-note">期限は県の様式で決まっています。月ごとに、決まった日を入れてください。入れない月は知らせません。</p>
+        <h2>自己点検の期限</h2>
+        <p className="settings-note">
+          期限は県の様式で決まっています。各月の分を出す期限を、翌月の日で選んでください。月にない日（31 日など）は、その月の末日にします。
+        </p>
         <div className="settings-form">
-          {months.map((m) => (
-            <div key={m} className="settings-form">
-              <label htmlFor={`due-${m}`}>{monthLabel(m)}の分の期限</label>
-              <input
-                id={`due-${m}`}
-                name={`due-${m}`}
-                type="date"
-                value={due[m] ?? ""}
-                onChange={(e) => {
-                  setDue((d) => ({ ...d, [m]: e.target.value }));
-                  dueSave.reset();
-                }}
-              />
+          <label htmlFor="due-day">各月の分の期限</label>
+          <select id="due-day" value={dayValue} onChange={(e) => pickDay(e.target.value)}>
+            <option value="">選ばない（知らせない）</option>
+            {day === null ? <option value="mixed">月ごとに違う日</option> : null}
+            {DUE_DAYS.map((n) => (
+              <option key={n} value={String(n)}>
+                翌月の {n} 日
+              </option>
+            ))}
+          </select>
+          {typeof day === "number" ? (
+            <p className="settings-note">
+              例: {monthLabel(exampleMonth)}の分は {formatJaDate(dueDateOf(exampleMonth, day))}まで
+            </p>
+          ) : null}
+          <Button aria-expanded={perMonthOpen} aria-controls="due-months" onClick={() => setPerMonthOpen(!perMonthOpen)}>
+            月ごとに変える
+          </Button>
+          {perMonthOpen ? (
+            <div id="due-months" className="settings-form">
+              {months.map((m) => (
+                <div key={m} className="settings-form">
+                  <label htmlFor={`due-${m}`}>{monthLabel(m)}の分の期限</label>
+                  <input
+                    id={`due-${m}`}
+                    name={`due-${m}`}
+                    type="date"
+                    value={due[m] ?? ""}
+                    onChange={(e) => {
+                      setDue((d) => ({ ...d, [m]: e.target.value }));
+                      dueSave.reset();
+                    }}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-          <Button disabled={dueSave.state === "saving"} onClick={() => void dueSave.run()}>
+          ) : null}
+          <Button variant="primary" disabled={dueSave.state === "saving"} onClick={() => void dueSave.run()}>
             期限を保存
           </Button>
           <SaveStatus state={dueSave.state} />

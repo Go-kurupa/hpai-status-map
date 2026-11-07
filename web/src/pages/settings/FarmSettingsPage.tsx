@@ -62,7 +62,7 @@ function NextStep({ farm, houseCount }: { farm: Saved | null; houseCount: number
 }
 
 /**
- * 農場の設定。地点、農場名、採卵か肉用か、鶏舎の造り、飼い方、行き来する町、鶏舎、家保の連絡先、招待の順。
+ * 農場の設定。地点、農場名、採卵か肉用か、鶏舎の造り、飼い方、鶏舎、行き来する町、家保の連絡先、招待の順。
  * 農場がない間（地点を保存する前）は地点の欄だけ。ほかの欄は農場がないと保存できない（ルールが meshCode を要る）。
  */
 function FarmSettings() {
@@ -148,7 +148,7 @@ function FarmSettings() {
   const muni: MuniEntry | null = geo && muniCode ? (geo.index[muniCode] ?? null) : null;
 
   // #houses で開いたら（死亡数の画面と上の帯のリンク）、鶏舎の欄へ送り、見出しに焦点を移す。
-  // 上の欄（行き来する町）は町の一覧を読んでから高さが決まるので、それも待つ
+  // 上の欄（地点の市町村の選択と地図）は町の一覧を読んでから形が決まるので、それも待つ
   const housesShown = load.state === "ok" && load.farm !== null && (geo !== null || geoFailed);
   useEffect(() => {
     if (location.hash !== "#houses" || !housesShown) return;
@@ -322,6 +322,14 @@ function FarmSettings() {
             <FarmBasicsForm farm={farm} save={saveProfile} />
           </section>
 
+          {/* 記録に要る鶏舎は、農場の情報のすぐ後（2026-11-07 精査 D） */}
+          <section id="houses" ref={housesRef}>
+            <h2 ref={housesHeadingRef} tabIndex={-1}>
+              鶏舎
+            </h2>
+            <HouseList store={store} onSaved={() => saveProfile({})} onCount={setHouseCount} />
+          </section>
+
           <section>
             <h2>行き来する町</h2>
             <MuniMultiPicker
@@ -331,13 +339,6 @@ function FarmSettings() {
               initial={farm.frequentMuniCodes}
               save={(codes) => saveProfile({ frequentMuniCodes: codes })}
             />
-          </section>
-
-          <section id="houses" ref={housesRef}>
-            <h2 ref={housesHeadingRef} tabIndex={-1}>
-              鶏舎
-            </h2>
-            <HouseList store={store} onSaved={() => saveProfile({})} onCount={setHouseCount} />
           </section>
 
           <section>

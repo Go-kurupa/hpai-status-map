@@ -1,18 +1,19 @@
-// 相談から足した見直し（会員だけ）。AIに対策を相談の「対策項目に足す」で足したカードを並べる。
+// 相談から足した対策の行（会員だけ。2026-11-07 A で「今日のやること」の 1 本のリストの行にした）。
+// AIに対策を相談の「対策項目に追加する」で足したカードを、今日のやることの行として出す。
 // 中身はカードの一覧（/consult/cards.json）から引く。農場に保存してあるのはカードの id、足した時刻と人、
 // 人が付けた実施の記録（まだ・後でやる・やった、40 字までのメモ、更新の時刻と人）だけ。AI は記録を書かない。
-// 読み出しと並び（読み込んだときだけ「後でやる」「まだ」を上）は reviewItems.ts。上の「けさの確認」と同じ状態を見る。
+// 押すもの（状態の 3 つ）は行に出し、メモ・「この対策を AI に聞く」・「外す」は行の中の「くわしく」に畳む。
+// 読み出しは reviewItems.ts（画面で 1 度だけ読む）。並びは今日のやることの側で開いたときに固定する。
 import { EVIDENCE_LABEL } from "@hpai/shared/consult/types";
 import { REVIEW_NOTE_MAX, REVIEW_STATUS_LABEL, reviewNoteProblem, type ReviewStatus } from "@hpai/shared/consult/review";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { Button } from "../../ui/Button";
+import { Fold } from "../../ui/Fold";
+import type { ConsultCatalog } from "../consult/cardsData";
 import type { ReviewChange, ReviewItem, ReviewStore } from "../consult/reviewStore";
-import type { ReviewItems } from "./reviewItems";
-import { TODO_TEXT } from "./texts";
-
-/** 欄の id。上の「けさの確認」からの入口（#todo-reviews） */
-export const REVIEWS_ANCHOR = "todo-reviews";
+import { TODAY_TEXT, TODO_TEXT } from "./texts";
+import { TodayRow, type TodayMark } from "./TodayRow";
 
 /** ボタンの並び（左から） */
 const STATUS_ORDER: readonly ReviewStatus[] = ["pending", "later", "done"];
@@ -29,88 +30,36 @@ const isPermissionDenied = (e: unknown) => {
   return typeof code === "string" && code.endsWith("permission-denied");
 };
 
-export function ReviewsSection({ reviews }: { reviews: ReviewItems }) {
-  const { store, load, catalog, applied, removed } = reviews;
-  const [removeFailed, setRemoveFailed] = useState(false);
-
-  async function remove(id: string) {
-    setRemoveFailed(false);
-    try {
-      await store.removeReview(id);
-      removed(id);
-    } catch {
-      setRemoveFailed(true);
-    }
-  }
-
-  const items = load.status === "ready" ? load.items : [];
-  const anyUnrecorded = items.some((x) => x.status === null && catalog?.cards.has(x.id));
-
-  return (
-    <section id={REVIEWS_ANCHOR} className="todo-reviews" role="region" aria-label={TODO_TEXT.reviewsHeading}>
-      <h2>{TODO_TEXT.reviewsHeading}</h2>
-      {load.status === "failed" ? <p role="alert">{TODO_TEXT.reviewsLoadFailed}</p> : null}
-      {load.status === "ready" && items.length === 0 ? (
-        <p>
-          {TODO_TEXT.reviewsEmpty} <Link to="/consult">{TODO_TEXT.reviewsLink}</Link>
-        </p>
-      ) : null}
-      {anyUnrecorded ? <p className="todo-note">{TODO_TEXT.reviewsUnrecordedLead}</p> : null}
-      {items.length > 0 ? (
-        <ul className="todo-items">
-          {items.map((item) => {
-            const card = catalog?.cards.get(item.id);
-            const source = card ? catalog?.sources.get(card.sourceId) : undefined;
-            return (
-              <li key={item.id}>
-                {card ? (
-                  <>
-                    <p>{card.action}</p>
-                    <p className="todo-note">
-                      {EVIDENCE_LABEL[card.evidence]}
-                      {source ? `。資料: ${source.title}（${source.publisher}）` : ""}
-                    </p>
-                    <ReviewMark item={item} action={card.action} store={store} onSaved={applied} />
-                    {/* 相談の画面の入力欄に、この対策の名前を入れて開く（送るのは本人） */}
-                    <p>
-                      <Link to={`/consult?q=${encodeURIComponent(card.action)}`}>{TODO_TEXT.reviewsAsk}</Link>
-                    </p>
-                  </>
-                ) : (
-                  <p className="todo-note">{catalog ? TODO_TEXT.reviewsGone : item.id}</p>
-                )}
-                <Button onClick={() => void remove(item.id)}>{TODO_TEXT.reviewsRemove}</Button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-      {items.length > 0 ? (
-        <p>
-          <Link to="/consult">{TODO_TEXT.reviewsLink}</Link>
-        </p>
-      ) : null}
-      {removeFailed ? <p role="alert">{TODO_TEXT.reviewsRemoveFailed}</p> : null}
-    </section>
-  );
+/**
+ * 行の印。今の資料にないカードは状態を付けられないので info（集計に数えない）。
+ * カードの一覧を読めない（null）ときは、状態だけで印を付ける（名前の代わりに id を出す）。
+ */
+export function reviewMark(item: ReviewItem, catalog: ConsultCatalog | null): TodayMark {
+  if (catalog && !catalog.cards.has(item.id)) return "info";
+  return item.status === "done" ? "done" : item.status === "later" ? "later" : "todo";
 }
 
-/** 1 つの対策の実施の記録。状態の 3 つのボタン、メモ、更新の 1 行。保存は押した方（状態かメモ）だけを送る */
-function ReviewMark({
+/** 1 つの対策の行。状態の 3 つのボタン（行）、メモ・AI に聞く・外す（くわしく）。保存は押した方（状態かメモ）だけを送る */
+export function ReviewRow({
   item,
-  action,
+  catalog,
   store,
   onSaved,
+  onRemoved,
 }: {
   item: ReviewItem;
-  action: string;
+  catalog: ConsultCatalog | null;
   store: ReviewStore;
   onSaved: (id: string, change: ReviewChange) => void;
+  onRemoved: (id: string) => void;
 }) {
+  const card = catalog?.cards.get(item.id);
+  const source = card ? catalog?.sources.get(card.sourceId) : undefined;
   const [draft, setDraft] = useState(item.note);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const shown: ReviewStatus = item.status ?? "pending";
+  const mark = reviewMark(item, catalog);
 
   async function save(change: ReviewChange) {
     if (saving) return;
@@ -124,6 +73,16 @@ function ReviewMark({
       setError(isPermissionDenied(e) ? TODO_TEXT.reviewsSaveDenied : TODO_TEXT.reviewsSaveFailed);
     }
     setSaving(false);
+  }
+
+  async function remove() {
+    setError(null);
+    try {
+      await store.removeReview(item.id);
+      onRemoved(item.id);
+    } catch {
+      setError(TODO_TEXT.reviewsRemoveFailed);
+    }
   }
 
   function pick(s: ReviewStatus) {
@@ -145,40 +104,92 @@ function ReviewMark({
     void save({ note });
   }
 
-  const inputId = `review-note-${item.id}`;
-  return (
-    <div className="review-mark">
-      <div className="review-status" role="group" aria-label={`${TODO_TEXT.reviewsStatusGroup}: ${action}`}>
-        {STATUS_ORDER.map((s) => (
-          <Button key={s} aria-pressed={shown === s} disabled={saving} onClick={() => pick(s)}>
-            {REVIEW_STATUS_LABEL[s]}
-          </Button>
-        ))}
-      </div>
-      <p className="todo-note review-updated">
-        {item.updatedAt === null
-          ? TODO_TEXT.reviewsNoRecord
-          : `${TODO_TEXT.reviewsUpdated}${formatReviewUpdated(item.updatedAt)}${item.mine ? TODO_TEXT.reviewsByMe : TODO_TEXT.reviewsByMember}`}
-      </p>
-      <form className="review-note" onSubmit={saveNote}>
-        <label htmlFor={inputId}>{TODO_TEXT.reviewsNoteLabel}</label>
-        <div className="review-note-row">
-          <input
-            id={inputId}
-            type="text"
-            maxLength={REVIEW_NOTE_MAX}
-            autoComplete="off"
-            value={draft}
-            disabled={saving}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-          <Button type="submit" disabled={saving || draft.trim() === item.note}>
-            {TODO_TEXT.reviewsNoteSave}
-          </Button>
-        </div>
-      </form>
+  const removeButton = <Button onClick={() => void remove()}>{TODO_TEXT.reviewsRemove}</Button>;
+  const notice = (
+    <>
       {saving ? <p role="status">{TODO_TEXT.reviewsSaving}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
-    </div>
+    </>
+  );
+
+  if (!card) {
+    // 今の資料にないカード・カードの一覧を読めないとき: 名前の代わりにその旨か id。外すことだけできる
+    return (
+      <TodayRow
+        mark={mark}
+        markLabel={mark === "info" ? TODAY_TEXT.mark.gone : undefined}
+        text={catalog ? TODO_TEXT.reviewsGone : item.id}
+        sub={TODAY_TEXT.reviewFrom}
+        more={
+          <>
+            <Fold summary={TODAY_TEXT.details} className="today-fold">
+              <div className="today-fold-body">{removeButton}</div>
+            </Fold>
+            {notice}
+          </>
+        }
+      />
+    );
+  }
+
+  const inputId = `review-note-${item.id}`;
+  return (
+    <TodayRow
+      mark={mark}
+      text={card.action}
+      sub={item.status === null ? `${TODAY_TEXT.reviewFrom}。${TODO_TEXT.reviewsNoRecord}` : TODAY_TEXT.reviewFrom}
+      act={
+        <div className="review-status" role="group" aria-label={`${TODO_TEXT.reviewsStatusGroup}: ${card.action}`}>
+          {STATUS_ORDER.map((s) => (
+            <Button key={s} aria-pressed={shown === s} disabled={saving} onClick={() => pick(s)}>
+              {REVIEW_STATUS_LABEL[s]}
+            </Button>
+          ))}
+        </div>
+      }
+      more={
+        <>
+          {item.note ? <p className="todo-note">{TODAY_TEXT.reviewMemo(item.note)}</p> : null}
+          <Fold summary={TODAY_TEXT.details} className="today-fold">
+            <div className="today-fold-body">
+              <p className="todo-note">
+                {EVIDENCE_LABEL[card.evidence]}
+                {source ? `。資料: ${source.title}（${source.publisher}）` : ""}
+              </p>
+              {item.updatedAt !== null ? (
+                <p className="todo-note review-updated">
+                  {`${TODO_TEXT.reviewsUpdated}${formatReviewUpdated(item.updatedAt)}${item.mine ? TODO_TEXT.reviewsByMe : TODO_TEXT.reviewsByMember}`}
+                </p>
+              ) : null}
+              <form className="review-note" onSubmit={saveNote}>
+                <label htmlFor={inputId}>{TODO_TEXT.reviewsNoteLabel}</label>
+                <div className="review-note-row">
+                  <input
+                    id={inputId}
+                    type="text"
+                    maxLength={REVIEW_NOTE_MAX}
+                    autoComplete="off"
+                    value={draft}
+                    disabled={saving}
+                    onChange={(e) => setDraft(e.target.value)}
+                  />
+                  <Button type="submit" disabled={saving || draft.trim() === item.note}>
+                    {TODO_TEXT.reviewsNoteSave}
+                  </Button>
+                </div>
+              </form>
+              {/* 相談の画面の入力欄に、この対策の名前を入れて開く（送るのは本人） */}
+              <p>
+                <Link to={`/consult?q=${encodeURIComponent(card.action)}`} className="tap-link">
+                  {TODO_TEXT.reviewsAsk}
+                </Link>
+              </p>
+              {removeButton}
+            </div>
+          </Fold>
+          {notice}
+        </>
+      }
+    />
   );
 }

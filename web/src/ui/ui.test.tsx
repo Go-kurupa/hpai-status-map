@@ -43,6 +43,43 @@ describe("AsOf", () => {
   });
 });
 
+describe("AsOf の主語（2026-11-07 B: 単独の「確認できていません」を出さない）", () => {
+  it("主語を渡すと『発表の確認: 11 月 8 日 6:10 時点』", () => {
+    const { container } = render(<AsOf iso="2026-11-08T06:10:00+09:00" subject="発表の確認" />);
+    expect(container.textContent).toBe("発表の確認: 11 月 8 日 6:10 時点");
+  });
+  it("時点がない・読めないときは『発表の確認: 未確認』。単独の『確認できていません』にしない", () => {
+    for (const iso of [null, "not a date"]) {
+      const { container } = render(<AsOf iso={iso} subject="発表の確認" />);
+      expect(container.textContent).toBe("発表の確認: 未確認");
+      cleanup();
+    }
+  });
+  it("届くまでは『発表の確認: 読み込んでいます』", () => {
+    const { container } = render(<AsOf iso={null} subject="発表の確認" loading />);
+    expect(container.textContent).toBe("発表の確認: 読み込んでいます");
+  });
+  it("精度が none なら主語ごと描かない。date は日付だけ", () => {
+    const { container } = render(
+      <AsOfPrecisionContext.Provider value="none">
+        <AsOf iso="2025-12-19T23:59:59+09:00" subject="発表の確認" />
+      </AsOfPrecisionContext.Provider>,
+    );
+    expect(container.textContent).toBe("");
+    cleanup();
+    const r = render(
+      <AsOfPrecisionContext.Provider value="date">
+        <AsOf iso="2025-12-19T23:59:59+09:00" subject="発表の確認" />
+      </AsOfPrecisionContext.Provider>,
+    );
+    expect(r.container.textContent).toBe("発表の確認: 12 月 19 日 時点");
+  });
+  it("主語を渡さないときは今のまま（地図と運営者の画面）", () => {
+    const { container } = render(<AsOf iso={null} />);
+    expect(container.textContent).toBe("確認できていません");
+  });
+});
+
 describe("AsOf の精度（時刻が分からないとき、時刻の文字を描かない）", () => {
   it("date は日付だけ。時刻の文字がない", () => {
     render(

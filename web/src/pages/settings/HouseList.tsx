@@ -113,27 +113,34 @@ export function HouseList({
     );
   }
 
+  // 一覧の上の合計（空舎を除く）。鶏のいる鶏舎がなければ出さない（2026-11-07 精査 D）
+  const stocked = load.houses.filter((h) => !h.empty);
+  const total = stocked.reduce((sum, h) => sum + h.flockSize, 0);
+
   return (
     <div className="settings-form">
       <p>鶏舎ごとに、名前、鳥の種類、飼養羽数を登録します。死亡数の記録は、鶏舎ごとにつけます。</p>
       {load.houses.length === 0 ? (
         <p className="settings-note">鶏舎はまだ登録していません。</p>
       ) : (
-        <ul className="settings-list">
-          {load.houses.map((h) => (
-            <li key={h.id}>
-              <span className="house-name">{h.name}</span>
-              <span>{h.birdType}</span>
-              <span>{h.empty ? "空舎" : `${h.flockSize} 羽`}</span>
-              <Button
-                aria-label={`${h.name}を編集`}
-                onClick={() => open({ id: h.id, name: h.name, birdType: h.birdType, flockSize: String(h.flockSize), empty: h.empty })}
-              >
-                編集
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {stocked.length > 0 ? <p className="house-total">{`合計 ${total.toLocaleString("ja-JP")} 羽（空舎を除く）`}</p> : null}
+          <ul className="settings-list">
+            {load.houses.map((h) => (
+              <li key={h.id}>
+                <span className="house-name">{h.name}</span>
+                <span>{h.birdType}</span>
+                <span>{h.empty ? "空舎" : `${h.flockSize} 羽`}</span>
+                <Button
+                  aria-label={`${h.name}を編集`}
+                  onClick={() => open({ id: h.id, name: h.name, birdType: h.birdType, flockSize: String(h.flockSize), empty: h.empty })}
+                >
+                  編集
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       <p className="settings-note">
         鶏舎は消せません。使わなくなったときは、空舎にします（過去の記録が残ります）。羽数を直しても、過去の記録の羽数は変わりません。

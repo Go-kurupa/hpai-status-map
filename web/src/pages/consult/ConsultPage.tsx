@@ -3,13 +3,14 @@
 // おすすめの文と続けて聞く候補は Claude の下書き。引用・資料・根拠の札・注意書きは、カードのデータをそのまま出す（Claude は書き換えない）。
 // 資料の行は、応答のカードに付いた source から出す（静的な /consult/cards.json は、足し済みの判定で、足したカードの id から対策の文を引くのにだけ使う）。
 // これまでの相談は、会員の分だけ、この端末のブラウザに残す（consultHistory.ts）。審査員の入口（?judge=1）は残さず、会員の確認も通さない。
-// 会員は、農場の設定に登録した飼育目的と飼い方を、質問の欄の前で確かめて「この飼い方で相談する」を選んだときだけ、条件として送れる。
+// 会員は、農場の設定に登録した飼育目的と飼い方（と、鶏舎の飼養羽数の合計から作った羽数の幅。正確な羽数は送らない）を、
+// 質問の欄の前で確かめて「この飼い方で相談する」を選んだときだけ、条件として送れる。
 // 条件を付けて送る前に、質問の文と登録が食い違えば送らずに訂正を促す（送るかは本人が選ぶ）。答えの近くに今回使った条件を出す。
 // 審査員の入口は農場を読まず、条件の欄を出さない。
-import { conditionLabel, conditionOfFarm, findFarmConflicts, registeredLabel, type FarmConflict } from "@hpai/shared/consult/farmCondition";
+import { conditionLabel, conditionOfFarm, findFarmConflicts, registeredLabel, scaleOfHouses, type FarmConflict } from "@hpai/shared/consult/farmCondition";
 import { CONSULT_TOPICS, type ConsultTopic } from "@hpai/shared/consult/topics";
 import { STATS_SOURCE, type ConsultStats } from "@hpai/shared/consult/stats";
-import { CONSULT_MAX_QUESTION, EVIDENCE_LABEL, type ConsultAnswerCard, type ConsultFarmCondition } from "@hpai/shared/consult/types";
+import { CONSULT_MAX_QUESTION, EVIDENCE_LABEL, type ConsultAnswerCard, type ConsultFarmCondition, type FlockScale } from "@hpai/shared/consult/types";
 import type { Farm } from "@hpai/shared/types";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -345,23 +346,37 @@ function TurnView({
   );
 }
 
-/** 会員の農場の登録（飼育目的と飼い方）。読めなかったときは「未登録」と言わない */
+/**
+ * 会員の農場の登録（飼育目的と飼い方）と、鶏舎の羽数から作った幅（scale。作れなければ null）。読めなかったときは「未登録」と言わない。
+ * 正確な羽数は持たない（幅だけ）
+ */
 type FarmLoad =
   | { status: "loading" }
   | { status: "failed" }
-  | { status: "ready"; farm: Pick<Farm, "production" | "rearing"> | null };
+  | { status: "ready"; farm: Pick<Farm, "production" | "rearing"> | null; scale: FlockScale | null };
 
-/** 自分の農場を読む（会員の画面だけ）。会員（uid）が替わったら読み直す。reject を「農場なし」に丸めない */
+/**
+ * 自分の農場と鶏舎を読む（会員の画面だけ）。会員（uid）が替わったら読み直す。農場の reject を「農場なし」に丸めない。
+ * 鶏舎（記録の口 listHouses）が読めないときは、幅を作らないだけ（推測で埋めない）。両方がそろってから ready にする
+ * （先に選べると、最初の 1 回だけ幅なしで送ることになる）
+ */
 function useFarmLoad(uid: string | null): FarmLoad {
   const records = useRecordStore();
   const [state, setState] = useState<FarmLoad>({ status: "loading" });
   useEffect(() => {
     let off = false;
     setState({ status: "loading" });
+    const scale = Promise.resolve()
+      .then(() => records.listHouses())
+      .then(
+        (houses) => scaleOfHouses(houses),
+        () => null,
+      );
     Promise.resolve()
       .then(() => records.getFarm())
+      .then((farm) => scale.then((s) => ({ farm: farm ?? null, scale: s })))
       .then(
-        (farm) => !off && setState({ status: "ready", farm: farm ?? null }),
+        (v) => !off && setState({ status: "ready", ...v }),
         () => !off && setState({ status: "failed" }),
       );
     return () => {
@@ -371,17 +386,17 @@ function useFarmLoad(uid: string | null): FarmLoad {
   return state;
 }
 
-/** 質問の欄の前の、登録した条件（飼育目的と飼い方）の欄。登録があれば「この飼い方で相談する」を選べる。未登録・読めないときは選べない */
+/** 質問の欄の前の、登録した条件（飼育目的と飼い方と羽数の幅）の欄。登録があれば「この飼い方で相談する」を選べる。未登録・読めないときは選べない */
 function ConditionPanel({ load, use, onUse }: { load: FarmLoad; use: boolean; onUse: (v: boolean) => void }) {
   if (load.status === "loading") return null;
-  const condition = load.status === "ready" && load.farm ? conditionOfFarm(load.farm) : null;
+  const condition = load.status === "ready" && load.farm ? conditionOfFarm(load.farm, load.scale) : null;
   return (
     <div className="consult-condition" data-testid="consult-condition">
       {load.status === "failed" ? (
         <p className="consult-note">{CONSULT_TEXT.conditionLoadFailed}</p>
       ) : condition && load.farm ? (
         <>
-          <p className="consult-condition-head">{CONSULT_TEXT.conditionHead(registeredLabel(load.farm))}</p>
+          <p className="consult-condition-head">{CONSULT_TEXT.conditionHead(registeredLabel(load.farm, load.scale))}</p>
           <label className="consult-condition-use">
             <input type="checkbox" checked={use} onChange={(e) => onUse(e.target.checked)} />
             {CONSULT_TEXT.conditionUse}
@@ -600,7 +615,7 @@ function ConsultBody({
   // 「この飼い方で相談する」。最初は選ばない（本人が選んだときだけ条件を送る）
   const [useCondition, setUseCondition] = useState(false);
   const [conflict, setConflict] = useState<PendingConflict | null>(null);
-  const condition: ConsultFarmCondition | null = farmLoad?.status === "ready" && farmLoad.farm ? conditionOfFarm(farmLoad.farm) : null;
+  const condition: ConsultFarmCondition | null = farmLoad?.status === "ready" && farmLoad.farm ? conditionOfFarm(farmLoad.farm, farmLoad.scale) : null;
   const [reviews, setReviews] = useState<ReadonlySet<string>>(new Set());
   const [reviewsFailed, setReviewsFailed] = useState(false);
   // カードの一覧。足したカードの id から対策の文を引く。読めなければ null のまま（id だけで判定する）

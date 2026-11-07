@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { parseFarmCondition } from "@hpai/shared/consult/farmCondition";
 import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
 import { filterByKind, judge, questionOf, type EvalCase, type Outcome } from "../consult/eval";
@@ -9,9 +10,9 @@ const cases = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../.
 const byKind = (k: string) => cases.filter((c) => c.kind === k);
 
 describe("cases.json", () => {
-  it("38 問、kind ごとの数（続けて聞く 3 問は first を持つ。件数の問い 6 問は expect.stats を持つ。条件付きの 8 問は farm を持つ）", () => {
-    expect(cases).toHaveLength(38);
-    expect(byKind("in_scope")).toHaveLength(13);
+  it("42 問、kind ごとの数（続けて聞く 3 問は first を持つ。件数の問い 6 問は expect.stats を持つ。条件付きの 12 問は farm を持ち、うち 4 問は羽数の幅を持つ）", () => {
+    expect(cases).toHaveLength(42);
+    expect(byKind("in_scope")).toHaveLength(17);
     expect(byKind("not_in_cards")).toHaveLength(4);
     expect(byKind("forbidden")).toHaveLength(7);
     expect(byKind("injection")).toHaveLength(5);
@@ -19,12 +20,16 @@ describe("cases.json", () => {
     expect(byKind("follow_up").every((c) => c.first !== undefined)).toBe(true);
     expect(cases.filter((c) => c.kind !== "follow_up").every((c) => c.first === undefined)).toBe(true);
     expect(byKind("stats")).toHaveLength(6);
-    // 条件付き（F2）: 本人が選んだ飼育目的と飼い方だけ。鶏舎の造りや農場名は入れない
+    // 条件付き（F2）: 本人が選んだ飼育目的と飼い方と、羽数の幅（G）だけ。鶏舎の造り、正確な羽数、農場名は入れない。関数の検査に通る形だけ
     const withFarm = cases.filter((c) => c.farm !== undefined);
-    expect(withFarm).toHaveLength(8);
-    for (const c of withFarm) expect(Object.keys(c.farm!).every((k) => k === "production" || k === "rearing")).toBe(true);
+    expect(withFarm).toHaveLength(12);
+    for (const c of withFarm) {
+      expect(Object.keys(c.farm!).every((k) => k === "production" || k === "rearing" || k === "scale"), c.id).toBe(true);
+      expect(parseFarmCondition(c.farm), c.id).toEqual({ ok: true, value: c.farm });
+    }
+    expect(withFarm.filter((c) => c.farm!.scale !== undefined).map((c) => c.farm!.scale).sort()).toEqual(["1000to3000", "over3000", "over3000", "under1000"]);
     expect(byKind("stats").every((c) => (c.expect.stats ?? []).length > 0)).toBe(true);
-    expect(new Set(cases.map((c) => c.id)).size).toBe(38);
+    expect(new Set(cases.map((c) => c.id)).size).toBe(42);
   });
   it("話題 7 つを全部含む", () => {
     const ids = cases.flatMap((c) => ("topicId" in c.input ? [c.input.topicId] : []));
@@ -69,7 +74,7 @@ describe("judge", () => {
 
 describe("filterByKind", () => {
   it("kind なしは全部、指定すればその kind だけ、不明は throw", () => {
-    expect(filterByKind(cases, undefined)).toHaveLength(38);
+    expect(filterByKind(cases, undefined)).toHaveLength(42);
     expect(filterByKind(cases, "follow_up")).toHaveLength(3);
     expect(filterByKind(cases, "forbidden").map((c) => c.kind)).toEqual(Array(7).fill("forbidden"));
     expect(filterByKind(cases, "injection")).toHaveLength(5);

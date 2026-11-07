@@ -158,3 +158,12 @@
   padding: 12px 0;
   border-top: 1px solid var(--hair);
 }
+/* 欄の中のボタンは文字の幅（欄いっぱいに伸ばさない）。保存のボタンはどの欄も主のボタン（.btn-primary）で、見た目をそろえる */
+.settings-form > .btn {
+  justify-self: start;
+}
+/* 鶏舎の一覧の上の合計（空舎を除く） */
+.house-total {
+  margin: 0;
+  font-weight: 700;
+}
