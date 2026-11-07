@@ -22,6 +22,7 @@ import { regionMuniCodes, ScopeButtons, type Scope } from "./ScopeButtons";
 import { buildSeasonView } from "./seasonView";
 import { MapLinks, NextLinks } from "./MapLinks";
 import { MonthBars } from "./MonthBars";
+import { birdPrefsText } from "./birdStat";
 import { casesNearCenter, countRecentDays, frequentTownCounts, PAST_SEASONS, pastRangeToDate, rangeText, wildBirdCounts } from "./overviewCounts";
 import { SPOT_MIN_ZOOM, type PickTarget } from "./pickSpot";
 import { countText, SeasonBar, type SeasonBarItem } from "./SeasonBar";
@@ -348,6 +349,7 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
   );
   const hasFrequent = farmMeshCode !== null && (frequent?.length ?? 0) > 0;
   const birdCounts = useMemo(() => wildBirdCounts(d.wildBirds), [d.wildBirds]);
+  const birdPrefs = useMemo(() => birdPrefsText(d.wildBirds), [d.wildBirds]);
   // 野鳥は環境省の発表で、県の見回りとは別。47 県とも未確認のときだけ、0 件を見出しにしない
   const birdText = !d.wildBirdsLoaded
     ? countText({ count: null })
@@ -661,6 +663,21 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
             </div>
           )}
           {narrow ? null : pastStat}
+          {/* 野鳥の陽性（2026-11-07 作者の決定）。数は全国で、鶏舎の付近・選択地域を見ていても同じ。地図の外の発生も県名で分かるようにする。
+              再現は日付を過去に置いた画面なので出さない。/season の札（下の残りの札）と二重に出さないよう、数字の欄があるときはここだけ */}
+          {/* 47 県とも未確認で野鳥も 0 件なら出さない（全国の札と同じ「まだ確認できていません」を繰り返さない）。
+              スマホで未確認の県がある朝は、大きな数字に素の数を出さない決まり（数字の 1 行）に合わせて太字にしない */}
+          {ds.mode === "replay" || (noneConfirmed && d.wildBirdsLoaded && birdCounts.total === 0) ? null : (
+            <div className="stat stat-birds">
+              <p className="stat-title">
+                {TEXT.statBirdsShort}
+                <span className="stat-long">{TEXT.statBirds.slice(TEXT.statBirdsShort.length)}</span>
+              </p>
+              {narrow && failedCount > 0 ? <p className="stat-value is-sentence">{birdText}</p> : <StatCount text={birdText} />}
+              {d.wildBirdsLoaded && birdPrefs !== null ? <p className="stat-note stat-birds-where">{birdPrefs}</p> : null}
+              {whenLine(TEXT.statBirdsWhen)}
+            </div>
+          )}
         </div>
       ) : null}
       {section === "town" ? (
@@ -859,10 +876,11 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
       />
       ) : null}
 
-      {showStats && ((inMap && narrow && pastStat !== null) || (ds.mode !== "replay" && (section === "season" || section === "all"))) ? (
+      {showStats && ((inMap && narrow && pastStat !== null) || (ds.mode !== "replay" && section === "season")) ? (
         <div className="stat-rest">
           {inMap && narrow ? pastStat : null}
-          {ds.mode === "replay" || !(section === "season" || section === "all") ? null : (
+          {/* 数字の欄（/ と all）には野鳥の札があるので、ここは /season だけ */}
+          {ds.mode === "replay" || section !== "season" ? null : (
             <div className="stat stat-wide">
               <p className="stat-title">{TEXT.statBirds}</p>
               <p className="stat-value">{birdText}</p>

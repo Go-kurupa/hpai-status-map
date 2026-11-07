@@ -176,6 +176,10 @@ export const TEXT = {
   statBirdsBreakdown: (confirmed: number, screening: number): string => `高病原性の確定 ${confirmed} 件、検査中 ${screening} 件`,
   statBirdsNote: "環境省の発表から数えています。見つかって検査された野鳥だけの数です。発表がなくても、ウイルスを持つ野鳥がいないとは言えません。",
   statBirdsLink: "定点の水鳥の数を見る",
+  // 最初の画面の数字の欄の野鳥の札（2026-11-07 作者の決定）。数は全国。地図を最初の画面に収めるため、PC は出典の 1 行だけ、
+  // スマホは題の「（今季）」と出典も省き、数と県名だけにする。「いないとは言えない」の断りの全文は /season の札に置く
+  statBirdsShort: "野鳥の陽性",
+  statBirdsWhen: "出典: 環境省の発表",
   // 周辺の町の過去の発生。距離は常に「約」。多い少ないを書かない
   nearbyTitle: (km: number, seasons: number): string => `約 ${km} km 以内の町の過去 ${seasons} シーズンの発生`,
   nearbyTotal: (total: number, withCases: number, seasons: number): string => `${seasons} シーズンのうち ${withCases} シーズンで、合わせて ${total} 件（記録）`,

@@ -265,7 +265,7 @@ test.describe("地図（入口）", () => {
     await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeFocused();
   });
 
-  test("登録した町の札、野鳥の札、町の枠の周辺の表が 360px で横にはみ出さない（札は /、野鳥の札は /season、周辺の表は /town）", async ({ page }) => {
+  test("登録した町の札、野鳥の札、町の枠の周辺の表が 360px で横にはみ出さない（札は /、野鳥の札は / と /season、周辺の表は /town）", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
     await page.addInitScript(
       (s) => window.localStorage.setItem("hpai.spot.v1", JSON.stringify(s)),
@@ -279,6 +279,7 @@ test.describe("地図（入口）", () => {
     await open(page);
     await expect(page.getByText("登録した町の今季")).toBeVisible();
     await expect(page.locator(".stat", { hasText: "登録した町の今季" })).toContainText("倉敷市");
+    await expect(page.locator(".stat-row .stat-birds")).toBeVisible();
     await noOverflow();
     // /season : 野鳥の札と、定点の水鳥へのリンク（43px 以下にしない）
     await page.goto("/season");

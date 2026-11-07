@@ -1295,7 +1295,7 @@
     flex: 0 0 100%;
     order: 4;
   }
-  .stat-row :is(.stat-recent, .stat-band-main) {
+  .stat-row :is(.stat-recent, .stat-band-main, .stat-birds) {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: baseline;
@@ -1308,13 +1308,17 @@
   .stat-band-main {
     order: 6;
   }
-  .stat-row :is(.stat-recent, .stat-band-main) :is(.stat-title, .stat-value, .stat-note),
+  /* 野鳥の札は直近 14 日の後に、同じ大きさの 1 行で続ける（2026-11-07 作者の決定） */
+  .stat-row .stat-birds {
+    order: 5;
+  }
+  .stat-row :is(.stat-recent, .stat-band-main, .stat-birds) :is(.stat-title, .stat-value, .stat-note),
   .stat-below :is(.stat-title, .stat-value, .stat-note) {
     font-size: 14.4px;
     font-weight: 400;
     line-height: 1.35;
   }
-  .stat-row :is(.stat-recent, .stat-band-main) .stat-value b {
+  .stat-row :is(.stat-recent, .stat-band-main, .stat-birds) .stat-value b {
     font-size: 1.15rem;
     font-variant-numeric: tabular-nums;
   }
@@ -1551,5 +1555,13 @@
   }
   .map-page > .town-banner {
     order: 3;
+  }
+}
+
+/* PC: 野鳥の札が入って 4 枚になると、同じ幅では長い題（過去 6 シーズンの◯月◯日まで）が 2 行に折れて地図が下がる。
+   札の幅を中身の長さに合わせて配る（2026-11-07） */
+@media (min-width: 64rem) {
+  .stat-row:has(> .stat-birds) {
+    grid-auto-columns: auto;
   }
 }

@@ -1292,7 +1292,7 @@ describe("MapPage: 平面の札（T12）", () => {
   const titles = () => stats().map((e) => e.querySelector(".stat-title")?.textContent);
   const setSpotForCards = () => localStorage.setItem(SPOT_KEY, JSON.stringify({ meshCode: "52344080", muniCode: "33203", frequentMuniCodes: [] }));
 
-  it("今季を見ているとき 5 枚（地点がなければ約 60km の札と登録した町の札はない）。数字の札は確認中の県と見回りの行より後で、地図より前。PC は過去の札も数字の列に入れる。守る文は地図の直後。残りの札は一覧より後。watch-line は 1 つ", async () => {
+  it("今季を見ているとき 5 枚（地点がなければ約 60km の札と登録した町の札はない）。数字の札は確認中の県と見回りの行より後で、地図より前。PC は過去の札と野鳥の札も数字の列に入れる。守る文は地図の直後。watch-line は 1 つ", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
@@ -1303,14 +1303,11 @@ describe("MapPage: 平面の札（T12）", () => {
     expect(stats()).toHaveLength(5);
     expect(titles()).toEqual(["発生した件数", "直近 14 日の件数", "時刻", "過去 6 シーズンの 11 月 4 日まで", "野鳥の陽性（今季）"]);
     const row = document.querySelector(".stat-row")!;
-    expect(row.querySelectorAll(".stat")).toHaveLength(4);
+    expect(row.querySelectorAll(".stat")).toHaveLength(5); // 野鳥の札も数字の列に入れる（2026-11-07 作者の決定）
     const box = document.querySelector(".map-box")!;
     expect(follows(row, box)).toBe(true);
     expect(document.querySelector(".map-disclaimer")).toBeNull(); // 町を選んでいないので、付近の断りは出ない（2026-11-06 作者の決定）
-    const rest = document.querySelector(".stat-rest")!;
-    expect(rest.querySelectorAll(".stat")).toHaveLength(1);
-    expect(follows(document.querySelector(".case-list")!, rest)).toBe(true);
-    expect(follows(rest, document.querySelector(".season-bar")!)).toBe(true);
+    expect(document.querySelector(".stat-rest")).toBeNull(); // PC は残りの札がない（過去と野鳥は数字の列）
     expect(screen.queryByTestId("watch-line")).toBeNull(); // 全県確認なので見回りの行は出ない（2026-11-06 作者の決定）
     expect(follows(screen.getByText(/確認中の発表がある県/), row)).toBe(true);
     expect(follows(row, document.querySelector(".map-attribution")!)).toBe(true);
@@ -1941,35 +1938,35 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("0 件");
     });
 
-    it("0 件は『いない』と読ませない断りを常に添える。定点の数へのリンクがある", async () => {
+    it("0 件は『いない』と読ませない断りを常に添える。定点の数へのリンクがある（/season）", async () => {
       const r = rig();
-      show(r);
-      await screen.findByTestId("map");
+      show(r, { section: "season" });
       r.deliverCases([]);
       r.deliverWatch(okWatch());
+      await screen.findByText(TEXT.statBirds);
       expect(birdCard()!.textContent).toContain(TEXT.statBirdsNote);
       expect(within(birdCard() as HTMLElement).getByRole("link", { name: TEXT.statBirdsLink }).getAttribute("href")).toBe("/trends");
     });
 
-    it("否定を除き、検査中と確定を分けて出す", async () => {
+    it("否定を除き、検査中と確定を分けて出す（/season）", async () => {
       const r = rig();
       r.ds.subscribeWildBirds = (_s, c) => {
         c([bird({ id: "a" }), bird({ id: "b", test: "hpai_confirmed" }), bird({ id: "c", test: "negative" })]);
         return () => {};
       };
-      show(r);
-      await screen.findByTestId("map");
+      show(r, { section: "season" });
       r.deliverCases([]);
       r.deliverWatch(okWatch());
+      await screen.findByText(TEXT.statBirds);
       expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("2 件");
       expect(birdCard()!.textContent).toContain(TEXT.statBirdsBreakdown(1, 1));
     });
 
-    it("47 県とも未確認で 0 件なら件数を見出しにしない。陽性の発表があれば件数を隠さない。一部の県の未確認は断らない（環境省の発表で、県の見回りと別）", async () => {
+    it("/season: 47 県とも未確認で 0 件なら件数を見出しにしない。陽性の発表があれば件数を隠さない。一部の県の未確認は断らない（環境省の発表で、県の見回りと別）", async () => {
       const r = rig();
-      show(r);
-      await screen.findByTestId("map");
+      show(r, { section: "season" });
       r.deliverCases([]);
+      await waitFor(() => expect(birdCard()).toBeDefined());
       expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("まだ確認できていません");
       r.deliverWatch(failedWatch(["33"]));
       expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("0 件");
@@ -1980,10 +1977,169 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
         c([bird({ id: "a" })]);
         return () => {};
       };
-      show(r2);
+      show(r2, { section: "season" });
+      r2.deliverCases([]);
+      await waitFor(() => expect(birdCard()).toBeDefined());
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("1 件");
+    });
+    // 2026-11-07 作者の決定: 最初の画面（/）の数字の欄にも野鳥の札を並べる。数は全国、地図の外でも分かるよう県名を添える
+    const threeBirds = () => [
+      bird({ id: "wb-1", prefCode: "05", date: "2026-11-02", test: "hpai_confirmed" }),
+      bird({ id: "wb-2", prefCode: "01", date: "2026-11-02", test: "hpai_confirmed" }),
+      bird({ id: "wb-3", prefCode: "46", date: "2026-11-02", test: "hpai_confirmed" }),
+      bird({ id: "wb-x", prefCode: "04", date: "2026-10-27", test: "negative" }),
+    ];
+    const allBirdCards = () => [...document.querySelectorAll(".stat")].filter((e) => e.querySelector(".stat-title")?.textContent === TEXT.statBirds);
+
+    it("スマホで省く題の語尾は、短い題の続き", () => {
+      expect(TEXT.statBirds.startsWith(TEXT.statBirdsShort)).toBe(true);
+    });
+
+    it("/ の数字の欄に野鳥の札が 1 枚。数は全国の陽性、県名を添える", async () => {
+      const r = rig();
+      r.ds.subscribeWildBirds = (_s, c) => {
+        c(threeBirds());
+        return () => {};
+      };
+      show(r, { section: "now" });
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      expect(allBirdCards()).toHaveLength(1);
+      const c = birdCard()!;
+      expect(c.closest(".stat-row")).not.toBeNull();
+      expect(c.querySelector(".stat-value")!.textContent).toBe("3 件");
+      expect(c.textContent).toContain("北海道・秋田県・鹿児島県");
+      expect(c.textContent).not.toContain("宮城県"); // 陰性は数えない
+    });
+
+    it("/ で鶏舎の付近・選択地域を見ていても、野鳥の札は全国の数で出る", async () => {
+      setSpot();
+      const r = rig();
+      r.ds.subscribeWildBirds = (_s, c) => {
+        c(threeBirds());
+        return () => {};
+      };
+      show(r, { section: "now" });
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      expect(await screen.findByRole("button", { name: TEXT.mapNearFarm, pressed: true })).toBeTruthy();
+      expect(allBirdCards()).toHaveLength(1);
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("3 件");
+      cleanup();
+      localStorage.clear();
+
+      localStorage.setItem(TOWN_KEY, "33214");
+      const r2 = rig();
+      r2.ds.subscribeWildBirds = (_s, c) => {
+        c(threeBirds());
+        return () => {};
+      };
+      show(r2, { section: "now" });
       await screen.findByTestId("map");
       r2.deliverCases([]);
-      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("1 件");
+      r2.deliverWatch(okWatch());
+      expect(await screen.findByRole("button", { name: TEXT.mapNear, pressed: true })).toBeTruthy();
+      expect(allBirdCards()).toHaveLength(1);
+      expect(birdCard()!.textContent).toContain("北海道・秋田県・鹿児島県");
+    });
+
+    it("/ で読めないうちは 0 件にしない。0 件でも出典を添える（断りの全文は /season）", async () => {
+      const r = rig();
+      let cb: ((b: WildBird[]) => void) | null = null;
+      r.ds.subscribeWildBirds = (_s, c) => {
+        cb = c;
+        return () => {};
+      };
+      show(r, { section: "now" });
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(okWatch());
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("まだ読めていません");
+      act(() => cb!([]));
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("0 件");
+      expect(birdCard()!.textContent).toContain(TEXT.statBirdsWhen);
+    });
+
+    it("/ で一部の県が未確認なら（スマホの数字の 1 行の決まり）野鳥の数を太字にしない。47 県とも未確認で 0 件なら札を出さない（同じ文を繰り返さない）。陽性があれば出す", async () => {
+      const failed = (codes: string[]) => okWatch().map((w) => (codes.includes(w.prefCode) ? { ...w, ok: false, failingSince: "2026-11-04T01:00:00+09:00" } : w));
+      const r = rig();
+      show(r, { section: "now" });
+      await screen.findByTestId("map");
+      r.deliverCases([]);
+      r.deliverWatch(failed(["33"]));
+      await waitFor(() => expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("0 件"));
+      expect(birdCard()!.querySelector(".stat-value b")).not.toBeNull(); // PC は全国の札と同じく太字
+      cleanup();
+      vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }));
+      const rn = rig();
+      show(rn, { section: "now" });
+      await screen.findByTestId("map");
+      rn.deliverCases([]);
+      rn.deliverWatch(failed(["33"]));
+      await waitFor(() => expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("0 件"));
+      expect(birdCard()!.querySelector(".stat-value b")).toBeNull();
+      cleanup();
+      vi.unstubAllGlobals();
+
+      const r2 = rig();
+      show(r2, { section: "now" });
+      await screen.findByTestId("map");
+      r2.deliverCases([]);
+      r2.deliverWatch(failed(PREFS.map((p) => p.code)));
+      await waitFor(() => expect(document.querySelector(".stat-row")).not.toBeNull());
+      expect(allBirdCards()).toHaveLength(0);
+      cleanup();
+
+      const r3 = rig();
+      r3.ds.subscribeWildBirds = (_s, c) => {
+        c(threeBirds());
+        return () => {};
+      };
+      show(r3, { section: "now" });
+      await screen.findByTestId("map");
+      r3.deliverCases([]);
+      r3.deliverWatch(failed(PREFS.map((p) => p.code)));
+      await waitFor(() => expect(allBirdCards()).toHaveLength(1));
+      expect(birdCard()!.querySelector(".stat-value")!.textContent).toBe("3 件");
+    });
+
+    it("二重に出さない: /season は 1 枚（数字の欄の外）、全部の見方（all）も 1 枚。再現では / に出さない", async () => {
+      for (const section of ["season", "all"] as const) {
+        const r = rig();
+        r.ds.subscribeWildBirds = (_s, c) => {
+          c(threeBirds());
+          return () => {};
+        };
+        show(r, { section });
+        r.deliverCases([]);
+        r.deliverWatch(okWatch());
+        await waitFor(() => expect(allBirdCards()).toHaveLength(1));
+        await new Promise((ok) => setTimeout(ok, 50)); // 後から 2 枚目が出ないことも確かめる
+        expect(allBirdCards()).toHaveLength(1);
+        cleanup();
+      }
+      // 再現の全国の流れ（replayStats）は数字の欄を出す。そこにも野鳥の札を出さない
+      const replay = rig();
+      replay.ds.subscribeWildBirds = (_s, c) => {
+        c(threeBirds());
+        return () => {};
+      };
+      render(
+        <MemoryRouter>
+          <DataSourceProvider value={{ ...replay.ds, mode: "replay" }}>
+            <SpotProvider>
+              <MapPage replayStats />
+            </SpotProvider>
+          </DataSourceProvider>
+        </MemoryRouter>,
+      );
+      await screen.findByTestId("map");
+      replay.deliverCases([]);
+      replay.deliverWatch(okWatch());
+      await waitFor(() => expect(document.querySelector(".stat-row")).not.toBeNull());
+      expect(allBirdCards()).toHaveLength(0);
     });
   });
 
@@ -2021,6 +2177,7 @@ describe("MapPage: 距離の輪と毎朝の札", () => {
       TEXT.statBirdsNote,
       TEXT.statBirdsLink,
       TEXT.statBirdsBreakdown(1, 2),
+      TEXT.statBirdsWhen,
       TEXT.ringNote,
       TEXT.statRecent,
       TEXT.statPastToDate(6, "11 月 4 日"),
@@ -2105,17 +2262,18 @@ describe("幅 64rem 未満の地図の前（スマホ）", () => {
     expect(more()).toContain(TEXT.statFailedNote);
   });
 
-  it("スマホは数字の列が 3 枚、過去と野鳥は一覧より後の残りの札", async () => {
+  it("スマホは数字の列が 4 枚（野鳥を含む）、過去は一覧より後の残りの札。野鳥の札に出典の行を付けない", async () => {
     const r = rig();
     show(r);
     await screen.findByTestId("map");
     r.deliverCases([]);
     r.deliverWatch(okWatch());
     const row = document.querySelector(".stat-row")!;
-    expect(row.querySelectorAll(".stat")).toHaveLength(3);
+    expect(row.querySelectorAll(".stat")).toHaveLength(4);
+    expect(row.querySelector(".stat-birds")).not.toBeNull();
     expect(row.querySelector(".stat-when")).toBeNull();
     const rest = document.querySelector(".stat-rest")!;
-    expect(rest.querySelectorAll(".stat")).toHaveLength(2);
+    expect(rest.querySelectorAll(".stat")).toHaveLength(1);
     expect(rest.textContent).toContain("過去 6 シーズンの 11 月 4 日まで");
     expect(before(document.querySelector(".case-list")!, rest)).toBe(true);
     expect(row.querySelector(".stat-time")!.textContent).toContain("11 月 4 日 8:30 時点");
