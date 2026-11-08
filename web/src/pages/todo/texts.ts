@@ -10,7 +10,7 @@ export const TODO_TEXT = {
   /** 見回りで県の発表を確認できていないとき（段階 4 を「何もない」と読ませない） */
   prefUnconfirmed: "この県の発表を確認できていません。県の連絡を確かめてください。",
   selfCheckLink: "今月の自己点検を開く",
-  disinfectionLink: "消毒の記録を開く",
+  disinfectionLink: "消毒・対策の記録を開く",
   doneNoUndo: "押した記録を取り消す操作はありません",
   /** 確認リストを開くボタン。n は開くと出る確認項目の数（農場の種類で変わる） */
   more: (n: number): string => `確認リストを開く（${n} 項目）`,

@@ -78,10 +78,12 @@ function PositionLine({ item }: { item: ChecklistItem }) {
 type Log = ReturnType<typeof useDisinfectionLog>;
 
 /**
- * 確認リストの 1 項目。log が null なら「やった」を出さない（会員の画面では、記録は今日のやることの行で押す）。
+ * 確認リストの 1 項目。「やった」は、いつも求められていることと区域に入っていれば求められることの全項目（doneLoggable）に出す。
+ * log が null なら出さない。skipToday（会員の画面）なら、今日のやることの行にある消毒の 6 項目には出さない（同じボタンを 2 つにしない）。
  * grouped（枠で出典をまとめた）なら、出典の名前は出さず位置のリンクだけ
  */
-function ItemRow({ item, log, grouped }: { item: ChecklistItem; log: Log | null; grouped: boolean }) {
+function ItemRow({ item, log, grouped, skipToday }: { item: ChecklistItem; log: Log | null; grouped: boolean; skipToday: boolean }) {
+  const done = item.doneLoggable && log !== null && !(skipToday && item.disinfectionLoggable);
   return (
     <li>
       <p>{item.text}</p>
@@ -93,7 +95,7 @@ function ItemRow({ item, log, grouped }: { item: ChecklistItem; log: Log | null;
           {itemNote(item) ? <p className="todo-note">{itemNote(item)}</p> : null}
         </>
       )}
-      {item.disinfectionLoggable && log ? <DoneButton itemId={item.id} label={item.text} log={log} /> : null}
+      {done && log ? <DoneButton itemId={item.id} label={item.text} log={log} /> : null}
     </li>
   );
 }
@@ -105,7 +107,17 @@ const blockId = (cls: string) => `todo-${cls}`;
  * 確認リストの枠（3 分類）。番号の注意は枠ごとに 1 回、区域の枠には県の連絡の注を添える。全項目が同じ出典なら、出典は見出しの直下に 1 回。
  * level は枠の見出しの段（「確認リスト」の h2 の中なら 3）
  */
-function ChecklistBlocks({ sections, log, level = 2 }: { sections: ChecklistSection[]; log: Log | null; level?: 2 | 3 }) {
+function ChecklistBlocks({
+  sections,
+  log,
+  level = 2,
+  skipToday = false,
+}: {
+  sections: ChecklistSection[];
+  log: Log | null;
+  level?: 2 | 3;
+  skipToday?: boolean;
+}) {
   return (
     <>
       {sections.map((s) => {
@@ -117,7 +129,7 @@ function ChecklistBlocks({ sections, log, level = 2 }: { sections: ChecklistSect
             {s.class === "if_in_zone" ? <p>{ZONE_AUTHORITY_NOTE}</p> : null}
             <ul className="todo-items">
               {s.items.map((item) => (
-                <ItemRow key={item.id} item={item} log={log} grouped={shared !== null} />
+                <ItemRow key={item.id} item={item} log={log} grouped={shared !== null} skipToday={skipToday} />
               ))}
             </ul>
           </ClassBlock>
@@ -291,7 +303,8 @@ const SELF_CHECK_REMINDER = "今月の自己点検を確かめましょう";
  * 会員で農場があるときの対策項目（2026-11-07 A）。
  * 見出しの横に時点と発生の地図への入口 → （段階 1 だけ）短い確認・解除の見込み・区域に入っていれば求められること
  * → 今日のやること（記録できるものの 1 本のリスト）→ 参照（県の注意、声かけ文、国の指針の一覧）。
- * 消毒の「やった」は今日のやることの行だけに出し、区域の枠と下の一覧には出さない（同じボタンを 2 つにしない）。
+ * 消毒の 6 項目の「やった」は今日のやることの行だけに出し、区域の枠と下の一覧には出さない（同じボタンを 2 つにしない）。
+ * それ以外の、いつも求められていることと区域に入っていれば求められることの項目は、区域の枠と下の一覧で「やった」を押せる（2026-11-08）。
  */
 function MemberTodo({ data, farm }: { data: TodoData; farm: Farm & { id: string } }) {
   const log = useDisinfectionLog(true);
@@ -342,7 +355,7 @@ function MemberTodo({ data, farm }: { data: TodoData; farm: Farm & { id: string 
           {/* 目次は段階 1 だけ（4 つ以上の節があるとき）。短い確認のすぐ下 */}
           {state.status === "ready" ? <TodoToc entries={toc} /> : null}
           <LiftRegion data={data} />
-          <ChecklistBlocks sections={zone} log={null} />
+          <ChecklistBlocks sections={zone} log={log} skipToday />
         </>
       ) : null}
 
@@ -363,7 +376,7 @@ function MemberTodo({ data, farm }: { data: TodoData; farm: Farm & { id: string 
             </div>
             {open ? (
               <div className="todo-details">
-                <ChecklistBlocks sections={refSections} log={null} />
+                <ChecklistBlocks sections={refSections} log={log} skipToday />
               </div>
             ) : null}
           </>

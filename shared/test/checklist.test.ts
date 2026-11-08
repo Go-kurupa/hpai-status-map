@@ -125,6 +125,12 @@ describe("項目の出典と文", () => {
       "zone-inside",
     ]);
   });
+  it("確認リストで「やった」を出す項目（doneLoggable）は、いつも求められていることと区域に入っていれば求められることの全項目。確かめておくとよいことには出さない（2026-11-08）", () => {
+    for (const i of CHECKLIST_ITEMS) expect(i.doneLoggable, i.id).toBe(i.class === "always" || i.class === "if_in_zone");
+    expect(CHECKLIST_ITEMS.filter((i) => i.doneLoggable)).toHaveLength(15);
+    // 消毒の 6 項目（今日のやることに並べる）は、確認リストの「やった」にも含まれる
+    for (const i of CHECKLIST_ITEMS.filter((x) => x.disinfectionLoggable)) expect(i.doneLoggable, i.id).toBe(true);
+  });
   it("全文（見出し、項目、出典、短い確認）に禁止語がない", () => {
     const all: string[] = [];
     for (const l of [1, 2, 3, 4] as const) {

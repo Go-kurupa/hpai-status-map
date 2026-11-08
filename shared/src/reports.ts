@@ -20,14 +20,26 @@ export const SELF_CHECK_ITEMS: ReadonlyArray<{ no: SelfCheckItemNo; label: strin
 /** 索引 Q12 の既定（A: 地域が出ない書き方） */
 export const SELF_CHECK_SOURCE_NOTE = "ある家畜保健衛生所の様式の例です。項目と期限は県や家畜保健衛生所で違います";
 
-/** 消毒の記録の項目 id を言葉にする。知らない id は呼ぶ側でそのまま使う */
+/**
+ * 消毒・対策の記録の項目 id を言葉にする。確認リストで「やった」を出す項目（いつも求められていることと、
+ * 区域に入っていれば求められることの全項目）に名前を持つ。知らない id は呼ぶ側でそのまま使う
+ */
 export const DISINFECTION_LABELS: Readonly<Record<string, string>> = {
   "always-17": "入口の手指消毒",
+  "always-18": "区域専用の衣服と靴",
   "always-19": "車両の消毒",
   "always-22": "鶏舎の手指消毒",
+  "always-23": "鶏舎ごとの靴の履き替え",
+  "always-25": "防鳥ネットの点検と修繕",
+  "always-27": "ねずみと害虫の駆除",
+  "always-32": "特定症状の確認",
+  "always-33": "異状の確認",
+  "zone-daily": "死亡羽数の毎日の報告",
+  "zone-visitors": "関係者以外の出入りの制限",
   "zone-entry": "入出場時の消毒",
   "zone-lime": "消石灰の消毒",
   "zone-inside": "鶏舎内の消毒",
+  "zone-abnormal": "区域の異状の即時報告",
 };
 
 export const EXCLUSION_LABELS: Readonly<Record<ExclusionKind, string>> = {
@@ -173,7 +185,7 @@ export function checksToCsv(checks: readonly CheckRecord[]): string {
   const rows: Array<Array<string | number>> = [];
   for (const c of sorted) {
     if (c.kind === "disinfection") {
-      rows.push([c.date, "消毒", DISINFECTION_LABELS[c.itemId] ?? c.itemId, "実施"]);
+      rows.push([c.date, "消毒・対策", DISINFECTION_LABELS[c.itemId] ?? c.itemId, "実施"]);
     } else {
       for (const it of SELF_CHECK_ITEMS) {
         rows.push([c.date, "自己点検", `${it.no} ${it.label}（${monthLabel(c.month)}分）`, mark(c.answers[it.no])]);

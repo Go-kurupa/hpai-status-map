@@ -9,6 +9,7 @@ import {
   SELF_CHECK_ITEMS,
   SELF_CHECK_SOURCE_NOTE,
 } from "../src/reports";
+import { CHECKLIST_ITEMS } from "../src/checklist";
 import type { CheckRecord, DeathRecord, House, SelfCheckItemNo } from "../src/types";
 import { findForbiddenPhrases } from "../src/wording";
 
@@ -221,19 +222,37 @@ describe("checksToCsv", () => {
     ];
     const csv = checksToCsv(checks);
     expect(csv.startsWith("﻿日付,種類,項目,結果\r\n")).toBe(true);
-    expect(csv).toContain("2026-11-02,消毒,入口の手指消毒,実施");
-    expect(csv).toContain("2026-11-02,消毒,消石灰の消毒,実施");
-    expect(csv).toContain("2026-11-03,消毒,mystery-1,実施");
+    expect(csv).toContain("2026-11-02,消毒・対策,入口の手指消毒,実施");
+    expect(csv).toContain("2026-11-02,消毒・対策,消石灰の消毒,実施");
+    expect(csv).toContain("2026-11-03,消毒・対策,mystery-1,実施");
   });
-  it("DISINFECTION_LABELS は決められた 6 つ", () => {
+  it("DISINFECTION_LABELS は、確認リストで「やった」を出す 15 項目の短い名前（2026-11-08）", () => {
     expect(DISINFECTION_LABELS).toEqual({
       "always-17": "入口の手指消毒",
+      "always-18": "区域専用の衣服と靴",
       "always-19": "車両の消毒",
       "always-22": "鶏舎の手指消毒",
+      "always-23": "鶏舎ごとの靴の履き替え",
+      "always-25": "防鳥ネットの点検と修繕",
+      "always-27": "ねずみと害虫の駆除",
+      "always-32": "特定症状の確認",
+      "always-33": "異状の確認",
+      "zone-daily": "死亡羽数の毎日の報告",
+      "zone-visitors": "関係者以外の出入りの制限",
       "zone-entry": "入出場時の消毒",
       "zone-lime": "消石灰の消毒",
       "zone-inside": "鶏舎内の消毒",
+      "zone-abnormal": "区域の異状の即時報告",
     });
+  });
+  it("「やった」を出す項目（doneLoggable）はすべて短い名前を持ち、名前は重ならない。itemId が CSV に出るのは知らない id だけ", () => {
+    const loggable = CHECKLIST_ITEMS.filter((i) => i.doneLoggable).map((i) => i.id);
+    expect(Object.keys(DISINFECTION_LABELS).sort()).toEqual([...loggable].sort());
+    const names = Object.values(DISINFECTION_LABELS);
+    expect(new Set(names).size).toBe(names.length);
+    const csv = checksToCsv(loggable.map((itemId) => ({ kind: "disinfection" as const, date: "2026-11-08", itemId })));
+    for (const id of loggable) expect(csv, id).not.toContain(id);
+    expect(csv).toContain("2026-11-08,消毒・対策,区域専用の衣服と靴,実施");
   });
   it("自己点検は 7 項目を 1 行ずつ。○ × 未記入", () => {
     const csv = checksToCsv([

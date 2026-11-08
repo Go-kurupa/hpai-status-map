@@ -51,7 +51,7 @@ vi.mock("../consult/cardsData", () => ({
 
 import TodoPage, { orderSections, sharedSource } from "./TodoPage";
 import { STANDARD_NUMBER_NOTE } from "@hpai/shared/checklist/items";
-import { buildChecklist, shortReminder } from "@hpai/shared/checklist";
+import { buildChecklist, CHECKLIST_ITEMS, shortReminder } from "@hpai/shared/checklist";
 
 // 守る文は箇条書きで「文（出典: 名前）」と名前のリンクに分けて出す（URL は本文に出さない）
 const riskItem = () => screen.queryAllByRole("listitem").find((li) => li.textContent?.includes(RISK_SENTENCE)) ?? null;
@@ -516,18 +516,55 @@ describe("農場と記録（やった）", () => {
     expect(saveCheck.mock.calls[0]![0]).toEqual({ kind: "disinfection", date: TODAY, itemId: "always-17" });
     await waitFor(() => expect(btn.textContent).toBe("今日は記録しました"));
     expect((btn as HTMLButtonElement).disabled).toBe(true);
-    // 区域の項目はない（段階 4）。記録できるのは always の 3 つ
-    expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(3);
+    // 区域の項目はない（段階 4）。記録できるのは always の 9 つ（消毒の 3 つは今日のやることの行、残りの 6 つは参照の一覧。2026-11-08）
+    expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(9);
+  });
+
+  it("会員の確認リスト（参照の一覧）の新しい項目（always-18）の『やった』は saveCheck({kind:'disinfection',date,itemId}) で 1 件を保存する", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    await todayList();
+    const ref = screen.getByRole("region", { name: "参照" });
+    fireEvent.click(within(ref).getByRole("button", { name: MORE }));
+    const summary = () => document.querySelector(".today-summary")?.textContent;
+    const before = summary();
+    const btn = await within(ref).findByRole("button", { name: /やった: 衛生管理区域専用の衣服と靴/ });
+    fireEvent.click(btn);
+    await waitFor(() => expect(saveCheck).toHaveBeenCalledTimes(1));
+    expect(saveCheck.mock.calls[0]![0]).toEqual({ kind: "disinfection", date: TODAY, itemId: "always-18" });
+    await waitFor(() => expect(btn.textContent).toBe("今日は記録しました"));
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
+    // 今日のやること（消毒の 6 項目のうちの 3 つ）の集計は変わらない
+    expect(summary()).toBe(before);
   });
 
   it("段階 1 は区域の消毒（zone-entry、zone-lime、zone-inside）も『やった』で残せる", async () => {
     mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
     await screen.findByRole("region", { name: "解除の見込み" });
     await screen.findAllByRole("button", { name: /^やった/ });
-    expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(6);
+    // 今日のやることの 6 つ（消毒）と、区域の枠の 3 つ、参照の一覧の always の 6 つ（2026-11-08）
+    expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(15);
     fireEvent.click(screen.getByRole("button", { name: /やった: 鶏舎の中を/ }));
     await waitFor(() => expect(saveCheck).toHaveBeenCalled());
     expect(saveCheck.mock.calls[0]![0]).toEqual({ kind: "disinfection", date: TODAY, itemId: "zone-inside" });
+  });
+
+  it("見本の農場（/sample/todo）の確認リストは、いつも求められていることと区域に入っていれば求められることの全項目に『やった』。確かめておくとよいことには出さない（2026-11-08）", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }), path: "/sample/todo", store: sampleStore() });
+    await screen.findByRole("region", { name: "解除の見込み" });
+    await screen.findAllByRole("button", { name: /^やった/ });
+    const want = buildChecklist({ level: 1, production: farm?.production ?? null, housing: farm?.housing ?? null })
+      .filter((x) => x.class !== "good_to_check")
+      .flatMap((x) => x.items.map((i) => `やった: ${i.text}`));
+    const labels = screen.getAllByRole("button", { name: /^やった/ }).map((b) => b.getAttribute("aria-label"));
+    expect([...labels].sort()).toEqual([...want].sort());
+    expect(labels).toHaveLength(15);
+    const good = screen.getByRole("heading", { name: /確かめておくとよいこと/ }).closest("section")!;
+    expect(within(good).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(within(good).queryAllByRole("button", { name: /^やった/ })).toHaveLength(0);
+    // 新しい項目（zone-visitors）を押すと 1 件を保存する
+    fireEvent.click(screen.getByRole("button", { name: /やった: 鶏舎などへの、関係者以外の出入りを控える/ }));
+    await waitFor(() => expect(saveCheck).toHaveBeenCalledTimes(1));
+    expect(saveCheck.mock.calls[0]![0]).toEqual({ kind: "disinfection", date: TODAY, itemId: "zone-visitors" });
   });
 
   it("保存に失敗したら知らせ、もう一度押せる", async () => {
@@ -620,7 +657,7 @@ describe("リンク", () => {
     const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }), path: "/sample/todo", store: sampleStore() });
     await screen.findByRole("region", { name: "解除の見込み" });
     expect(screen.queryByRole("link", { name: "今月の自己点検を開く" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "消毒の記録を開く" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "消毒・対策の記録を開く" })).toBeNull();
     for (const a of container.querySelectorAll("a[href]")) expect(a.getAttribute("href")!).not.toMatch(/^\/(sample\/)?record/);
   });
 });
@@ -629,7 +666,7 @@ describe("消毒への道、段階 1 の並び、番号の注意", () => {
   it("/todo の消毒のリンクは /record/disinfection（会員でない人の今の形）", async () => {
     farm = null;
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
-    const link = await screen.findByRole("link", { name: "消毒の記録を開く" });
+    const link = await screen.findByRole("link", { name: "消毒・対策の記録を開く" });
     expect(link.getAttribute("href")).toBe("/record/disinfection");
     expect(link.className).toContain("tap-link");
     expect(screen.getByRole("link", { name: "今月の自己点検を開く" }).className).toContain("tap-link");
@@ -762,6 +799,22 @@ describe("DisinfectionPanel", () => {
     expect(dates.at(-1)).toBe("12月23日");
   });
 
+  it("確認リストで記録した新しい項目（always-18、zone-abnormal）も、直近 14 日の表に短い名前の列で出る。今日の項目は消毒の 3 つのまま（2026-11-08）", async () => {
+    listChecks.mockResolvedValue([
+      { id: "c0", kind: "disinfection", date: "2026-01-04", itemId: "always-18" },
+      { id: "c1", kind: "disinfection", date: "2026-01-03", itemId: "zone-abnormal" },
+    ]);
+    mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
+    await waitFor(() => expect(tableRow("1月4日")["区域専用の衣服と靴"]).toBe(true));
+    expect(tableRow("1月3日")["区域の異状の即時報告"]).toBe(true);
+    expect(tableRow("1月3日")["区域専用の衣服と靴"]).toBe(false);
+    const heads = within(screen.getByRole("region", { name: RECORD_TEXT.disTableHeading })).getAllByRole("columnheader").map((h) => h.textContent);
+    expect(heads).toEqual(["日付", "入口の手指消毒", "車両の消毒", "鶏舎の手指消毒", "区域専用の衣服と靴", "区域の異状の即時報告"]);
+    expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(3);
+    expect(screen.getByRole("heading", { level: 2, name: "消毒・対策の記録" })).toBeTruthy();
+    expect(screen.getByText("この画面では、消毒や対策をしたら「やった」を押して、日付と項目を記録します。")).toBeTruthy();
+  });
+
   it("題と 1 文、札（今日の記録・直近 14 日の記録）、次にすることを、記録に合わせて出す", async () => {
     listChecks.mockResolvedValue([
       { id: "c0", kind: "disinfection", date: "2026-01-04", itemId: "always-22" },
@@ -852,7 +905,7 @@ const titleOf = (li: HTMLElement) => li.querySelector(".today-title")?.textConte
 const openFold = (li: HTMLElement) => fireEvent.click(li.querySelector("details > summary")!);
 
 describe("会員の画面の作り（今日のやること・参照、2026-11-07 A）", () => {
-  it("段階 4: 今日のやることの下に参照。守る文と県の注意、「国の指針で確かめること（出典つき）」と「一覧を開く（N 項目）」。一覧に「やった」は出さない", async () => {
+  it("段階 4: 今日のやることの下に参照。守る文と県の注意、「国の指針で確かめること（出典つき）」と「一覧を開く（N 項目）」。一覧の「やった」は今日のやることにない項目だけ", async () => {
     const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [farAway()], watch: [] }) });
     await todayList();
     const ref = screen.getByRole("region", { name: "参照" });
@@ -870,12 +923,19 @@ describe("会員の画面の作り（今日のやること・参照、2026-11-07
     fireEvent.click(more);
     expect(container.querySelectorAll(".todo-details .todo-items > li")).toHaveLength(n);
     expect(within(ref).getByRole("button", { name: "一覧を閉じる" }).getAttribute("aria-expanded")).toBe("true");
-    // 「やった」は今日のやることの行だけ（同じボタンを 2 つにしない）
-    expect(within(ref).queryAllByRole("button", { name: /^やった/ })).toHaveLength(0);
-    expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(3);
+    // 消毒の 3 項目の「やった」は今日のやることの行だけ（同じボタンを 2 つにしない）。
+    // ほかの「いつも求められていること」の 6 項目は一覧で押せる（2026-11-08）
+    const refDone = within(ref)
+      .queryAllByRole("button", { name: /^やった/ })
+      .map((b) => b.getAttribute("aria-label"));
+    const always = CHECKLIST_ITEMS.filter((i) => i.class === "always");
+    expect(refDone).toEqual(always.filter((i) => !i.disinfectionLoggable).map((i) => `やった: ${i.text}`));
+    for (const i of always.filter((x) => x.disinfectionLoggable)) expect(refDone).not.toContain(`やった: ${i.text}`);
+    expect(within(today).getAllByRole("button", { name: /^やった/ })).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(9);
     // 今の作りの 2 つのリンクは、今日のやることの行に置き換わる
     expect(screen.queryByRole("link", { name: "今月の自己点検を開く" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "消毒の記録を開く" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "消毒・対策の記録を開く" })).toBeNull();
   });
 
   it("段階 1: 短い確認・解除の見込み・「区域に入っていれば求められること」を今日のやることより上に出す（今の順序）。区域の枠は下の一覧に重ねない", async () => {
@@ -888,14 +948,23 @@ describe("会員の画面の作り（今日のやること・参照、2026-11-07
     const zone = screen.getByRole("heading", { name: /区域に入っていれば求められること/ });
     expect(before(zone)).toBe(true);
     expect(screen.getAllByRole("heading", { name: /区域に入っていれば求められること/ })).toHaveLength(1);
-    // 区域の消毒（3 つ）も今日のやることの行で記録でき、区域の枠には「やった」を出さない
+    // 区域の消毒（3 つ）は今日のやることの行で記録し、区域の枠には出さない。区域の枠のほかの 3 項目は枠の中で押せる（2026-11-08）
     expect(within(today).getAllByRole("button", { name: /^やった/ })).toHaveLength(6);
-    expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(6);
-    expect(within(zone.closest("section")!).queryAllByRole("button", { name: /^やった/ })).toHaveLength(0);
+    const zoneDone = within(zone.closest("section")!)
+      .queryAllByRole("button", { name: /^やった/ })
+      .map((b) => b.getAttribute("aria-label"));
+    const zoneItems = CHECKLIST_ITEMS.filter((i) => i.class === "if_in_zone");
+    expect(zoneDone).toEqual(zoneItems.filter((i) => !i.disinfectionLoggable).map((i) => `やった: ${i.text}`));
+    expect(zoneDone).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(15);
     // 下の一覧は最初から開いている（段階 1）。いつも・確かめておくとよいことだけ
     expect(screen.getByRole("button", { name: "一覧を閉じる" })).toBeTruthy();
     expect(hasHeading(/いつも求められていること/)).toBe(true);
     expect(hasHeading(/確かめておくとよいこと/)).toBe(true);
+    // 確かめておくとよいことには「やった」を出さない（2026-11-08）
+    const good = screen.getByRole("heading", { name: /確かめておくとよいこと/ }).closest("section")!;
+    expect(within(good).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(within(good).queryAllByRole("button", { name: /^やった/ })).toHaveLength(0);
   });
 });
 
@@ -917,7 +986,7 @@ describe("会員の画面: 開いている間に段階が変わったとき", ()
     const titles = () => Array.from(document.querySelectorAll<HTMLElement>(".today-row")).map(titleOf);
     const before = titles();
     act(() => emit([inTsuyama()]));
-    await waitFor(() => expect(screen.getAllByRole("button", { name: /^やった/ })).toHaveLength(6));
+    await waitFor(() => expect(within(screen.getByRole("region", { name: TODAY_HEADING })).getAllByRole("button", { name: /^やった/ })).toHaveLength(6));
     const after = titles();
     expect(after.filter((t) => before.includes(t))).toEqual(before);
     const text = (id: string) => buildChecklist({ level: 1, production: null, housing: null }).flatMap((x) => x.items).find((i) => i.id === id)!.text;

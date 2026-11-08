@@ -17,8 +17,10 @@ export interface ChecklistItem {
   source: ChecklistSource;
   /** 小さいほど先。表の順に 10、20、… */
   rank: number;
-  /** 「やった」を消毒の記録に残せる */
+  /** 「やった」を消毒の記録に残せる（今日のやることと記録の画面の今日の項目に並べる 6 項目） */
   disinfectionLoggable: boolean;
+  /** 確認リストで「やった」を出す（いつも求められていることと、区域に入っていれば求められることの全項目。2026-11-08） */
+  doneLoggable: boolean;
 }
 export interface ChecklistSection {
   class: ChecklistClass;

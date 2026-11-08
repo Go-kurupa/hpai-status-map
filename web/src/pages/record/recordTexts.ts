@@ -7,7 +7,7 @@ export const RECORD_TEXT = {
   tabsLabel: "記録の画面",
   tabDeaths: "死亡数",
   tabSelfCheck: "自己点検",
-  tabDisinfection: "消毒",
+  tabDisinfection: "消毒・対策",
   lastRecord: "最後に記録した日",
   lastRecordNone: "まだありません",
   lastRecordFailed: "読み込めませんでした",
@@ -179,10 +179,10 @@ export const RECORD_TEXT = {
   selfHistoryBlank: "未記入",
   selfHistoryNone: "まだ記録がありません。",
 
-  // 消毒（2026-11-07 業務画面の作り直し。題 → 札 → 次にすること → 今日の項目 → 直近 14 日の表）
-  disTitle: "消毒の記録",
-  disLead: "この画面では、消毒をしたら「やった」を押して、日付と項目を記録します。",
-  disStatsLabel: "消毒の記録の状態",
+  // 消毒・対策（2026-11-07 業務画面の作り直し。題 → 札 → 次にすること → 今日の項目 → 直近 14 日の表）
+  disTitle: "消毒・対策の記録",
+  disLead: "この画面では、消毒や対策をしたら「やった」を押して、日付と項目を記録します。",
+  disStatsLabel: "消毒・対策の記録の状態",
   disTodayTile: "今日の記録",
   disRecentTile: "直近 14 日の記録",
   disNext: (n: number) => `まだ押していない項目が ${n} つあります。消毒したら「やった」を押します。`,
@@ -192,7 +192,7 @@ export const RECORD_TEXT = {
   disDoneToday: "今日 記録済み",
   disSource: "出典",
   disSourceLabel: (title: string, item: string) => `出典: ${title}（${item}）`,
-  disTableHeading: "直近 14 日の消毒",
+  disTableHeading: "直近 14 日の消毒・対策",
   disTableDate: "日付",
   disTableDone: "記録あり",
   disTableFailed: "直近 14 日の記録を読み込めませんでした",

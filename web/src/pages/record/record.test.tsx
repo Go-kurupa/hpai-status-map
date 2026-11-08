@@ -1,4 +1,4 @@
-// M-04: 記録の画面（死亡数、自己点検、消毒）と上の題・タブ・2 行。RecordStore だけを使う。全データの削除は農場の設定へ移した（settings.test.tsx）。
+// M-04: 記録の画面（死亡数、自己点検、消毒・対策）と上の題・タブ・2 行。RecordStore だけを使う。全データの削除は農場の設定へ移した（settings.test.tsx）。
 import type { CheckRecord, DeathRecord, Farm, House, Season, SelfCheckItemNo } from "@hpai/shared/types";
 import { addDays } from "@hpai/shared/dates";
 import { MORTALITY_TEXT } from "@hpai/shared/mortality";
@@ -176,7 +176,7 @@ describe("RecordTabs（上の題とリンクと 2 行）", () => {
     const nav = screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel });
     const links = within(nav).getAllByRole("link");
     expect(links.map((a) => a.getAttribute("href"))).toEqual(["/record/deaths", "/record/self-check", "/record/disinfection"]);
-    expect(links.map((a) => a.textContent)).toEqual(["死亡数", "自己点検", "消毒"]);
+    expect(links.map((a) => a.textContent)).toEqual(["死亡数", "自己点検", "消毒・対策"]);
     expect(await screen.findByText("最後に記録した日: 11月5日")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/2026-11-05|2026年/);
   });

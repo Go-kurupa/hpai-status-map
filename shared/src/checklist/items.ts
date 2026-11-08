@@ -43,7 +43,7 @@ interface Row {
   class: ChecklistClass;
   text: string;
   source: ChecklistSource;
-  /** 「やった」を消毒の記録に残せる項目 */
+  /** 今日のやることと記録の画面の今日の項目に並べる、消毒の 6 項目（確認リストの「やった」は class で決める） */
   log?: true;
 }
 
@@ -133,4 +133,5 @@ export const CHECKLIST_ITEMS: readonly ChecklistItem[] = ROWS.map((r, n) => ({
   source: r.source,
   rank: (n + 1) * 10,
   disinfectionLoggable: r.log === true,
+  doneLoggable: r.class === "always" || r.class === "if_in_zone",
 }));

@@ -228,7 +228,7 @@ describe("置き場と出る条件", () => {
       expect(screen.getByRole("button", { name: /^確認リストを開く（\d+ 項目）$/ })).toBeTruthy();
       expect(screen.getByText("今月の自己点検を確かめましょう")).toBeTruthy();
     });
-    expect(screen.queryByRole("link", { name: "消毒の記録を開く" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "消毒・対策の記録を開く" })).toBeNull();
     expect(screen.queryByRole("region", { name: HEADING })).toBeNull();
     expect(listHouses).not.toHaveBeenCalled();
   });
