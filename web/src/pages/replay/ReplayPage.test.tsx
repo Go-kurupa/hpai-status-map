@@ -276,11 +276,12 @@ describe("ReplayPage", () => {
     expect(fold.querySelector("summary")?.textContent).toBe("日付の一覧から選ぶ");
   });
 
-  it("押せない案内の『地図』は / へのリンク。見本の農場で試すは /sample へのリンク", async () => {
+  it("押せない案内の『地図』は / へのリンク。近くで発生した場合の見え方は /sample へのリンク（旧『見本の農場で試す』はない）", async () => {
     await show();
     await mapReady();
     expect(screen.getByRole("link", { name: "地図" }).getAttribute("href")).toBe("/");
-    expect(screen.getByRole("link", { name: "見本の農場で試す" }).getAttribute("href")).toBe("/sample");
+    expect(screen.getByRole("link", { name: "近くで発生した場合の見え方" }).getAttribute("href")).toBe("/sample");
+    expect(screen.queryByRole("link", { name: "見本の農場で試す" })).toBeNull();
     expect(document.body.textContent).toContain("選んだ地域で見るには、地図で自分の場所を決めてください（この端末の中にだけ保存されます）。");
   });
 

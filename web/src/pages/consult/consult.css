@@ -248,6 +248,15 @@
   font-weight: 700;
   border-bottom: 0;
 }
+/* 近くの町の事例の一覧。列が多いので折り返さず、狭い幅では外側の table-scroll で横に送る */
+.consult-near-table th,
+.consult-near-table td {
+  text-align: left;
+  white-space: nowrap;
+}
+.consult-near-table .num {
+  text-align: right;
+}
 .consult-stats-notes {
   margin: 0;
   padding-left: 1.1em;

@@ -6,6 +6,8 @@
 // follow_up は続けて聞く問い。first（1 問目）を本物で呼び、その答えを前の往復（history）として 2 問目を呼ぶ（2 回分の費用）。合否は 2 問目で見る。
 // 結果には、答えの字数と、検査を通った続けて聞く候補（validateFollowUps）も残す。
 // stats は発生の件数の問い。Claude が選んだ数え方（stats）が expect.stats のどれかと同じなら合格（件数はプログラムが数えるので見ない）。
+//   近くの町の問い（groupBy "near"）も同じ。条件の町があれば、その町から約 60 km 以内の一覧、なければ決まった文になる。
+//   結果には、本番の関数と同じくプログラムが組んだ表のまとめの文（statsSummary）も残す（目で読む用。合否には使わない）。
 //   bash scripts/with-dev-key.sh npx tsx scripts/consult/eval.ts --yes   **有料**。呼ぶ問いを 1 問 1 回ずつ（間に 1 秒）
 //
 // 結果は evals/consult/results-<日時>.json（通った答えの文を含む）。生の返事は private/consult/raw/（公開しない）。
@@ -18,10 +20,11 @@ import { z } from "zod";
 import { estimateUsd } from "@hpai/shared/budget";
 import { parseCardsFile } from "@hpai/shared/consult/schema";
 import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
-import { parseStatsQuery, type StatsQuery } from "@hpai/shared/consult/stats";
+import { computeStats, parseStatsQuery, type MuniCenterIndex, type NearOrigin, type StatsQuery } from "@hpai/shared/consult/stats";
 import { jstDateOf } from "@hpai/shared/dates";
 import { findTopic } from "@hpai/shared/consult/topics";
 import type { ConsultCard, ConsultTurn, ConsultFarmCondition, ConsultFarmUsed } from "@hpai/shared/consult/types";
+import type { HistoryCase } from "@hpai/shared/types";
 import { farmNumberTexts, townNameOf, type MuniNameIndex } from "@hpai/shared/consult/farmCondition";
 import { OUT_OF_SCOPE_TEXT, validateAsk, validateFollowUps } from "@hpai/shared/consult/validate";
 import { buildAskRequest, CONSULT_MAX_CARDS, CONSULT_MODEL } from "../../functions/src/consult/claude";
@@ -31,6 +34,7 @@ const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const CASES_PATH = path.join(ROOT, "evals", "consult", "cases.json");
 const CARDS_PATH = path.join(ROOT, "data", "consult", "cards.json");
 const MUNI_INDEX_PATH = path.join(ROOT, "data", "geo", "muni-index.json");
+const HISTORY_PATH = path.join(ROOT, "data", "history", "cases.json");
 const RESULTS_DIR = path.join(ROOT, "evals", "consult");
 const RAW_DIR = path.join(ROOT, "private", "consult", "raw");
 const JPY_PER_USD = 155;
@@ -53,16 +57,29 @@ export interface EvalCase {
   farm?: ConsultFarmCondition;
 }
 
-let muniIndex: MuniNameIndex | null = null;
+let muniIndex: (MuniNameIndex & MuniCenterIndex) | null = null;
+const loadMuniIndex = (): MuniNameIndex & MuniCenterIndex => (muniIndex ??= JSON.parse(fs.readFileSync(MUNI_INDEX_PATH, "utf8")) as MuniNameIndex & MuniCenterIndex);
 
 /** 本番の関数（withTown）と同じく、市町村コードから町の名前を索引で引いて足す。索引にないコードは throw（問いの組の誤り） */
 export function usedFarmOf(c: Pick<EvalCase, "id" | "farm">, index?: MuniNameIndex): ConsultFarmUsed | null {
   if (!c.farm) return null;
   if (!c.farm.muniCode) return c.farm;
-  const idx = index ?? (muniIndex ??= JSON.parse(fs.readFileSync(MUNI_INDEX_PATH, "utf8")) as MuniNameIndex);
+  const idx = index ?? loadMuniIndex();
   const town = townNameOf(idx, c.farm.muniCode);
   if (town === null) throw new Error(`${c.id}: 市町村コード ${c.farm.muniCode} が索引にありません`);
   return { ...c.farm, town };
+}
+
+/** 本番の関数と同じく、条件の町（町の名前は usedFarmOf が引いたもの）を近くの町の一覧の起点にする。町がなければ null（決まった文） */
+export function nearOriginOf(farm: ConsultFarmUsed | null, index: MuniCenterIndex = loadMuniIndex()): NearOrigin | null {
+  return farm?.muniCode && farm.town ? { muniCode: farm.muniCode, town: farm.town, index } : null;
+}
+
+let history: HistoryCase[] | null = null;
+/** Claude が選んだ数え方で、本番の関数と同じくプログラムが組んだ表のまとめの文 */
+function statsSummaryOf(q: StatsQuery, farm: ConsultFarmUsed | null): string {
+  history ??= JSON.parse(fs.readFileSync(HISTORY_PATH, "utf8")) as HistoryCase[];
+  return computeStats(history, q, nearOriginOf(farm)).summary;
 }
 
 export interface Outcome {
@@ -143,6 +160,8 @@ export interface CaseResult {
   followUps?: string[];
   /** Claude が選んだ件数の数え方 */
   stats?: StatsQuery;
+  /** その数え方でプログラムが組んだ表のまとめの文（近くの町の一覧の件数や、条件がないときの決まった文を目で読む用） */
+  statsSummary?: string;
   /** follow_up だけ。1 問目の結果（答えの文と字数） */
   first?: { answer: string; answerChars: number; cardIds: string[] };
   reasons?: string[];
@@ -243,7 +262,7 @@ async function runOne(client: Anthropic, c: EvalCase, cards: ConsultCard[], stam
   return {
     id: c.id, kind: c.kind, called: true, outOfScopeRaw, failures, cardIds: result.cardIds,
     answerChars: result.outOfScope ? 0 : Array.from(result.answer).length, passed: j.passed, ms, usage, costUsd,
-    ...(result.outOfScope ? {} : { answer: result.answer, followUps }), ...(stats ? { stats } : {}), ...(j.passed ? {} : { reasons: j.reasons }),
+    ...(result.outOfScope ? {} : { answer: result.answer, followUps }), ...(stats ? { stats, statsSummary: statsSummaryOf(stats, farm) } : {}), ...(j.passed ? {} : { reasons: j.reasons }),
   };
 }
 

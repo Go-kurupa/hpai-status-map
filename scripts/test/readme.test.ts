@@ -46,7 +46,7 @@ describe("README: 最初の節（審査員が登録なしで触れる入口）",
     expect(first).not.toContain("/sample");
     expect(first).not.toContain("judge=1");
     // 2026-11-08: 見本の農場（/sample）を、審査員用の 2 本目の URL として戻した。URL は書かず、提出フォームで案内する
-    expect(first).toContain("近くで発生した場合の画面（2025 年 12 月の再現の中の見本の農場）は、提出フォームの審査員向けの欄の 2 本目のリンクで開けます。");
+    expect(first).toContain("近くで発生した場合の画面（2025 年 12 月の再現の中で、農場の近くで発生したときの地図と対策項目）は、提出フォームの審査員向けの欄の 2 本目のリンクで開けます。");
     expect(readme).not.toMatch(/\/judge#/u);
   });
   it("順路に全国の流れ、周辺の過去の表、毎朝の札、経路図がある。メールは登録した方だけと分ける", () => {

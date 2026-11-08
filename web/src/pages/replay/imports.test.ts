@@ -82,13 +82,20 @@ describe("pages/replay と pages/sample の import", () => {
     }
   });
 
-  it("見本の画面の入口から静的にたどれる先（やること、記録、会員の案内を除く）に、禁じた import がない。Firebase が見本の chunk に載らない", () => {
-    const entries = sources.filter((f) => /Sample(Frame|Layout|Page|TodoPage|RecordPage)\.tsx$/.test(f));
-    expect(entries.map((f) => path.basename(f)).sort()).toEqual(["SampleFrame.tsx", "SampleLayout.tsx", "SamplePage.tsx", "SampleRecordPage.tsx", "SampleTodoPage.tsx"]);
+  // 2026-11-08: 記録を試す画面（SampleRecordPage）をなくし、/sample は地図（再現の操作と MapPage）になった
+  it("見本の画面の入口から静的にたどれる先（対策項目、地図、会員の案内を除く）に、禁じた import がない。Firebase が見本の chunk に載らない", () => {
+    const entries = sources.filter((f) => /Sample(Frame|Layout|Page|TodoPage)\.tsx$/.test(f));
+    expect(entries.map((f) => path.basename(f)).sort()).toEqual(["SampleFrame.tsx", "SampleLayout.tsx", "SamplePage.tsx", "SampleTodoPage.tsx"]);
     for (const entry of entries) {
       const { files, specs } = walk(entry, true);
-      if (/Sample(Todo|Record)Page\.tsx$/.test(entry)) {
-        expect(files.size).toBeGreaterThan(8); // やること・記録の画面の中までたどれている
+      if (/SamplePage\.tsx$/.test(entry)) {
+        expect(files.size).toBeGreaterThan(8); // 地図の画面の中までたどれている
+        expect([...files].some((f) => f.endsWith("MapPage.tsx"))).toBe(true);
+        expect([...files].some((f) => f.endsWith("ReplayControls.tsx"))).toBe(true);
+        expect([...files].some((f) => f.endsWith("ReplayPage.tsx"))).toBe(false);
+      }
+      if (/SampleTodoPage\.tsx$/.test(entry)) {
+        expect(files.size).toBeGreaterThan(8); // 対策項目の画面の中までたどれている
         expect([...files].some((f) => f.endsWith("disinfectionLog.tsx"))).toBe(true);
         expect([...files].some((f) => f.endsWith("useAuthUser.ts"))).toBe(false);
       }

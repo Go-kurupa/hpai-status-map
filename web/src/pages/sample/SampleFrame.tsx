@@ -1,23 +1,30 @@
-// 見本の農場の外枠（X-08）。SampleLayout（/sample の下に 1 つ）が置く。再現の枠（ReplayFrame）の中に M の画面を置き、複製しない。
-// 再現の時計を見本の今日に合わせ、記録の口は SampleRecordStore（端末の中だけ）。会員の状態も Firebase も読まない。
-// 口と時計は読み込みの後に 1 度だけ作り、入口・やること・記録の間を移っても同じものを使う（ページの再読み込みで元に戻る）。
+// 近くで発生した場合の見え方（/sample）の外枠。SampleLayout（/sample の下に 1 つ）が置く。再現の枠（ReplayFrame）の中に、
+// 地図（SamplePage）と対策項目（SampleTodoPage）を置き、複製しない（2026-11-08 作者の決定: 記録を試す画面はなくした）。
+// 再現の時計は、見本の農場（鶏舎の場所 = 再現の仮の地点）にメールが届く最初の出来事（12月19日 津山市 疑い）から始める。
+// 記録の口は SampleRecordStore（端末の中だけ）。対策項目が農場の飼い方と消毒の「やった」を読むために使う。会員の状態も Firebase も読まない。
+// 口と時計は読み込みの後に 1 度だけ作り、地図と対策項目の間を移っても同じものを使う（ページの再読み込みで元に戻る）。
 import { lastOrderOn, type ReplayScenario, type SampleFarmData } from "@hpai/shared/replay";
 import type { FarmPoint } from "@hpai/shared/types";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useOutletContext } from "react-router";
+import { useOutletContext } from "react-router";
 import { fetchHistory } from "../../data/history";
 import { ReplayDataSource } from "../replay/ReplayDataSource";
-import { Fold } from "../../ui/Fold";
-import { MORE_LABEL, ReplayFrame } from "../replay/ReplayFrame";
+import { ReplayFrame } from "../replay/ReplayFrame";
 import { SAMPLE_TEXT } from "./sampleTexts";
 import { SampleRecordStore } from "./SampleRecordStore";
-import "./sample.css";
 
 interface Loaded {
   scenario: ReplayScenario;
   data: SampleFarmData;
 }
 type Load = { status: "loading" } | { status: "failed" } | ({ status: "ready" } & Loaded);
+
+/** 地図の画面（SamplePage）が読む、再現の事例・時計・見る地点 */
+export interface SampleEnv {
+  scenario: ReplayScenario;
+  dataSource: ReplayDataSource;
+  spot: FarmPoint;
+}
 
 async function fetchJson<T>(name: string): Promise<T> {
   const res = await fetch(`${import.meta.env.BASE_URL}replay/${name}`);
@@ -46,42 +53,18 @@ function useSampleLoad(): { load: Load; retry: () => void } {
   return { load, retry: () => setAttempt((n) => n + 1) };
 }
 
-/** "2025-12-30" → "2025年12月30日" */
-function jaDayWithYear(d: string): string {
-  return `${d.slice(0, 4)}年${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
-}
-
-/** 見本の見出しと「保存されない」の短い断り。再現の帯より前に置き、残りの説明は「くわしく」に畳む（再現の帯の注記も一緒に） */
-function SampleLead({ data, details }: { data: SampleFarmData; details: ReactNode }) {
-  return (
-    <section className="sample-band sample-lead" aria-label={SAMPLE_TEXT.badge}>
-      <p className="sample-badge">{SAMPLE_TEXT.badge}</p>
-      <p className="sample-note">{SAMPLE_TEXT.notSaved}</p>
-      <Fold summary={MORE_LABEL} className="band-fold">
-        <p>{SAMPLE_TEXT.notSent}</p>
-        <p>
-          {SAMPLE_TEXT.fictional}。{SAMPLE_TEXT.member}
-        </p>
-        <p>{SAMPLE_TEXT.asOf(jaDayWithYear(data.today))}</p>
-        {details}
-      </Fold>
-    </section>
-  );
-}
-
-function SampleNav() {
-  return (
-    <nav aria-label={SAMPLE_TEXT.navLabel} className="sample-nav">
-      <Link to="/sample">{SAMPLE_TEXT.navEntry}</Link>
-      <Link to="/sample/todo">{SAMPLE_TEXT.navTodo}</Link>
-      <Link to="/sample/record/deaths">{SAMPLE_TEXT.navRecord}</Link>
-    </nav>
-  );
+/**
+ * 開いたときの時刻。仮の地点に「このときメールが届く」が出る最初の出来事（12月19日 津山市 疑い）。
+ * メールの下書きは、再現の仮の地点で作ってある（見本の農場の鶏舎の場所は、その仮の地点と同じ）。
+ * 下書きのある出来事がなければ、見本の今日の最後の出来事にする
+ */
+export function sampleStartOrder(scenario: ReplayScenario, data: SampleFarmData): number {
+  return scenario.events.find((e) => e.noticePreview)?.order ?? lastOrderOn(scenario, data.today);
 }
 
 /**
  * 声かけ文の元になる事例を決める draftFactsOf（M-18）は、再現の事例（confirmState "replay"）を「下書きを作らない事例」として外す。
- * 見本のやることの画面では雛形の声かけ文を見せたいので、見本の画面の中だけ、事例の印を通常の自動（auto）に替える。
+ * 対策項目の画面では雛形の声かけ文を見せたいので、この画面の中だけ、事例の印を通常の自動（auto）に替える。
  * 替えるのは画面の中の複製だけで、データのファイルと再現の画面には届かない。Claude は呼ばない（sample の口と再現の時計は getCaseDraft を呼ばない）。
  */
 function withTemplateDraftCases(s: ReplayScenario): ReplayScenario {
@@ -94,12 +77,12 @@ function withTemplateDraftCases(s: ReplayScenario): ReplayScenario {
   };
 }
 
-function SampleReady({ scenario: loaded, data, nav, children }: Loaded & { nav: boolean; children: (data: SampleFarmData) => ReactNode }) {
+function SampleReady({ scenario: loaded, data, children }: Loaded & { children: (env: SampleEnv) => ReactNode }) {
   const [env] = useState(() => {
     const scenario = withTemplateDraftCases(loaded);
     const dataSource = new ReplayDataSource(scenario, fetchHistory);
-    // 子の画面が今日を読む前に、再現の時計を見本の今日に合わせる（購読者はまだいないので、通知は要らない）
-    dataSource.seek(lastOrderOn(scenario, data.today));
+    // 子の画面が今日を読む前に、再現の時計を開いたときの時刻に合わせる（購読者はまだいないので、通知は要らない）
+    dataSource.seek(sampleStartOrder(scenario, data));
     const spot: FarmPoint = {
       meshCode: data.farm.meshCode,
       muniCode: data.farm.muniCode,
@@ -113,20 +96,19 @@ function SampleReady({ scenario: loaded, data, nav, children }: Loaded & { nav: 
     };
   });
   return (
-    <ReplayFrame scenario={env.scenario} dataSource={env.dataSource} spot={env.spot} recordStore={env.recordStore} lead={(details) => <SampleLead data={data} details={details} />}>
-      {nav ? <SampleNav /> : null}
-      {children(data)}
+    <ReplayFrame scenario={env.scenario} dataSource={env.dataSource} spot={env.spot} recordStore={env.recordStore} note={SAMPLE_TEXT.farmNote}>
+      {children({ scenario: env.scenario, dataSource: env.dataSource, spot: env.spot })}
     </ReplayFrame>
   );
 }
 
-export function SampleFrame({ nav = true, children }: { nav?: boolean; children: (data: SampleFarmData) => ReactNode }) {
+export function SampleFrame({ children }: { children: (env: SampleEnv) => ReactNode }) {
   const { load, retry } = useSampleLoad();
   if (load.status === "loading") return <p role="status">{SAMPLE_TEXT.loading}</p>;
   if (load.status === "failed") {
     return (
       <div>
-        <h1>{SAMPLE_TEXT.title}</h1>
+        <h1>{SAMPLE_TEXT.heading}</h1>
         <p role="status">{SAMPLE_TEXT.failed}</p>
         <button type="button" className="btn" onClick={retry}>
           {SAMPLE_TEXT.retry}
@@ -135,13 +117,13 @@ export function SampleFrame({ nav = true, children }: { nav?: boolean; children:
     );
   }
   return (
-    <SampleReady scenario={load.scenario} data={load.data} nav={nav}>
+    <SampleReady scenario={load.scenario} data={load.data}>
       {children}
     </SampleReady>
   );
 }
 
-/** SampleLayout の Outlet が渡す見本のデータ（入口の画面が読む） */
-export function useSampleData(): SampleFarmData {
-  return useOutletContext<SampleFarmData>();
+/** SampleLayout の Outlet が渡す、再現の事例・時計・見る地点（地図の画面が読む） */
+export function useSampleEnv(): SampleEnv {
+  return useOutletContext<SampleEnv>();
 }

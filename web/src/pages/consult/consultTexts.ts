@@ -36,6 +36,19 @@ export const CONSULT_TEXT = {
   statsMapLink: "今の発生を地図で見る",
   statsExploreLink: "条件を変えてデータで探す",
   statsSourcePrefix: "出典: ",
+  /** 近くの町の事例の一覧（groupBy "near"。町と距離はプログラムが出す。AI は数え方を選ぶだけ） */
+  nearCounted: "町と距離は、AI ではなくプログラムが国の一覧と町の中心の位置から出しました。",
+  nearColDate: "日付",
+  nearColPlace: "場所",
+  nearColUse: "用途",
+  nearColHead: "羽数",
+  nearColDistance: "距離",
+  nearColSource: "資料",
+  nearSource: "資料",
+  /** 一覧に出さなかった分（20 件を超えたとき） */
+  nearMore: (n: number) => `ほか ${n.toLocaleString("en-US")} 件（地図の『過去の発生』で見られます）`,
+  /** 条件がないときの決まった文の下のリンク（地図の「過去の発生」） */
+  nearPastLink: "地図で過去の発生を見る",
   toTodo: "対策項目で見る",
   followUpsLabel: "続けて聞く候補",
   /** やりとりの欄の名前（読み上げ用） */

@@ -31,7 +31,6 @@ const BackstagePage = lazy(() => import("./pages/replay/BackstagePage"));
 const SampleLayout = lazy(() => import("./pages/sample/SampleLayout"));
 const SamplePage = lazy(() => import("./pages/sample/SamplePage"));
 const SampleTodoPage = lazy(() => import("./pages/sample/SampleTodoPage"));
-const SampleRecordPage = lazy(() => import("./pages/sample/SampleRecordPage"));
 const JudgePage = lazy(() => import("./pages/auth/JudgePage"));
 const TrendsPage = lazy(() => import("./pages/trends/TrendsPage"));
 const AboutPage = lazy(() => import("./pages/about/AboutPage"));
@@ -105,7 +104,8 @@ export const routes: RouteObject[] = [
       { path: "operator", element: <OperatorPage /> },
       { path: "replay", element: <ReplayPage /> },
       { path: "replay/backstage", element: <BackstagePage /> },
-      // 見本の農場。審査員用の 2 本目の URL（近くで発生した場合の画面）。サイトの中からは、再現の中の『見本の農場で試す』だけがつなぐ（2026-11-08）
+      // 近くで発生した場合の見え方。審査員用の 2 本目の URL。去年 12 月の 4 事例の再現を、見本の農場の鶏舎の場所で見る
+      // （地図と対策項目だけ。2026-11-08 作者の決定）。サイトの中からは、再現の中の『近くで発生した場合の見え方』だけがつなぐ
       // 見本の記録の口と再現の時計は、この層で 1 つだけ作って共有する（SampleLayout）
       {
         path: "sample",
@@ -113,12 +113,10 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <SamplePage /> },
           { path: "todo", element: <SampleTodoPage /> },
-          { path: "record", element: <SampleRecordPage /> }, // 死亡数の画面へ送る（SampleRecordPage の中で決める）
-          { path: "record/deaths", element: <SampleRecordPage /> },
-          { path: "record/self-check", element: <SampleRecordPage /> },
-          { path: "record/disinfection", element: <SampleRecordPage /> },
         ],
       },
+      // 記録を試す画面はなくした（2026-11-08）。古いリンクで来ても行き止まりにせず、/sample の地図へ送る
+      { path: "sample/record/*", element: <Navigate to="/sample" replace /> },
       // このサイトについて（設計書 2026-11-06-ui-frame 決定 12）。今までの URL は同じ画面の節へ送る
       { path: "about", element: <AboutPage /> },
       { path: "results", element: <AboutPage key="results" focus="ai" /> },

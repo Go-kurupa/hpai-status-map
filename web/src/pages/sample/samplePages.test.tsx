@@ -1,8 +1,9 @@
-// X-08: 見本の農場の 3 つの画面（/sample、/sample/todo、/sample/record/*）。M の画面を ReplayFrame（recordStore）で包む。
+// 近くで発生した場合の見え方（/sample と /sample/todo。2026-11-08 作者の決定で、記録を試す画面をなくした）。
+// 去年 12 月の 4 事例の再現を、見本の農場の鶏舎の場所（仮の地点）で見る。地図と対策項目は ReplayFrame（recordStore）で包み、複製しない。
 // 会員の状態（useAuthUser）と Firebase は一切読まない（読み込めば試験が落ちる）。通信は静的ファイルの 3 つだけ。
 import { createGeoStore } from "@hpai/shared/geo";
-import { MORTALITY_TEXT } from "@hpai/shared/mortality";
-import { findForbiddenPhrases, FIXED_TEXT } from "@hpai/shared/wording";
+import type { ReplayScenario, SampleFarmData } from "@hpai/shared/replay";
+import { findForbiddenPhrases } from "@hpai/shared/wording";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -14,7 +15,8 @@ import historyJson from "../../../../data/history/cases.json";
 import sampleJson from "../../../../data/replay/sample-farm.json";
 import scenarioJson from "../../../../data/replay/scenario.json";
 import { routes } from "../../routes";
-import { RECORD_TEXT } from "../record/recordTexts";
+import { CONTEXT_BAND } from "../../ui/AppShell";
+import type { MapViewProps } from "../map/MapView";
 import { TODO_TEXT, WORKER_MESSAGE_TEXT } from "../todo/texts";
 import { SAMPLE_TEXT } from "./sampleTexts";
 
@@ -27,6 +29,15 @@ vi.mock("../../geo/loadGeo", () => {
   });
   return { loadWebGeoStore: () => Promise.resolve(store), loadJapanTopo: () => Promise.reject(new Error("unused")), loadPrefAnchors: () => Promise.reject(new Error("unused")) };
 });
+
+// MapView は maplibre（WebGL）を使うので差し替える。渡された props を控える（地図の寄せ先を確かめる）
+const seen = vi.hoisted(() => [] as MapViewProps[]);
+vi.mock("../map/MapView", () => ({
+  default: (props: MapViewProps) => {
+    seen.push(props);
+    return <div data-testid="map" />;
+  },
+}));
 
 // 見本は会員の状態も Firebase も読まない。読んだら投げて、試験を落とす
 const forbidden = vi.hoisted(() => ({ auth: vi.fn(), firebase: vi.fn() }));
@@ -43,10 +54,14 @@ vi.mock("../../firebase", () => ({
   },
 }));
 
+import { sampleStartOrder } from "./SampleFrame";
 import SampleLayout from "./SampleLayout";
 import SamplePage from "./SamplePage";
-import SampleRecordPage from "./SampleRecordPage";
 import SampleTodoPage from "./SampleTodoPage";
+
+const scenario = scenarioJson as unknown as ReplayScenario;
+const sample = sampleJson as unknown as SampleFarmData;
+const ZONE = "区域に入っている可能性があります。県の連絡を確かめてください";
 
 let fetched: string[];
 function stubFetch(opts: { failSample?: boolean } = {}) {
@@ -78,10 +93,6 @@ function mount(entry: string) {
         <Route path="/sample" element={<SampleLayout />}>
           <Route index element={<SamplePage />} />
           <Route path="todo" element={<SampleTodoPage />} />
-          <Route path="record" element={<SampleRecordPage />} />
-          <Route path="record/deaths" element={<SampleRecordPage />} />
-          <Route path="record/self-check" element={<SampleRecordPage />} />
-          <Route path="record/disinfection" element={<SampleRecordPage />} />
         </Route>
       </Routes>
       <Where />
@@ -89,16 +100,37 @@ function mount(entry: string) {
   );
 }
 
-const where = () => screen.getByTestId("where").textContent;
-/** 死亡数の画面の 1 鶏舎の行。欄に数を入れ、その行の「記録する」か「記録し直す」を押す */
-const rowOf = (house: string) => screen.getAllByRole("listitem").find((li) => li.querySelector(".row-title")?.textContent === house)!;
-function recordIn(house: string, n: string) {
-  fireEvent.change(screen.getByLabelText(RECORD_TEXT.deathsInputLabel(house)), { target: { value: n } });
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(`^(${RECORD_TEXT.save}|${RECORD_TEXT.resave}): ${house}$`) }));
+/** 実際の経路表（routes.tsx。画面の骨格と、/sample/record からの送りを含む） */
+function mountRoutes(entry: string) {
+  const router = createMemoryRouter(routes, { initialEntries: [entry] });
+  render(<RouterProvider router={router} />);
+  return router;
 }
+
+/** 地図が出て、見回りの結果（再現の時計）が届くまで待つ（ReplayPage の試験と同じ） */
+async function mapReady() {
+  await screen.findByTestId("map", undefined, { timeout: 10_000 });
+  await waitFor(() => expect(screen.getByTestId("watch-line").textContent).toMatch(/47 都道府県/));
+}
+
+/** 日付の一覧のボタン（畳んであるので開いてから探す） */
+const item = (re: RegExp) => {
+  const fold = screen.getByRole("list", { name: "日付の一覧", hidden: true }).closest("details");
+  if (fold) fold.open = true;
+  return within(screen.getByRole("list", { name: "日付の一覧" })).getByRole("button", { name: re });
+};
+
 const text = () => document.body.textContent ?? "";
+const count = (hay: string, needle: string) => hay.split(needle).length - 1;
+
+function expectNoMemberLinks() {
+  const hrefs = [...document.querySelectorAll(".app-main a[href], .replay-scope a[href]")].map((a) => a.getAttribute("href") ?? "");
+  const bad = hrefs.filter((h) => /^\/(record|settings|login|join|todo$|operator|consult)|^\/sample\/record/.test(h));
+  expect(bad).toEqual([]);
+}
 
 beforeEach(() => {
+  seen.length = 0;
   localStorage.clear();
   forbidden.auth.mockClear();
   forbidden.firebase.mockClear();
@@ -111,106 +143,134 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("/sample（入口）", () => {
-  it("『去年の再現です』の帯、『見本です（作り物のデータ）』、架空の説明、時点がある", async () => {
+describe("開いたときの時刻", () => {
+  it("仮の地点にメールが届く最初の出来事（12月19日 津山市 疑い、4 番目）。見本の農場の鶏舎の場所は再現の仮の地点と同じ", () => {
+    const order = sampleStartOrder(scenario, sample);
+    expect(order).toBe(4);
+    const e = scenario.events[order - 1]!;
+    expect(e.date).toBe("2025-12-19");
+    expect(e.caseAfter.muniName).toBe("津山市");
+    expect(e.noticePreview?.text).toContain("津山市で疑いの発表がありました");
+    expect(scenario.events.slice(0, order - 1).some((x) => x.noticePreview)).toBe(false);
+    expect(sample.farm.meshCode).toBe(scenario.defaultSpot.meshCode);
+    expect(sample.farm.muniCode).toBe(scenario.defaultSpot.muniCode);
+  });
+});
+
+describe("/sample（地図）", () => {
+  it("12月19日 津山市 疑いの時刻で始まり、区域に入っている可能性と『このときメールが届く』が出る", async () => {
     mount("/sample");
-    await screen.findByRole("heading", { level: 1, name: "見本の農場" });
-    expect(screen.getAllByText(FIXED_TEXT.replayBanner).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(SAMPLE_TEXT.badge).length).toBeGreaterThan(0);
-    expect(text()).toContain("架空の農場です。数字は作り物です");
-    expect(text()).toContain("時点");
-    expect(text()).toContain("2025年12月30日");
-    expect(text()).toContain("鶏舎A");
-    expect(text()).toContain("5000");
+    await mapReady();
+    expect(document.querySelector(".replay-now")?.textContent).toBe("12 月 19 日 津山市 疑い");
+    expect(document.querySelector(".replay-position")?.textContent).toBe(`4 / ${scenario.events.length}`);
+    const mail = screen.getByRole("region", { name: "このときメールが届く" });
+    expect(mail.textContent).toContain("津山市で疑いの発表がありました");
+    expect(mail.textContent).toContain("再現では実際には送りません");
+    await waitFor(() => expect(text()).toContain(ZONE));
+    expect(text()).toContain("再現の時点: 12 月 19 日");
   });
 
-  it("/sample/todo と /sample/record/deaths へのリンクがある", async () => {
+  // 2026-11-08 PM: 全国の広さで始まると、見本の農場の近くの距離の輪が見えない。去年の再現の画面（/replay）の 4 事例は全国の広さのまま
+  it("地図は最初から選択地域付近（見本の農場の地点のまわり、距離の輪が見える広さ）。『全国』ではない", async () => {
     mount("/sample");
-    await screen.findByRole("heading", { level: 1, name: "見本の農場" });
-    expect(screen.getByRole("link", { name: /^対策項目$/ }).getAttribute("href")).toBe("/sample/todo");
-    expect(screen.getByRole("link", { name: /記録/ }).getAttribute("href")).toBe("/sample/record/deaths");
+    await mapReady();
+    await waitFor(() => expect(seen.at(-1)!.focus?.kind).toBe("rings"));
+    expect(seen.at(-1)!.focus?.codes).toEqual([sample.farm.muniCode]);
+    const scope = screen.getByRole("group", { name: "地図の見る場所" });
+    const pressed = within(scope)
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-pressed") === "true")
+      .map((b) => b.textContent);
+    expect(pressed).toHaveLength(1);
+    expect(pressed[0]).not.toBe("全国");
   });
 
-  it("見本の帯の『記録』は下のタブと同じ死亡数へ着く", async () => {
-    mount("/sample/todo");
-    const nav = await screen.findByRole("navigation", { name: SAMPLE_TEXT.navLabel });
-    expect(within(nav).getByRole("link", { name: SAMPLE_TEXT.navRecord }).getAttribute("href")).toBe("/sample/record/deaths");
-  });
-
-  it("入口の末尾に『去年の再現へ』（/replay）と『鶏を飼っていない方へ』（/public）のリンクがある", async () => {
+  it("見出し（h1）は近くで発生した場合の見え方。地図の『今季』の見出しは再現と同じく隠す", async () => {
     mount("/sample");
-    await screen.findByRole("heading", { level: 1, name: "見本の農場" });
-    expect(screen.getByRole("link", { name: "去年の再現へ" }).getAttribute("href")).toBe("/replay");
-    expect(screen.getByRole("link", { name: "鶏を飼っていない方へ" }).getAttribute("href")).toBe("/public");
+    await mapReady();
+    const h1s = [...document.querySelectorAll("h1")].filter((h) => !h.closest(".map-page"));
+    expect(h1s.map((h) => h.textContent)).toEqual([SAMPLE_TEXT.heading]);
+    expect(h1s[0]!.className).toBe("replay-heading");
   });
 
-  it("見本の見出しと保存されない短い断りは再現の帯より前で、畳まない。再現の帯は題と時点だけ。その後に行き来の nav", async () => {
-    mount("/sample/todo");
-    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
-    const lead = document.querySelector(".sample-lead")!;
-    expect(lead.children[0]!.className).toBe("sample-badge");
-    expect(lead.children[0]!.textContent).toBe(SAMPLE_TEXT.badge);
-    expect(lead.children[1]!.textContent).toBe("入れた記録は保存されません");
-    expect(lead.children[1]!.closest("details")).toBeNull();
-    const replayBand = document.querySelector(".replay-band")!;
-    expect(lead.compareDocumentPosition(replayBand) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect([...replayBand.children].map((e) => e.className)).toEqual(["replay-title", "replay-time"]);
-    expect(replayBand.querySelector("details")).toBeNull();
-    const nav = screen.getByRole("navigation", { name: SAMPLE_TEXT.navLabel });
-    expect(replayBand.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(nav.closest("details")).toBeNull();
+  it("前へ・次へと日付の一覧で、再現の画面と同じく時刻を動かせる", async () => {
+    mount("/sample");
+    await mapReady();
+    fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+    await waitFor(() => expect(document.querySelector(".replay-now")?.textContent).toBe("12 月 20 日 津山市 確定"));
+    expect(screen.getByRole("region", { name: "このときメールが届く" }).textContent).toContain("津山市で確定の発表がありました");
+    fireEvent.click(screen.getByRole("button", { name: "前へ" }));
+    fireEvent.click(screen.getByRole("button", { name: "前へ" }));
+    await waitFor(() => expect(document.querySelector(".replay-now")?.textContent).toBe("12 月 17 日 米子市 搬出制限の解除"));
+    expect(screen.queryByRole("region", { name: "このときメールが届く" })).toBeNull();
+    expect(text()).toContain("この出来事では、この地点にメールは届きません。");
+    fireEvent.click(item(/はじまり/));
+    await waitFor(() => expect(document.querySelector(".replay-position")?.textContent).toBe(`0 / ${scenario.events.length}`));
   });
 
-  it("残りの説明は 1 つの『くわしく』に畳み、閉じていても DOM にある（保存されない全文、架空の文、時点、再現の帯の文と注記）", async () => {
-    mount("/sample/todo");
-    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
-    const folds = document.querySelectorAll(".sample-lead details");
-    expect(folds).toHaveLength(1);
-    const fold = folds[0] as HTMLDetailsElement;
+  it("流れと見る場所の切り替え、舞台裏へのリンクは出さない（再現の画面だけのもの）", async () => {
+    mount("/sample");
+    await mapReady();
+    expect(screen.queryByRole("group", { name: "再現の範囲" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "見る場所" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "全国の流れ" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /舞台裏/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: "近くで発生した場合の見え方" })).toBeNull();
+  });
+
+  it("枠つきの帯（再現の帯、見本の点線の枠）と行き来のボタンはない。時点と『鶏舎の場所は説明のために置いた仮の地点です』が 1 回だけ", async () => {
+    mount("/sample");
+    await mapReady();
+    expect(document.querySelector(".replay-band")).toBeNull();
+    expect(document.querySelector(".sample-band, .sample-lead, .sample-badge, .sample-nav")).toBeNull();
+    expect(text()).not.toContain("見本です（作り物のデータ）");
+    expect(text()).not.toContain("記録を試す");
+    const under = screen.getByRole("region", { name: "去年の再現" });
+    expect(under.className).toBe("replay-under");
+    expect([...under.children].map((e) => e.className)).toEqual(["replay-time", "replay-spot", "fold band-fold"]);
+    expect(under.querySelector(".replay-spot")?.textContent).toBe(SAMPLE_TEXT.farmNote);
+    expect(count(text(), SAMPLE_TEXT.farmNote)).toBe(1);
+    // 再現の仮の地点の短い 1 行と、くわしくの中の仮の地点の説明は、見本の 1 行に替えている（仮の地点の説明を重ねない）
+    expect(text()).not.toContain("仮の地点で見ています");
+    expect(text()).not.toContain("津山市の範囲から 5km 以内");
+  });
+
+  it("残りの注記は 1 つの『くわしく』に畳み、閉じていても DOM にある（4 事例だけ、斜線は例、メールは送らない、時刻の記載なし）", async () => {
+    mount("/sample");
+    await mapReady();
+    const fold = document.querySelector(".replay-under details") as HTMLDetailsElement;
     expect(fold.open).toBe(false);
     expect(fold.querySelector("summary")?.textContent).toBe("くわしく");
-    const inFold = fold.textContent ?? "";
-    expect(inFold).toContain(SAMPLE_TEXT.notSent);
-    expect(inFold).toContain(`${SAMPLE_TEXT.fictional}。${SAMPLE_TEXT.member}`);
-    expect(inFold).toContain(SAMPLE_TEXT.asOf("2025年12月30日"));
-    expect(inFold).toContain(FIXED_TEXT.replayBanner);
-    expect(inFold).toContain("仮の地点で見ています");
-    expect(inFold).toContain("特定の農場を指すものではありません");
-    expect(inFold).toContain("津山市の範囲から 5km 以内");
+    expect(fold.querySelectorAll(".replay-notes li")).toHaveLength(4);
+    expect(fold.textContent).toMatch(/4 事例だけ/);
+    expect(fold.textContent).toMatch(/実際には送りません/);
   });
 
   it("読み込めなければ、そう書く（空の画面を出さない）。やり直せる", async () => {
     stubFetch({ failSample: true });
     mount("/sample");
-    expect(await screen.findByText(/見本のデータを読み込めませんでした/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "もう一度読む" })).toBeTruthy();
-    expect(screen.queryByText(FIXED_TEXT.replayBanner)).toBeNull();
+    expect(await screen.findByText(SAMPLE_TEXT.failed)).toBeTruthy();
+    expect(screen.getByRole("button", { name: SAMPLE_TEXT.retry })).toBeTruthy();
+    stubFetch();
+    fireEvent.click(screen.getByRole("button", { name: SAMPLE_TEXT.retry }));
+    await mapReady();
   });
 });
 
-describe("/sample/todo（帯）", () => {
-  it("再現の帯の箇条書き（.replay-notes）は『くわしく』に畳み、4 文が DOM にある", async () => {
+describe("/sample/todo（対策項目）", () => {
+  it("開いたとき（12月19日 津山市 疑い）は ①。3 つの分類が分かれ、解除の見込みは防疫措置の完了の前なので未定", async () => {
     mount("/sample/todo");
     await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
-    const notes = document.querySelector(".replay-notes")!;
-    expect(notes.closest("details")?.closest(".sample-lead")).toBeTruthy();
-    expect(notes.querySelectorAll("li").length).toBe(4);
-  });
-});
-
-describe("/sample/todo", () => {
-  it("『架空の農場です。数字は作り物です』と『去年の再現です』。① で 3 つの分類が分かれ、移動制限の見込みは 1 月 21 日", async () => {
-    mount("/sample/todo");
-    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
-    expect(text()).toContain("架空の農場です。数字は作り物です");
-    expect(screen.getAllByText(FIXED_TEXT.replayBanner).length).toBeGreaterThan(0);
+    expect(text()).toContain("再現の時点: 12 月 19 日");
     await waitFor(() => expect(document.querySelectorAll(".class-block").length).toBe(3));
     const classes = [...document.querySelectorAll(".class-block")].map((e) => e.className);
     expect(classes.some((c) => c.includes("class-always"))).toBe(true);
     expect(classes.some((c) => c.includes("class-if_in_zone"))).toBe(true);
     expect(classes.some((c) => c.includes("class-good_to_check"))).toBe(true);
+    await waitFor(() => expect(text()).toContain(ZONE));
     const lift = await screen.findByRole("region", { name: TODO_TEXT.liftHeading });
-    expect(lift.textContent).toContain("1月21日");
+    expect(lift.textContent).toContain("津山市");
+    await waitFor(() => expect(lift.textContent).toContain("未定です"));
   });
 
   it("声かけ文は雛形（Claude の下書きではない）で、津山市の名前が入っている", async () => {
@@ -221,15 +281,15 @@ describe("/sample/todo", () => {
     expect(screen.queryByText(WORKER_MESSAGE_TEXT.sourceClaude)).toBeNull();
   });
 
-  it("自己点検へのリンクは /sample/record の下に向かい、/record や /settings へのリンクがない", async () => {
+  it("記録へのリンク（自己点検、消毒の記録）を出さない。会員向けの経路と /sample/record へのリンクがない", async () => {
     mount("/sample/todo");
-    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
-    const link = await screen.findByRole("link", { name: TODO_TEXT.selfCheckLink });
-    expect(link.getAttribute("href")).toBe("/sample/record/self-check");
+    await screen.findByRole("region", { name: TODO_TEXT.liftHeading });
+    expect(screen.queryByRole("link", { name: TODO_TEXT.selfCheckLink })).toBeNull();
+    expect(screen.queryByRole("link", { name: TODO_TEXT.disinfectionLink })).toBeNull();
     expectNoMemberLinks();
   });
 
-  it("消毒の『やった』が押せて、記録は画面の中だけ（保存は見本の口へ）", async () => {
+  it("消毒の『やった』は押せて、記録は画面の中だけ（端末に保存しない）", async () => {
     mount("/sample/todo");
     await waitFor(() => expect(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) }).length).toBeGreaterThan(0));
     const btn = screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) })[0]!;
@@ -239,182 +299,66 @@ describe("/sample/todo", () => {
   });
 });
 
-function expectNoMemberLinks() {
-  const hrefs = [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href") ?? "");
-  const bad = hrefs.filter((h) => /^\/(record|settings|login|join|todo$|operator)/.test(h));
-  expect(bad).toEqual([]);
-}
-
-describe("/sample/record", () => {
-  it("『去年の再現です』の帯と、3 つの行き先が /sample/record の下にある。/sample/record は死亡数へ送る。『最後に記録した日』が出る。メールは止まっていない", async () => {
-    mount("/sample/record");
-    await screen.findByRole("heading", { level: 1, name: RECORD_TEXT.pageTitle });
-    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
-    expect(where()).toBe("/sample/record/deaths");
-    expect(screen.getAllByText(FIXED_TEXT.replayBanner).length).toBeGreaterThan(0);
-    expect(text()).toContain("架空の農場です。数字は作り物です");
-    const nav = screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel });
-    const hrefs = within(nav)
-      .getAllByRole("link")
-      .map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/sample/record/deaths", "/sample/record/self-check", "/sample/record/disinfection"]);
-    await screen.findByText("最後に記録した日: 12月30日");
-    expect(text()).not.toContain(RECORD_TEXT.mailStopped);
-    // 削除は見本に出さない
-    expect(screen.queryByText(RECORD_TEXT.deleteHeading)).toBeNull();
-    expect(screen.queryByRole("button", { name: RECORD_TEXT.deleteButton })).toBeNull();
-  });
-
-  it("タブを押すと /record へ移動せず、/sample/record/… の中で切り替わる", async () => {
-    mount("/sample/record");
-    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
-    const nav = () => screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel });
-    fireEvent.click(within(nav()).getByRole("link", { name: RECORD_TEXT.tabSelfCheck }));
-    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.selfTitle });
-    expect(where()).toBe("/sample/record/self-check");
-    fireEvent.click(within(nav()).getByRole("link", { name: RECORD_TEXT.tabDisinfection }));
-    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.disTitle });
-    expect(where()).toBe("/sample/record/disinfection");
-    fireEvent.click(within(nav()).getByRole("link", { name: RECORD_TEXT.tabDeaths }));
-    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
-    expect(where()).toBe("/sample/record/deaths");
-    expect(within(nav()).getAllByRole("link")).toHaveLength(3);
-    expectNoMemberLinks();
-  });
-
-  it("鶏舎 A に 10 羽を入れると、基準に当たる可能性と見本の連絡先が出る。C では『まだ計算できません』", async () => {
-    mount("/sample/record/deaths");
-    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
-    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎A"));
-    const rows = within(screen.getByRole("list", { name: RECORD_TEXT.rowsLabel })).getAllByRole("listitem");
-    expect(rows.map((r) => r.querySelector(".row-title")?.textContent)).toEqual(["鶏舎A", "鶏舎B", "鶏舎C"]);
-    // 見本の今日（12月30日）の記録では、鶏舎A が届け出の基準に達している可能性がある
-    const judge = within(screen.getByRole("list", { name: RECORD_TEXT.statsLabel }))
-      .getAllByRole("listitem")
-      .find((li) => li.querySelector(".stat-label")?.textContent === RECORD_TEXT.statJudge)!;
-    expect(judge.querySelector(".stat-value")?.textContent).toBe(RECORD_TEXT.judgeHit);
-    expect(judge.querySelector(".stat-note")?.textContent).toBe("鶏舎A");
-
-    recordIn("鶏舎A", "10");
-    const result = await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
-    expect(result.textContent).toContain(MORTALITY_TEXT.hit);
-    expect(result.textContent).toContain("直ちに家畜保健衛生所へ通報してください（基準 項目 32）");
-    expect(result.textContent).toContain(`${RECORD_TEXT.hitContact}: 見本の家保（作り物） 00-0000-0000`);
-    expect(findForbiddenPhrases(result.textContent ?? "")).toEqual([]);
-
-    recordIn("鶏舎C", "1");
-    const resultC = await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
-    expect(resultC.textContent).toContain(MORTALITY_TEXT.insufficient);
-    expect(resultC.textContent).toContain("まだ計算できません");
-    expect(resultC.textContent).not.toContain("直ちに家保へ");
-    expectNoMemberLinks();
-  });
-
-  it("鶏舎 B では当たらない（設備の故障の日は除いて計算）", async () => {
-    mount("/sample/record/deaths");
-    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎B"));
-    recordIn("鶏舎B", "2");
-    const result = await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
-    expect(result.textContent).toContain(RECORD_TEXT.notHit);
-    expect(result.textContent).not.toContain("直ちに家保へ");
-    expect(result.textContent).toContain(RECORD_TEXT.excludedDays(1));
-  });
-
-  it("週の報告文をコピーできる（見本の農場名が入る）", async () => {
-    mount("/sample/record/deaths");
-    fireEvent.click(await screen.findByRole("button", { name: RECORD_TEXT.weeklyOpen })); // 畳んである（2026-11-07 精査 C）
-    const box = (await screen.findByLabelText("週の報告文の下書き")) as HTMLTextAreaElement;
-    expect(box.value).toContain("架空の見本農場");
-    fireEvent.click(within(box.closest(".copy-box") as HTMLElement).getByRole("button", { name: RECORD_TEXT.copy }));
-    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(box.value));
-    await screen.findByText(RECORD_TEXT.copied);
-  });
-
-  it("自己点検の報告文をコピーできる（期限は設定済みで、設定への案内がない）。見本の記録が入っている", async () => {
-    mount("/sample/record/self-check");
-    const box = (await screen.findByLabelText(RECORD_TEXT.selfReportLabel)) as HTMLTextAreaElement;
-    await waitFor(() => expect(box.value).toContain("19 衛生管理区域に立ち入る車両の消毒等: ×"));
-    expect(box.value).toContain("農場名: 架空の見本農場");
-    expect(box.value).toContain("対象の月: 2025年12月");
-    expect(text()).not.toContain(RECORD_TEXT.selfDueMissing);
-    expect(screen.queryByRole("button", { name: /送信|送る/ })).toBeNull();
-    fireEvent.click(within(box.closest(".copy-box") as HTMLElement).getByRole("button", { name: RECORD_TEXT.copy }));
-    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(box.value));
-    expectNoMemberLinks();
-  });
-
-  it("記録した死亡数は、タブを移っても残る。ページを読み込み直す（新しい口）と元に戻る", async () => {
-    const first = mount("/sample/record/deaths");
-    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎A"));
-    recordIn("鶏舎A", "7");
-    await screen.findByRole("region", { name: RECORD_TEXT.resultHeading });
-    const nav = screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel });
-    fireEvent.click(within(nav).getByRole("link", { name: RECORD_TEXT.tabSelfCheck }));
-    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.selfTitle });
-    fireEvent.click(within(screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel })).getByRole("link", { name: RECORD_TEXT.tabDeaths }));
-    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
-    await waitFor(() => expect(rowOf("鶏舎A").textContent).toContain(RECORD_TEXT.deathsRecorded(7)));
-    first.unmount(); // ページの読み込み直しに当たる
-
-    mount("/sample/record/deaths");
-    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎A"));
-    await waitFor(() => expect(rowOf("鶏舎A").textContent).toContain(RECORD_TEXT.deathsRecorded(10)));
-    expect(rowOf("鶏舎A").textContent).not.toContain(RECORD_TEXT.deathsRecorded(7));
-  });
-
-  it("入口・やること・記録の間を移っても、見本の記録は残る（やること → 記録の消毒、入口を挟んでも）。読み込みは 1 回だけ", async () => {
-    mount("/sample/todo");
-    await waitFor(() => expect(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) }).length).toBeGreaterThan(0));
-    const btn = screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) })[0]!;
-    const label = btn.getAttribute("aria-label")!.replace(`${TODO_TEXT.done}: `, "");
-    fireEvent.click(btn);
-    await waitFor(() => expect(btn.textContent).toBe(TODO_TEXT.doneSaved));
-
-    // 入口へ戻って、また記録へ
-    fireEvent.click(within(screen.getByRole("navigation", { name: SAMPLE_TEXT.navLabel })).getByRole("link", { name: SAMPLE_TEXT.navEntry }));
-    await screen.findByRole("heading", { level: 1, name: SAMPLE_TEXT.title });
-    expect(screen.queryByRole("navigation", { name: SAMPLE_TEXT.navLabel })).toBeNull(); // 入口では行き来の帯を出さない
-    fireEvent.click(screen.getByRole("link", { name: /^死亡・消毒の記録/ }));
-    await screen.findByRole("heading", { name: RECORD_TEXT.deathsTitle });
-    fireEvent.click(within(screen.getByRole("navigation", { name: RECORD_TEXT.tabsLabel })).getByRole("link", { name: RECORD_TEXT.tabDisinfection }));
-    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.disTitle });
-    const recent = await screen.findByRole("region", { name: RECORD_TEXT.disTableHeading });
-    await waitFor(() => expect(recent.textContent).toContain("12月30日"));
-    // 同じ日の同じ項目は「今日 記録済み」で、押すものがない（やること側の「やった」の記録を引き継いでいる）
-    await waitFor(() => expect(screen.queryAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}: ${label.slice(0, 10)}`) })).toHaveLength(0));
-    const row = screen.getAllByRole("listitem").find((li) => li.classList.contains("row-item") && li.textContent?.includes(label.slice(0, 10)))!;
-    expect(row.textContent).toContain(RECORD_TEXT.disDoneToday);
-    // 表の 12月30日 の行に、その項目の ☑ がある
-    const today = within(recent).getByRole("rowheader", { name: "12月30日" }).closest("tr")!;
-    expect(within(today).getAllByRole("img", { name: RECORD_TEXT.disTableDone }).length).toBeGreaterThan(0);
+describe("実際の経路表（routes.tsx）", () => {
+  it("地図で 12月30日（防疫措置の完了）まで進めてからメニューの『対策項目』へ移ると、同じ時刻で解除の見込みが日付で出る。読み込みは 1 回だけ", async () => {
+    const router = mountRoutes("/sample");
+    await mapReady();
+    fireEvent.click(item(/12 月 30 日.*津山市/));
+    await waitFor(() => expect(document.querySelector(".replay-now")?.textContent).toMatch(/^12 月 30 日 津山市/));
+    const nav = screen.getByRole("navigation", { name: "メニュー" });
+    fireEvent.click(within(nav).getByRole("link", { name: "対策項目" }));
+    await screen.findByRole("heading", { level: 1, name: TODO_TEXT.title });
+    expect(router.state.location.pathname).toBe("/sample/todo");
+    expect(text()).toContain("再現の時点: 12 月 30 日");
+    const lift = await screen.findByRole("region", { name: TODO_TEXT.liftHeading });
+    await waitFor(() => expect(lift.textContent).toContain("1月21日"));
+    // メニューの「今季の発生」で地図へ戻っても、時刻はそのまま
+    fireEvent.click(within(screen.getByRole("navigation", { name: "メニュー" })).getByRole("link", { name: "今季の発生" }));
+    await mapReady();
+    expect(router.state.location.pathname).toBe("/sample");
+    expect(document.querySelector(".replay-now")?.textContent).toMatch(/^12 月 30 日 津山市/);
     expect(fetched.filter((u) => u.endsWith("sample-farm.json"))).toHaveLength(1);
     expect(fetched.filter((u) => u.endsWith("scenario.json"))).toHaveLength(1);
+    expect(forbidden.firebase).not.toHaveBeenCalled();
   });
 
-  it("実際の経路表（routes.tsx）でも、やること → 記録で見本の記録が残る", async () => {
-    const router = createMemoryRouter(routes, { initialEntries: ["/sample/todo"] });
-    render(<RouterProvider router={router} />);
-    await waitFor(() => expect(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) }).length).toBeGreaterThan(0));
-    fireEvent.click(screen.getAllByRole("button", { name: new RegExp(`^${TODO_TEXT.done}:`) })[0]!);
-    await waitFor(() => expect(screen.getAllByText(TODO_TEXT.doneSaved).length).toBeGreaterThan(0));
-    await router.navigate("/sample/record/disinfection");
-    await screen.findByRole("heading", { level: 2, name: RECORD_TEXT.disTitle });
-    const recent = await screen.findByRole("region", { name: RECORD_TEXT.disTableHeading });
-    await waitFor(() => expect(recent.textContent).toContain("12月30日"));
-    expect(forbidden.firebase).not.toHaveBeenCalled();
-    expect(fetched.filter((u) => u.endsWith("sample-farm.json"))).toHaveLength(1);
+  it("上の帯は 1 本だけで『去年 12 月の再現です（近くで発生した場合の見え方）』。メニューは 1 本目と同じ並び・同じ名前で、見本だけの項目がない", async () => {
+    mountRoutes("/sample");
+    await mapReady();
+    const band = document.querySelector(".app-context")!;
+    expect(band.textContent).toContain(CONTEXT_BAND.sample.text);
+    expect(document.querySelectorAll(".app-context, .replay-band, .sample-band")).toHaveLength(1);
+    const nav = screen.getByRole("navigation", { name: "メニュー" });
+    const labels = within(nav)
+      .getAllByRole("link")
+      .map((a) => a.textContent);
+    expect(labels).toEqual(["今季の発生", "過去の発生", "発生傾向", "分かっていること", "鶏を飼っていない方へ", "このサイトについて", "対策項目"]);
+    expect(within(nav).getByRole("link", { name: "今季の発生" }).getAttribute("aria-current")).toBe("page");
+    expect(within(nav).getByRole("link", { name: "今季の発生" }).getAttribute("href")).toBe("/sample");
+    expect(within(nav).getByRole("link", { name: "対策項目" }).getAttribute("href")).toBe("/sample/todo");
   });
+
+  it.each(["/sample/record", "/sample/record/", "/sample/record/deaths", "/sample/record/self-check", "/sample/record/disinfection"])(
+    "%s は行き止まりにせず、/sample の地図へ送る",
+    async (entry) => {
+      const router = mountRoutes(entry);
+      await mapReady();
+      expect(router.state.location.pathname).toBe("/sample");
+      expect(document.querySelector(".replay-now")?.textContent).toBe("12 月 19 日 津山市 疑い");
+    },
+  );
 });
 
 describe("見本の全体", () => {
-  const pages = ["/sample", "/sample/todo", "/sample/record", "/sample/record/deaths", "/sample/record/self-check", "/sample/record/disinfection"];
+  const pages = ["/sample", "/sample/todo"];
 
-  it.each(pages)("%s: 『見本です（作り物のデータ）』と帯があり、禁止語がなく、会員向けの経路へのリンクがない", async (entry) => {
+  it.each(pages)("%s: 時点があり、禁止語がなく、会員向けの経路へのリンクがない", async (entry) => {
     mount(entry);
-    await waitFor(() => expect(screen.getAllByText(SAMPLE_TEXT.badge).length).toBeGreaterThan(0));
-    await waitFor(() => expect(document.querySelectorAll("h1").length).toBe(1));
+    if (entry === "/sample") await mapReady();
+    else await screen.findByRole("region", { name: TODO_TEXT.liftHeading });
     await new Promise((r) => setTimeout(r, 30)); // 読み込みの後の描き直しを待つ
-    expect(screen.getAllByText(FIXED_TEXT.replayBanner).length).toBeGreaterThan(0);
+    expect(text()).toContain("時点");
+    expect(count(text(), SAMPLE_TEXT.farmNote)).toBe(1);
     expect(findForbiddenPhrases(text())).toEqual([]);
     expectNoMemberLinks();
   });
@@ -422,7 +366,7 @@ describe("見本の全体", () => {
   it("会員の状態と Firebase を一度も読まない。通信は静的ファイルだけ。localStorage に書かない", async () => {
     for (const entry of pages) {
       mount(entry);
-      await waitFor(() => expect(screen.getAllByText(SAMPLE_TEXT.badge).length).toBeGreaterThan(0));
+      await waitFor(() => expect(screen.getAllByText(SAMPLE_TEXT.farmNote).length).toBe(1));
       await new Promise((r) => setTimeout(r, 30));
       cleanup();
     }
@@ -431,11 +375,5 @@ describe("見本の全体", () => {
     expect(fetched.length).toBeGreaterThan(0);
     for (const u of fetched) expect(u).toMatch(/(replay\/scenario\.json|replay\/sample-farm\.json|history\/cases\.json)$/);
     expect(localStorage.length).toBe(0);
-  });
-
-  it("記録の画面の説明のうち『同じ農場の会員へメールで知らせます』は見本では送らない、と書いてある", async () => {
-    mount("/sample/record/deaths");
-    await screen.findByLabelText(RECORD_TEXT.deathsInputLabel("鶏舎A"));
-    expect(text()).toContain("メールは送りません");
   });
 });

@@ -178,36 +178,43 @@ test.describe("幅 360px の最初の画面（360x740）に守る文が入る", 
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
 
-  test("/sample/todo の『保存されない』の断りと、畳んだ仮の地点。帯は画面の高さの半分より上で終わり、中身がすぐ見える", async ({ page }) => {
-    await page.goto("/sample/todo");
-    await expect(page.locator(".sample-badge")).toHaveText("見本です（作り物のデータ）");
-    await bottomAboveNav(page, page.locator(".sample-badge"));
-    await expect(page.locator(".sample-note")).toHaveText("入れた記録は保存されません");
-    await bottomAboveNav(page, page.locator(".sample-note"));
-    // 再現の枠は題と時点だけ
-    await expect(page.locator(".replay-band > *")).toHaveCount(2);
-    await bottomAboveNav(page, page.locator(".replay-band .replay-title"));
-    await bottomAboveNav(page, page.locator(".replay-band .replay-time"));
-    // 帯（行き来の nav まで）は 370px より上で終わり、本文の見出しがその直後に見える
-    const nav = page.getByRole("navigation", { name: "見本の画面" });
-    const navBox = (await nav.boundingBox())!;
-    expect(navBox.y + navBox.height).toBeLessThan(370);
-    expect(navBox.height).toBeGreaterThanOrEqual(44);
-    const h1 = page.getByRole("heading", { level: 1, name: "対策項目" });
-    await bottomAboveNav(page, h1);
-    expect((await h1.boundingBox())!.y).toBeLessThan(370);
+  // 2026-11-08: /sample は近くで発生した場合の見え方（地図から始まる）。上の帯は 1 本だけ、点線の「見本です」の枠と行き来のボタンはない
+  test("/sample の上の帯は 1 本だけ。仮の地点の 1 行は帯の下に 1 回。地図の全部が画面に入る。/sample/todo の見出しもすぐ見える", async ({ page }) => {
+    const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+    await page.route("https://cyberjapandata.gsi.go.jp/**", (route) => route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG_1PX }));
+    await page.goto("/sample");
+    const band = page.locator(".app-context");
+    await expect(band).toContainText("去年 12 月の再現です（近くで発生した場合の見え方）");
+    await bottomAboveNav(page, band);
+    await expect(page.locator(".replay-band, .sample-band, .sample-lead, .sample-badge, .sample-nav")).toHaveCount(0);
+    const note = page.locator(".replay-under .replay-spot");
+    await expect(note).toHaveText("鶏舎の場所は説明のために置いた仮の地点です。");
+    await bottomAboveNav(page, note);
+    await expect(page.getByText("鶏舎の場所は説明のために置いた仮の地点です。")).toHaveCount(1);
+    await bottomAboveNav(page, page.locator(".replay-under .replay-time"));
+    await expect(page.locator(".replay-now")).toHaveText("12 月 19 日 津山市 疑い");
+    await bottomAboveNav(page, page.locator(".replay-now"));
+    // 地図の全部が画面の下端より上に入る（去年の再現の画面と同じ並び）
+    await bottomAboveNav(page, page.locator(".map-box .map-canvas"));
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
-    // 仮の地点と注記は「くわしく」の中。閉じていても DOM にあり、開くと読み込める
-    const spot = page.getByText(/^仮の地点で見ています/);
-    await expect(spot).toBeAttached();
-    await expect(spot).toBeHidden();
-    await page.locator(".sample-lead summary", { hasText: "くわしく" }).click();
-    await expect(spot).toBeVisible();
-    await expect(page.locator(".sample-lead details")).toContainText("架空の農場です。数字は作り物です");
-    await expect(page.locator(".sample-lead details")).toContainText("サーバーにも、この端末の保存にも書かず");
-    await expect(page.locator(".sample-lead details")).toContainText("去年の再現です");
-    await expect(page.locator(".sample-lead .replay-notes li")).toHaveCount(4);
+    // 再現の注記は「くわしく」の中。閉じていても DOM にあり、開くと読み込める
+    const notes = page.locator(".replay-under .replay-notes li");
+    await expect(notes).toHaveCount(4);
+    await expect(notes.first()).toBeHidden();
+    await page.locator(".replay-under summary", { hasText: "くわしく" }).click();
+    await expect(notes.first()).toBeVisible();
+
+    // 対策項目（メニューから。時刻はそのまま）。見出しは最初の画面（360x740）に入る: 見出しの下端がページの上から 740px より上
+    // （以前の目安 370px は厳しすぎた。2026-11-08 PM の実測で 421px、最初の画面には入っている）
+    await goViaMenu(page, "対策項目");
+    const h1 = page.getByRole("heading", { level: 1, name: "対策項目" });
+    await expect(h1).toBeVisible();
+    const h1Box = (await h1.boundingBox())!;
+    const scrollY = await page.evaluate(() => window.scrollY);
+    expect(h1Box.y + h1Box.height + scrollY).toBeLessThanOrEqual(740);
+    await expect(page.locator(".replay-under .replay-time")).toContainText("12 月 19 日");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
 });
 

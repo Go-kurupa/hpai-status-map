@@ -56,7 +56,7 @@ npx tsx scripts/smoke-prod.ts --pre-publish
 npx tsx scripts/smoke-prod.ts
 ```
 
-`/`、`/replay`、`/sample`（2 本目の審査員用の URL。去年の再現の中の見本の農場）、`/results`、`/public`、`/privacy`、`/geo/japan.topo.json` が 200、`/api/v1/cases?season=2025` が 24 件、公開の `/mcp` の道具が 4 つ、内部用の MCP が Bearer なしで 401、を確かめます。1 つでも落ちれば終了コード 1 です。
+`/`、`/replay`、`/sample`（2 本目の審査員用の URL。去年 12 月の再現の中で、近くで発生した場合の見え方）、`/results`、`/public`、`/privacy`、`/geo/japan.topo.json` が 200、`/api/v1/cases?season=2025` が 24 件、公開の `/mcp` の道具が 4 つ、内部用の MCP が Bearer なしで 401、を確かめます。1 つでも落ちれば終了コード 1 です。
 
 次は人が確かめます。
 

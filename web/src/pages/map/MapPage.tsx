@@ -103,6 +103,7 @@ function BandLine({ lead, text }: { lead: string; text: string }) {
  * 入口の画面。DOM の順はスマホで見る順で、上から 確認の行、守る文、数字の札、切り替え、地図、断り、一覧、残りの札、棒。
  * 塗りがないことを「何もない」と読ませない。64rem 以上の 2 列は map.css の order で組む。
  * replayStats は再現の全国の流れだけが渡す。件数の札を再現の時計で出す（野鳥の札は、再現が野鳥を持たないので出さない）。
+ * nearFirst は近くで発生した場合の見え方（/sample）だけが渡す。再現の 4 事例でも、最初を選択地域付近（距離の輪が見える広さ）にする。
  */
 /**
  * 見せるまとまり（設計書 2026-11-06-ui-frame 4 章）。now は「今季の発生と地図」（/）、town は「選択地域の過去」、
@@ -116,7 +117,15 @@ const SECTION_TITLE: Record<Exclude<MapSection, "now" | "all">, string> = {
   compare: "地図で比べる過去の発生",
 };
 
-export default function MapPage({ replayStats = false, section = "all" }: { replayStats?: boolean; section?: MapSection }) {
+export default function MapPage({
+  replayStats = false,
+  nearFirst = false,
+  section = "all",
+}: {
+  replayStats?: boolean;
+  nearFirst?: boolean;
+  section?: MapSection;
+}) {
   const inMap = section === "now" || section === "all";
   // 地図を出すまとまり。compare は 2 つのシーズンを 1 枚に重ねた地図（CompareOverlay。設計書 2026-11-06-data-explore E8）
   const showMap = inMap || section === "compare";
@@ -276,10 +285,11 @@ export default function MapPage({ replayStats = false, section = "all" }: { repl
     if (town !== null) moveTo(nearKind, [town]);
   }, [town, nearKind, moveTo]);
   // 町があれば近くで始める。全国の広さでは輪も町の塗りも見えない。再現の 4 事例だけは全国の広さで見せる
+  // （/sample は再現の 4 事例でも近くで始める。見本の農場のまわりの距離の輪を見せる画面なので。2026-11-08）
   // 比べを「条件で見る」から ?region= で開いたときは、その地方へ寄せ、選択地域付近へは動かさない（設計書 2026-11-06-data-explore E15）
   const [searchParams] = useSearchParams();
   const [regionParam] = useState<RegionId | null>(() => (section === "compare" ? parseRegion(searchParams.get("region")) : null));
-  const startNear = (ds.mode !== "replay" || replayStats) && regionParam === null;
+  const startNear = (ds.mode !== "replay" || replayStats || nearFirst) && regionParam === null;
   // 町だけの人は、町の形が届くまで動かさない。届く前は町の中心が分からず、町へ寄ってから輪の広さへもう一度動いてしまう
   const geoPending = farmMeshCode === null && town !== null && geo === null && !geoFailed;
   // 比べの広さのボタンを一度でも押したら、自動で選択地域付近へ寄せ直さない（町の形や会員の農場が後から届くと showNear が作り直されるため。

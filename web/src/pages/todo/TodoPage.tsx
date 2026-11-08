@@ -131,11 +131,14 @@ export default function TodoPage() {
   const recordMode = useRecordStore().mode;
   // 会員の農場だけ。見本の農場には Firebase の保存先がない（今日のやることと、相談から足した対策の行）
   const memberFarm = farm.status === "ready" && recordMode === "firestore" ? farm.farm : null;
-  return memberFarm ? <MemberTodo data={data} farm={memberFarm} /> : <PlainTodo data={data} farm={farm} />;
+  return memberFarm ? <MemberTodo data={data} farm={memberFarm} /> : <PlainTodo data={data} farm={farm} recordLinks={recordMode !== "sample"} />;
 }
 
-/** 見本の農場と会員でない人の対策項目（今のまま。時点の主語だけ足した） */
-function PlainTodo({ data, farm }: { data: TodoData; farm: FarmState }) {
+/**
+ * 見本の農場と会員でない人の対策項目（今のまま。時点の主語だけ変えた）。
+ * recordLinks が false（/sample の中）のときは、自己点検と消毒の記録へのリンクを出さない（記録を試す画面はなくした。2026-11-08）
+ */
+function PlainTodo({ data, farm, recordLinks }: { data: TodoData; farm: FarmState; recordLinks: boolean }) {
   const log = useDisinfectionLog(farm.status === "ready");
   const { state } = data;
   const level = levelOf(state);
@@ -161,16 +164,20 @@ function PlainTodo({ data, farm }: { data: TodoData; farm: FarmState }) {
 
       {state.status !== "loading" && state.status !== "failed" ? (
         <>
-          <p>
-            <Link to="../record/self-check" relative="path" className="tap-link">
-              {TODO_TEXT.selfCheckLink}
-            </Link>
-          </p>
-          <p>
-            <Link to="../record/disinfection" relative="path" className="tap-link">
-              {TODO_TEXT.disinfectionLink}
-            </Link>
-          </p>
+          {recordLinks ? (
+            <>
+              <p>
+                <Link to="../record/self-check" relative="path" className="tap-link">
+                  {TODO_TEXT.selfCheckLink}
+                </Link>
+              </p>
+              <p>
+                <Link to="../record/disinfection" relative="path" className="tap-link">
+                  {TODO_TEXT.disinfectionLink}
+                </Link>
+              </p>
+            </>
+          ) : null}
           <p className="todo-note">{TODO_TEXT.moreLead}</p>
           <Button aria-expanded={open} onClick={() => setOpened(!open)}>
             {open ? TODO_TEXT.less : TODO_TEXT.more(itemCount)}

@@ -1,4 +1,4 @@
-// 再現の帯と Provider。地図などの画面（MapPage、見本の農場の画面）を、再現の時計と事例で動かす。
+// 再現の帯と Provider。地図などの画面（MapPage、近くで発生した場合の見え方の画面）を、再現の時計と事例で動かす。
 // 端末内の地点は読むだけ・書かない: SpotProvider の fixed を必ず渡す（fixed が null だと、地点や町を端末に書いてしまう）。
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import { NATIONAL_FLOW_ID, type ReplayScenario } from "@hpai/shared/replay";
@@ -70,14 +70,14 @@ export interface ReplayFrameProps {
   spot: FarmPoint | null;
   recordStore?: RecordStore;
   /**
-   * 見本の枠。これを渡すと、再現の帯は題と時点だけにする。
-   * 再現の帯の残りの注記（details）を受け取り、再現の帯より前に置くものを返す（見本の断りと 1 つの「くわしく」にまとめる）
+   * 近くで発生した場合の見え方（/sample）の 1 行。これを渡すと、枠つきの再現の帯を出さず（上の帯は画面の骨格の 1 本だけ）、
+   * 時点とこの 1 行と「くわしく」を、枠のない短い行で出す。仮の地点の短い 1 行と、くわしくの中の仮の地点の説明は、この 1 行に替える
    */
-  lead?: (details: ReactNode) => ReactNode;
+  note?: string;
   children: ReactNode;
 }
 
-export function ReplayFrame({ scenario, dataSource, spot, recordStore, lead, children }: ReplayFrameProps) {
+export function ReplayFrame({ scenario, dataSource, spot, recordStore, note, children }: ReplayFrameProps) {
   const order = useSyncExternalStore(dataSource.subscribeOrder, dataSource.currentOrder);
   const fixed = spot ?? scenario.defaultSpot;
   const tentative = isDefaultSpot(scenario, spot);
@@ -88,7 +88,7 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, lead, chi
   const spotShort = tentative ? (national ? SPOT_SHORT.national : SPOT_SHORT.cases) : SPOT_SHORT.device;
   const details = (
     <>
-      {tentative ? <p>{national ? SPOT_DETAIL.national : SPOT_DETAIL.cases}</p> : null}
+      {tentative && !note ? <p>{national ? SPOT_DETAIL.national : SPOT_DETAIL.cases}</p> : null}
       <ul className="replay-notes">
         {national ? (
           <>
@@ -114,26 +114,25 @@ export function ReplayFrame({ scenario, dataSource, spot, recordStore, lead, chi
     <DataSourceProvider value={dataSource}>
       <RecordStoreProvider value={recordStore ?? EMPTY_RECORD_STORE}>
         <SpotProvider fixed={fixed}>
-          {lead?.(
-            <>
-              <p>{FIXED_TEXT.replayBanner}</p>
-              <p>{spotShort}</p>
-              {details}
-            </>,
+          {note ? (
+            <section className="replay-under" aria-label="去年の再現">
+              <p className="replay-time">再現の時点: {pointInTime(scenario, order)}</p>
+              <p className="replay-spot">{note}</p>
+              <Fold summary={MORE_LABEL} className="band-fold">
+                {details}
+              </Fold>
+            </section>
+          ) : (
+            <section className="replay-band replay-band-short" aria-label="去年の再現">
+              <p className="replay-banner">{FIXED_TEXT.replayBanner}</p>
+              <p className="replay-title">{bandTitle(scenario)}</p>
+              <p className="replay-time">再現の時点: {pointInTime(scenario, order)}</p>
+              <p className="replay-spot">{spotShort}</p>
+              <Fold summary={MORE_LABEL} className="band-fold">
+                {details}
+              </Fold>
+            </section>
           )}
-          <section className="replay-band replay-band-short" aria-label="去年の再現">
-            {lead ? null : <p className="replay-banner">{FIXED_TEXT.replayBanner}</p>}
-            <p className="replay-title">{bandTitle(scenario)}</p>
-            <p className="replay-time">再現の時点: {pointInTime(scenario, order)}</p>
-            {lead ? null : (
-              <>
-                <p className="replay-spot">{spotShort}</p>
-                <Fold summary={MORE_LABEL} className="band-fold">
-                  {details}
-                </Fold>
-              </>
-            )}
-          </section>
           {/* 地図の h1 は『今季』と出るので隠し、再現の画面が『去年の再現』の見出しを出す（replay.css） */}
           <AsOfPrecisionContext.Provider value={precision}>
             <div className="replay-scope" data-time-known={timeKnown ? "true" : "false"}>

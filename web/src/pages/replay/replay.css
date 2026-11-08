@@ -15,7 +15,7 @@
 .replay-spot {
   margin: 0 0 4px;
 }
-/* 再現と見本の枠の帯。短い行だけを出し、地図や中身を最初の画面に入れる（舞台裏の帯は上の形のまま） */
+/* 再現の枠の帯。短い行だけを出し、地図や中身を最初の画面に入れる（舞台裏の帯は上の形のまま） */
 .replay-band-short {
   position: relative;
   padding: 6px 10px;
@@ -25,6 +25,23 @@
 }
 .replay-band-short :is(.replay-banner, .replay-title, .replay-time, .replay-spot) {
   margin: 0;
+}
+/* 近くで発生した場合の見え方（/sample）の時点と仮の地点の 1 行。上の帯は画面の骨格の 1 本だけなので、枠と背景を付けない。
+   「くわしく」は 1 行目の右に重ねるので、1 行目の右を空ける */
+.replay-under {
+  position: relative;
+  margin: 0 0 8px;
+  font-size: 14.4px;
+  line-height: 1.35;
+}
+.replay-under :is(.replay-time, .replay-spot) {
+  margin: 0;
+}
+.replay-under > .replay-time {
+  padding-right: 6em;
+}
+.replay-under > .replay-spot {
+  color: var(--sub);
 }
 /* 帯の残りの注記を畳む部品。見出しは帯の 1 行目の右に重ね、帯の高さを増やさない（押せる高さは保つ） */
 .band-fold > summary {

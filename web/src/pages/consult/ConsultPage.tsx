@@ -9,7 +9,7 @@
 // 条件を付けて送る前に、質問の文と登録が食い違えば送らずに訂正を促す（送るかは本人が選ぶ）。答えの近くに今回使った条件を出す。
 import { conditionLabel, conditionOfFarm, findFarmConflicts, housesOfFarm, registeredLabel, type FarmConflict } from "@hpai/shared/consult/farmCondition";
 import { CONSULT_TOPICS, type ConsultTopic } from "@hpai/shared/consult/topics";
-import { STATS_SOURCE, type ConsultStats } from "@hpai/shared/consult/stats";
+import { STATS_SOURCE, type ConsultStats, type NearList } from "@hpai/shared/consult/stats";
 import { CONSULT_MAX_QUESTION, EVIDENCE_LABEL, type ConsultAnswerCard, type ConsultFarmCondition, type ConsultHouse } from "@hpai/shared/consult/types";
 import { JUDGE_UID } from "@hpai/shared/judge";
 import type { Farm, FarmPoint } from "@hpai/shared/types";
@@ -209,6 +209,7 @@ export function noticeText(notice: "daily_limit" | "budget_stop" | "unavailable"
  */
 function StatsView({ stats }: { stats: ConsultStats }) {
   const id = useId();
+  if (stats.near) return <NearView stats={stats} near={stats.near} />;
   return (
     <div className="consult-stats" data-testid="consult-stats">
       <p className="consult-stats-title" id={`${id}-title`}>
@@ -267,6 +268,91 @@ function StatsView({ stats }: { stats: ConsultStats }) {
           <span aria-hidden="true"> →</span>
         </Link>
       </p>
+    </div>
+  );
+}
+
+/**
+ * 近くの町の事例の一覧（groupBy "near"）。町・距離・件数・文はプログラムが過去の事例と町の中心から組んだもの（Claude は数え方を選んだだけ）。
+ * 条件（町）がないときは決まった文と地図の「過去の発生」への入口だけ。一覧は列が多いので、狭い幅では横に送る（table-scroll）。
+ * 過去の記録であり予測ではないこと、件数が少なくてもリスクがあること、今季は含まないこと、出典を添える。
+ */
+function NearView({ stats, near }: { stats: ConsultStats; near: NearList }) {
+  const id = useId();
+  if (near.noFarm) {
+    return (
+      <div className="consult-stats" data-testid="consult-stats">
+        <p className="consult-stats-title">{stats.title}</p>
+        <p>{stats.summary}</p>
+        <p>
+          <Link to="/compare" className="consult-to-todo">
+            {CONSULT_TEXT.nearPastLink}
+            <span aria-hidden="true"> →</span>
+          </Link>
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="consult-stats" data-testid="consult-stats">
+      <p className="consult-stats-title" id={`${id}-title`}>
+        {stats.title}
+      </p>
+      <p>{stats.summary}</p>
+      <p className="consult-note">{CONSULT_TEXT.nearCounted}</p>
+      {!stats.outOfRange && near.rows.length > 0 ? (
+        <div className="table-scroll">
+          <table className="consult-stats-table consult-near-table" aria-labelledby={`${id}-title`} data-testid="consult-near-table">
+            <thead>
+              <tr>
+                <th scope="col">{CONSULT_TEXT.nearColDate}</th>
+                <th scope="col">{CONSULT_TEXT.nearColPlace}</th>
+                <th scope="col">{CONSULT_TEXT.nearColUse}</th>
+                <th scope="col" className="num">
+                  {CONSULT_TEXT.nearColHead}
+                </th>
+                <th scope="col" className="num">
+                  {CONSULT_TEXT.nearColDistance}
+                </th>
+                <th scope="col">{CONSULT_TEXT.nearColSource}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {near.rows.map((r, i) => (
+                <tr key={`${r.date}-${r.place}-${i}`}>
+                  <td>{r.date}</td>
+                  <th scope="row">{r.place}</th>
+                  <td>{r.use}</td>
+                  <td className="num">{r.headCount}</td>
+                  <td className="num">{r.distance}</td>
+                  <td>
+                    {isWebUrl(r.sourceUrl) ? (
+                      <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer">
+                        {CONSULT_TEXT.nearSource}
+                      </a>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      {near.more > 0 ? <p data-testid="consult-near-more">{CONSULT_TEXT.nearMore(near.more)}</p> : null}
+      <ul className="consult-stats-notes">
+        <li>{FIXED_TEXT.pastDisclaimer}。</li>
+        <RiskLine as="li" />
+        <li>
+          {CONSULT_TEXT.statsCurrent}
+          <Link to="/">{CONSULT_TEXT.statsMapLink}</Link>
+        </li>
+        <li>
+          {CONSULT_TEXT.statsSourcePrefix}
+          <a href={STATS_SOURCE.url} target="_blank" rel="noopener noreferrer">
+            {STATS_SOURCE.label}
+          </a>
+        </li>
+      </ul>
     </div>
   );
 }

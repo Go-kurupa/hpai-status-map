@@ -219,6 +219,7 @@ describe("置き場と出る条件", () => {
     expect(screen.getByRole("link", { name: "今月の自己点検を開く" })).toBeTruthy();
   });
 
+  // 見本の対策項目には、記録へのリンク（消毒の記録を開く）も出さない（記録を試す画面をなくした。2026-11-08）
   it("見本の農場（sample）の対策項目には出さない（今のまま）", async () => {
     const sample = { ...store, mode: "sample" } as unknown as RecordStore;
     mount({ store: sample, path: "/sample/todo" });
@@ -226,8 +227,8 @@ describe("置き場と出る条件", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^確認リストを開く（\d+ 項目）$/ })).toBeTruthy();
       expect(screen.getByText("今月の自己点検を確かめましょう")).toBeTruthy();
-      expect(screen.getByRole("link", { name: "消毒の記録を開く" })).toBeTruthy();
     });
+    expect(screen.queryByRole("link", { name: "消毒の記録を開く" })).toBeNull();
     expect(screen.queryByRole("region", { name: HEADING })).toBeNull();
     expect(listHouses).not.toHaveBeenCalled();
   });

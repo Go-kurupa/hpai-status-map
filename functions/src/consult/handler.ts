@@ -5,6 +5,7 @@
 // 順序: 入力の検査（question か topicId、前の往復 history の形、農場の条件 farm の形）→ 範囲外の問い → 資料 → 予算 → 回数の確保 → 鍵を読んで client を作る → Claude → 使用量を積む → 返事の検査。
 // 前の往復（history）は Claude に問いの意味を読む材料として渡すだけ。問いが範囲外の語に当たる前の往復は渡さず、答えだけが当たるときは答えを空にする（新しい問いが当たれば決まった文）。数字の検査に使うのは、相談者が書いた問い（新しい問いと前の問いを文ごとに。前の答えは入れない）。
 // 発生の件数の問いは、Claude が選んだ数え方（stats）でプログラムが過去の事例を数え、表を付ける。件数だけの問いは、対策の答えなしで表だけを返す。
+// 近くの町の問い（groupBy "near"）は、条件の町の中心から約 60 km 以内の町の事例の一覧（距離は索引の町の中心どうし）。条件の町がなければ決まった文。
 // 農場の条件（farm）は、本人が登録して「登録した農場の情報で相談する」を選んだ飼育目的と飼い方、市町村コード、近くの発生の状況（画面が数えた約 60 km 以内の
 // 今季の件数と区域の可能性）、鶏舎ごとの鳥の種類と飼養羽数（2026-11-08 豪さんの決定）。形を厳しく検査し（shared の parseFarmCondition）、
 // 町の名前は地理の索引から引いて足す（画面が送った名前は受けない。索引にないコードは invalid-argument）。Claude にカードを選ぶ材料として渡し、
@@ -17,7 +18,7 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { isDraftBudgetStopped } from "@hpai/shared/budget";
 import type { TokenUsage, UsageMonth } from "@hpai/shared/budget";
 import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
-import { computeStats, parseStatsQuery } from "@hpai/shared/consult/stats";
+import { computeStats, parseStatsQuery, type MuniCenterIndex, type NearOrigin } from "@hpai/shared/consult/stats";
 import { jstDateOf } from "@hpai/shared/dates";
 import { JUDGE_UID } from "@hpai/shared/judge";
 import { findTopic } from "@hpai/shared/consult/topics";
@@ -62,8 +63,8 @@ export interface ConsultDeps {
   reserveJudge(now: Date): Promise<boolean>;
   /** 同梱のカード。読めなければ throw */
   data(): Promise<ConsultData>;
-  /** 同梱の地理の索引（市町村コード → 名前と県）。条件に市町村コードがあるときだけ呼ぶ。読めなければ throw */
-  muniIndex(): Promise<MuniNameIndex>;
+  /** 同梱の地理の索引（市町村コード → 名前と県と町の中心）。条件に市町村コードがあるときだけ呼ぶ。読めなければ throw */
+  muniIndex(): Promise<MuniNameIndex & MuniCenterIndex>;
 }
 
 /** judge は審査員の会員（uid が JUDGE_UID）。審査員は全員この 1 つの会員なので、回数は全体で数える */
@@ -131,11 +132,11 @@ function parseFarm(data: unknown): ConsultFarmCondition | null {
 
 /**
  * 市町村コードから町の名前を索引で引いて足す。索引にないコードは invalid-argument。索引が読めないときは unavailable（資料と同じ。回数を使う前）。
- * 市町村コードのない条件はそのまま。
+ * 市町村コードのない条件はそのまま（origin は null）。origin は近くの町の一覧の起点（索引はここで 1 回だけ読み、一覧にも使う）。
  */
-async function withTown(deps: ConsultDeps, farm: ConsultFarmCondition | null): Promise<ConsultFarmUsed | null> {
-  if (!farm?.muniCode) return farm;
-  let index: MuniNameIndex;
+async function withTown(deps: ConsultDeps, farm: ConsultFarmCondition | null): Promise<{ farm: ConsultFarmUsed | null; origin: NearOrigin | null }> {
+  if (!farm?.muniCode) return { farm, origin: null };
+  let index: MuniNameIndex & MuniCenterIndex;
   try {
     index = await deps.muniIndex();
   } catch (e) {
@@ -144,7 +145,7 @@ async function withTown(deps: ConsultDeps, farm: ConsultFarmCondition | null): P
   }
   const town = townNameOf(index, farm.muniCode);
   if (town === null) throw new HttpsError("invalid-argument", "飼い方の条件の形が違います");
-  return { ...farm, town };
+  return { farm: { ...farm, town }, origin: { muniCode: farm.muniCode, town, index } };
 }
 
 async function loadData(deps: ConsultDeps): Promise<ConsultData> {
@@ -209,7 +210,7 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
   const question = parseAsk(data);
   const history = parseHistory(data);
   // 審査員の会員も見本の農場を持つので、条件はほかの会員と同じに扱う。町の名前の引き当ても入力の検査のうち（範囲外の問いより先）
-  const farm = await withTown(deps, parseFarm(data));
+  const { farm, origin } = await withTown(deps, parseFarm(data));
   // 条件を付けた相談で、Claude に渡そうとしたときだけ、返事に使った条件を付ける（付けない相談の返事の形は今までどおり）
   const withFarm = (r: ConsultAskResponse): ConsultAskResponse => (farm ? { ...r, farm } : r);
   const unavailable = (w: Who, kind: string): ConsultAskResponse => {
@@ -258,8 +259,9 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
   const farmText = farm ? farmNumberTexts(farm) : [];
   const result = validateAsk(attempt.ok ? attempt.value : null, allowed.map((c) => c.id), allowed, CONSULT_MAX_CARDS, [...history.map((t) => t.question), question, ...farmText]);
   // 発生の件数の問い: Claude は数え方だけを選ぶ。件数と表の文はプログラムが過去の事例から組む。Claude が範囲外とした問いでは数えない
+  // 近くの町の一覧は条件の町（origin）から測る。条件がなければ決まった文の stats（一覧なし）
   const statsQuery = attempt.ok && attempt.value.outOfScope !== true ? parseStatsQuery(attempt.value.stats) : null;
-  const stats = statsQuery ? computeStats(pastCases, statsQuery) : null;
+  const stats = statsQuery ? computeStats(pastCases, statsQuery, origin) : null;
   const byId = new Map(allowed.map((c) => [c.id, c]));
   const sources = new Map(cards.sources.map((x) => [x.id, x]));
   logger.info("対策の相談(ask)", {

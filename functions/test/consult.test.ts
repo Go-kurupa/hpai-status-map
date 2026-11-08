@@ -20,7 +20,7 @@ import { consultCallPath, consultJudgePath } from "../src/consult/limit";
 
 const NOW = new Date("2026-11-07T03:00:00Z");
 /** 同梱の地理の索引（本番は lib/data/geo/muni-index.json。町の名前を引く） */
-const MUNI_INDEX = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "..", "..", "data", "geo", "muni-index.json"), "utf8")) as Record<string, { name: string; prefCode: string }>;
+const MUNI_INDEX = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "..", "..", "data", "geo", "muni-index.json"), "utf8")) as Record<string, { name: string; prefCode: string; center: [number, number] }>;
 const USAGE = { input_tokens: 4000, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } as unknown as Anthropic.Usage;
 const MEMBER = { uid: "u1", member: true };
 /** 審査員の会員（審査員は全員この会員） */
@@ -711,6 +711,71 @@ describe("発生の件数の問い（Claude は数え方を選び、件数はプ
     expect(user["today"]).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
     expect(JSON.stringify(user)).not.toContain("33214");
     expect(CONSULT_SYSTEM).toContain("answer に件数・割合を書きません");
+  });
+
+  describe("近くの町の問い（groupBy near。町と距離はプログラムが条件の町の中心から測る）", () => {
+    const HISTORY = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "..", "..", "data", "history", "cases.json"), "utf8")) as HistoryCase[];
+    const NEAR = { groupBy: "near", season: 2025, prefCode: "33" };
+    const FARM = { production: "layer", rearing: "floor", muniCode: "33643" };
+    const userOf = (t: ReturnType<typeof setup>) => JSON.parse(t.calls[0]!.messages[0]!.content as string) as Record<string, unknown>;
+
+    it("条件あり: 索引は 1 回だけ読み、西粟倉村の中心から約 60 km 以内の去年のシーズンの事例を新しい順に一覧で返す（県の指定は無視）", async () => {
+      const t = setup(msg(wire("", [], false, [], NEAR)), { history: HISTORY });
+      const r = await ask(t.deps, askData({ question: "去年、近くの町でどこで発生した？", farm: FARM }));
+      expect(t.muniIndex).toHaveBeenCalledTimes(1);
+      expect(r.outOfScope).toBe(false);
+      expect(r.answer).toBe("");
+      expect(r.stats!.query).toEqual({ groupBy: "near", season: 2025, prefCode: null });
+      expect(r.stats!.total).toBe(3);
+      expect(r.stats!.near!.rows.map((x) => [x.date, x.place, x.distance])).toEqual([
+        ["2026年1月8日", "兵庫県姫路市", "約 44 km"],
+        ["2025年12月20日", "岡山県津山市", "約 32 km"],
+        ["2025年12月16日", "兵庫県姫路市", "約 44 km"],
+      ]);
+      expect(r.stats!.summary).toBe(
+        "岡山県西粟倉村の中心から約 60 km 以内の町で、2025 年のシーズン（2025年6月〜2026年5月）に起きた発生は 3 件です。距離は町の中心どうしの目安です。",
+      );
+      expect(r.farm).toEqual({ ...FARM, town: "岡山県西粟倉村" });
+      // Claude には過去の事例も町の中心も渡さない（町の名前は今までどおり farm.town だけ）
+      const user = JSON.stringify(userOf(t));
+      expect(user).not.toContain("姫路");
+      expect(user).not.toContain("134.");
+    });
+
+    it("シーズンを絞らなければ過去 6 シーズン。関連農場は数えない", async () => {
+      const relatedNear: HistoryCase = { season: 2025, no: 999, prefCode: "33", muniCode: "33203", muniNameThen: "津山市", date: "2025-12-21", birdUse: "採卵鶏", housing: null, headCount: 1000, sourceUrl: "https://www.maff.go.jp/r.pdf", related: true };
+      const t = setup(msg(wire("", [], false, [], { groupBy: "near", season: null, prefCode: null })), { history: [...HISTORY, relatedNear] });
+      const r = await ask(t.deps, askData({ question: "うちの近くで過去に発生はあった？", farm: FARM }));
+      expect(r.stats!.total).toBe(8);
+      expect(r.stats!.near!.rows.map((x) => x.sourceUrl)).not.toContain("https://www.maff.go.jp/r.pdf");
+    });
+
+    it("条件なし・町のない条件: 索引を読まず、一覧を作らず決まった文の表だけを返す（決まった範囲外の文にしない）", async () => {
+      for (const farm of [undefined, { production: "layer" }]) {
+        const t = setup(msg(wire("", [], false, [], NEAR)), { history: HISTORY });
+        const r = await ask(t.deps, askData({ question: "うちの近くで過去に発生はあった？", ...(farm ? { farm } : {}) }));
+        expect(t.muniIndex).not.toHaveBeenCalled();
+        expect(r.outOfScope).toBe(false);
+        expect(r.notice).toBeNull();
+        expect(r.stats!.summary).toBe("近くの町の発生は、『登録した農場の情報で相談する』を選ぶと答えられます。地図の『過去の発生』でも見られます。");
+        expect(r.stats!.near).toEqual({ rows: [], more: 0, noFarm: true });
+      }
+    });
+
+    it("今季（2026）は一覧の外として地図へ案内する", async () => {
+      const t = setup(msg(wire("", [], false, [], { groupBy: "near", season: 2026, prefCode: null })), { history: HISTORY });
+      const r = await ask(t.deps, askData({ question: "今季、近くの町で発生した？", farm: FARM }));
+      expect(r.stats!.outOfRange).toBe(true);
+      expect(r.stats!.near!.rows).toEqual([]);
+      expect(r.stats!.summary).toContain("今季の発生は、地図で見てください。");
+    });
+
+    it("CONSULT_SYSTEM: near は「近く・近所・うちの周り・付近の町」の問いで選び、町・距離・件数は書かない", () => {
+      expect(CONSULT_SYSTEM).toContain("near（農場の近くの町で起きた発生の一覧）");
+      expect(CONSULT_SYSTEM).toContain("「近く」「近所」「うちの周り」「付近の町」");
+      expect(CONSULT_SYSTEM).toContain("answer に町の名前・距離・件数を書きません。");
+      expect(findForbiddenPhrases(CONSULT_SYSTEM)).toEqual([]);
+    });
   });
 });
 

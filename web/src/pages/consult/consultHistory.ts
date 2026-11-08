@@ -3,7 +3,8 @@
 // 読み書きは失敗しても画面を止めない（非公開のウィンドウ、容量の上限、壊れた中身）。読めない中身は捨てる。
 import type { ConsultAskResponse, ConsultTurn } from "@hpai/shared/consult/types";
 import { parseStoredFarm } from "@hpai/shared/consult/farmCondition";
-import { STATS_GROUP_BYS } from "@hpai/shared/consult/stats";
+import { STATS_GROUP_BYS, seasonRangeText } from "@hpai/shared/consult/stats";
+import { DISTANCE_BAND_KM } from "@hpai/shared/level";
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
 import { CONSULT_MAX_HISTORY, EVIDENCE_LABEL } from "@hpai/shared/consult/types";
 
@@ -73,7 +74,19 @@ function isStats(v: unknown): boolean {
   if (typeof title !== "string" || typeof summary !== "string" || typeof labelHeader !== "string") return false;
   if (typeof total !== "number" || typeof outOfRange !== "boolean") return false;
   if (!Array.isArray(rows) || !rows.every((r) => isRecord(r) && typeof r["label"] === "string" && typeof r["count"] === "number")) return false;
-  return rest === null || (isRecord(rest) && typeof rest["rows"] === "number" && typeof rest["count"] === "number");
+  if (!(rest === null || (isRecord(rest) && typeof rest["rows"] === "number" && typeof rest["count"] === "number"))) return false;
+  // 近くの町の一覧（groupBy "near"）。"near" には一覧が要り、それ以外の数え方には付かない
+  const near = v["near"];
+  if (query["groupBy"] !== "near") return near === undefined;
+  return isNearList(near);
+}
+
+const NEAR_ROW_TEXTS = ["date", "place", "use", "headCount", "distance", "sourceUrl"] as const;
+
+/** 近くの町の事例の一覧。画面が読む項目だけを確かめる */
+function isNearList(v: unknown): boolean {
+  if (!isRecord(v) || typeof v["noFarm"] !== "boolean" || typeof v["more"] !== "number" || !Array.isArray(v["rows"])) return false;
+  return v["rows"].every((r: unknown) => isRecord(r) && NEAR_ROW_TEXTS.every((k) => typeof r[k] === "string"));
 }
 
 /**
@@ -175,7 +188,18 @@ export function historyForAsk(turns: readonly ConsultHistoryTurn[]): ConsultTurn
     .filter(isAnswered)
     .slice(-CONSULT_MAX_HISTORY)
     // 件数だけの往復は、表のまとめの文を答えとして渡す（「では鳥取県は？」の意味を読めるように）
-    .map((t) => ({ question: t.question, answer: hasAdvice(t.result) ? t.result.answer : (t.result.stats?.summary ?? "") }));
+    .map((t) => ({ question: t.question, answer: hasAdvice(t.result) ? t.result.answer : statsAnswerForAsk(t.result.stats) }));
+}
+
+/**
+ * 件数だけの往復の、前の往復として渡す答え。近くの町の一覧のまとめの文には農場の町の名前が入るので、町の名前を含まない文にする
+ * （次の問いで「登録した農場の情報で相談する」を外したとき、選んでいない問いで町の名前を Claude に渡さないため。プライバシーの説明の「選んだときだけ」）
+ */
+function statsAnswerForAsk(stats: ConsultAskResponse["stats"]): string {
+  if (!stats) return "";
+  if (!stats.near || stats.near.noFarm) return stats.summary;
+  const s = stats.query.season;
+  return `農場の町から約 ${DISTANCE_BAND_KM} km 以内の町の発生の一覧を出しました（${s !== null ? `${seasonRangeText(s)}のシーズン` : "過去 6 シーズン"}）。`;
 }
 
 export type DayGroup = "today" | "yesterday" | "earlier";

@@ -2,11 +2,15 @@
 // Claude は問いを「何で分けて数えるか（groupBy）・どのシーズンか・どの県か」に読み替えるだけ。件数はこのファイルのプログラムが
 // 過去の事例（data/history/cases.json、農林水産省の国内発生事例一覧の過去 6 シーズン）から数える。表の文もプログラムが組む（Claude は書かない）。
 // 数え方は作品のほかの画面（データで探す）と同じ: 関連農場（related:true）は数えない。シーズンは 6 月 1 日から翌年 5 月 31 日。
+// "near"（2026-11-08 豪さんの決定）は、件数の表ではなく、農場の町の中心から約 60 km 以内の町で起きた事例の一覧。
+// 距離は町の中心どうし（地理の索引の center）。農場のマス目は使わない（関数は受け取っていない）。条件（町）がなければ一覧を作らず決まった文。
+import { haversineKm } from "../geo";
+import { DISTANCE_BAND_KM, isWithinDistanceBand } from "../level";
 import { PREFS } from "../pref";
-import type { HistoryCase, PrefCode } from "../types";
+import type { HistoryCase, MuniCode, PrefCode } from "../types";
 
-export type StatsGroupBy = "pref" | "season" | "month" | "use";
-export const STATS_GROUP_BYS: readonly StatsGroupBy[] = ["pref", "season", "month", "use"];
+export type StatsGroupBy = "pref" | "season" | "month" | "use" | "near";
+export const STATS_GROUP_BYS: readonly StatsGroupBy[] = ["pref", "season", "month", "use", "near"];
 
 /** Claude が選ぶ数え方。season はシーズンの始まりの年（2024 = 2024 年 6 月〜2025 年 5 月）。null は絞らない */
 export interface StatsQuery {
@@ -18,6 +22,31 @@ export interface StatsQuery {
 export interface StatsRow {
   label: string;
   count: number;
+}
+
+/** 近くの町の事例の一覧の 1 行。文はすべてプログラムが組む */
+export interface NearCaseRow {
+  /** 「2025年12月19日」 */
+  date: string;
+  /** 県と、発生の当時の市町村の名前（「兵庫県姫路市」） */
+  place: string;
+  /** 国の一覧の用途の表記そのまま。記載がなければ「記載なし」 */
+  use: string;
+  /** 「1,200 羽」。記載がなければ「記載なし」 */
+  headCount: string;
+  /** 町の中心どうしの距離（「約 25 km」。農場と同じ町なら「同じ町」） */
+  distance: string;
+  /** 国の資料の URL */
+  sourceUrl: string;
+}
+
+/** "near" の一覧。noFarm は条件（町）がなくて数えなかったとき（summary が決まった文、rows は空） */
+export interface NearList {
+  /** 新しい順の先頭 STATS_MAX_NEAR_ROWS 件まで */
+  rows: NearCaseRow[];
+  /** 表に出さなかった件数（STATS_MAX_NEAR_ROWS を超えた分）。なければ 0 */
+  more: number;
+  noFarm: boolean;
 }
 
 /** 画面に出す件数の表。文はすべてプログラムが組む */
@@ -35,13 +64,34 @@ export interface ConsultStats {
   total: number;
   /** 範囲の外のシーズンを聞かれたなど、数えられなかったとき true（rows は空） */
   outOfRange: boolean;
+  /**
+   * 近くの町の事例の一覧（groupBy が "near" のときだけ。そのとき labelHeader は空、rows は空、rest は null）。
+   * この項目ができる前の記録と、"near" 以外の数え方にはない
+   */
+  near?: NearList;
 }
+
+/** 近くの町の一覧の起点（農場の町）。関数が条件の市町村コードと、索引から引いた町の名前と、索引を渡す */
+export interface NearOrigin {
+  muniCode: MuniCode;
+  /** 「岡山県西粟倉村」 */
+  town: string;
+  index: MuniCenterIndex;
+}
+
+/** 地理の索引（data/geo/muni-index.json）の 1 行のうち、町の中心に使う分。[経度, 緯度] */
+export type MuniCenterIndex = Readonly<Record<MuniCode, { center: readonly [number, number] }>>;
+
+/** 条件（町）がないときに "near" を聞かれたら返す決まった文 */
+export const NEAR_NO_FARM_TEXT = "近くの町の発生は、『登録した農場の情報で相談する』を選ぶと答えられます。地図の『過去の発生』でも見られます。";
 
 /** 一覧にあるシーズン（過去 6 シーズン）。今季は入らない */
 export const STATS_FIRST_SEASON = 2020;
 export const STATS_LAST_SEASON = 2025;
 /** 県で分けたときに表に出す行の数。残りは「ほか N 県」 */
 export const STATS_MAX_PREF_ROWS = 10;
+/** 近くの町の一覧に出す行の数。残りは「ほか N 件」（地図の「過去の発生」へ案内する） */
+export const STATS_MAX_NEAR_ROWS = 20;
 
 export const STATS_SOURCE = {
   label: "農林水産省 高病原性鳥インフルエンザの国内発生事例一覧（過去 6 シーズン、関連農場を除く）",
@@ -65,6 +115,8 @@ export function parseStatsQuery(raw: unknown): StatsQuery | null {
   if (typeof groupBy !== "string" || !STATS_GROUP_BYS.includes(groupBy as StatsGroupBy)) return null;
   if (season !== null && season !== undefined && !(typeof season === "number" && Number.isInteger(season))) return null;
   if (prefCode !== null && prefCode !== undefined && !(typeof prefCode === "string" && PREF_CODES.has(prefCode))) return null;
+  // 近くの町は県で絞らない（農場の町の周りは県をまたぐ）。Claude が県を入れても null に直す
+  if (groupBy === "near") return { groupBy, season: (season as number | null | undefined) ?? null, prefCode: null };
   return { groupBy: groupBy as StatsGroupBy, season: (season as number | null | undefined) ?? null, prefCode: (prefCode as string | null | undefined) ?? null };
 }
 
@@ -90,17 +142,89 @@ const fmt = (n: number) => n.toLocaleString("en-US");
 /** 数字で始まる語の前に半角の空白を入れる（作品の書き方「過去 6 シーズン」に合わせる） */
 const sp = (s: string) => (/^\d/u.test(s) ? ` ${s}` : s);
 
+/** 範囲の外のシーズンの文（件数の表と近くの町の一覧で同じ） */
+const OUT_OF_RANGE_TEXT = `この一覧で数えられるのは、${STATS_FIRST_SEASON} 年 6 月から ${STATS_LAST_SEASON + 1} 年 5 月までの 6 シーズンです。今季の発生は、地図で見てください。`;
+
+/** 範囲のシーズンの、関連農場を除いた事例（件数の表と近くの町の一覧で同じ数え方） */
+function countableCases(history: readonly HistoryCase[], season: number | null): HistoryCase[] {
+  // 一覧に後からシーズンが足されても、合計と行と「過去 6 シーズン」の文が食い違わないよう、範囲のシーズンだけを数える
+  return history.filter(
+    (h) => !h.related && h.season >= STATS_FIRST_SEASON && h.season <= STATS_LAST_SEASON && (season === null || h.season === season),
+  );
+}
+
+/** "2025-12-19" → 「2025年12月19日」 */
+export function nearDateText(date: string): string {
+  const [y, m, d] = date.split("-");
+  return `${Number(y)}年${Number(m)}月${Number(d)}日`;
+}
+
+/** 町の中心どうしの距離の文。整数に丸める。同じ町は「同じ町」、1 km 未満は「約 1 km 未満」 */
+export function nearDistanceText(km: number, sameTown: boolean): string {
+  if (sameTown) return "同じ町";
+  return km < 1 ? "約 1 km 未満" : `約 ${Math.round(km)} km`;
+}
+
+/**
+ * 農場の町の中心から約 60 km 以内の町で起きた事例の一覧（新しい順）。判定は丸める前の距離で行う。
+ * origin がない（条件がない・町がない）ときは一覧を作らず決まった文。範囲の外のシーズンは件数の表と同じく地図へ案内する。
+ * 索引にない町の事例は距離を測れないので一覧に入れない（同梱の索引と国の一覧は突き合わせ済みで、今は欠けがない）。
+ */
+function computeNear(history: readonly HistoryCase[], query: StatsQuery, origin: NearOrigin | null): ConsultStats {
+  const base = { query, labelHeader: "", rows: [], rest: null };
+  if (origin === null) {
+    return { ...base, title: "近くの町の発生", summary: NEAR_NO_FARM_TEXT, total: 0, outOfRange: false, near: { rows: [], more: 0, noFarm: true } };
+  }
+  const where = `${origin.town}から約 ${DISTANCE_BAND_KM} km 以内の町の発生`;
+  const title = query.season !== null ? `${where}（${seasonRangeText(query.season)}）` : `${where}（過去 6 シーズン）`;
+  if (query.season !== null && (query.season < STATS_FIRST_SEASON || query.season > STATS_LAST_SEASON)) {
+    return { ...base, title, summary: OUT_OF_RANGE_TEXT, total: 0, outOfRange: true, near: { rows: [], more: 0, noFarm: false } };
+  }
+  const from = Object.hasOwn(origin.index, origin.muniCode) ? origin.index[origin.muniCode]!.center : null;
+  const hits: { h: HistoryCase; km: number }[] = [];
+  if (from !== null) {
+    for (const h of countableCases(history, query.season)) {
+      const to = Object.hasOwn(origin.index, h.muniCode) ? origin.index[h.muniCode]!.center : null;
+      if (to === null) continue;
+      const km = haversineKm(from, to);
+      if (isWithinDistanceBand(km)) hits.push({ h, km });
+    }
+  }
+  // 新しい順。同じ日は国の一覧の番号の大きい順
+  hits.sort((a, b) => b.h.date.localeCompare(a.h.date) || b.h.season - a.h.season || b.h.no - a.h.no);
+  const rows: NearCaseRow[] = hits.map(({ h, km }) => ({
+    date: nearDateText(h.date),
+    place: `${PREF_NAME.get(h.prefCode) ?? ""}${h.muniNameThen}`,
+    use: h.birdUse ?? "記載なし",
+    headCount: h.headCount === null ? "記載なし" : `${fmt(h.headCount)} 羽`,
+    distance: nearDistanceText(km, h.muniCode === origin.muniCode),
+    sourceUrl: h.sourceUrl,
+  }));
+  const period =
+    query.season !== null
+      ? `${query.season} 年のシーズン（${query.season}年6月〜${query.season + 1}年5月）`
+      : `過去 6 シーズン（${STATS_FIRST_SEASON}年6月〜${STATS_LAST_SEASON + 1}年5月）`;
+  const lead = `${origin.town}の中心から約 ${DISTANCE_BAND_KM} km 以内の町で、${period}に起きた発生は`;
+  // 表の上の文の件数は全体の件数。表は先頭 STATS_MAX_NEAR_ROWS 件まで
+  const summary = rows.length > 0 ? `${lead} ${fmt(rows.length)} 件です。距離は町の中心どうしの目安です。` : `${lead}ありませんでした。`;
+  const shown = rows.slice(0, STATS_MAX_NEAR_ROWS);
+  return { ...base, title, summary, total: rows.length, outOfRange: false, near: { rows: shown, more: rows.length - shown.length, noFarm: false } };
+}
+
 /**
  * 件数を数えて表にする。県を指定して「県で分ける」と聞かれたら、その県をシーズンで分ける（1 行の表にしない）。
  * 範囲の外のシーズンは数えず、outOfRange: true（今季の発生は地図で見てもらう）。
+ * "near" は件数の表ではなく、origin（農場の町）の近くの町の事例の一覧（computeNear）。
  */
-export function computeStats(history: readonly HistoryCase[], q: StatsQuery): ConsultStats {
+export function computeStats(history: readonly HistoryCase[], q: StatsQuery, origin: NearOrigin | null = null): ConsultStats {
+  if (q.groupBy === "near") return computeNear(history, q, origin);
   const query: StatsQuery = q.prefCode !== null && q.groupBy === "pref" ? { ...q, groupBy: "season" } : q;
   const place = query.prefCode !== null ? (PREF_NAME.get(query.prefCode) ?? query.prefCode) : "全国";
   const period =
     query.season !== null ? `${seasonRangeText(query.season)}のシーズン` : `過去 6 シーズン（${STATS_FIRST_SEASON} 年 6 月〜${STATS_LAST_SEASON + 1} 年 5 月）`;
-  const byWhat = { pref: "都道府県ごと", season: "シーズンごと", month: "月ごと", use: "飼っている鳥ごと" }[query.groupBy];
-  const labelHeader = { pref: "都道府県", season: "シーズン", month: "月", use: "飼っている鳥" }[query.groupBy];
+  const groupBy = query.groupBy as Exclude<StatsGroupBy, "near">;
+  const byWhat = { pref: "都道府県ごと", season: "シーズンごと", month: "月ごと", use: "飼っている鳥ごと" }[groupBy];
+  const labelHeader = { pref: "都道府県", season: "シーズン", month: "月", use: "飼っている鳥" }[groupBy];
   // 表だけを見ても期間が分かるよう、シーズンを絞ったときは題にも入れる
   const title = query.season !== null ? `${place}の発生（${seasonRangeText(query.season)}・${byWhat}）` : `${place}の発生（${byWhat}）`;
 
@@ -108,7 +232,7 @@ export function computeStats(history: readonly HistoryCase[], q: StatsQuery): Co
     return {
       query,
       title,
-      summary: `この一覧で数えられるのは、${STATS_FIRST_SEASON} 年 6 月から ${STATS_LAST_SEASON + 1} 年 5 月までの 6 シーズンです。今季の発生は、地図で見てください。`,
+      summary: OUT_OF_RANGE_TEXT,
       labelHeader,
       rows: [],
       rest: null,
@@ -117,18 +241,10 @@ export function computeStats(history: readonly HistoryCase[], q: StatsQuery): Co
     };
   }
 
-  // 一覧に後からシーズンが足されても、合計と行と「過去 6 シーズン」の文が食い違わないよう、範囲のシーズンだけを数える
-  const cases = history.filter(
-    (h) =>
-      !h.related &&
-      h.season >= STATS_FIRST_SEASON &&
-      h.season <= STATS_LAST_SEASON &&
-      (query.season === null || h.season === query.season) &&
-      (query.prefCode === null || h.prefCode === query.prefCode),
-  );
+  const cases = countableCases(history, query.season).filter((h) => query.prefCode === null || h.prefCode === query.prefCode);
   let rows: StatsRow[];
   let rest: ConsultStats["rest"] = null;
-  switch (query.groupBy) {
+  switch (groupBy) {
     case "pref": {
       const counts = new Map<string, number>();
       for (const h of cases) counts.set(h.prefCode, (counts.get(h.prefCode) ?? 0) + 1);

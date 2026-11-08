@@ -1111,6 +1111,128 @@ describe("AIに対策を相談の画面", () => {
         expect(screen.getByTestId("consult-stats")).toBeTruthy();
       });
 
+      describe("近くの町の事例の一覧（groupBy near）", () => {
+        const INDEX = { "33001": { center: [134, 35] as const }, "33201": { center: [134, 35.2] as const }, "31201": { center: [134, 35.4] as const } };
+        const ORIGIN = { muniCode: "33001", town: "岡山県見本村", index: INDEX };
+        const nearCases: HistoryCase[] = [
+          { ...past("33", 2025), date: "2025-12-20", muniNameThen: "津山市", headCount: 430000 },
+          { ...past("31", 2025), date: "2026-01-08", muniNameThen: "鳥取市", headCount: null, sourceUrl: "https://www.maff.go.jp/b.pdf" },
+        ];
+        const near = computeStats(nearCases, { groupBy: "near", season: 2025, prefCode: null }, ORIGIN);
+
+        it("日付・場所・用途・羽数・距離・資料の一覧を新しい順に、横に送れる枠の中に出す。町と距離はプログラムが出したこと、過去の記録・リスクの文・今季は含まない・出典を添える", async () => {
+          box.ask.mockResolvedValue(statsOnly(near));
+          renderPage();
+          fireEvent.change(input(), { target: { value: "去年、近くの町でどこで発生した？" } });
+          fireEvent.click(askButton());
+          const box1 = within(await screen.findByTestId("consult-stats"));
+          expect(box1.getByText(near.title)).toBeTruthy();
+          expect(box1.getByText(near.summary)).toBeTruthy();
+          expect(near.summary).toContain("に起きた発生は 2 件です。");
+          expect(box1.getByText(CONSULT_TEXT.nearCounted)).toBeTruthy();
+          const table = box1.getByRole("table", { name: near.title });
+          expect(table.parentElement!.className).toContain("table-scroll");
+          const rows = within(table).getAllByRole("row");
+          expect(rows).toHaveLength(1 + 2);
+          expect(within(rows[0]!).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["日付", "場所", "用途", "羽数", "距離", "資料"]);
+          expect(within(rows[1]!).getAllByRole("cell").map((c) => c.textContent)).toEqual(["2026年1月8日", "採卵鶏", "記載なし", "約 44 km", "資料"]);
+          expect(within(rows[1]!).getByRole("rowheader").textContent).toBe("鳥取県鳥取市");
+          expect(within(rows[2]!).getByRole("rowheader").textContent).toBe("岡山県津山市");
+          expect(rows[2]!.textContent).toContain("430,000 羽");
+          expect(rows[2]!.textContent).toContain("約 22 km");
+          const link = within(rows[1]!).getByRole("link", { name: CONSULT_TEXT.nearSource });
+          expect(link.getAttribute("href")).toBe("https://www.maff.go.jp/b.pdf");
+          expect(link.getAttribute("target")).toBe("_blank");
+          expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+          expect(box1.getByText(`${FIXED_TEXT.pastDisclaimer}。`)).toBeTruthy();
+          expect(box1.getByText(RISK_SENTENCE, { exact: false })).toBeTruthy();
+          expect(box1.getByRole("link", { name: CONSULT_TEXT.statsMapLink }).getAttribute("href")).toBe("/");
+          expect(box1.getByRole("link", { name: STATS_SOURCE.label }).getAttribute("href")).toBe(STATS_SOURCE.url);
+          // 件数の表の部品（合計の行・件数の断り）は出さない
+          expect(box1.queryByText(CONSULT_TEXT.statsCounted)).toBeNull();
+          expect(box1.queryByRole("rowheader", { name: CONSULT_TEXT.statsTotal })).toBeNull();
+        });
+
+        it("20 件を超えたら先頭 20 件だけを出し、表の下に「ほか N 件」を 1 行。上の文の件数は全体のまま。20 件以下なら出さない", async () => {
+          const many = Array.from({ length: 23 }, (_, i): HistoryCase => ({ ...past("33", 2024), no: i + 1, date: `2024-12-${String(i + 1).padStart(2, "0")}` }));
+          const big = computeStats(many, { groupBy: "near", season: 2024, prefCode: null }, ORIGIN);
+          box.ask.mockResolvedValue(statsOnly(big));
+          renderPage();
+          fireEvent.change(input(), { target: { value: "2024 年、近くで発生した？" } });
+          fireEvent.click(askButton());
+          const box1 = within(await screen.findByTestId("consult-stats"));
+          expect(within(box1.getByRole("table")).getAllByRole("row")).toHaveLength(1 + 20);
+          expect(box1.getByTestId("consult-near-more").textContent).toBe("ほか 3 件（地図の『過去の発生』で見られます）");
+          expect(box1.getByText(/に起きた発生は 23 件です。/u)).toBeTruthy();
+          expect(within(screen.getByTestId("consult-stats")).queryByTestId("consult-near-more")).not.toBeNull();
+          cleanup();
+          box.ask.mockResolvedValue(statsOnly(near));
+          renderPage();
+          fireEvent.change(input(), { target: { value: "去年、近くの町でどこで発生した？" } });
+          fireEvent.click(askButton());
+          expect(within(await screen.findByTestId("consult-stats")).queryByTestId("consult-near-more")).toBeNull();
+        });
+
+        it("0 件・今季は一覧の表を出さず、まとめの文だけ", async () => {
+          box.ask.mockResolvedValueOnce(statsOnly(computeStats([], { groupBy: "near", season: 2024, prefCode: null }, ORIGIN)));
+          box.ask.mockResolvedValueOnce(statsOnly(computeStats(nearCases, { groupBy: "near", season: 2026, prefCode: null }, ORIGIN)));
+          renderPage();
+          fireEvent.change(input(), { target: { value: "2024 年、近くで発生した？" } });
+          fireEvent.click(askButton());
+          const first = within((await screen.findAllByTestId("consult-stats"))[0]!);
+          expect(first.queryByRole("table")).toBeNull();
+          expect(first.getByText(/に起きた発生はありませんでした。$/u)).toBeTruthy();
+          fireEvent.change(input(), { target: { value: "今季は？" } });
+          fireEvent.click(askButton());
+          await waitFor(() => expect(screen.getAllByTestId("consult-stats")).toHaveLength(2));
+          const second = within(screen.getAllByTestId("consult-stats")[1]!);
+          expect(second.queryByRole("table")).toBeNull();
+          expect(second.getByText(/今季の発生は、地図で見てください。/u)).toBeTruthy();
+        });
+
+        it("条件なし: 決まった文と、地図の過去の発生への入口だけ", async () => {
+          box.ask.mockResolvedValue(statsOnly(computeStats(nearCases, { groupBy: "near", season: null, prefCode: null }, null)));
+          renderPage();
+          fireEvent.change(input(), { target: { value: "うちの近くで過去に発生はあった？" } });
+          fireEvent.click(askButton());
+          const box1 = within(await screen.findByTestId("consult-stats"));
+          expect(box1.getByText("近くの町の発生は、『登録した農場の情報で相談する』を選ぶと答えられます。地図の『過去の発生』でも見られます。")).toBeTruthy();
+          expect(box1.queryByRole("table")).toBeNull();
+          expect(box1.getByRole("link", { name: CONSULT_TEXT.nearPastLink }).getAttribute("href")).toBe("/compare");
+        });
+
+        it("続けて聞くとき、前の往復の答えには農場の町の名前を含まない文を渡す（次の問いで条件を外しても町の名前が Claude に行かない）", async () => {
+          box.ask.mockResolvedValueOnce({ ...statsOnly(near), followUps: ["その前の年は？"] }).mockResolvedValueOnce(statsOnly());
+          renderPage();
+          fireEvent.change(input(), { target: { value: "去年、近くの町でどこで発生した？" } });
+          fireEvent.click(askButton());
+          await screen.findByTestId("consult-stats");
+          fireEvent.click(screen.getByRole("button", { name: "その前の年は？" }));
+          await waitFor(() => expect(screen.getAllByTestId("consult-stats")).toHaveLength(2));
+          const history = box.ask.mock.lastCall![1] as { question: string; answer: string }[];
+          expect(history).toEqual([
+            { question: "去年、近くの町でどこで発生した？", answer: "農場の町から約 60 km 以内の町の発生の一覧を出しました（2025 年 6 月〜2026 年 5 月のシーズン）。" },
+          ]);
+          expect(JSON.stringify(history)).not.toContain("見本村");
+          expect(near.summary).toContain("見本村");
+        });
+
+        it("端末に残り、開き直しても一覧が出る。一覧の形が壊れた往復の相談は捨てる", () => {
+          const good = { id: "g", title: "近くの一覧", createdAt: 1, updatedAt: Date.now(), turns: [{ question: "q", at: 1, result: statsOnly(near) }] };
+          const brokenNear = { ...near, near: { rows: [{ date: "x" }], more: 0, noFarm: false } };
+          const noList = { ...near, near: undefined };
+          const bad1 = { id: "b1", title: "壊れた一覧", createdAt: 1, updatedAt: Date.now(), turns: [{ question: "q", at: 1, result: statsOnly(brokenNear as never) }] };
+          const bad2 = { id: "b2", title: "一覧のない近く", createdAt: 1, updatedAt: Date.now(), turns: [{ question: "q", at: 1, result: statsOnly(noList as never) }] };
+          localStorage.setItem("hpai.consult.history.v1:u1", JSON.stringify([bad1, bad2, good]));
+          renderPage();
+          historyOpen();
+          expect(screen.queryByText("壊れた一覧")).toBeNull();
+          expect(screen.queryByText("一覧のない近く")).toBeNull();
+          fireEvent.click(screen.getByRole("button", { name: /^近くの一覧/u }));
+          expect(within(screen.getByTestId("consult-stats")).getByRole("table", { name: near.title })).toBeTruthy();
+        });
+      });
+
       it("対策の答えと件数の表を一緒に出せる", async () => {
         box.ask.mockResolvedValue(reply({ stats: okayama }));
         renderPage();

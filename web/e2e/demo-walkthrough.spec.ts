@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { NATIONAL_FLOW_SPOT } from "@hpai/shared/replay";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import { expect, test, type Page, type Request } from "@playwright/test";
-import { menuNav } from "./helpers/frame";
+import { goViaMenu, menuNav } from "./helpers/frame";
 import { chooseTown, expectNoForbiddenText, PNG_1PX, prepare, TSUYAMA_CASE, waitForWord } from "./wording.helper";
 
 // デモの筋の通し（X-20、設計書 §17「デモの筋」）。場面 2〜7 を、画面の操作で確かめる。
@@ -160,23 +160,36 @@ test.describe("デモの筋", () => {
     expect(urls.filter((u) => u.includes("firestore") || u.includes("api.anthropic.com"))).toEqual([]);
   });
 
-  test("場面 4: 12 月の 4 事例と見本の農場で、① の対策項目、声かけ文のコピー、解除の見込みが見える", async ({ page }) => {
+  test("場面 4: 12 月の 4 事例から近くで発生した場合の見え方へ移り、① の地図とメール、対策項目、声かけ文のコピー、解除の見込みが見える", async ({ page }) => {
     test.setTimeout(90_000);
     // 12 月の 4 事例（既定）。もし区域の近くの農場なら、という仮の地点で ① になる
     await openReplay(page);
     await expect(page.getByRole("button", { name: "12 月の 4 事例" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "もし区域の近くの農場なら" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("仮の地点で見ています", { exact: false })).toBeVisible();
-    await (await replayItem(page, /12 月 19 日.*津山市.*疑い/)).click();
+
+    // 近くで発生した場合の見え方（/sample。審査員用の 2 本目のリンクと同じ画面）。開いたときは 12月19日 津山市 疑い
+    // 読み込み直さずに移るので、地図の目印（__hpaiMap）は新しい地図が上書きするまで古い地図を指す。先に消して、新しい地図を待つ
+    await page.evaluate(() => {
+      delete (window as unknown as W).__hpaiMap;
+    });
+    await page.getByRole("link", { name: "近くで発生した場合の見え方" }).click();
+    await expect(page).toHaveURL(/\/sample$/);
+    await expect(page.locator(".app-context")).toContainText("去年 12 月の再現です（近くで発生した場合の見え方）");
+    await expect(page.getByText("鶏舎の場所は説明のために置いた仮の地点です。")).toBeVisible();
+    await expect(page.locator(".replay-now")).toHaveText("12 月 19 日 津山市 疑い");
+    await page.waitForFunction(() => !!(window as unknown as W).__hpaiMap?.getLayer("case-suspected"), undefined, { timeout: 20_000 });
     await expect(page.getByText(ZONE)).toBeVisible();
     await filterHas(page, "case-suspected", "33203");
     await expect(page.getByRole("region", { name: "このときメールが届く" })).toBeVisible();
-    await (await replayItem(page, /12 月 20 日.*津山市.*確定/)).click();
-    await expect(page.getByText(ZONE)).toBeVisible();
+    await expect(page.locator(".sample-badge, .sample-nav")).toHaveCount(0);
     await expectNoForbiddenText(page);
 
-    // 見本の農場のやること（再現の仮の地点と同じ地点）。① なので求められることが最初から開く
-    await page.goto("/sample/todo");
+    // 防疫措置が完了した 12 月 30 日まで進めてから、メニューの「対策項目」へ（時刻はそのまま）
+    await (await replayItem(page, /12 月 30 日.*津山市/)).click();
+    await expect(page.locator(".replay-now")).toContainText("12 月 30 日 津山市");
+    await goViaMenu(page, "対策項目");
+    await expect(page).toHaveURL(/\/sample\/todo$/);
     await waitForWord(page, "時点");
     await expect(page.getByText(ZONE).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "いつも求められていること" })).toBeVisible();

@@ -321,9 +321,9 @@ describe("shellContextOf", () => {
     expect(farm("/consult", true).find((i) => i.label === "AIに対策を相談")!.current).toBe(true);
     expect(farm("/login", false).find((i) => i.label === "会員のログイン")!.current).toBe(true);
     expect(farm("/join/abc", false).find((i) => i.label === "会員のログイン")!.current).toBe(true);
-    // 見本の中は会員の印に関係なく、見本の行き先と記録を試す
+    // /sample の中は会員の印に関係なく、対策項目だけ（記録を試す・死亡・消毒の記録・会員のログインは出さない。2026-11-08）
     for (const member of [false, true]) {
-      expect(farm("/sample/todo", member).map((i) => i.to)).toEqual(["/sample/todo", "/sample/record/deaths", "/sample"]);
+      expect(farm("/sample/todo", member).map((i) => [i.label, i.to])).toEqual([["対策項目", "/sample/todo"]]);
     }
   });
 });
@@ -332,7 +332,9 @@ describe("shellContextOf", () => {
 // 養鶏事業者の方は一番下（2026-11-07 作者の決定 案 A）
 const GUEST_HREFS = ["/", "/compare", "/trends", "/known", "/public", "/about", "/todo", "/login"];
 const MEMBER_HREFS = ["/", "/compare", "/trends", "/known", "/public", "/about", "/todo", "/consult", "/record/deaths", "/settings/farm"];
-const SAMPLE_HREFS = ["/", "/compare", "/trends", "/known", "/public", "/about", "/sample/todo", "/sample/record/deaths", "/sample"];
+// 近くで発生した場合の見え方（/sample）は 1 本目と同じ並び・同じ名前。今季の発生は /sample の地図、対策項目は /sample/todo（2026-11-08）
+const SAMPLE_HREFS = ["/sample", "/compare", "/trends", "/known", "/public", "/about", "/sample/todo"];
+const SAMPLE_LABELS = ["今季の発生", "過去の発生", "発生傾向", "分かっていること", "鶏を飼っていない方へ", "このサイトについて", "対策項目"];
 
 function asMember() {
   localStorage.setItem("hpai.member.v1", "1");
@@ -430,25 +432,28 @@ describe("AppShell の帯とメニュー（設計書 2026-11-06-ui-frame 3 章�
     render(<RouterProvider router={router} />);
     expect(screen.getByText(OPERATOR_NOTE)).toBeTruthy();
   });
-  it("/sample/todo は見本の行き先、帯に見本を終わる、設定なし（会員でも）", () => {
+  it("/sample/todo は 1 本目と同じ並び・同じ名前で、見本だけの項目がない。帯は『去年 12 月の再現です（近くで発生した場合の見え方）』と再現を終わる、設定なし（会員でも）", () => {
     asMember();
     const { container } = renderShell("/sample/todo");
     expect(hrefs()).toEqual(SAMPLE_HREFS);
+    expect(tabs().map((a) => a.textContent)).toEqual(SAMPLE_LABELS);
     expect(currentLabels()).toEqual(["対策項目"]);
     const band = container.querySelector(".app-context")!;
-    expect(band.textContent).toContain("見本の農場を見ています");
-    const end = within(band as HTMLElement).getByRole("link", { name: "見本を終わる" });
+    expect(band.textContent).toContain("去年 12 月の再現です（近くで発生した場合の見え方）");
+    expect(band.textContent).not.toContain("見本");
+    const end = within(band as HTMLElement).getByRole("link", { name: "再現を終わる" });
     expect(end.getAttribute("href")).toBe("/");
     expect(end.className).toContain("tap-link");
     expect(screen.queryByRole("link", { name: "設定" })).toBeNull();
+    for (const gone of ["記録を試す", "死亡・消毒の記録", "見本の入口", "会員のログイン", "AIに対策を相談", "農場と通知の設定"]) {
+      expect(tabs().some((a) => a.textContent === gone), gone).toBe(false);
+    }
   });
-  it("/sample/record/deaths と /sample の選択中", () => {
-    renderShell("/sample/record/deaths");
-    expect(currentLabels()).toEqual(["死亡・消毒の記録"]);
-    cleanup();
+  it("/sample は今季の発生が選択中（地図から始まる）。帯がある", () => {
     const { container } = renderShell("/sample");
-    expect(currentLabels()).toEqual(["記録を試す"]);
-    expect(container.querySelector(".app-context")).not.toBeNull();
+    expect(currentLabels()).toEqual(["今季の発生"]);
+    expect(hrefs()).toEqual(SAMPLE_HREFS);
+    expect(container.querySelectorAll(".app-context")).toHaveLength(1);
   });
   it("/replay と /replay/backstage は帯に再現を終わる、行き先は通常（記録を試すは並べない）、過去の発生が選択中", () => {
     asMember();
@@ -605,7 +610,6 @@ describe("機械の検査: css", () => {
     ".cmp-seasons button",
     ".case-list-toggle",
     ".record-tabs a",
-    ".sample-nav a",
     ".replay-item",
     ".invite-url",
     ".explainer-text",

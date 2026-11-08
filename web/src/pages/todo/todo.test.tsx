@@ -615,29 +615,24 @@ describe("リンク", () => {
     expect(link.getAttribute("href")).toBe("/record/self-check");
   });
 
-  it("/sample/todo では /sample/record/self-check。/record で始まる href がない", async () => {
+  // 2026-11-08: /sample の記録を試す画面をなくしたので、見本の対策項目には記録へのリンクを出さない（地図へ戻されるだけになるため）
+  it("/sample/todo には自己点検と消毒の記録へのリンクがない。/record と /sample/record で始まる href がない", async () => {
     const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }), path: "/sample/todo", store: sampleStore() });
-    const link = await screen.findByRole("link", { name: "今月の自己点検を開く" });
-    expect(link.getAttribute("href")).toBe("/sample/record/self-check");
     await screen.findByRole("region", { name: "解除の見込み" });
-    for (const a of container.querySelectorAll("a[href]")) expect(a.getAttribute("href")!.startsWith("/record")).toBe(false);
+    expect(screen.queryByRole("link", { name: "今月の自己点検を開く" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "消毒の記録を開く" })).toBeNull();
+    for (const a of container.querySelectorAll("a[href]")) expect(a.getAttribute("href")!).not.toMatch(/^\/(sample\/)?record/);
   });
 });
 
 describe("消毒への道、段階 1 の並び、番号の注意", () => {
-  it("/todo の消毒のリンクは /record/disinfection、/sample/todo では /sample/record/disinfection（会員でない人と見本の今の形）", async () => {
+  it("/todo の消毒のリンクは /record/disinfection（会員でない人の今の形）", async () => {
     farm = null;
     mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
     const link = await screen.findByRole("link", { name: "消毒の記録を開く" });
     expect(link.getAttribute("href")).toBe("/record/disinfection");
     expect(link.className).toContain("tap-link");
     expect(screen.getByRole("link", { name: "今月の自己点検を開く" }).className).toContain("tap-link");
-    cleanup();
-    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }), path: "/sample/todo", store: sampleStore() });
-    const sample = await screen.findByRole("link", { name: "消毒の記録を開く" });
-    expect(sample.getAttribute("href")).toBe("/sample/record/disinfection");
-    await screen.findByRole("region", { name: "解除の見込み" });
-    for (const a of container.querySelectorAll("a[href]")) expect(a.getAttribute("href")!.startsWith("/record")).toBe(false);
   });
 
   it("orderSections: 段階 1 だけ if_in_zone、always、good_to_check の順。ほかは shared のまま", () => {

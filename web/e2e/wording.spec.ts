@@ -14,7 +14,7 @@ import { goViaMenu } from "./helpers/frame";
 
 // 文言と時点の通し（X-20、設計書 §3.1、§15、§16「文言」）。
 // 全ての経路で、画面に禁句（区域の外です、安全、安心）と、過去の発生の NG の語がないこと、
-// 「いつ時点か」（時点、確認日、印刷日、最後に記録した日）が出ていること。
+// 「いつ時点か」（時点、確認日、印刷日）が出ていること。
 // 語が出るまで待ってから調べる（「読み込んでいます」の画面を調べて素通りしない）。
 // 実行: web/ で `browser-guard run -- npx playwright test wording`
 
@@ -26,7 +26,7 @@ const WORD_ROUTES: ReadonlyArray<{ word: string; paths: readonly string[] }> = [
   },
   { word: "確認日", paths: ["/public", "/privacy", "/login", "/known"] },
   { word: "印刷日", paths: ["/poster"] },
-  { word: "最後に記録した日", paths: ["/sample/record", "/sample/record/deaths", "/sample/record/self-check", "/sample/record/disinfection"] },
+  // 「最後に記録した日」の /sample/record/* は、2026-11-08 に記録を試す画面をなくし /sample の地図へ送るようにしたので外した
 ];
 
 /** この画面は仮（「準備中です」）なら、巡回に入れない */

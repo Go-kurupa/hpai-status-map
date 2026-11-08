@@ -5,6 +5,12 @@ import { useMemberMark } from "../data/memberMark";
 export const OPERATOR_NOTE = "民間の運営です。国や県の公式のサイトではありません。";
 
 export type ShellMode = "replay" | "sample" | null;
+
+/** 再現と、近くで発生した場合の見え方（/sample）の中だけに出す、上の帯の文と終わるリンク（帯は 1 本だけ） */
+export const CONTEXT_BAND = {
+  replay: { text: "去年の再現を見ています", end: "再現を終わる" },
+  sample: { text: "去年 12 月の再現です（近くで発生した場合の見え方）", end: "再現を終わる" },
+} as const;
 export type MenuItem = { to: string; label: string; current: boolean };
 /** farm: 養鶏事業者の方（関係者向け）。一番下に置き、緑の枠と文字で見分ける（2026-11-07 作者の決定 案 A） */
 export type MenuGroup = { label: string; items: MenuItem[]; collapsible?: boolean; farm?: boolean };
@@ -15,10 +21,11 @@ function under(path: string, base: string): boolean {
 
 /**
  * 道筋と会員の印から、今の画面の帯の種類と、メニューの項目・選択中を決める（設計書 2026-11-06-ui-frame 3 章）。
- * 見本の中は「養鶏事業者の方」を見本の画面へ向け、設定を出さない（今までの見本の決まり）。
- * 見本の外は、記録と設定を会員の印があるときだけ出し、ないときは会員のログインを出す（決定 15）。
- * 去年の再現はメニューに並べず、「このサイトについて」から開く（決定 16）。見本の農場（記録を試す）は、メニューにもサイトの案内にも並べず、
- * 再現の中の『見本の農場で試す』と提出フォームの審査員向けの欄から開く（2026-11-08）。
+ * 近くで発生した場合の見え方（/sample）の中は、1 本目の審査員用のリンクと同じ並び・同じ名前にし、「今季の発生」を /sample の地図へ、
+ * 「対策項目」を /sample/todo へ向ける。見本だけの項目、会員の項目、会員のログイン、設定は出さない（2026-11-08 作者の決定）。
+ * それ以外は、記録と設定を会員の印があるときだけ出し、ないときは会員のログインを出す（決定 15）。
+ * 去年の再現はメニューに並べず、「このサイトについて」から開く（決定 16）。/sample は、メニューにもサイトの案内にも並べず、
+ * 再現の中の『近くで発生した場合の見え方』と提出フォームの審査員向けの欄から開く（2026-11-08）。
  */
 export function shellContextOf(pathname: string, member = false): { mode: ShellMode; groups: MenuGroup[]; currentLabel: string | null } {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") || "/" : pathname;
@@ -27,14 +34,12 @@ export function shellContextOf(pathname: string, member = false): { mode: ShellM
   const item = (to: string, label: string, current: boolean): MenuItem => ({ to, label, current });
   // 対策項目は会員でなくても使える（地図で選んだ町や地点を使う）ので、いつも出す（2026-11-06 作者の決定）
   const farm: MenuItem[] = [item(`${prefix}/todo`, "対策項目", under(path, `${prefix}/todo`))];
-  if (mode === "sample") {
-    farm.push(item("/sample/record/deaths", "死亡・消毒の記録", under(path, "/sample/record")));
-    farm.push(item("/sample", "記録を試す", !farm.some((f) => f.current)));
-  } else if (member) {
+  // /sample の中は対策項目だけ（地図は「今季の発生」）
+  if (mode !== "sample" && member) {
     farm.push(item("/consult", "AIに対策を相談", under(path, "/consult")));
     farm.push(item("/record/deaths", "死亡・消毒の記録", under(path, "/record")));
     farm.push(item("/settings/farm", "農場と通知の設定", under(path, "/settings")));
-  } else {
+  } else if (mode !== "sample") {
     farm.push(item("/login", "会員のログイン", under(path, "/login") || under(path, "/join")));
   }
   // 設計書 2026-11-06-ui-frame 3 章（決定 8〜16）。今季と過去は中の切り替え（SectionTabs）で見方を選ぶ
@@ -43,7 +48,7 @@ export function shellContextOf(pathname: string, member = false): { mode: ShellM
     {
       label: "発生状況",
       items: [
-        item("/", "今季の発生", path === "/" || under(path, "/season")),
+        mode === "sample" ? item("/sample", "今季の発生", path === "/sample") : item("/", "今季の発生", path === "/" || under(path, "/season")),
         // 再現はメニューにも切り替えにも並べないが、中にいる間は今までどおり過去の発生を選択中にする（決定 16）
         item("/compare", "過去の発生", under(path, "/compare") || under(path, "/town") || under(path, "/area") || mode === "replay"),
         item("/trends", "発生傾向", under(path, "/trends")),
@@ -169,9 +174,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
       {mode ? (
         <div className="app-context">
-          <span>{mode === "replay" ? "去年の再現を見ています" : "見本の農場を見ています"}</span>
+          <span>{CONTEXT_BAND[mode].text}</span>
           <Link to="/" className="tap-link">
-            {mode === "replay" ? "再現を終わる" : "見本を終わる"}
+            {CONTEXT_BAND[mode].end}
           </Link>
         </div>
       ) : null}

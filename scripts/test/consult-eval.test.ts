@@ -4,14 +4,14 @@ import { describe, expect, it } from "vitest";
 import { parseFarmCondition } from "@hpai/shared/consult/farmCondition";
 import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
-import { filterByKind, judge, questionOf, usedFarmOf, type EvalCase, type Outcome } from "../consult/eval";
+import { filterByKind, judge, nearOriginOf, questionOf, usedFarmOf, type EvalCase, type Outcome } from "../consult/eval";
 
 const cases = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../../evals/consult/cases.json"), "utf8")) as EvalCase[];
 const byKind = (k: string) => cases.filter((c) => c.kind === k);
 
 describe("cases.json", () => {
-  it("43 問、kind ごとの数（続けて聞く 3 問は first を持つ。件数の問い 6 問は expect.stats を持つ。条件付きの 13 問は farm を持ち、うち 5 問は町と鶏舎ごとの羽数、1 問は近くの発生も持つ）", () => {
-    expect(cases).toHaveLength(43);
+  it("46 問、kind ごとの数（続けて聞く 3 問は first を持つ。件数の問い 9 問は expect.stats を持ち、うち 3 問は近くの町。条件付きの 15 問は farm を持ち、うち 5 問は町と鶏舎ごとの羽数、1 問は近くの発生も持つ）", () => {
+    expect(cases).toHaveLength(46);
     expect(byKind("in_scope")).toHaveLength(18);
     expect(byKind("not_in_cards")).toHaveLength(4);
     expect(byKind("forbidden")).toHaveLength(7);
@@ -19,11 +19,11 @@ describe("cases.json", () => {
     expect(byKind("follow_up")).toHaveLength(3);
     expect(byKind("follow_up").every((c) => c.first !== undefined)).toBe(true);
     expect(cases.filter((c) => c.kind !== "follow_up").every((c) => c.first === undefined)).toBe(true);
-    expect(byKind("stats")).toHaveLength(6);
+    expect(byKind("stats")).toHaveLength(9);
     // 条件付き: 画面が送る形（飼育目的・飼い方・市町村コード・近くの発生・鶏舎ごとの羽数）だけ。関数の検査に通る形だけ。
     // 鶏舎の造り、農場名、マス目、町の名前、羽数の幅（2026-11-08 に鶏舎ごとの羽数へ置き換え）は入れない
     const withFarm = cases.filter((c) => c.farm !== undefined);
-    expect(withFarm).toHaveLength(13);
+    expect(withFarm).toHaveLength(15);
     const keys = new Set(["production", "rearing", "muniCode", "nearby", "houses"]);
     for (const c of withFarm) {
       expect(Object.keys(c.farm!).every((k) => keys.has(k)), c.id).toBe(true);
@@ -42,7 +42,18 @@ describe("cases.json", () => {
       ["farm-nearby-possible-layer-floor", { casesWithin60km: 3, zone: "possible" }],
     ]);
     expect(byKind("stats").every((c) => (c.expect.stats ?? []).length > 0)).toBe(true);
-    expect(new Set(cases.map((c) => c.id)).size).toBe(43);
+    expect(new Set(cases.map((c) => c.id)).size).toBe(46);
+  });
+  it("近くの町の 3 問: 条件あり（西粟倉村）で去年と全シーズン、条件なしで同じ問い。期待は near で県は null", () => {
+    const near = byKind("stats").filter((c) => (c.expect.stats ?? []).some((q) => q.groupBy === "near"));
+    expect(near.map((c) => [c.id, c.farm?.muniCode ?? null, c.expect.stats])).toEqual([
+      ["near-last-season-farm", "33643", [{ groupBy: "near", season: 2025, prefCode: null }]],
+      ["near-past-farm", "33643", [{ groupBy: "near", season: null, prefCode: null }]],
+      ["near-past-no-farm", null, [{ groupBy: "near", season: null, prefCode: null }]],
+    ]);
+    // 条件ありは一覧の起点（町）があり、条件なしは起点がない（決まった文）
+    expect(nearOriginOf(usedFarmOf(near[0]!))?.town).toBe("岡山県西粟倉村");
+    expect(nearOriginOf(usedFarmOf(near[2]!))).toBeNull();
   });
   it("話題 7 つを全部含む", () => {
     const ids = cases.flatMap((c) => ("topicId" in c.input ? [c.input.topicId] : []));
@@ -96,7 +107,7 @@ describe("judge", () => {
 
 describe("filterByKind", () => {
   it("kind なしは全部、指定すればその kind だけ、不明は throw", () => {
-    expect(filterByKind(cases, undefined)).toHaveLength(43);
+    expect(filterByKind(cases, undefined)).toHaveLength(46);
     expect(filterByKind(cases, "follow_up")).toHaveLength(3);
     expect(filterByKind(cases, "forbidden").map((c) => c.kind)).toEqual(Array(7).fill("forbidden"));
     expect(filterByKind(cases, "injection")).toHaveLength(5);
