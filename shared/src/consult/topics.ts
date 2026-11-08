@@ -18,7 +18,7 @@ export const CONSULT_TOPICS: readonly ConsultTopic[] = [
   { id: "water-birds", label: "水辺と野鳥", question: "水辺や野鳥を鶏舎に近づけない工夫で、まず見直すとよいことは？" },
   { id: "visitors-vehicles", label: "人と車の出入り", question: "人や車の出入りの管理で、まず見直すとよいことは？" },
   { id: "dead-birds-compost", label: "死んだ鶏・堆肥", question: "死んだ鶏や堆肥の扱いで、まず見直すとよいことは？" },
-  { id: "daily-check", label: "毎日の観察と家保", question: "毎日の観察と家畜保健衛生所への連絡で、まず見直すとよいことは？" },
+  { id: "daily-check", label: "毎日の観察と家畜保健衛生所", question: "毎日の観察と家畜保健衛生所への連絡で、まず見直すとよいことは？" },
 ];
 
 /** id から話題を引く。自前の id だけ（"__proto__" や "toString" は見つからない）。 */
