@@ -7,6 +7,7 @@ import {
   ASSUMED_MODEL,
   BUSY_MONTH_CASES,
   costBases,
+  type CostBasisId,
   estimateSeasonCost,
   formatJpy,
   formatUsd,
@@ -18,6 +19,7 @@ import {
   PREV_SEASON_CASES,
   PRICE_NOTE,
 } from "@hpai/shared/cost";
+import { formatJaDate } from "@hpai/shared/jaDate";
 import type { MeasuredUsage } from "@hpai/shared/replay";
 import { DEFAULT_RUNTIME_SETTINGS, type EvalSummary } from "@hpai/shared/types";
 import { useEffect, useState, type ReactNode } from "react";
@@ -52,10 +54,15 @@ async function load<T>(name: string, parse: (x: unknown) => T | null): Promise<S
   }
 }
 
-/** "2026-11-05T17:30:00+09:00" → "2026-11-05 17:30"。書いてある時刻をそのまま出す */
+/** "2026-11-05T17:30:00+09:00" → "2026年11月5日 17:30"。書いてある時刻をそのまま出す。形が違う、ありえない日付なら元の文字のまま（画面を止めない） */
 function formatAt(iso: string): string {
-  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso);
-  return m ? `${m[1]} ${m[2]}` : iso;
+  const m = /^((\d{4})-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso);
+  if (!m) return iso;
+  try {
+    return `${m[2]}年${formatJaDate(m[1]!)} ${m[3]}`;
+  } catch {
+    return iso;
+  }
 }
 const n = (v: number): string => v.toLocaleString("en-US");
 
@@ -104,7 +111,7 @@ export default function ResultsPage({ embedded = false }: { embedded?: boolean }
       </Section>
 
       <Section id="calc" title="1 シーズンの費用（計算）" embedded={embedded}>
-        <CalcSection usage={usageValue} summary={summaryValue} />
+        <CalcSection usage={usageValue} summary={summaryValue} embedded={embedded} />
       </Section>
 
       <p className="replay-hint">
@@ -200,33 +207,51 @@ const SCENARIOS = [
   { label: `過去最多 ${PEAK_SEASON_CASES} 事例`, cases: PEAK_SEASON_CASES },
 ] as const;
 
-function CalcSection({ usage, summary }: { usage: MeasuredUsage; summary: EvalSummary | null }) {
+/**
+ * 表の行の見出し（画面だけの短い名前）。断り（仮定、実測でないこと）は節の冒頭と各表の上の文に 1 回ずつ書き、行には繰り返さない。
+ * costBases の label は CLI（scripts/lib/cost.ts）の 1 行の説明にも使うので、そちらは変えない
+ */
+const ROW_LABEL: Readonly<Record<CostBasisId, string>> = {
+  replay: "再現の実測から",
+  eval: "読み取りの試験から",
+  assumed: "主の AI だけ",
+  assumed_with_second: "確かめ役の AI も含む",
+};
+
+function CalcSection({ usage, summary, embedded = false }: { usage: MeasuredUsage; summary: EvalSummary | null; embedded?: boolean }) {
   const jpyPerUsd = DEFAULT_RUNTIME_SETTINGS.jpyPerUsd;
   const bases = costBases(usage, summary);
   const measured = bases.filter((b) => b.measured);
   const assumed = bases.filter((b) => !b.measured);
   const t = ASSUMED_DOCUMENT_TOKENS;
+  // 「このサイトについて」の中では節の題が h3 なので、中の見出しも 1 段下げる
+  const H = embedded ? "h4" : "h3";
   return (
     <div>
       <p className="replay-hint">
-        1 事例で読む文書は {ASSUMED_DOCS_PER_CASE} 文書と<strong>仮定</strong>しました（測っていません）。見積もり（推定）の換算は 1 ドル {jpyPerUsd} 円です。{PRICE_NOTE}
+        円の額は、1 事例 {ASSUMED_DOCS_PER_CASE} 文書と仮定した見積もりです。
+        {measured.length > 0 && "実測の使用量から出したのは、1 文書あたりの額だけです。"}
+        換算は 1 ドル {jpyPerUsd} 円です。{PRICE_NOTE}
       </p>
 
       {measured.length > 0 && (
         <div>
-          <h3>実測の使用量から計算した費用</h3>
-          <p>1 文書あたりの費用は、測った使用量に単価を掛けた計算で、請求画面の額とは別です。事例の数ごとの円の額は、1 事例 {ASSUMED_DOCS_PER_CASE} 文書の仮定を使った見積もり（推定）です。</p>
-          <CostTable bases={measured} jpyPerUsd={jpyPerUsd} caption="実測の 1 文書あたり費用から計算。円の額は仮定の文書数を使う見積もり（推定）" />
+          <H id="results-calc-measured">実測の使用量から計算した費用</H>
+          <p>
+            1 文書あたりの額は、測った使用量に単価を掛けた計算で、請求画面の額とは別です。
+            {measured.some((b) => b.id === "eval") && "「読み取りの試験から」は確かめ役の AI を含む 1 文書の額で、実行方式（通常の API か Batch か）は記録がありません。"}
+          </p>
+          <CostTable bases={measured} jpyPerUsd={jpyPerUsd} labelledBy="results-calc-measured" />
         </div>
       )}
 
       <div className="backstage-unmeasured">
-        <h3>見積もり（推定）。実測ではありません</h3>
+        <H id="results-calc-assumed">仮定から出した見積もり</H>
         <p>
-          1 文書を入力 {n(t.inputTokens)}・出力 {n(t.outputTokens)} トークンの {ASSUMED_MODEL}（${formatUsd(assumed[0]?.usdPerDocument ?? 0)}）と仮定した見積もり（推定）の数です。測った数ではありません。
-          {assumed.length > 1 && "上の行は確かめ役の AI（Haiku）の費用を含みません。下の行は、Haiku にも同じ量を読ませたと仮定して足した数で、実際の増分はまだ測っていません。"}
+          この表は、1 文書あたりの額も仮定の数です。1 文書を入力 {n(t.inputTokens)}・出力 {n(t.outputTokens)} トークンとして、{ASSUMED_MODEL} で読んだときの額（${formatUsd(assumed[0]?.usdPerDocument ?? 0)}）です。
+          {assumed.length > 1 && "「主の AI だけ」は、確かめ役の AI（Haiku）の費用を含みません。「確かめ役の AI も含む」は、Haiku にも同じ量を読ませたと仮定して合わせた数です。実際の増え方はまだ測っていません。"}
         </p>
-        <CostTable bases={assumed} jpyPerUsd={jpyPerUsd} caption="見積もり（推定）。実測ではありません" />
+        <CostTable bases={assumed} jpyPerUsd={jpyPerUsd} labelledBy="results-calc-assumed" />
       </div>
 
       <p className="replay-hint">運用の上限は月 {n(MONTHLY_BUDGET_JPY)} 円です。詳しい計算は docs/cost.md にあります。</p>
@@ -234,11 +259,11 @@ function CalcSection({ usage, summary }: { usage: MeasuredUsage; summary: EvalSu
   );
 }
 
-function CostTable({ bases, jpyPerUsd, caption }: { bases: ReturnType<typeof costBases>; jpyPerUsd: number; caption: string }) {
+/** 表の題は、すぐ上の見出しと同じなので caption に重ねて書かず、見出しを表の名前にする */
+function CostTable({ bases, jpyPerUsd, labelledBy }: { bases: ReturnType<typeof costBases>; jpyPerUsd: number; labelledBy: string }) {
   return (
     <div className="table-scroll">
-      <table className="data-table data-table-stack" role="table">
-        <caption>{caption}</caption>
+      <table className="data-table data-table-stack" role="table" aria-labelledby={labelledBy}>
         <thead role="rowgroup">
           <tr role="row">
             <th role="columnheader" scope="col">根拠</th>
@@ -256,12 +281,12 @@ function CostTable({ bases, jpyPerUsd, caption }: { bases: ReturnType<typeof cos
             const cap = monthlyCaseCapacity(b, jpyPerUsd);
             return (
               <tr role="row" key={b.id}>
-                <th role="rowheader" scope="row">{b.measured ? `${b.label}。円の額は ${ASSUMED_DOCS_PER_CASE} 文書の仮定を使う見積もり（推定）` : b.label}</th>
+                <th role="rowheader" scope="row">{ROW_LABEL[b.id]}</th>
                 <td role="cell" className="num" data-label="1 文書">${formatUsd(b.usdPerDocument)}</td>
                 {SCENARIOS.map((c) => (
                   <td role="cell" key={c.label} className="num" data-label={c.label}>{formatJpy(estimateSeasonCost({ usdPerDocument: b.usdPerDocument, cases: c.cases, docsPerCase: ASSUMED_DOCS_PER_CASE, jpyPerUsd }).jpy)}</td>
                 ))}
-                <td role="cell" data-label={`月 ${n(MONTHLY_BUDGET_JPY)} 円で読める事例`}>{cap === null ? "—" : `1 か月に ${cap} 事例まで${b.id === "assumed" ? "（確かめ役の AI を除く）" : ""}`}</td>
+                <td role="cell" data-label={`月 ${n(MONTHLY_BUDGET_JPY)} 円で読める事例`}>{cap === null ? "—" : `1 か月に ${cap} 事例まで`}</td>
               </tr>
             );
           })}

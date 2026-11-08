@@ -12,7 +12,7 @@ export const ABOUT_TEXT = {
     ai: "AI の読み取りの確かさと費用",
     privacy: "集める情報と消し方",
   },
-  sourcesLead: "国、県、国土交通省、国土地理院が公開しているデータと、「AIに対策を相談」では海外の公的機関の資料と論文を使っています。正式な情報は県の連絡です。",
+  sourcesLead: "国、県、国土交通省、国土地理院が公開しているデータと、「AIに対策を相談」では海外の公的機関の資料と論文を使っています。正式な情報は県の発表です。",
   sourcesMore: "利用条件と加工の詳しい記録は、このサイトのリポジトリの文書（docs/data-sources.md）にあります。",
 } as const;
 
@@ -27,10 +27,9 @@ export const GUIDE_NOTES: readonly string[] = [
   "AI（Claude）が作る下書きや答えには、誤りが含まれることがあります。人が確かめてから使ってください。",
 ];
 
-/** 過去の記録と見本の入口。/replay はここが唯一の入口なので消さない（/sample はログインの画面にもある） */
-export const GUIDE_LINKS: ReadonlyArray<{ to: string; label: string }> = [
-  { to: "/replay", label: "1 年前（2025 年 12 月）の流れをふり返る（過去の記録です。今の状況は「今季の発生」で見てください）" },
-  { to: "/sample", label: "記録を試す（架空の農場です。数字は作り物です）" },
+/** 過去の記録の入口。/replay はここが唯一の入口なので消さない（見本の農場 /sample へはリンクしない。2026-11-08 から提出フォームでだけ案内する） */
+export const GUIDE_LINKS: ReadonlyArray<{ to: string; label: string; note: string }> = [
+  { to: "/replay", label: "1 年前（2025年12月）の流れをふり返る", note: "過去の記録です。今の状況は「今季の発生」で見てください。" },
 ];
 
 export interface DataSource {
@@ -53,7 +52,7 @@ export const DATA_SOURCES: readonly DataSource[] = [
   },
   {
     name: "農林水産省 高病原性鳥インフルエンザの国内発生事例の一覧（過去 6 シーズン）",
-    use: "過去の発生（日付、市町村、用途、飼い方、羽数）。過去の事例の画面で、事例ごとに国の資料へのリンクを付けています",
+    use: "過去の発生（日付、市町村、用途、飼い方、羽数）。過去の事例の画面で、事例ごとに国の資料へのリンクがあります",
     url: null,
   },
   {

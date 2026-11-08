@@ -64,9 +64,13 @@ function kanjiToInt(k: string): number {
 // 「倍」「割」「%」「羽」「戸」の直前の漢数字は数字として扱う（三倍、二十羽）。十分、一部は対象外。
 const KANJI_COUNT = /[〇一二三四五六七八九十百千万]+(?=倍|割|%|羽|戸)/gu;
 
+// 3 桁区切りのコンマ（「1,200」「1,200,000」）。数字の間で、後ろがちょうど 3 桁のときだけ。「1,2」「2,10」は区切りとみなさない
+const THOUSANDS_COMMA = /(?<=\d),(?=\d{3}(?:\D|$))/gu;
+
 // 文に書いてある数字。正規化の後で数える（全角の数字も同じ数字）。漢数字の数量も数字にする。
+// 3 桁区切りは 1 つの数にする（「1,200」は 1200。以前は 1 と 200 に分かれ、200 がどこでも通っていた）。カードの文も答えも同じに読む
 function numbersOf(s: string): string[] {
-  const n = normalizeForMatch(s);
+  const n = normalizeForMatch(s).replace(THOUSANDS_COMMA, "");
   const kanji = (n.match(KANJI_COUNT) ?? []).map((k) => String(kanjiToInt(k)));
   return [...(n.match(/\d+/gu) ?? []), ...kanji];
 }

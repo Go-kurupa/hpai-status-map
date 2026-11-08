@@ -32,6 +32,7 @@ const SampleLayout = lazy(() => import("./pages/sample/SampleLayout"));
 const SamplePage = lazy(() => import("./pages/sample/SamplePage"));
 const SampleTodoPage = lazy(() => import("./pages/sample/SampleTodoPage"));
 const SampleRecordPage = lazy(() => import("./pages/sample/SampleRecordPage"));
+const JudgePage = lazy(() => import("./pages/auth/JudgePage"));
 const TrendsPage = lazy(() => import("./pages/trends/TrendsPage"));
 const AboutPage = lazy(() => import("./pages/about/AboutPage"));
 
@@ -95,13 +96,16 @@ export const routes: RouteObject[] = [
       { path: "settings/farm", element: <FarmSettingsPage /> },
       { path: "settings/notify", element: <NotifySettingsPage /> },
       { path: "settings/explainer", element: <ExplainerPage /> },
-      // AIに対策を相談（設計書 2026-11-06-consult-design 14 章）。?judge=1 の審査員の入口は会員の確認を通さない
+      // AIに対策を相談（設計書 2026-11-06-consult-design 14 章）。会員だけ（2026-11-08 審査員の試しの入口 ?judge=1 は外した）
       { path: "consult", element: <ConsultPage /> },
       { path: "login", element: <LoginPage /> },
       { path: "join/:code", element: <JoinPage /> },
+      // 審査員用のリンク（/judge#<秘密の文字列>）。審査員用の見本の農場の会員としてログインし、トップへ移る（2026-11-08）
+      { path: "judge", element: <JudgePage /> },
       { path: "operator", element: <OperatorPage /> },
       { path: "replay", element: <ReplayPage /> },
       { path: "replay/backstage", element: <BackstagePage /> },
+      // 見本の農場。審査員用の 2 本目の URL（近くで発生した場合の画面）。サイトの中からは、再現の中の『見本の農場で試す』だけがつなぐ（2026-11-08）
       // 見本の記録の口と再現の時計は、この層で 1 つだけ作って共有する（SampleLayout）
       {
         path: "sample",

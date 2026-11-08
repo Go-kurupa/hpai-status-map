@@ -20,13 +20,13 @@ type Outcome =
   | { kind: "farm_missing" }
   | { kind: "other_farm" };
 
-interface Attempts {
+export interface Attempts {
   failures: number;
   windowStart: string;
 }
 
 /** 窓の中の記録だけを返す。窓を過ぎた記録は、なかったことにする。 */
-function activeAttempts(data: DocumentData | undefined, nowMs: number): Attempts | null {
+export function activeAttempts(data: DocumentData | undefined, nowMs: number): Attempts | null {
   if (!data || typeof data.failures !== "number" || typeof data.windowStart !== "string") return null;
   const start = Date.parse(data.windowStart);
   if (!Number.isFinite(start) || nowMs - start >= FAILURE_WINDOW_MS) return null;

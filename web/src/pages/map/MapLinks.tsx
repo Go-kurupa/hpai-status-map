@@ -6,7 +6,6 @@ const LINKS: ReadonlyArray<{ to: string; label: string }> = [
   { to: "/known", label: "分かっていること" },
   { to: "/trends", label: "発生傾向" },
   { to: "/replay", label: "去年の再現" },
-  { to: "/sample", label: "記録を試す" },
   { to: "/results", label: "試験の結果" },
   { to: "/privacy", label: "プライバシー" },
 ];

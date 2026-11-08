@@ -2,7 +2,7 @@
 // 作品のサーバーには送らない。審査員の入口は残さない（呼び手が保存しない）。
 // 読み書きは失敗しても画面を止めない（非公開のウィンドウ、容量の上限、壊れた中身）。読めない中身は捨てる。
 import type { ConsultAskResponse, ConsultTurn } from "@hpai/shared/consult/types";
-import { parseFarmCondition } from "@hpai/shared/consult/farmCondition";
+import { parseStoredFarm } from "@hpai/shared/consult/farmCondition";
 import { STATS_GROUP_BYS } from "@hpai/shared/consult/stats";
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
 import { CONSULT_MAX_HISTORY, EVIDENCE_LABEL } from "@hpai/shared/consult/types";
@@ -76,10 +76,12 @@ function isStats(v: unknown): boolean {
   return rest === null || (isRecord(rest) && typeof rest["rows"] === "number" && typeof rest["count"] === "number");
 }
 
-/** 今回使った条件（飼育目的と飼い方と、任意の羽数の幅）。関数の入力の検査と同じ形だけを通す（空・余計な項目・列挙の外は捨てる） */
+/**
+ * 今回使った条件。関数の入力の検査と同じ形に、関数が足した町の名前と、2026-11-08 より前の記録の羽数の幅を許す（parseStoredFarm）。
+ * 空・知らない項目・列挙の外は捨てる（古い記録も読めるように、幅つきの形も通す）
+ */
 function isFarm(v: unknown): boolean {
-  const r = parseFarmCondition(v);
-  return r.ok && r.value !== null;
+  return parseStoredFarm(v) !== null;
 }
 
 function isResult(v: unknown): v is ConsultAskResponse {
@@ -92,7 +94,7 @@ function isResult(v: unknown): v is ConsultAskResponse {
     NOTICES.has(v["notice"] as string | null) &&
     (v["followUps"] === undefined || isStringArray(v["followUps"])) &&
     (v["stats"] === undefined || v["stats"] === null || isStats(v["stats"])) &&
-    // 今回使った条件。この項目ができる前の記録と、条件を付けなかった相談にはない。あれば関数と同じ検査を通るものだけ
+    // 今回使った条件。この項目ができる前の記録と、条件を付けなかった相談にはない。あれば記録の検査（parseStoredFarm）を通るものだけ
     (v["farm"] === undefined || isFarm(v["farm"]))
   );
 }

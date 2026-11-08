@@ -69,6 +69,7 @@ beforeEach(async () => {
     await setDoc(doc(db, "documents/d1"), { id: "d1" });
     await setDoc(doc(db, "invites/abc"), { kind: "signup" });
     await setDoc(doc(db, "invites/_attempts/uids/alice"), { count: 1 });
+    await setDoc(doc(db, "invites/_judgeAttempts/ips/0123abcd"), { failures: 1, windowStart: "2026-11-03T09:00:00+09:00" }); // 審査員用のリンクの連打の記録（judgeSignIn が書く形と同じ）
     await setDoc(doc(db, "invites/_membership/uids/alice"), { touchedAt: "2026-11-03T09:00:00+09:00", farmId: "f1" }); // 1 会員 1 農場の鍵（redeemInvite が書く形と同じ）
     await setDoc(doc(db, "sentNotices/n1"), { state: "queued" });
     await setDoc(doc(db, "usage/settings"), { softLimitJpy: 2000 });
@@ -82,6 +83,8 @@ const operator = () => env.authenticatedContext("op", { operator: true }).firest
 const operatorMember = () => env.authenticatedContext("op", { operator: true, member: true }).firestore();
 const memberOnly = () => env.authenticatedContext("carol", { member: true }).firestore();
 const anon = () => env.unauthenticatedContext().firestore();
+/** 審査員の会員（judgeSignIn のカスタムトークンでログインした形） */
+const judge = () => env.authenticatedContext("judge-demo", { member: true, judge: true }).firestore();
 
 describe("hitCounters（基準の知らせの上限の確保。サーバーだけが書く）", () => {
   it("自分の農場の会員でも、operator でも、未ログインでも、読めず書けない（既存の全拒否に落ちる）", async () => {
@@ -322,19 +325,20 @@ describe("公開と非公開", () => {
     await assertFails(deleteDoc(doc(operator(), "reviewQueue/r1")));
   });
 
-  it("sources、documents、invites、_attempts、_membership、sentNotices、usage、書かれていない集合は operator でも読めない", async () => {
+  it("sources、documents、invites、_attempts、_judgeAttempts、_membership、sentNotices、usage、書かれていない集合は operator でも審査員でも読めない", async () => {
     const paths = [
       "sources/s1",
       "documents/d1",
       "invites/abc",
       "invites/_attempts/uids/alice",
+      "invites/_judgeAttempts/ips/0123abcd",
       "invites/_membership/uids/alice",
       "sentNotices/n1",
       "usage/settings",
       "somethingElse/x",
       "neverWritten/x",
     ];
-    for (const db of [operator(), operatorMember(), alice(), anon()]) {
+    for (const db of [operator(), operatorMember(), alice(), judge(), anon()]) {
       for (const p of paths) {
         await assertFails(getDoc(doc(db, p)));
         await assertFails(setDoc(doc(db, p), { a: 1 }));
@@ -444,6 +448,40 @@ describe("農場は 1 会員 1 つ（N-2）", () => {
 
   it("他人の uid の id の農場を、自分の会員として作れない", async () => {
     await assertFails(setDoc(doc(memberOnly(), "farms/bob"), farm("carol")));
+  });
+});
+
+// 審査員用のリンク（judgeSignIn）。審査員は全員 judge-demo（claim {member, judge}）で、共有の見本の農場 judge-demo-farm に入る。
+// 農場と鍵は関数（ensureJudgeFarm）が書く形と同じに置く
+describe("審査員の会員（judge-demo）の権限（I-4）", () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, "farms/judge-demo-farm"), farm("judge-demo", { name: "審査員用の見本の農場" }));
+      await setDoc(doc(db, "invites/_membership/uids/judge-demo"), { touchedAt: "2026-11-08T10:00:00+09:00", farmId: "judge-demo-farm" });
+    });
+  });
+
+  it("自分の uid の農場 farms/judge-demo を作れない（鍵が見本の農場を指している）。見本の農場が消えた後なら作れる（対照）", async () => {
+    await assertFails(setDoc(doc(judge(), "farms/judge-demo"), farm("judge-demo")));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await deleteDoc(doc(ctx.firestore(), "farms/judge-demo-farm"));
+    });
+    await assertSucceeds(setDoc(doc(judge(), "farms/judge-demo"), farm("judge-demo")));
+  });
+
+  it("他の農場 farms/f1 は読めない。見本の農場は読める（対照）", async () => {
+    await assertFails(getDoc(doc(judge(), "farms/f1")));
+    await assertFails(getDoc(doc(judge(), "farms/f1/deaths/2026-11-03_h1")));
+    await assertSucceeds(getDoc(doc(judge(), "farms/judge-demo-farm")));
+  });
+
+  it("見本の農場の memberUids は変えられない。名前は直せる（対照）", async () => {
+    const ref = doc(judge(), "farms/judge-demo-farm");
+    await assertFails(updateDoc(ref, { memberUids: ["judge-demo", "eve"] }));
+    await assertFails(updateDoc(ref, { memberUids: [] }));
+    await assertFails(setDoc(ref, farm("judge-demo", { memberUids: ["judge-demo", "eve"] })));
+    await assertSucceeds(updateDoc(ref, { name: "直した名前" }));
   });
 });
 

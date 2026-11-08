@@ -7,6 +7,8 @@ export const GMAIL_APP_PASSWORD = defineSecret("GMAIL_APP_PASSWORD");
 export const UNSUBSCRIBE_SECRET = defineSecret("UNSUBSCRIBE_SECRET");
 export const OPS_TOKEN = defineSecret("OPS_TOKEN");
 export const INTERNAL_MCP_TOKEN = defineSecret("INTERNAL_MCP_TOKEN");
+// 審査員用のリンク（/judge#<この値>）の文字列。公開しない。
+export const JUDGE_LINK_TOKEN = defineSecret("JUDGE_LINK_TOKEN");
 
 // 設定（functions/.env.<project>）。
 export const GMAIL_USER = defineString("GMAIL_USER");

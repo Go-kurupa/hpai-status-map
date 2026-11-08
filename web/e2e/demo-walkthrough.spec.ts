@@ -3,17 +3,27 @@ import { resolve } from "node:path";
 import { NATIONAL_FLOW_SPOT } from "@hpai/shared/replay";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import { expect, test, type Page, type Request } from "@playwright/test";
-import { chooseTown, expectNoForbiddenText, prepare, TSUYAMA_CASE, waitForWord } from "./wording.helper";
+import { menuNav } from "./helpers/frame";
+import { chooseTown, expectNoForbiddenText, PNG_1PX, prepare, TSUYAMA_CASE, waitForWord } from "./wording.helper";
 
-// デモの筋の通し（X-20、設計書 §17「デモの筋」）。場面 2〜7 を、登録なしで、画面の操作で確かめる。
+// デモの筋の通し（X-20、設計書 §17「デモの筋」）。場面 2〜7 を、画面の操作で確かめる。
 // 場面 1（導入の語り）と場面 8（開発の語り）は語りのみで、画面の試験はない。
-// 試験名の先頭の「場面 N」は、docs/demo-script.md（X-26）が指す名前なので変えない。
-// 実行: web/ で `browser-guard run -- npx playwright test demo-walkthrough`
+// 試験名の先頭の「場面 N」は、docs/demo-script.md（X-26）が指す名前なので変えない（変えるときは台本も同じに直す）。
+// 場面 5 は審査員用のリンク（/judge）で審査員用の見本の農場の会員として入るので、模擬環境（Auth、Firestore、Functions）が要る。
+// 実行（リポジトリの根から。場面 5 のため模擬環境の中で流す。farm-profile.spec.ts と同じ形）:
+//   npm run build && firebase emulators:exec --only auth,firestore,functions --project demo-hpai \
+//     "cd web && browser-guard run -- npx playwright test demo-walkthrough"
 
 type MapHandle = { getFilter(id: string): unknown; getLayer(id: string): unknown };
 type W = { __hpaiMap?: MapHandle };
 
 const ZONE = "区域に入っている可能性があります。県の連絡を確かめてください";
+
+/**
+ * 審査員用のリンクの、模擬環境の試験用の文字列（functions/.secret.local の JUDGE_LINK_TOKEN と同じ値にする）。
+ * 本番の文字列ではない。仮の値で、関数の側と合わせるときに直す
+ */
+const JUDGE_LINK_TOKEN_E2E = "judge-link-token-for-emulator-only"; // 模擬環境の試験用の決まった文字列（本番の値ではない）
 
 /**
  * 場面 7 が確かめるのは、実測の結果だ。舞台裏の事前の読み取り（data/replay/backstage.json）か、読み取りの試験の結果
@@ -194,39 +204,56 @@ test.describe("デモの筋", () => {
     await expectNoForbiddenText(page);
   });
 
-  test("場面 5: 報告文を作れて、届け出の基準に達する例で通報を促す", async ({ page }) => {
-    await prepare(page);
-    await page.goto("/sample/record/deaths");
-    // 1 鶏舎 1 行。鶏舎A の行の欄に入れ、その行の「記録する」（記録済みなら「記録し直す」）を押す
-    await page.getByLabel("鶏舎Aの死亡数", { exact: true }).fill("10");
-    await page.getByRole("button", { name: /^(記録する|記録し直す): 鶏舎A$/ }).click();
-    const result = page.getByRole("region", { name: "計算の結果" });
-    await expect(result).toContainText("届け出の基準に達している可能性があります");
-    await expect(result).toContainText("直ちに家畜保健衛生所へ通報してください");
-    await expect(result).toContainText("迷うときは家畜保健衛生所へ確かめてください");
+  test("場面 5: 審査員用のリンクで見本の農場の会員として入り、死亡・消毒の記録の札と表に数字が出て、1 号舎を記録できる", async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.route("https://cyberjapandata.gsi.go.jp/**", (route) =>
+      route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG_1PX }),
+    );
+    // ?emulator=1 は # の前に置く（# の後ろはすべて秘密の文字列として読む）
+    await page.goto(`/judge?emulator=1#${JUDGE_LINK_TOKEN_E2E}`);
+    // 関数が会員と農場を用意してから、トップへ移る。# は消え、?emulator=1 は残る
+    await expect(page).toHaveURL(/\/\?emulator=1$/, { timeout: 120_000 }); // 最初のログインは農場の用意があり、模擬環境では時間がかかる
+    expect(new URL(page.url()).hash).toBe("");
+    await expect(page.getByText("このリンクは使えません", { exact: false })).toHaveCount(0);
+
+    // 会員の印でメニューに記録が出る。死亡・消毒の記録へ（画面の中の移動なので、模擬環境のまま）
+    await menuNav(page).getByRole("link", { name: "死亡・消毒の記録" }).click();
+    await expect(page).toHaveURL(/\/record\/deaths/);
+    const stats = page.getByRole("list", { name: "死亡数の状況" });
+    await expect(stats).toBeVisible({ timeout: 30_000 });
+    // 前日までの 28 日の作り物の記録があるので、直近 7 日の死亡の値は数字（札の名前の「7」で通らないよう、値の要素を見る）。届け出の基準の札も出る
+    await expect(stats.locator(".stat-tile").filter({ hasText: "直近 7 日の死亡" }).locator(".stat-value")).toHaveText(/\d/u);
+    await expect(stats.locator(".stat-tile").filter({ hasText: "届け出の基準" }).locator(".stat-value")).not.toBeEmpty();
+    const table = page.getByRole("table", { name: "直近 14 日の死亡数" });
+    await expect(table.getByRole("columnheader", { name: "1 号舎" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "2 号舎" })).toBeVisible();
+    await expect(table.locator("tbody td").filter({ hasText: /^\d+$/u }).first()).toBeVisible();
+
+    // 1 号舎を記録する（ほかの審査員が今日すでに記録していれば「記録し直す」）。届け出の基準に達する数は入れない
+    await page.getByLabel("1 号舎の死亡数", { exact: true }).fill("1");
+    await page.getByRole("button", { name: /^(記録する|記録し直す): 1 号舎$/ }).click();
+    await expect(page.getByRole("region", { name: "計算の結果" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "記録し直す: 1 号舎" })).toBeVisible();
+    // 記録した後は、今日の死亡の値も数字
+    await expect(stats.locator(".stat-tile").filter({ hasText: "今日の死亡" }).locator(".stat-value")).toHaveText(/\d/u);
     await expectNoForbiddenText(page);
 
-    // 週の報告文: 畳んである。「週の報告文を作る」で開き、作ってコピーできる（送るのは人）
+    // 週の報告文: 畳んである。「週の報告文を作る」で開き、農場の名前が入る（送るのは人）
     const openWeekly = page.getByRole("button", { name: "週の報告文を作る" });
     await expect(openWeekly).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByLabel("週の報告文の下書き")).toHaveCount(0);
     await openWeekly.click();
-    await expect(openWeekly).toHaveAttribute("aria-expanded", "true");
     const weekly = page.getByLabel("週の報告文の下書き");
-    await expect(weekly).toContainText("架空の見本農場");
+    await expect(weekly).toContainText("審査員用の見本の農場");
     await weekly.locator("xpath=ancestor::div[contains(@class,'copy-box')]").getByRole("button", { name: "コピー" }).click();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await weekly.inputValue());
-
-    // 自己点検の報告文
-    await page.goto("/sample/record/self-check");
-    const report = page.getByLabel("自己点検の報告文");
-    await expect(report).toContainText("農場名: 架空の見本農場");
-    // 答えは「できている」「できていない」の押しボタン。見本の記録の 19 は「できていない」（報告文では ×）
-    const item19 = page.getByRole("group", { name: /^19 / });
-    await expect(item19.getByRole("button", { name: "できていない", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(item19.getByRole("button", { name: "できている", exact: true })).toHaveAttribute("aria-pressed", "false");
-    await expect(report).toContainText("19 衛生管理区域に立ち入る車両の消毒等: ×");
     await expect(page.getByRole("button", { name: /送信|送る/ })).toHaveCount(0);
+
+    // 農場の設定: 審査員用の見本の農場の断りの 1 行があり、会員の追加と全データの削除はない
+    await menuNav(page).getByRole("link", { name: "農場と通知の設定" }).click();
+    await expect(page.getByText("審査員用の見本の農場です。記録は作り物です。削除と招待は止めています。")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "招待リンクを作る" })).toHaveCount(0);
+    await expect(page.getByText("農場の全データを削除する")).toHaveCount(0);
     await expectNoForbiddenText(page);
   });
 
@@ -276,14 +303,15 @@ test.describe("デモの筋", () => {
     await expectNoForbiddenText(page);
   });
 
-  test("登録なしで全場面に入れる: ログインへ移らず、認証の通信もない", async ({ page }) => {
+  test("登録なしで場面 2〜4・6・7 に入れる: ログインへ移らず、認証の通信もない", async ({ page }) => {
     const auth: string[] = [];
     page.on("request", (req: Request) => {
       const host = new URL(req.url()).hostname;
       if (host.includes("identitytoolkit") || host.includes("securetoken")) auth.push(req.url());
     });
     await prepare(page, { cases: [TSUYAMA_CASE] });
-    for (const path of ["/", "/area/33214", `/area/${NATIONAL_FLOW_SPOT.muniCode}`, "/replay", "/sample/todo", "/sample/record/deaths", "/public", "/poster", "/replay/backstage", "/results"]) {
+    // 場面 5（審査員用のリンク）はログインするので、ここには入れない
+    for (const path of ["/", "/area/33214", `/area/${NATIONAL_FLOW_SPOT.muniCode}`, "/replay", "/sample/todo", "/public", "/poster", "/replay/backstage", "/results"]) {
       await page.goto(path);
       await page.waitForFunction(() => document.body.innerText.trim().length > 20);
       const url = new URL(page.url());

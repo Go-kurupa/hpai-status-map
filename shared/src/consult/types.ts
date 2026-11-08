@@ -1,6 +1,6 @@
 // 対策の見直し相談の型。型と定数だけを置く。カードの JSON の形は設計書 6 章に合わせる。
 
-import type { FarmRearing, Production } from "../types";
+import type { FarmRearing, MuniCode, Production } from "../types";
 import type { ConsultStats } from "./stats";
 
 // 根拠の強さ（画面では EVIDENCE_LABEL の札で出す）。
@@ -103,27 +103,62 @@ export interface ConsultAskResponse {
    */
   stats?: ConsultStats | null;
   /**
-   * 今回の相談に付けた農場の条件（関数が検査して Claude に渡したもの）。条件を付けなかった相談にはない。
+   * 今回の相談に付けた農場の条件（関数が検査して Claude に渡したもの。町の名前は関数が索引から引いて足す）。条件を付けなかった相談にはない。
    * 古い関数の返事と、この項目ができる前の記録にもないので、画面は無いものとして扱う。
    */
-  farm?: ConsultFarmCondition;
+  farm?: ConsultFarmUsed;
 }
 
 /**
- * 相談に付ける農場の条件。本人が農場の設定に登録し、その相談で「この飼い方で相談する」を選んだときだけ送る。
- * 飼育目的（production）と飼い方（rearing）と、任意の羽数の幅（scale）だけ。登録のない側の項目は入れない（推測で埋めない）。鶏舎の造り（housing）は入れない。
- * scale は飼育目的か飼い方があるときだけ足す（幅だけの条件は作らない）。正確な羽数は入れない。
- * Claude にはカードを選ぶ材料として渡し、根拠にはしない（根拠はカードだけ）。
+ * 相談に付ける農場の条件（画面が関数へ送る形）。本人が農場の設定に登録し、その相談で「登録した農場の情報で相談する」を選んだときだけ送る。
+ * 2026-11-08 豪さんの決定で、飼育目的と飼い方に加えて、町（市町村コード）と近くの発生の状況と鶏舎ごとの羽数を送る。
+ * - production（飼育目的）と rearing（飼い方）: 登録のない側の項目は入れない（推測で埋めない）。どちらもない条件は作らない。
+ * - muniCode: 農場のある市町村のコード（5 桁）。名前は関数が地理の索引から引く（画面の送った名前は使わない）。約 1km のマス目と緯度経度は送らない。
+ * - nearby: 画面が対策項目・地図と同じ計算で出した、約 60 km 以内の今季の発生の件数と、区域に入っている可能性（段階 ①）。読めないときは入れない（0 件にしない）。
+ * - houses: 鶏舎ごとの鳥の種類と飼養羽数と空舎かどうか。鶏舎の名前は入れない（Claude には「鶏舎 1」「鶏舎 2」の番号で渡す）。
+ * 鶏舎の造り（housing）、農場の名前、記録は入れない。Claude にはカードを選ぶ材料として渡し、根拠にはしない（根拠はカードだけ）。
  */
 export interface ConsultFarmCondition {
   production?: Production;
   rearing?: FarmRearing;
+  muniCode?: MuniCode;
+  nearby?: ConsultNearby;
+  houses?: ConsultHouse[];
+}
+
+/** 鳥の種類（農場の設定の鶏舎の一覧と同じ語。web/src/pages/settings/houseForm.ts の BIRD_TYPES と同じ並びで、一致は試験で確かめる） */
+export type ConsultBirdType = "採卵鶏" | "肉用鶏" | "種鶏" | "あひる" | "うずら" | "その他";
+
+/** 鶏舎 1 つ。名前は持たない（送る順の番号で呼ぶ） */
+export interface ConsultHouse {
+  birdType: ConsultBirdType;
+  /** 飼養羽数（0〜1,000,000 の整数）。空舎のときは使わない */
+  flockSize: number;
+  empty: boolean;
+}
+
+/** 区域に入っている可能性（段階 ①）。possible: ある、none: 計算では見つかっていない。正式には県の発表 */
+export type ConsultZone = "possible" | "none";
+
+/** 近くの発生の状況。プログラムが数えた件数と判定で、根拠ではない */
+export interface ConsultNearby {
+  /** 約 60 km 以内の今季の発生の件数（地図の「約 60 km 以内」と同じ数え方。0〜999） */
+  casesWithin60km: number;
+  zone: ConsultZone;
+}
+
+/**
+ * 返事と記録に残す条件。送った条件に、関数が地理の索引から引いた町の名前（town。「岡山県西粟倉村」）を足したもの。
+ * scale（羽数の幅）は 2026-11-08 より前の記録にだけある（今は鶏舎ごとの羽数を送る）。表示のためだけに読む。
+ */
+export interface ConsultFarmUsed extends ConsultFarmCondition {
+  town?: string;
   scale?: FlockScale;
 }
 
 /**
- * 羽数の幅。空舎を除く鶏舎の飼養羽数の合計から画面が作る（farmCondition.ts の scaleOfHouses）。
- * under1000: 1,000 羽未満、1000to3000: 1,000 羽以上 3,000 羽未満、over3000: 3,000 羽以上（ちょうど 3,000 羽はここ）。
+ * 羽数の幅（2026-11-08 より前の記録の表示だけに使う。今は送らない）。
+ * under1000: 1,000 羽未満、1000to3000: 1,000 羽以上 3,000 羽未満、over3000: 3,000 羽以上。
  */
 export type FlockScale = "under1000" | "1000to3000" | "over3000";
 

@@ -279,7 +279,7 @@ function BackstageView({ scenario, backstage, usage }: Data) {
 
       <Section title="試験の結果">
         <p>
-          <Link to="/results" className="tap-link">試験の結果を見る</Link>　<Link to="/sample" className="tap-link">見本の農場で試す</Link>
+          <Link to="/results" className="tap-link">試験の結果を見る</Link>
         </p>
       </Section>
     </div>

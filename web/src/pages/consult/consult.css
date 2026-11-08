@@ -72,12 +72,6 @@
 .consult-bar-actions[hidden] {
   display: none;
 }
-.consult-judge {
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  background: var(--soft);
-  font-weight: 700;
-}
 
 /* 吹き出し */
 .consult-log {

@@ -1,5 +1,6 @@
 // AIに対策を相談の画面。相談の関数（consultAskCall）、カードの一覧、足した項目の口は偽物に差し替える。
-import { SCALE_LABEL } from "@hpai/shared/consult/farmCondition";
+import { CONSULT_BIRD_TYPES, ZONE_LABEL } from "@hpai/shared/consult/farmCondition";
+import { JUDGE_UID } from "@hpai/shared/judge";
 import { STATS_SOURCE, computeStats } from "@hpai/shared/consult/stats";
 import { CONSULT_TOPICS } from "@hpai/shared/consult/topics";
 import { CONSULT_DAILY_LIMIT, type ConsultAnswerCard, type ConsultCard, type ConsultSource } from "@hpai/shared/consult/types";
@@ -10,7 +11,7 @@ import { RISK_SENTENCE } from "../../ui/RiskLine";
 import fs from "node:fs";
 import path from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecordStoreProvider } from "../../data/context";
 import type { RecordStore } from "../../data/types";
@@ -22,8 +23,10 @@ const box = vi.hoisted(() => ({
   reviews: { addReview: vi.fn(), listReviews: vi.fn(), removeReview: vi.fn() },
   auth: { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} } as unknown,
   getFarm: vi.fn(),
-  // 鶏舎（羽数の幅を作る）。既定は鶏舎なし
+  // 鶏舎（鶏舎ごとの羽数を送る）。既定は鶏舎なし
   listHouses: vi.fn(),
+  // 近くの発生の状況と町の名前（farmNearby.ts の useFarmPlace。対策項目と地図の計算は farmNearby.test.tsx で確かめる）
+  place: vi.fn(),
   // カードの一覧（/consult/cards.json）。足し済みの判定で、足したカードの id から対策の文を引くのに使う
   loadCatalog: vi.fn(),
 }));
@@ -31,6 +34,7 @@ vi.mock("../auth/callables", () => ({ consultAskCall: (...a: unknown[]) => box.a
 vi.mock("./reviewStore", () => ({ useReviewStore: () => box.reviews }));
 vi.mock("./cardsData", () => ({ loadConsultCatalog: () => box.loadCatalog() }));
 vi.mock("../auth/useAuthUser", () => ({ useAuthUser: () => box.auth }));
+vi.mock("./farmNearby", () => ({ useFarmPlace: (p: unknown) => box.place(p) }));
 
 import ConsultPage from "./ConsultPage";
 
@@ -71,7 +75,7 @@ function reply(over: Partial<ConsultAskResponse> = {}): ConsultAskResponse {
   return { answer: "履き替えの前後で動線を分けてください。", cards: [ans(CARD_JP), ans(CARD_US)], outOfScope: false, notice: null, ...over };
 }
 
-// 農場の登録（飼育目的と飼い方）は getFarm、鶏舎の羽数（幅を作る）は listHouses で読む。既定は農場なし・鶏舎なし
+// 農場の登録（飼育目的と飼い方、市町村とマス目）は getFarm、鶏舎の羽数は listHouses で読む。既定は農場なし・鶏舎なし
 const store = {
   mode: "firestore",
   getFarm: (...a: unknown[]) => box.getFarm(...a),
@@ -108,6 +112,8 @@ beforeEach(() => {
   box.auth = { user: { uid: "u1" }, member: true, loading: false, error: false, refresh: async () => {} };
   box.getFarm.mockReset().mockResolvedValue(null);
   box.listHouses.mockReset().mockResolvedValue([]);
+  // 既定: 近くの発生は確認できていない（送らない）。町の名前は引ける
+  box.place.mockReset().mockReturnValue({ nearby: { status: "unavailable" }, townName: "岡山県津山市" });
   box.loadCatalog.mockReset().mockResolvedValue(catalogOf());
   Element.prototype.scrollIntoView = vi.fn();
   localStorage.clear();
@@ -146,7 +152,7 @@ describe("AIに対策を相談の画面", () => {
     const topic = CONSULT_TOPICS[1]!;
     fireEvent.click(screen.getByRole("button", { name: topic.label }));
     await waitFor(() => expect(box.ask).toHaveBeenCalledTimes(1));
-    expect(box.ask).toHaveBeenCalledWith({ topicId: topic.id }, false, []);
+    expect(box.ask).toHaveBeenCalledWith({ topicId: topic.id }, []);
     expect(screen.getByText(topic.question)).toBeTruthy();
     expect(screen.getByText(CONSULT_TEXT.thinking)).toBeTruthy();
     expect(input().value).toBe("");
@@ -161,7 +167,7 @@ describe("AIに対策を相談の画面", () => {
     renderPage();
     fireEvent.change(input(), { target: { value: "  長靴の消毒はどうしたら？ " } });
     fireEvent.click(askButton());
-    await waitFor(() => expect(box.ask).toHaveBeenCalledWith({ question: "長靴の消毒はどうしたら？" }, false, []));
+    await waitFor(() => expect(box.ask).toHaveBeenCalledWith({ question: "長靴の消毒はどうしたら？" }, []));
     await screen.findByText(CONSULT_TEXT.advice);
     expect(input().value).toBe("");
   });
@@ -271,8 +277,8 @@ describe("AIに対策を相談の画面", () => {
     expect(entries[0]!.textContent).toContain("一つ目の答え");
     expect(entries[1]!.textContent).toContain("二つ目の答え");
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
-    expect(box.ask).toHaveBeenNthCalledWith(1, { question: "一つ目の問い" }, false, []);
-    expect(box.ask).toHaveBeenNthCalledWith(2, { question: "二つ目の問い" }, false, [{ question: "一つ目の問い", answer: "一つ目の答え" }]);
+    expect(box.ask).toHaveBeenNthCalledWith(1, { question: "一つ目の問い" }, []);
+    expect(box.ask).toHaveBeenNthCalledWith(2, { question: "二つ目の問い" }, [{ question: "一つ目の問い", answer: "一つ目の答え" }]);
   });
 
   it("範囲外は決まった文だけを出し、おすすめの枠もカードも出さない", async () => {
@@ -303,6 +309,18 @@ describe("AIに対策を相談の画面", () => {
     expect(await screen.findByText("今日の相談の回数（10 回）を使い切りました。明日また使えます。")).toBeTruthy();
     expect(screen.queryByText(CONSULT_TEXT.advice)).toBeNull();
     expect(screen.queryAllByTestId("consult-card")).toHaveLength(0);
+  });
+
+  it("notice: daily_limit（審査員の会員 judge-demo）は、回数の数字を出さない文にする（審査員の全員で数えるので 10 回ではない）", async () => {
+    box.auth = { user: { uid: JUDGE_UID }, member: true, loading: false, error: false, refresh: async () => {} };
+    box.ask.mockResolvedValue({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: false, notice: "daily_limit" });
+    renderPage();
+    fireEvent.change(input(), { target: { value: "長靴は？" } });
+    fireEvent.click(askButton());
+    const notice = await screen.findByTestId("consult-notice");
+    expect(within(notice).getByText("今日の相談の回数を使い切りました。明日またお試しください。")).toBeTruthy();
+    expect(notice.textContent).not.toMatch(/\d/u);
+    expect(screen.queryByText(/10 回/u)).toBeNull();
   });
 
   it("notice: budget_stop は受け付けていない文を出す", async () => {
@@ -457,30 +475,31 @@ describe("AIに対策を相談の画面", () => {
     expect(within(screen.getAllByTestId("consult-action")[1]!).queryByRole("alert")).toBeNull();
   });
 
-  it("審査員の入口（?judge=1）は、judge: true で呼び、足すボタンがなく、案内が出る。会員の確認を通さない", async () => {
+  // 審査員の試しの入口（?judge=1）は外した（2026-11-08。審査員は審査員用のリンクで会員として入る）
+  it("/consult?judge=1 は、ログインしていなければ会員の確認（ログインの案内）になり、相談の欄は出ず、関数を呼ばない", async () => {
     box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
-    box.ask.mockResolvedValue(reply());
-    renderPage("/consult?judge=1");
-    expect(screen.getByText("審査員の方向けの試しの画面です。1 日の回数に上限があり、相談は保存しません。")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: CONSULT_TOPICS[0]!.label }));
-    await waitFor(() => expect(box.ask).toHaveBeenCalledWith({ topicId: CONSULT_TOPICS[0]!.id }, true, []));
-    await screen.findByText(CONSULT_TEXT.advice);
-    openSources();
-    expect(screen.getAllByTestId("consult-card")).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: /対策項目に足/ })).toBeNull();
-    expect(box.reviews.listReviews).not.toHaveBeenCalled();
+    render(
+      <RecordStoreProvider value={store}>
+        <MemoryRouter initialEntries={["/consult?judge=1"]}>
+          <Routes>
+            <Route path="/consult" element={<ConsultPage />} />
+            <Route path="/login" element={<p>ログインの画面</p>} />
+          </Routes>
+        </MemoryRouter>
+      </RecordStoreProvider>,
+    );
+    expect(await screen.findByText("ログインの画面")).toBeTruthy();
+    expect(screen.queryByLabelText(CONSULT_TEXT.questionLabel)).toBeNull();
+    expect(screen.queryByText(/審査員/u)).toBeNull();
+    expect(box.ask).not.toHaveBeenCalled();
+    expect(box.getFarm).not.toHaveBeenCalled();
   });
 
-  it("審査員の入口の daily_limit は、試しの回数の文を出す", async () => {
-    box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
-    box.ask.mockResolvedValue({ answer: OUT_OF_SCOPE_TEXT, cards: [], outOfScope: false, notice: "daily_limit" });
-    renderPage("/consult?judge=1");
-    fireEvent.change(input(), { target: { value: "長靴は？" } });
-    fireEvent.click(askButton());
-    expect(await screen.findByText("今日の試しの回数を使い切りました。")).toBeTruthy();
+  it("相談の画面の文に、審査員の試しの文が残っていない", () => {
+    expect(JSON.stringify(CONSULT_TEXT)).not.toMatch(/審査員|試しの回数/u);
   });
 
-  it("会員でない人が開くと会員の案内になり、相談の欄は出ない（?judge=1 がなければ）", () => {
+  it("会員でない人が開くと会員の案内になり、相談の欄は出ない", () => {
     box.auth = { user: { uid: "u2" }, member: false, loading: false, error: false, refresh: async () => {} };
     renderPage("/consult");
     expect(screen.getByRole("heading", { name: "招待コードを入れてください" })).toBeTruthy();
@@ -595,14 +614,6 @@ describe("AIに対策を相談の画面", () => {
       const item = screen.getByRole("button", { name: new RegExp(`^${CONSULT_TOPICS[0]!.label}\\s*1 往復`, "u") });
       expect(item.textContent).toContain(CONSULT_TEXT.addedCount(1));
     });
-
-    it("審査員の入口は、カードの一覧を読まない", async () => {
-      box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
-      box.ask.mockResolvedValue(reply());
-      renderPage("/consult?judge=1");
-      await askText();
-      expect(box.loadCatalog).not.toHaveBeenCalled();
-    });
   });
 
   it("notice: unavailable は「答えを作れませんでした…」を出す。回数を使ったことは書かず、決まった文もおすすめの枠もカードも出さない", async () => {
@@ -616,15 +627,6 @@ describe("AIに対策を相談の画面", () => {
     expect(screen.queryByText(OUT_OF_SCOPE_TEXT)).toBeNull();
     expect(screen.queryByText(CONSULT_TEXT.advice)).toBeNull();
     expect(screen.queryAllByTestId("consult-card")).toHaveLength(0);
-  });
-
-  it("審査員の入口でも unavailable は同じ文", async () => {
-    box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
-    box.ask.mockResolvedValue({ answer: "", cards: [], outOfScope: false, notice: "unavailable" });
-    renderPage("/consult?judge=1");
-    fireEvent.change(input(), { target: { value: "長靴は？" } });
-    fireEvent.click(askButton());
-    expect(await screen.findByText(CONSULT_TEXT.unavailable)).toBeTruthy();
   });
 
   it("おすすめの文の改行が保たれる（段落の文字列はそのまま、CSS は white-space: pre-line）", async () => {
@@ -737,7 +739,7 @@ describe("AIに対策を相談の画面", () => {
       expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual(["裏口から入るときは？", "業者さんの服は？"]);
       fireEvent.click(within(group).getByRole("button", { name: "裏口から入るときは？" }));
       await screen.findByText("二つ目の答え");
-      expect(box.ask).toHaveBeenLastCalledWith({ question: "裏口から入るときは？" }, false, [{ question: "長靴は？", answer: "一つ目の答え" }]);
+      expect(box.ask).toHaveBeenLastCalledWith({ question: "裏口から入るときは？" }, [{ question: "長靴は？", answer: "一つ目の答え" }]);
       // 最後の答えに候補がないので、前の候補は消える
       expect(screen.queryByRole("group", { name: CONSULT_TEXT.followUpsLabel })).toBeNull();
       // 話題のボタンは、相談が始まったら出さない
@@ -765,7 +767,7 @@ describe("AIに対策を相談の画面", () => {
       fireEvent.change(input(), { target: { value: "三つ目" } });
       fireEvent.click(askButton());
       await screen.findByText("三つ目の答え");
-      expect(box.ask).toHaveBeenLastCalledWith({ question: "三つ目" }, false, [{ question: "一つ目", answer: "一つ目の答え" }]);
+      expect(box.ask).toHaveBeenLastCalledWith({ question: "三つ目" }, [{ question: "一つ目", answer: "一つ目の答え" }]);
     });
 
     it("前の往復は直前の 3 往復まで渡す", async () => {
@@ -777,7 +779,7 @@ describe("AIに対策を相談の画面", () => {
         fireEvent.click(askButton());
         await screen.findByText(`答え${i}`);
       }
-      expect(box.ask).toHaveBeenLastCalledWith({ question: "問い5" }, false, [
+      expect(box.ask).toHaveBeenLastCalledWith({ question: "問い5" }, [
         { question: "問い2", answer: "答え2" },
         { question: "問い3", answer: "答え3" },
         { question: "問い4", answer: "答え4" },
@@ -811,7 +813,7 @@ describe("AIに対策を相談の画面", () => {
       fireEvent.change(input(), { target: { value: "三つ目の問い" } });
       fireEvent.click(askButton());
       await screen.findByText("三つ目の答え");
-      expect((box.ask.mock.lastCall as unknown[])[2]).toEqual([
+      expect((box.ask.mock.lastCall as unknown[])[1]).toEqual([
         { question: "一つ目の問い", answer: "一つ目の答え" },
         { question: "二つ目の問い", answer: "二つ目の答え" },
       ]);
@@ -827,7 +829,7 @@ describe("AIに対策を相談の画面", () => {
       expect(screen.queryAllByTestId("consult-entry")).toHaveLength(0);
       expect(screen.getByRole("group", { name: CONSULT_TEXT.topicsLabel })).toBeTruthy();
       await askText("別の問い");
-      expect(box.ask).toHaveBeenLastCalledWith({ question: "別の問い" }, false, []);
+      expect(box.ask).toHaveBeenLastCalledWith({ question: "別の問い" }, []);
       expect(stored().map((c) => c.title)).toEqual(["別の問い", "一つ目の問い"]);
     });
 
@@ -981,16 +983,6 @@ describe("AIに対策を相談の画面", () => {
       expect(link.getAttribute("href")).toBe("/todo");
     });
 
-    it("審査員の入口でも対策の一覧は出るが、足すボタンと対策項目へのリンクは出ない", async () => {
-      box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
-      box.ask.mockResolvedValue(reply());
-      renderPage("/consult?judge=1");
-      await askText();
-      expect(screen.getAllByTestId("consult-action")).toHaveLength(2);
-      expect(screen.queryByRole("button", { name: CONSULT_TEXT.add })).toBeNull();
-      expect(screen.queryByRole("link", { name: CONSULT_TEXT.toTodo })).toBeNull();
-    });
-
     it("話題から始めた相談の一覧の題は、話題の短い名前。足した対策の数も出る", async () => {
       box.reviews.listReviews.mockResolvedValue(["aphis-A01"]);
       box.ask.mockResolvedValue(reply());
@@ -1092,7 +1084,7 @@ describe("AIに対策を相談の画面", () => {
         await screen.findByTestId("consult-stats");
         fireEvent.click(screen.getByRole("button", { name: "鳥取県では？" }));
         await waitFor(() => expect(screen.getAllByTestId("consult-stats")).toHaveLength(2));
-        expect(box.ask).toHaveBeenLastCalledWith({ question: "鳥取県では？" }, false, [{ question: "岡山県では？", answer: okayama.summary }]);
+        expect(box.ask).toHaveBeenLastCalledWith({ question: "鳥取県では？" }, [{ question: "岡山県では？", answer: okayama.summary }]);
         cleanup();
         renderPage();
         historyOpen();
@@ -1216,17 +1208,6 @@ describe("AIに対策を相談の画面", () => {
       expect(hint.textContent).toBe(CONSULT_TEXT.inputHint);
     });
 
-    it("審査員の入口は、この端末に残さず、一覧には「保存しません」と出る", async () => {
-      box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
-      box.ask.mockResolvedValue(reply({ answer: "試しの答え" }));
-      renderPage("/consult?judge=1");
-      await askText("試しの問い");
-      expect(localStorage.length).toBe(0);
-      historyOpen();
-      expect(screen.getByText(CONSULT_TEXT.historyNotKept)).toBeTruthy();
-      expect(screen.getByRole("button", { name: /^試しの問い/u })).toBeTruthy();
-    });
-
     it("送っている間は、これまでの相談と新しい相談のボタンを押せない", async () => {
       let done: (r: ConsultAskResponse) => void = () => {};
       box.ask.mockReturnValue(new Promise<ConsultAskResponse>((r) => (done = r)));
@@ -1242,7 +1223,7 @@ describe("AIに対策を相談の画面", () => {
   });
 });
 
-describe("登録した飼い方で相談する（飼育目的と飼い方。本人が選んだときだけ送る）", () => {
+describe("登録した農場の情報で相談する（本人が選んだときだけ送る）", () => {
   const FARM_BASE = {
     id: "f1", name: "A 農場", memberUids: ["u1"], unsubscribedUids: [], meshCode: "53394611", muniCode: "33203", prefCode: "33",
     frequentMuniCodes: [], housing: "open", kahoContact: "", notify: { level1: true, level2: true, level3: true, morningDigest: true, selfCheckRemindDays: null },
@@ -1257,20 +1238,21 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     renderPage();
     expect(((await useIt()) as HTMLInputElement).checked).toBe(false);
     expect(within(condition()).getByText("登録した条件: 採卵鶏・平飼い")).toBeTruthy();
-    // 見出しは「飼い方」と重ねない（選ぶ欄の名前「この飼い方で相談する」はそのまま）
+    // 見出しは「飼い方」と重ねない。選ぶ欄の名前は「登録した農場の情報で相談する」（2026-11-08。飼い方だけでなく町・近くの発生・鶏舎も渡す）
+    expect(CONSULT_TEXT.conditionUse).toBe("登録した農場の情報で相談する");
     expect(within(condition()).queryByText(/登録した飼い方/)).toBeNull();
     // 欄は入力欄より前にある
     expect(condition().compareDocumentPosition(input()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("選ばずに送ると、今までどおり条件なしで呼ぶ（3 つの引数だけ）。答えの近くに条件は出ない", async () => {
+  it("選ばずに送ると、今までどおり条件なしで呼ぶ（2 つの引数だけ）。答えの近くに条件は出ない", async () => {
     withFarm({ production: "layer", rearing: "floor" });
     box.ask.mockResolvedValue(reply());
     renderPage();
     await useIt();
     await askText("長靴は？");
-    expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, false, []);
-    expect(box.ask.mock.calls[0]).toHaveLength(3);
+    expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, []);
+    expect(box.ask.mock.calls[0]).toHaveLength(2);
     expect(screen.queryByText(/今回の条件/)).toBeNull();
   });
 
@@ -1279,9 +1261,10 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor" } }));
     renderPage();
     fireEvent.click(await useIt());
-    expect(within(condition()).getByText("条件として送るのは「採卵鶏・平飼い」だけです。鶏舎の造り・正確な羽数・農場名・場所・記録は送りません。")).toBeTruthy();
+    expect(within(condition()).getByText("AI に渡すのは「採卵鶏・平飼い・岡山県津山市」です。")).toBeTruthy();
+    expect(within(condition()).getByText(CONSULT_TEXT.conditionNotSent)).toBeTruthy();
     await askText("長靴は？");
-    expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, false, [], { production: "layer", rearing: "floor" });
+    expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, [], { production: "layer", rearing: "floor", muniCode: "33203" });
     const advice = screen.getByTestId("consult-advice");
     expect(within(advice).getByText("今回の条件: 採卵鶏・平飼い")).toBeTruthy();
     const stored = JSON.parse(localStorage.getItem("hpai.consult.history.v1:u1") ?? "[]") as { turns: { result: { farm?: unknown } }[] }[];
@@ -1294,7 +1277,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     renderPage();
     fireEvent.click(await useIt());
     fireEvent.click(screen.getByRole("button", { name: CONSULT_TOPICS[0]!.label }));
-    await waitFor(() => expect(box.ask).toHaveBeenCalledWith({ topicId: CONSULT_TOPICS[0]!.id }, false, [], { production: "broiler", rearing: "cage" }));
+    await waitFor(() => expect(box.ask).toHaveBeenCalledWith({ topicId: CONSULT_TOPICS[0]!.id }, [], { production: "broiler", rearing: "cage", muniCode: "33203" }));
     expect(await screen.findByText("今回の条件: 肉用鶏・ケージ飼い")).toBeTruthy();
   });
 
@@ -1304,9 +1287,9 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     renderPage();
     fireEvent.click(await useIt());
     expect(within(condition()).getByText("登録した条件: 採卵鶏・飼い方は未登録")).toBeTruthy();
-    expect(within(condition()).getByText("条件として送るのは「採卵鶏」だけです。鶏舎の造り・正確な羽数・農場名・場所・記録は送りません。")).toBeTruthy();
+    expect(within(condition()).getByText("AI に渡すのは「採卵鶏・岡山県津山市」です。")).toBeTruthy();
     await askText("長靴は？");
-    expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, false, [], { production: "layer" });
+    expect(box.ask).toHaveBeenCalledWith({ question: "長靴は？" }, [], { production: "layer", muniCode: "33203" });
     expect(screen.getByText("今回の条件: 採卵鶏")).toBeTruthy();
   });
 
@@ -1319,7 +1302,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
       expect(screen.queryByRole("checkbox", { name: CONSULT_TEXT.conditionUse })).toBeNull();
       expect(within(condition()).getByRole("link", { name: CONSULT_TEXT.conditionSettingsLink }).getAttribute("href")).toBe("/settings/farm");
       await askText("長靴は？");
-      expect(box.ask.mock.calls[0]).toHaveLength(3);
+      expect(box.ask.mock.calls[0]).toHaveLength(2);
       cleanup();
       localStorage.clear();
     }
@@ -1359,7 +1342,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     fireEvent.click(within(alert).getByRole("button", { name: CONSULT_TEXT.conflictSendWithout }));
     await screen.findByText(CONSULT_TEXT.advice);
     expect(box.ask).toHaveBeenCalledTimes(1);
-    expect(box.ask.mock.calls[0]).toEqual([{ question: "卵の出荷の消毒は？" }, false, []]);
+    expect(box.ask.mock.calls[0]).toEqual([{ question: "卵の出荷の消毒は？" }, []]);
     expect(screen.queryByTestId("consult-conflict")).toBeNull();
     expect(screen.queryByText(/今回の条件/)).toBeNull();
   });
@@ -1396,7 +1379,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     expect(box.ask).not.toHaveBeenCalled();
     fireEvent.click(within(alert).getByRole("button", { name: CONSULT_TEXT.conflictSendWith }));
     await screen.findByText(CONSULT_TEXT.advice);
-    expect(box.ask.mock.calls).toEqual([[{ question: "平飼いで長靴は？" }, false, [], { production: "layer", rearing: "cage" }]]);
+    expect(box.ask.mock.calls).toEqual([[{ question: "平飼いで長靴は？" }, [], { production: "layer", rearing: "cage", muniCode: "33203" }]]);
     expect(screen.queryByTestId("consult-conflict")).toBeNull();
     expect(screen.getByText("今回の条件: 採卵鶏・ケージ飼い")).toBeTruthy();
     // 選んだ状態は残る（次の相談でも本人が外すまで条件を付ける）
@@ -1426,11 +1409,11 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     await screen.findByText("二つ目の答え");
     expect(box.ask).toHaveBeenCalledTimes(2);
     expect(box.ask.mock.calls[1]![0]).toEqual({ question: "平飼いの鶏舎では？" });
-    expect(box.ask.mock.calls[1]![3]).toEqual({ production: "layer", rearing: "cage" });
+    expect(box.ask.mock.calls[1]![2]).toEqual({ production: "layer", rearing: "cage", muniCode: "33203" });
     expect(screen.queryByTestId("consult-conflict")).toBeNull();
   });
 
-  it("「新しい相談」を始めると「この飼い方で相談する」は外れる（付けるかは相談のたびに選ぶ）", async () => {
+  it("「新しい相談」を始めると「登録した農場の情報で相談する」は外れる（付けるかは相談のたびに選ぶ）", async () => {
     withFarm({ production: "layer", rearing: "floor" });
     box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor" } }));
     renderPage();
@@ -1440,10 +1423,10 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     fireEvent.click(screen.getByRole("button", { name: CONSULT_TEXT.newChat }));
     expect(((await useIt()) as HTMLInputElement).checked).toBe(false);
     await askText("網は？");
-    expect(box.ask.mock.calls[1]).toEqual([{ question: "網は？" }, false, []]);
+    expect(box.ask.mock.calls[1]).toEqual([{ question: "網は？" }, []]);
   });
 
-  it("一覧から別の相談を開くと「この飼い方で相談する」は外れる", async () => {
+  it("一覧から別の相談を開くと「登録した農場の情報で相談する」は外れる", async () => {
     const at = Date.now();
     localStorage.setItem(
       "hpai.consult.history.v1:u1",
@@ -1458,8 +1441,8 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     fireEvent.click(screen.getByRole("button", { name: /^前の相談/u }));
     expect(((await useIt()) as HTMLInputElement).checked).toBe(false);
     await askText("続きは？");
-    expect(box.ask.mock.calls[0]![3]).toBeUndefined();
-    expect(box.ask.mock.calls[0]).toHaveLength(3);
+    expect(box.ask.mock.calls[0]![2]).toBeUndefined();
+    expect(box.ask.mock.calls[0]).toHaveLength(2);
   });
 
   it("食い違い: 「やめる」や、質問を書き直すと、確認が消えて送らない", async () => {
@@ -1479,7 +1462,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     expect(screen.queryByTestId("consult-conflict")).toBeNull();
     fireEvent.click(askButton());
     await screen.findByText(CONSULT_TEXT.advice);
-    expect(box.ask.mock.calls).toEqual([[{ question: "網の穴は？" }, false, [], { production: "layer", rearing: "floor" }]]);
+    expect(box.ask.mock.calls).toEqual([[{ question: "網の穴は？" }, [], { production: "layer", rearing: "floor", muniCode: "33203" }]]);
   });
 
   it("選ばなければ、質問の文と登録が食い違っても確かめない（条件を送らないので）", async () => {
@@ -1489,7 +1472,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     await useIt();
     await askText("平飼いで長靴は？");
     expect(screen.queryByTestId("consult-conflict")).toBeNull();
-    expect(box.ask.mock.calls[0]).toEqual([{ question: "平飼いで長靴は？" }, false, []]);
+    expect(box.ask.mock.calls[0]).toEqual([{ question: "平飼いで長靴は？" }, []]);
   });
 
   it("件数だけの答えには、条件を付けて聞いても「今回の条件」を出さない（表は条件で絞っていない）", async () => {
@@ -1529,16 +1512,7 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
     fireEvent.change(input(), { target: { value: "長靴は？" } });
     fireEvent.click(askButton());
     await screen.findByText(CONSULT_TEXT.advice);
-    expect(box.ask.mock.calls).toEqual([[{ question: "長靴は？" }, false, []]]);
-  });
-
-  it("審査員の入口は、農場を読まず、条件の欄を出さない", async () => {
-    box.auth = { user: null, member: false, loading: false, error: false, refresh: async () => {} };
-    renderPage("/consult?judge=1");
-    expect(screen.getByText("審査員の方向けの試しの画面です。1 日の回数に上限があり、相談は保存しません。")).toBeTruthy();
-    expect(screen.queryByTestId("consult-condition")).toBeNull();
-    expect(box.getFarm).not.toHaveBeenCalled();
-    expect(box.listHouses).not.toHaveBeenCalled();
+    expect(box.ask.mock.calls).toEqual([[{ question: "長靴は？" }, []]]);
   });
 
   it("条件の欄と食い違いの確認の文に禁止語がない", async () => {
@@ -1553,51 +1527,84 @@ describe("登録した飼い方で相談する（飼育目的と飼い方。本�
   });
 });
 
-describe("羽数の幅（鶏舎の飼養羽数の合計から画面が作る。送るのは幅だけ）", () => {
+describe("町・近くの発生・鶏舎ごとの羽数（2026-11-08 豪さんの決定。マス目・緯度経度・農場の名前・鶏舎の名前は送らない）", () => {
   const FARM = {
     id: "f1", name: "A 農場", memberUids: ["u1"], unsubscribedUids: [], meshCode: "53394611", muniCode: "33203", prefCode: "33",
-    frequentMuniCodes: [], housing: "open", kahoContact: "", notify: { level1: true, level2: true, level3: true, morningDigest: true, selfCheckRemindDays: null },
+    frequentMuniCodes: ["33214"], housing: "open", kahoContact: "", notify: { level1: true, level2: true, level3: true, morningDigest: true, selfCheckRemindDays: null },
     selfCheckDue: {}, updatedAt: "2026-11-07T10:00:00+09:00", production: "layer", rearing: "floor",
   };
-  const house = (id: string, flockSize: unknown, empty = false) => ({ id, name: `${id} 号舎`, birdType: "採卵鶏", flockSize, empty });
+  const house = (id: string, flockSize: unknown, empty = false, birdType = "採卵鶏") => ({ id, name: `${id} 号舎`, birdType, flockSize, empty });
+  const H = (flockSize: number, empty = false) => ({ birdType: "採卵鶏", flockSize, empty });
+  const NEAR = { casesWithin60km: 2, zone: "possible" } as const;
+  const ready = (townName: string | null = "岡山県津山市") => box.place.mockReturnValue({ nearby: { status: "ready", nearby: NEAR }, townName });
   const condition = () => screen.getByTestId("consult-condition");
   const useIt = () => screen.findByRole("checkbox", { name: CONSULT_TEXT.conditionUse });
+  const LABEL = "採卵鶏・平飼い・岡山県津山市・約 60 km 以内の今季の発生 2 件（区域に入っている可能性あり）・鶏舎 1: 採卵鶏 1,200 羽、鶏舎 2: 採卵鶏 800 羽、鶏舎 3: 採卵鶏 空舎";
 
-  it("空舎を除く合計（1,200＋700＝1,900 羽）から「1,000〜2,999 羽」を作り、表示・送る内容・答えの近く・端末の記録に入れる。正確な羽数は送らない", async () => {
+  it("渡すものを表示し、市町村コード・近くの発生・鶏舎ごとの羽数（名前なし・番号の順）を付けて呼ぶ。答えの近くと端末の記録に、関数が返した条件（町の名前つき）が出る", async () => {
     box.getFarm.mockResolvedValue(FARM);
-    box.listHouses.mockResolvedValue([house("1", 1200), house("2", 700), house("3", 0, true)]);
-    box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor", scale: "1000to3000" } }));
+    box.listHouses.mockResolvedValue([house("1", 1200), house("2", 800), house("3", 0, true)]);
+    ready();
+    const sent = { production: "layer", rearing: "floor", muniCode: "33203", nearby: NEAR, houses: [H(1200), H(800), H(0, true)] };
+    box.ask.mockResolvedValue(reply({ farm: { ...sent, town: "岡山県津山市" } as never }));
     renderPage();
     fireEvent.click(await useIt());
-    expect(within(condition()).getByText("登録した条件: 採卵鶏・平飼い・1,000〜2,999 羽")).toBeTruthy();
-    expect(within(condition()).getByText("条件として送るのは「採卵鶏・平飼い・1,000〜2,999 羽」だけです。鶏舎の造り・正確な羽数・農場名・場所・記録は送りません。")).toBeTruthy();
+    expect(within(condition()).getByText("登録した条件: 採卵鶏・平飼い")).toBeTruthy();
+    expect(within(condition()).getByText(`AI に渡すのは「${LABEL}」です。`)).toBeTruthy();
+    expect(within(condition()).getByText(CONSULT_TEXT.conditionNotSent)).toBeTruthy();
+    expect(CONSULT_TEXT.conditionNotSent).toContain("約 1km のマス目・緯度経度・農場の名前・鶏舎の名前・鶏舎の造り・記録は渡しません");
     await askText("長靴は？");
-    expect(box.ask.mock.calls).toEqual([[{ question: "長靴は？" }, false, [], { production: "layer", rearing: "floor", scale: "1000to3000" }]]);
-    expect(JSON.stringify(box.ask.mock.calls)).not.toMatch(/1900|1200|700/u);
-    expect(within(screen.getByTestId("consult-advice")).getByText("今回の条件: 採卵鶏・平飼い・1,000〜2,999 羽")).toBeTruthy();
+    expect(box.ask.mock.calls).toEqual([[{ question: "長靴は？" }, [], sent]]);
+    // マス目・農場の名前・鶏舎の名前・よく行き来する町は送らない
+    expect(JSON.stringify(box.ask.mock.calls)).not.toMatch(/53394611|A 農場|号舎|33214|housing/u);
+    expect(within(screen.getByTestId("consult-advice")).getByText(`今回の条件: ${LABEL}`)).toBeTruthy();
     const stored = JSON.parse(localStorage.getItem("hpai.consult.history.v1:u1") ?? "[]") as { turns: { result: { farm?: unknown } }[] }[];
-    expect(stored[0]!.turns[0]!.result.farm).toEqual({ production: "layer", rearing: "floor", scale: "1000to3000" });
+    expect(stored[0]!.turns[0]!.result.farm).toEqual({ ...sent, town: "岡山県津山市" });
   });
 
-  it("境目: 合計 999 は「1,000 羽未満」、ちょうど 3,000 は「3,000 羽以上」", async () => {
-    for (const [houses, label] of [
-      [[house("1", 999)], "1,000 羽未満"],
-      [[house("1", 2000), house("2", 1000)], "3,000 羽以上"],
+  it("近くの発生は、登録した農場のマス目と市町村から数える（端末の地点ではない）", async () => {
+    box.getFarm.mockResolvedValue(FARM);
+    renderPage();
+    await useIt();
+    expect(box.place).toHaveBeenLastCalledWith({ meshCode: "53394611", muniCode: "33203", frequentMuniCodes: ["33214"] });
+  });
+
+  it("近くの発生が確認中・確認できていないときは送らず、そう書く（0 件と言わない）", async () => {
+    for (const [status, note] of [
+      ["loading", CONSULT_TEXT.conditionNearbyLoading],
+      ["unavailable", CONSULT_TEXT.conditionNearbyUnavailable],
     ] as const) {
       box.getFarm.mockResolvedValue(FARM);
-      box.listHouses.mockResolvedValue(houses);
+      box.listHouses.mockResolvedValue([house("1", 1200)]);
+      box.place.mockReturnValue({ nearby: { status }, townName: "岡山県津山市" });
+      box.ask.mockReset().mockResolvedValue(reply());
       renderPage();
-      await useIt();
-      expect(within(condition()).getByText(`登録した条件: 採卵鶏・平飼い・${label}`)).toBeTruthy();
+      fireEvent.click(await useIt());
+      expect(within(condition()).getByText(note), status).toBeTruthy();
+      expect(condition().textContent, status).not.toMatch(/0 件|60 km/u);
+      await askText("長靴は？");
+      expect(box.ask.mock.calls[0]![2], status).toEqual({ production: "layer", rearing: "floor", muniCode: "33203", houses: [H(1200)] });
       cleanup();
+      localStorage.clear();
     }
   });
 
-  it("鶏舎なし・全部空舎・羽数が読めない鶏舎がある・鶏舎を読めないときは、幅を作らず（推測で埋めない）、飼育目的と飼い方だけで相談できる", async () => {
+  it("町の名前を読めないときは、市町村コードで出す（送るのはコードだけ）", async () => {
+    box.getFarm.mockResolvedValue(FARM);
+    ready(null);
+    renderPage();
+    fireEvent.click(await useIt());
+    expect(within(condition()).getByText(/^AI に渡すのは「採卵鶏・平飼い・市町村コード 33203・約 60 km/u)).toBeTruthy();
+  });
+
+  it("鶏舎なし・31 棟以上・読めない羽数・一覧の外の鳥・読み込みの失敗・同期の例外のときは鶏舎を送らない（推測で埋めない）。ほかの条件は送る", async () => {
+    const many = Array.from({ length: 31 }, (_, i) => house(String(i + 1), 100));
     const cases: [string, () => void][] = [
       ["鶏舎なし", () => box.listHouses.mockResolvedValue([])],
-      ["全部空舎", () => box.listHouses.mockResolvedValue([house("1", 0, true), house("2", 0, true)])],
+      ["31 棟", () => box.listHouses.mockResolvedValue(many)],
       ["読めない羽数", () => box.listHouses.mockResolvedValue([house("1", 5000), house("2", "たくさん")])],
+      ["上限を超える羽数", () => box.listHouses.mockResolvedValue([house("1", 1_000_001)])],
+      ["一覧の外の鳥", () => box.listHouses.mockResolvedValue([house("1", 100, false, "ダチョウ")])],
       ["読み込みの失敗", () => box.listHouses.mockRejectedValue(new Error("offline"))],
       [
         "同期の例外",
@@ -1611,27 +1618,28 @@ describe("羽数の幅（鶏舎の飼養羽数の合計から画面が作る。�
       box.getFarm.mockResolvedValue(FARM);
       box.listHouses.mockReset();
       set();
-      box.ask.mockReset().mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor" } }));
+      ready();
+      box.ask.mockReset().mockResolvedValue(reply());
       renderPage();
       fireEvent.click(await useIt());
-      expect(within(condition()).getByText("登録した条件: 採卵鶏・平飼い"), name).toBeTruthy();
-      expect(within(condition()).queryByText(/羽未満|羽以上|〜3,000 羽/u), name).toBeNull();
+      expect(within(condition()).queryByText(/鶏舎 1/u), name).toBeNull();
       await askText("長靴は？");
-      expect(box.ask.mock.calls[0]![3], name).toEqual({ production: "layer", rearing: "floor" });
+      expect(box.ask.mock.calls[0]![2], name).toEqual({ production: "layer", rearing: "floor", muniCode: "33203", nearby: NEAR });
       cleanup();
       localStorage.clear();
     }
   });
 
-  it("飼育目的も飼い方も未登録なら、鶏舎があっても選ぶ欄を出さない（幅だけの条件は作らない）", async () => {
+  it("飼育目的も飼い方も未登録なら、町と鶏舎があっても選ぶ欄を出さない（町や鶏舎だけの条件は作らない）", async () => {
     box.getFarm.mockResolvedValue({ ...FARM, production: null, rearing: null });
     box.listHouses.mockResolvedValue([house("1", 5000)]);
+    ready();
     renderPage();
     expect(await within(await screen.findByTestId("consult-condition")).findByText(/^登録した条件: 未登録。/u)).toBeTruthy();
     expect(screen.queryByRole("checkbox", { name: CONSULT_TEXT.conditionUse })).toBeNull();
   });
 
-  it("鶏舎を読み終えるまで選ぶ欄を出さない（最初の 1 回だけ幅なしで送ることがない）", async () => {
+  it("鶏舎を読み終えるまで選ぶ欄を出さない（最初の 1 回だけ鶏舎なしで送ることがない）", async () => {
     box.getFarm.mockResolvedValue(FARM);
     let done: (v: unknown) => void = () => {};
     box.listHouses.mockReturnValue(new Promise((r) => (done = r)));
@@ -1640,28 +1648,45 @@ describe("羽数の幅（鶏舎の飼養羽数の合計から画面が作る。�
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByRole("checkbox", { name: CONSULT_TEXT.conditionUse })).toBeNull();
     done([house("1", 4000)]);
-    await useIt();
-    expect(within(condition()).getByText("登録した条件: 採卵鶏・平飼い・3,000 羽以上")).toBeTruthy();
+    fireEvent.click(await useIt());
+    expect(within(condition()).getByText(/鶏舎 1: 採卵鶏 4,000 羽/u)).toBeTruthy();
   });
 
-  it("幅の語と、幅つきの条件の欄の文に禁止語がない", async () => {
-    for (const label of Object.values(SCALE_LABEL)) expect(findWordingViolations(label), label).toEqual([]);
+  it("2026-11-08 より前の記録（羽数の幅つき）も読めて、今回の条件に幅を出す", async () => {
+    const at = Date.now();
+    localStorage.setItem(
+      "hpai.consult.history.v1:u1",
+      JSON.stringify([{ id: "old", title: "前の相談", createdAt: at, updatedAt: at, turns: [{ question: "前の相談", at, result: reply({ farm: { production: "layer", rearing: "floor", scale: "1000to3000" } }) }] }]),
+    );
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: CONSULT_TEXT.historyOpen }));
+    fireEvent.click(screen.getByRole("button", { name: /^前の相談/u }));
+    expect(await screen.findByText("今回の条件: 採卵鶏・平飼い・1,000〜2,999 羽")).toBeTruthy();
+  });
+
+  it("鳥の種類の列は、農場の設定の鶏舎の一覧（BIRD_TYPES）と同じ", async () => {
+    const { BIRD_TYPES } = await import("../settings/houseForm");
+    expect([...CONSULT_BIRD_TYPES]).toEqual([...BIRD_TYPES]);
+  });
+
+  it("条件の欄の文・区域の語に禁止語がない", async () => {
+    for (const label of Object.values(ZONE_LABEL)) expect(findWordingViolations(label), label).toEqual([]);
     box.getFarm.mockResolvedValue(FARM);
     box.listHouses.mockResolvedValue([house("1", 4000)]);
+    ready();
     renderPage();
     fireEvent.click(await useIt());
-    expect(condition().textContent).toContain("3,000 羽以上");
     expect(findWordingViolations(condition().textContent ?? "")).toEqual([]);
   });
 
-  it("質問の羽数と幅は突き合わせない（食い違いの確認を出さない）", async () => {
+  it("質問の羽数と鶏舎の羽数は突き合わせない（食い違いの確認を出さない）", async () => {
     box.getFarm.mockResolvedValue(FARM);
     box.listHouses.mockResolvedValue([house("1", 4000)]);
-    box.ask.mockResolvedValue(reply({ farm: { production: "layer", rearing: "floor", scale: "over3000" } }));
+    box.ask.mockResolvedValue(reply());
     renderPage();
     fireEvent.click(await useIt());
     await askText("うちは 300 羽です。長靴は？");
     expect(screen.queryByTestId("consult-conflict")).toBeNull();
-    expect(box.ask.mock.calls[0]![3]).toEqual({ production: "layer", rearing: "floor", scale: "over3000" });
+    expect(box.ask.mock.calls[0]![2]).toEqual({ production: "layer", rearing: "floor", muniCode: "33203", houses: [H(4000)] });
   });
 });

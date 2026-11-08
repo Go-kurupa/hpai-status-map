@@ -3,6 +3,7 @@
 // ログに出すのは件数と、エラーの code だけ。宛先のメールアドレスや、エラーの文面（宛先を含みうる）は出さない。
 import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { jstDateOf, toJstIso } from "@hpai/shared/dates";
+import { JUDGE_FARM_ID } from "@hpai/shared/judge";
 import { noticeDocId, renderNotice, type Notice, type SentNotice } from "@hpai/shared/notices";
 import { enqueueReview, reviewAlertId } from "../review/queue";
 import type { sendMail } from "./send";
@@ -130,6 +131,8 @@ export async function dispatchNotices(
   // 1 段目
   const toSend: Array<{ n: Notice; ref: DocumentReference }> = [];
   for (const n of notices) {
+    // 審査員用の見本の農場は知らせを送らない。宛先もないので、記録（sentNotices）も作らない（作ると failed のまま毎時の送り直しが拾い続ける）
+    if (n.farmId === JUDGE_FARM_ID) continue;
     try {
       const gate = await gateOf(n.farmId);
       if (gate.kind === "missing") continue;

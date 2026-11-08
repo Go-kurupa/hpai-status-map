@@ -7,7 +7,8 @@ import { ANTHROPIC_API_KEY } from "../secrets";
 import { recordUsage } from "../usage/record";
 import { readRuntimeSettings, readUsageMonth } from "../usage/settings";
 import { reserveNeighborCall } from "./dailyLimit";
-import { NEIGHBOR_DAILY_LIMIT, handleNeighborDraft } from "./neighborDraft";
+import { JUDGE_UID } from "@hpai/shared/judge";
+import { NEIGHBOR_DAILY_LIMIT, NEIGHBOR_JUDGE_DAILY_LIMIT, handleNeighborDraft } from "./neighborDraft";
 import { draftForCase } from "./workerDraft";
 
 /**
@@ -41,7 +42,7 @@ export const draftNeighborExplainer = onCall(
         settings: readRuntimeSettings,
         month: readUsageMonth,
         record: recordUsage,
-        reserve: (uid, now) => reserveNeighborCall(uid, now, NEIGHBOR_DAILY_LIMIT),
+        reserve: (uid, now) => reserveNeighborCall(uid, now, uid === JUDGE_UID ? NEIGHBOR_JUDGE_DAILY_LIMIT : NEIGHBOR_DAILY_LIMIT),
       },
       request.auth ? { uid: request.auth.uid, member: request.auth.token.member === true } : null,
       request.data,

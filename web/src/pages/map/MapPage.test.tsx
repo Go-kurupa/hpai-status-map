@@ -263,14 +263,14 @@ describe("MapPage", () => {
     expect(screen.queryByText(RISK_SENTENCE, { exact: false })).toBeNull();
   });
 
-  it("地図の下に固定のリンクが 7 つある。掲示用の貼り紙は入口を外した（2026-11-06 作者の決定）", async () => {
+  it("地図の下に固定のリンクが 6 つある。掲示用の貼り紙は入口を外した（2026-11-06 作者の決定）。見本の農場へのリンクも置かない（2026-11-08 から提出フォームでだけ案内する）", async () => {
     show(rig());
     await screen.findByTestId("map");
     const nav = screen.getByRole("navigation", { name: "ほかのページ" });
     const hrefs = within(nav)
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/public", "/known", "/trends", "/replay", "/sample", "/results", "/privacy"]);
+    expect(hrefs).toEqual(["/public", "/known", "/trends", "/replay", "/results", "/privacy"]);
   });
 });
 

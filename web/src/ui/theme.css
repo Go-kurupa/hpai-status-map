@@ -375,6 +375,18 @@ button:focus-visible {
   font-weight: 700;
 }
 
+/* このサイトについて: 本文の幅を節ごとにそろえる（プライバシーの節と同じ 44rem）。広い表は .table-scroll の中で横に送る */
+.about {
+  max-width: 44rem;
+}
+/* 中に置いた試験の結果の節（見出しは h3 に下がる）にも、単独の /results の h2 と同じ区切りの下線を付ける */
+.about .backstage-section > h3 {
+  font-size: 1.15rem;
+  border-bottom: 1px solid var(--hair);
+  padding-bottom: 4px;
+  margin: 16px 0 8px;
+}
+
 /* このサイトについて: データの出典の一覧 */
 .about-sources {
   display: grid;
@@ -391,13 +403,18 @@ button:focus-visible {
   overflow-wrap: anywhere;
 }
 
-/* このサイトについて: 審査員の方への入口（決定 16） */
+/* このサイトについて: 過去の記録の入口。リンクは短く、注はその下に小さく */
 .about-judges {
   display: grid;
   gap: 4px;
   margin: 0 0 12px;
   padding: 0;
   list-style: none;
+}
+.about-link-note {
+  margin: 0;
+  color: var(--sub);
+  font-size: 0.9rem;
 }
 
 /* ── 部品 ── */

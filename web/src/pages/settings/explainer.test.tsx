@@ -304,9 +304,10 @@ describe("1 日の回数の上限（レビュー指摘 2）", () => {
     expect(screen.getByText(/今日はこれ以上作れません/)).toBeTruthy();
     expect((screen.getByLabelText("農場の部分（直して使えます）") as HTMLTextAreaElement).value).toContain(MEASURES);
   });
-  it("書く前から『1 日 10 回まで』と書いてある", () => {
+  it("書く前から『1 日の上限』があると書いてある（審査員の会員は回数が違うので、数字は出さない）", () => {
     mount();
-    expect(screen.getByText(/1 日 10 回まで/)).toBeTruthy();
+    expect(screen.getByText("下書きを作れる回数には、1 日の上限があります。")).toBeTruthy();
+    expect(screen.queryByText(/1 日 10 回/)).toBeNull();
   });
 });
 

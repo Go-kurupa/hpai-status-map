@@ -1,9 +1,10 @@
-// bundle のあと、lib/data/consult/cards.json が既定の読み先（__dirname/data/consult）の形で読み込める。
+// bundle のあと、lib/data/consult/cards.json が既定の読み先（__dirname/data/consult）の形で読み込める。町の名前を引く lib/data/geo/muni-index.json もある。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { townNameOf } from "@hpai/shared/consult/farmCondition";
 import { loadConsultData } from "../src/consult/data";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
@@ -26,5 +27,8 @@ describe("bundle のあと（対策の相談のカード）", () => {
     // 発生の件数の表のために、過去の事例も同梱されている
     expect(history.length).toBeGreaterThan(0);
     expect(cards.cards.every((c) => c.approved)).toBe(true);
+    // 相談の条件の市町村コードから町の名前を引く索引も同梱されている（index.ts の muniIndex が読む）
+    const index = JSON.parse(fs.readFileSync(path.join(outdir, "data", "geo", "muni-index.json"), "utf8")) as Record<string, { name: string; prefCode: string }>;
+    expect(townNameOf(index, "33643")).toBe("岡山県西粟倉村");
   }, 60_000);
 });

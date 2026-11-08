@@ -1,7 +1,9 @@
-import { findForbiddenPhrases } from "@hpai/shared/wording";
+import { JUDGE_FARM_ID, JUDGE_UID } from "@hpai/shared/judge";
+import { findForbiddenPhrases, findWordingViolations } from "@hpai/shared/wording";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
+import { StrictMode } from "react";
 import { createMemoryRouter, RouterProvider, useLocation, type RouteObject } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecordStoreProvider } from "../../data/context";
@@ -51,12 +53,16 @@ const firebaseAuth = vi.hoisted(() => ({
   isSignInWithEmailLink: vi.fn(),
   signInWithEmailLink: vi.fn(),
   signInWithPopup: vi.fn(),
+  signInWithCustomToken: vi.fn(),
+  signOut: vi.fn(),
 }));
 vi.mock("firebase/auth", () => ({
   sendSignInLinkToEmail: firebaseAuth.sendSignInLinkToEmail,
   isSignInWithEmailLink: firebaseAuth.isSignInWithEmailLink,
   signInWithEmailLink: firebaseAuth.signInWithEmailLink,
   signInWithPopup: firebaseAuth.signInWithPopup,
+  signInWithCustomToken: firebaseAuth.signInWithCustomToken,
+  signOut: firebaseAuth.signOut,
   GoogleAuthProvider: class GoogleAuthProvider {},
 }));
 
@@ -70,6 +76,7 @@ vi.mock("../../firebase", () => ({
 
 import { afterSignIn, completeEmailLink, sendInviteLink, signInWithGoogle } from "./emailLink";
 import JoinPage from "./JoinPage";
+import JudgePage, { JUDGE_TEXT } from "./JudgePage";
 import LoginPage, { LOGIN_TEXT_CHECKED_ON, LoginText } from "./LoginPage";
 import { RequireMember } from "./RequireMember";
 
@@ -288,7 +295,7 @@ describe("/login", () => {
     expect(calls).toEqual(["signInWithPopup", "getIdToken:true"]);
   });
 
-  it("招待コードの欄の下に、見本の農場への案内を出す。文に禁止語がない", async () => {
+  it("招待コードの欄の下に、コードの受け取り方を出す。見本の農場（/sample）への案内はない（2026-11-08 から提出フォームでだけ案内する）。文に禁止語がない", async () => {
     firebaseAuth.signInWithPopup.mockImplementation(async () => {
       auth.currentUser = makeUser();
       return { user: auth.currentUser };
@@ -297,7 +304,10 @@ describe("/login", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Google で入る" }));
     await screen.findByLabelText("招待コード");
     expect(screen.getByText(/招待コードは運営者から受け取ります/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "見本の農場で試す" }).getAttribute("href")).toBe("/sample");
+    // コードのない人を行き止まりにしない: 去年の再現へ案内する
+    expect(screen.getByRole("link", { name: "去年の再現" }).getAttribute("href")).toBe("/replay");
+    expect(screen.queryByRole("link", { name: "見本の農場で試す" })).toBeNull();
+    expect(container.querySelector('a[href^="/sample"]')).toBeNull();
     expect(findForbiddenPhrases(container.textContent ?? "")).toEqual([]);
   });
 
@@ -604,12 +614,12 @@ describe("RequireMember", () => {
     expect(screen.queryByText("会員の中身")).toBeNull();
   });
 
-  it("招待コードの欄の下に、コードの受け取り方と見本の農場への案内を出す（コードがない人の行き止まりにしない）", async () => {
+  it("招待コードの欄の下に、コードの受け取り方を出す（見本の農場への案内は置かない。2026-11-08 から提出フォームでだけ案内する）", async () => {
     auth.currentUser = makeUser();
     gate("firestore");
     await screen.findByLabelText("招待コード");
     expect(screen.getByText(/招待コードは運営者から受け取ります/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "見本の農場で試す" }).getAttribute("href")).toBe("/sample");
+    expect(screen.queryByRole("link", { name: "見本の農場で試す" })).toBeNull();
   });
 
   it("会員なら中身を出す", async () => {
@@ -667,10 +677,148 @@ describe("RequireMember", () => {
     expect(localStorage.getItem(MEMBER_KEY)).toBe("1");
   });
 
-  it("見本の農場は Firebase を読まないので、会員の印に触らない", async () => {
+  it("見本の口（mode: sample。去年の再現）は Firebase を読まないので、会員の印に触らない", async () => {
     localStorage.setItem(MEMBER_KEY, "1");
     gate("sample");
     await screen.findByText("会員の中身");
     expect(localStorage.getItem(MEMBER_KEY)).toBe("1");
+  });
+});
+
+// 審査員用のリンク（/judge#<秘密の文字列>。2026-11-08）。# の文字列で judgeSignIn を呼び、カスタムトークンでログインし、
+// 会員の印を付けてトップへ replace で移る。# は消す（search は残す）。別の人がログイン中なら先にログアウトする
+describe("/judge（審査員用のリンク）", () => {
+  const JUDGE = "judge-demo";
+  function judgeUser(uid: string): FakeUser {
+    return { uid, getIdToken: vi.fn(async () => "token"), getIdTokenResult: vi.fn(async () => ({ claims: { member: true } })) };
+  }
+  /** 画面の URL（window.location）と router の初めの位置を同じにして開く。StrictMode で effect が 2 回走る形にする */
+  function openJudge(url: string) {
+    window.history.replaceState({ keep: 1 }, "", url);
+    const routes: RouteObject[] = [
+      { path: "/", element: <><LocationProbe /><p>トップの画面</p></> },
+      { path: "/judge", element: <><LocationProbe /><JudgePage /></> },
+    ];
+    const router = createMemoryRouter(routes, { initialEntries: [url] });
+    return render(
+      <StrictMode>
+        <RouterProvider router={router} />
+      </StrictMode>,
+    );
+  }
+
+  beforeEach(() => {
+    redeem.fn.mockImplementation(async (name: string, _data: unknown) => {
+      calls.push(name);
+      return { data: { customToken: "custom-token-1" } };
+    });
+    firebaseAuth.signOut.mockImplementation(async () => {
+      calls.push("signOut");
+      auth.currentUser = null;
+    });
+    firebaseAuth.signInWithCustomToken.mockImplementation(async (_a: unknown, t: string) => {
+      calls.push(`signInWithCustomToken:${t}`);
+      auth.currentUser = judgeUser(JUDGE);
+      return { user: auth.currentUser };
+    });
+  });
+
+  it("共有の定数は決まった名前（審査員の uid と農場の id）", () => {
+    expect(JUDGE_UID).toBe(JUDGE);
+    expect(JUDGE_FARM_ID).toBe("judge-demo-farm");
+  });
+
+  it("# の文字列で judgeSignIn を 1 回だけ呼び、カスタムトークンで入り、会員の印を付けて / へ replace で移る。# は消え、?emulator=1 は残る", async () => {
+    openJudge("/judge?emulator=1#secret-abc");
+    expect(screen.getByRole("status").textContent).toBe("審査員用の見本の農場に入っています…");
+    await waitFor(() => expect(at()).toBe("/?emulator=1"));
+    expect(screen.getByText("トップの画面")).toBeTruthy();
+    expect(redeem.fn).toHaveBeenCalledTimes(1);
+    expect(redeem.fn).toHaveBeenCalledWith("judgeSignIn", { token: "secret-abc" });
+    expect(calls).toEqual(["judgeSignIn", "signInWithCustomToken:custom-token-1"]);
+    expect(firebaseAuth.signInWithCustomToken).toHaveBeenCalledWith(auth, "custom-token-1");
+    expect(firebaseAuth.signOut).not.toHaveBeenCalled();
+    expect(localStorage.getItem(MEMBER_KEY)).toBe("1");
+    // 画面の URL から # が消え、search と router の履歴の状態は残る
+    expect(window.location.hash).toBe("");
+    expect(window.location.search).toBe("?emulator=1");
+    expect(window.history.state).toEqual({ keep: 1 });
+  });
+
+  it("# は関数を呼ぶ前に消す（文字列を画面の URL に残さない）", async () => {
+    let hashAtCall: string | null = null;
+    redeem.fn.mockImplementation(async (name: string) => {
+      calls.push(name);
+      hashAtCall = window.location.hash;
+      return { data: { customToken: "custom-token-1" } };
+    });
+    openJudge("/judge#secret-abc");
+    await waitFor(() => expect(at()).toBe("/"));
+    expect(hashAtCall).toBe("");
+  });
+
+  it("別の人（本物の会員）がログイン中なら、関数が通った後、入る前にログアウトする", async () => {
+    localStorage.setItem(MEMBER_KEY, "1");
+    auth.currentUser = judgeUser("real-member");
+    openJudge("/judge#secret-abc");
+    await waitFor(() => expect(at()).toBe("/"));
+    expect(calls).toEqual(["judgeSignIn", "signOut", "signInWithCustomToken:custom-token-1"]);
+    expect(auth.currentUser?.uid).toBe(JUDGE);
+    expect(localStorage.getItem(MEMBER_KEY)).toBe("1");
+  });
+
+  it("すでに審査員でログイン中なら、ログアウトせずに入り直す", async () => {
+    auth.currentUser = judgeUser(JUDGE);
+    openJudge("/judge#secret-abc");
+    await waitFor(() => expect(at()).toBe("/"));
+    expect(firebaseAuth.signOut).not.toHaveBeenCalled();
+    expect(calls).toEqual(["judgeSignIn", "signInWithCustomToken:custom-token-1"]);
+  });
+
+  it("関数が permission-denied で失敗したら、決まった文とトップへのリンクを出す。入らず、移らず、印も付けず、本物の会員をログアウトしない", async () => {
+    auth.currentUser = judgeUser("real-member");
+    redeem.fn.mockImplementation(async (name: string) => {
+      calls.push(name);
+      throw Object.assign(new Error("permission-denied"), { code: "functions/permission-denied" });
+    });
+    const { container } = openJudge("/judge#wrong");
+    expect((await screen.findByRole("alert")).textContent).toBe("このリンクは使えません。提出フォームのリンクをもう一度開いてください。");
+    expect(screen.getByRole("link", { name: "今季の発生を見る" }).getAttribute("href")).toBe("/");
+    expect(at()).toBe("/judge");
+    expect(firebaseAuth.signInWithCustomToken).not.toHaveBeenCalled();
+    expect(firebaseAuth.signOut).not.toHaveBeenCalled();
+    expect(auth.currentUser?.uid).toBe("real-member");
+    expect(localStorage.getItem(MEMBER_KEY)).toBeNull();
+    expect(window.location.hash).toBe("");
+    // 文字列も失敗の符号も画面に出さない
+    expect(container.textContent).not.toContain("wrong");
+    expect(container.textContent).not.toContain("permission");
+  });
+
+  it("# がない（空も）なら、関数を呼ばずに同じ文を出す", async () => {
+    for (const url of ["/judge", "/judge#"]) {
+      const { unmount } = openJudge(url);
+      expect((await screen.findByRole("alert")).textContent).toBe("このリンクは使えません。提出フォームのリンクをもう一度開いてください。");
+      unmount();
+    }
+    expect(redeem.fn).not.toHaveBeenCalled();
+    expect(firebaseAuth.signInWithCustomToken).not.toHaveBeenCalled();
+  });
+
+  it("ログアウトした後に入れなかったら、同じ文を出し、前の会員の印を外す", async () => {
+    localStorage.setItem(MEMBER_KEY, "1");
+    auth.currentUser = judgeUser("real-member");
+    firebaseAuth.signInWithCustomToken.mockRejectedValue(new Error("auth/invalid-custom-token"));
+    openJudge("/judge#secret-abc");
+    expect((await screen.findByRole("alert")).textContent).toBe("このリンクは使えません。提出フォームのリンクをもう一度開いてください。");
+    expect(localStorage.getItem(MEMBER_KEY)).toBeNull();
+    expect(at()).toBe("/judge");
+  });
+
+  it("画面の文に禁止語と文の決まりの違反がない", () => {
+    for (const t of Object.values(JUDGE_TEXT)) {
+      expect(findForbiddenPhrases(t), t).toEqual([]);
+      expect(findWordingViolations(t), t).toEqual([]);
+    }
   });
 });

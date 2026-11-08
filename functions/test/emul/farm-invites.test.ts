@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 import { getAuth } from "firebase-admin/auth";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { JUDGE_FARM_ID, JUDGE_UID } from "@hpai/shared/judge";
 import type { Farm, Invite } from "@hpai/shared/types";
 import { db } from "../../src/admin";
 import { generateInviteCode, hashInviteCode, MAX_FAILURES_PER_HOUR } from "../../src/farm/inviteCode";
 import { handleCreateFarmInvite, type CreateFarmInviteDeps } from "../../src/farm/createFarmInvite";
+import { ensureJudgeFarm } from "../../src/farm/judgeFarm";
 import { handleRedeemInvite, type RedeemDeps } from "../../src/farm/redeemInvite";
 import { handleOp } from "../../src/ops/handlers";
 import { farmFixture } from "../../../shared/test/helpers/mFixtures";
@@ -333,5 +335,13 @@ describe("createFarmInvite", () => {
     expect(await codeOf(handleCreateFarmInvite(farmDeps, { uid: owner, member: true }, 42))).toBe("invalid-argument");
     expect(await codeOf(handleCreateFarmInvite(farmDeps, { uid: owner, member: true }, "a/b"))).toBe("invalid-argument");
     expect((await db.collection("invites").get()).size).toBe(0);
+  });
+
+  it("審査員用の見本の農場には、審査員の会員でも招待を作れない（failed-precondition）", async () => {
+    await ensureJudgeFarm({ db, auth, now: () => clock });
+    const before = (await db.collection("invites").get()).docs.map((d) => d.ref.path).sort();
+    expect(await codeOf(handleCreateFarmInvite(farmDeps, { uid: JUDGE_UID, member: true }, JUDGE_FARM_ID))).toBe("failed-precondition");
+    expect((await db.collection("invites").get()).docs.map((d) => d.ref.path).sort()).toEqual(before);
+    expect(((await db.collection("farms").doc(JUDGE_FARM_ID).get()).data() as Farm).memberUids).toEqual([JUDGE_UID]);
   });
 });

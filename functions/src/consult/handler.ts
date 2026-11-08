@@ -5,10 +5,11 @@
 // 順序: 入力の検査（question か topicId、前の往復 history の形、農場の条件 farm の形）→ 範囲外の問い → 資料 → 予算 → 回数の確保 → 鍵を読んで client を作る → Claude → 使用量を積む → 返事の検査。
 // 前の往復（history）は Claude に問いの意味を読む材料として渡すだけ。問いが範囲外の語に当たる前の往復は渡さず、答えだけが当たるときは答えを空にする（新しい問いが当たれば決まった文）。数字の検査に使うのは、相談者が書いた問い（新しい問いと前の問いを文ごとに。前の答えは入れない）。
 // 発生の件数の問いは、Claude が選んだ数え方（stats）でプログラムが過去の事例を数え、表を付ける。件数だけの問いは、対策の答えなしで表だけを返す。
-// 農場の条件（farm）は、本人が登録して「この飼い方で相談する」を選んだ飼育目的と飼い方と、画面が鶏舎の合計から作った羽数の幅（scale。正確な羽数は受けない）だけ。
-// 形を検査して Claude にカードを選ぶ材料として渡し、
+// 農場の条件（farm）は、本人が登録して「登録した農場の情報で相談する」を選んだ飼育目的と飼い方、市町村コード、近くの発生の状況（画面が数えた約 60 km 以内の
+// 今季の件数と区域の可能性）、鶏舎ごとの鳥の種類と飼養羽数（2026-11-08 豪さんの決定）。形を厳しく検査し（shared の parseFarmCondition）、
+// 町の名前は地理の索引から引いて足す（画面が送った名前は受けない。索引にないコードは invalid-argument）。Claude にカードを選ぶ材料として渡し、
 // 返事に使った条件を付ける（画面が答えの近くに出す）。条件がなければ今までどおり（Claude にも返事にも farm の項目を作らない）。
-// 入力の問いの文はログにも、エラーの文にも出さない。農場の名前、位置、記録は読まない（条件も Firestore から読まず、送られてきたものだけ）。
+// 入力の問いの文はログにも、エラーの文にも出さない。農場の名前、マス目、記録は読まない（条件も Firestore から読まず、送られてきたものだけ）。
 // このファイルは db を受け取らない。予算と回数の読み書きは deps の関数（index.ts が usage/ を差し込む）。
 import type Anthropic from "@anthropic-ai/sdk";
 import { logger } from "firebase-functions";
@@ -18,10 +19,11 @@ import type { TokenUsage, UsageMonth } from "@hpai/shared/budget";
 import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { computeStats, parseStatsQuery } from "@hpai/shared/consult/stats";
 import { jstDateOf } from "@hpai/shared/dates";
+import { JUDGE_UID } from "@hpai/shared/judge";
 import { findTopic } from "@hpai/shared/consult/topics";
-import { SCALE_LABEL, parseFarmCondition } from "@hpai/shared/consult/farmCondition";
+import { farmNumberTexts, parseFarmCondition, townNameOf, type MuniNameIndex } from "@hpai/shared/consult/farmCondition";
 import { CONSULT_DAILY_LIMIT, CONSULT_HISTORY_ANSWER_MAX, CONSULT_MAX_HISTORY, CONSULT_MAX_QUESTION } from "@hpai/shared/consult/types";
-import type { ConsultAnswerCard, ConsultAskResponse, ConsultCard, ConsultFarmCondition, ConsultNotice, ConsultSource, ConsultTurn } from "@hpai/shared/consult/types";
+import type { ConsultAnswerCard, ConsultAskResponse, ConsultCard, ConsultFarmCondition, ConsultFarmUsed, ConsultNotice, ConsultSource, ConsultTurn } from "@hpai/shared/consult/types";
 import { OUT_OF_SCOPE_TEXT, validateAsk, validateFollowUps } from "@hpai/shared/consult/validate";
 import type { RuntimeSettings } from "@hpai/shared/types";
 import type { ReadAttempt } from "../read/claude";
@@ -30,8 +32,8 @@ import type { ConsultData } from "./data";
 
 /** 会員 1 人が 1 日（日本時間）に頼める回数（話題と文の合計）。画面の文と同じ数（shared が正）。 */
 export { CONSULT_DAILY_LIMIT };
-/** 審査員の入口の、全体の 1 日の回数。 */
-export const CONSULT_JUDGE_DAILY_LIMIT = 30;
+/** 審査員の会員（JUDGE_UID。審査員は全員この会員）の、全体の 1 日の回数。 */
+export const CONSULT_JUDGE_DAILY_LIMIT = 60;
 /** 聞く文の長さの上限（文字の数）。shared が正。 */
 export { CONSULT_MAX_QUESTION };
 
@@ -56,24 +58,26 @@ export interface ConsultDeps {
    * 確認と加算は 1 つの取引（原子的）で行う実装を差し込む。確保した分は Claude が失敗しても戻さない。
    */
   reserve(uid: string, now: Date): Promise<boolean>;
-  /** 審査員の入口の、全体の 1 日の分を 1 回確保する。reserve と同じ約束 */
+  /** 審査員の会員の、全体の 1 日の分を 1 回確保する。reserve と同じ約束 */
   reserveJudge(now: Date): Promise<boolean>;
   /** 同梱のカード。読めなければ throw */
   data(): Promise<ConsultData>;
+  /** 同梱の地理の索引（市町村コード → 名前と県）。条件に市町村コードがあるときだけ呼ぶ。読めなければ throw */
+  muniIndex(): Promise<MuniNameIndex>;
 }
 
-type Who = { judge: true } | { judge: false; uid: string };
+/** judge は審査員の会員（uid が JUDGE_UID）。審査員は全員この 1 つの会員なので、回数は全体で数える */
+type Who = { judge: boolean; uid: string };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** judge: true（真偽値の true だけ）ならログインなし。それ以外は会員だけ。 */
-function authorize(caller: ConsultCaller | null, data: unknown): Who {
-  if (isRecord(data) && data["judge"] === true) return { judge: true };
+/** 会員だけ。ログインなしの入口（以前の judge: true）はない。送られてきた judge の項目は見ない。 */
+function authorize(caller: ConsultCaller | null): Who {
   if (!caller) throw new HttpsError("unauthenticated", "ログインしてください");
   if (!caller.member) throw new HttpsError("permission-denied", "会員だけが使えます");
-  return { judge: false, uid: caller.uid };
+  return { judge: caller.uid === JUDGE_UID, uid: caller.uid };
 }
 
 /** question と topicId はどちらか一方だけ。話題は決まった聞く文に置き換える。エラーの文に入力を入れない。 */
@@ -116,13 +120,31 @@ function parseHistory(data: unknown): ConsultTurn[] {
 }
 
 /**
- * 農場の条件。項目がない／null は条件なし（null）。列挙の外の値（羽数の幅 scale も列挙だけ）、型の違い、余計な項目（正確な羽数など）、
- * 空の条件、幅だけの条件は invalid-argument（エラーの文に入力を入れない）。
+ * 農場の条件。項目がない／null は条件なし（null）。列挙の外の値、型の違い、知らない項目（農場名、マス目、町の名前、羽数の幅など）、
+ * 空の条件、飼育目的も飼い方もない条件、範囲の外の件数・羽数・鶏舎の数は invalid-argument（エラーの文に入力を入れない）。
  */
 function parseFarm(data: unknown): ConsultFarmCondition | null {
   const r = parseFarmCondition(isRecord(data) ? data["farm"] : undefined);
   if (!r.ok) throw new HttpsError("invalid-argument", "飼い方の条件の形が違います");
   return r.value;
+}
+
+/**
+ * 市町村コードから町の名前を索引で引いて足す。索引にないコードは invalid-argument。索引が読めないときは unavailable（資料と同じ。回数を使う前）。
+ * 市町村コードのない条件はそのまま。
+ */
+async function withTown(deps: ConsultDeps, farm: ConsultFarmCondition | null): Promise<ConsultFarmUsed | null> {
+  if (!farm?.muniCode) return farm;
+  let index: MuniNameIndex;
+  try {
+    index = await deps.muniIndex();
+  } catch (e) {
+    logger.error("対策の相談: 地理の索引を読めませんでした", { error: e instanceof Error ? e.name : "unknown" });
+    throw new HttpsError("unavailable", "資料を読めませんでした。しばらくしてからもう一度お試しください");
+  }
+  const town = townNameOf(index, farm.muniCode);
+  if (town === null) throw new HttpsError("invalid-argument", "飼い方の条件の形が違います");
+  return { ...farm, town };
 }
 
 async function loadData(deps: ConsultDeps): Promise<ConsultData> {
@@ -181,14 +203,13 @@ function answerCardOf(card: ConsultCard | undefined, sources: ReadonlyMap<string
   return [{ ...card, source: { id: s.id, title: s.title, publisher: s.publisher, url: s.url, domestic: s.domestic, license: s.license } }];
 }
 
-/** `{question | topicId, judge?, history?, farm?}` → おすすめの文と引いたカード。会員だけ（judge: true のときはログインなし）。 */
+/** `{question | topicId, history?, farm?}` → おすすめの文と引いたカード。会員だけ（審査員の会員は、回数を全体で数える）。 */
 export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller | null, data: unknown): Promise<ConsultAskResponse> {
-  const who = authorize(caller, data);
+  const who = authorize(caller);
   const question = parseAsk(data);
   const history = parseHistory(data);
-  // 審査員の入口（judge: true）には農場がない。条件が送られてきても捨てる（Claude に渡さず、返事にも付けない）。
-  // 拒むと審査員の画面が壊れるおそれがあるので、検査もしない
-  const farm = who.judge ? null : parseFarm(data);
+  // 審査員の会員も見本の農場を持つので、条件はほかの会員と同じに扱う。町の名前の引き当ても入力の検査のうち（範囲外の問いより先）
+  const farm = await withTown(deps, parseFarm(data));
   // 条件を付けた相談で、Claude に渡そうとしたときだけ、返事に使った条件を付ける（付けない相談の返事の形は今までどおり）
   const withFarm = (r: ConsultAskResponse): ConsultAskResponse => (farm ? { ...r, farm } : r);
   const unavailable = (w: Who, kind: string): ConsultAskResponse => {
@@ -233,9 +254,9 @@ export async function handleConsultAsk(deps: ConsultDeps, caller: ConsultCaller 
   if (!attempt.ok && attempt.reason !== "refusal") return unavailable(who, `claude:${attempt.reason}`);
 
   // 第 3 引数のカードと第 5 引数の相談の文は数字の検査に使う（渡さないと、数字を含む答えが全部落ちる）。5 枚を超えたら先頭の 5 枚だけ使う
-  // 羽数の幅（「3,000 羽以上」など）も Claude に渡した文なので、答えが条件を言い直したときに落とさないよう加える
-  const scaleText = farm?.scale ? [SCALE_LABEL[farm.scale]] : [];
-  const result = validateAsk(attempt.ok ? attempt.value : null, allowed.map((c) => c.id), allowed, CONSULT_MAX_CARDS, [...history.map((t) => t.question), question, ...scaleText]);
+  // 条件で渡した数（鶏舎の番号は渡した棟数まで、羽数とその合計、近くの発生の件数と約 60 km）だけを加える。答えが条件を言い直しても落とさない
+  const farmText = farm ? farmNumberTexts(farm) : [];
+  const result = validateAsk(attempt.ok ? attempt.value : null, allowed.map((c) => c.id), allowed, CONSULT_MAX_CARDS, [...history.map((t) => t.question), question, ...farmText]);
   // 発生の件数の問い: Claude は数え方だけを選ぶ。件数と表の文はプログラムが過去の事例から組む。Claude が範囲外とした問いでは数えない
   const statsQuery = attempt.ok && attempt.value.outOfScope !== true ? parseStatsQuery(attempt.value.stats) : null;
   const stats = statsQuery ? computeStats(pastCases, statsQuery) : null;

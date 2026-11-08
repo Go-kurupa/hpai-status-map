@@ -1,5 +1,6 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { JUDGE_FARM_ID } from "@hpai/shared/judge";
 import type { Farm } from "@hpai/shared/types";
 
 /**
@@ -7,6 +8,7 @@ import type { Farm } from "@hpai/shared/types";
  * 消すもの: 農場の文書とサブコレクション（鶏舎、死亡数、点検と消毒）、その農場の sentNotices と招待。
  * 消えないもの: Authentication のアカウント、送ったメールの控え（Gmail）、他の農場、公開の事例、caseDrafts。
  * 同じ農場の会員なら、だれでも消せる（プライバシーの説明にも書いてある）。農場の名前を入れて確かめる。
+ * 審査員用の見本の農場（JUDGE_FARM_ID）は消せない（審査員は全員で 1 つの農場を使う。画面を通さず呼ばれても止める）。
  */
 export async function handleDeleteFarmData(
   db: Firestore,
@@ -18,6 +20,7 @@ export async function handleDeleteFarmData(
   if (typeof farmId !== "string" || farmId === "" || farmId.length > 128 || farmId.includes("/")) {
     throw new HttpsError("invalid-argument", "農場の指定が違います");
   }
+  if (farmId === JUDGE_FARM_ID) throw new HttpsError("failed-precondition", "審査員用の見本の農場は消せません");
   if (typeof confirmName !== "string") throw new HttpsError("invalid-argument", "農場の名前を入れてください");
 
   const farmRef = db.collection("farms").doc(farmId);

@@ -1,7 +1,10 @@
 // M-04: 農場の全データの削除。模擬環境（demo-hpai）で、消えるものと残るものを確かめる。
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../src/admin";
+import { getAuth } from "firebase-admin/auth";
+import { JUDGE_FARM_ID, JUDGE_FARM_NAME, JUDGE_UID } from "@hpai/shared/judge";
 import { handleDeleteFarmData } from "../../src/farm/deleteFarmData";
+import { ensureJudgeFarm } from "../../src/farm/judgeFarm";
 import { farmFixture, houseFixture } from "../../../shared/test/helpers/mFixtures";
 
 const PROJECT = "demo-hpai";
@@ -111,5 +114,15 @@ describe("handleDeleteFarmData", () => {
     }
     expect(await codeOf(handleDeleteFarmData(db, "uA", { farmId: "nope", confirmName: "x" }))).toBe("not-found");
     expect(await exists("farms/farmA")).toBe(true);
+  });
+
+  it("審査員用の見本の農場は、審査員の会員が名前を合わせても消せない（failed-precondition）", async () => {
+    if (!process.env.FIREBASE_AUTH_EMULATOR_HOST) throw new Error("Auth の模擬環境が要ります");
+    await ensureJudgeFarm({ db, auth: getAuth(), now: () => new Date("2026-11-08T10:00:00+09:00") });
+    const err = await handleDeleteFarmData(db, JUDGE_UID, { farmId: JUDGE_FARM_ID, confirmName: JUDGE_FARM_NAME }).catch((e: unknown) => e);
+    expect((err as { code?: string }).code).toBe("failed-precondition");
+    expect((err as Error).message).toBe("審査員用の見本の農場は消せません");
+    expect(await exists(`farms/${JUDGE_FARM_ID}`)).toBe(true);
+    expect(await exists(`farms/${JUDGE_FARM_ID}/houses/house-1`)).toBe(true);
   });
 });

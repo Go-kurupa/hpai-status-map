@@ -11,6 +11,17 @@ export async function redeemInviteCall(code: string): Promise<{ farmId: string |
   return res.data;
 }
 
+/**
+ * 審査員用のリンクの秘密の文字列を渡し、審査員の会員でログインするためのトークンを受け取る（2026-11-08）。
+ * 文字列が合わなければ permission-denied の例外（理由は画面に出さない）
+ */
+export async function judgeSignInCall(token: string): Promise<{ customToken: string }> {
+  const { functions } = await getFirebase();
+  // 最初のログインは審査員の農場の用意があるので、関数の時間の上限（120 秒）より少し長く待つ
+  const res = await httpsCallable<{ token: string }, { customToken: string }>(functions, "judgeSignIn", { timeout: 130_000 })({ token });
+  return res.data;
+}
+
 /** 農場の全データを消す（その農場の会員だけ。取り消せない）。農場の名前が合わなければ失敗する */
 export async function deleteFarmDataCall(farmId: string, confirmName: string): Promise<void> {
   const { functions } = await getFirebase();
@@ -40,22 +51,21 @@ export async function draftNeighborExplainerCall(measures: string, audience: Nei
 }
 
 /**
- * AIに対策を相談で聞く。話題か文のどちらか一方を渡す。judge が true なら、ログインなしの審査員の入口（全体の回数に上限）。
+ * AIに対策を相談で聞く（会員だけ）。話題か文のどちらか一方を渡す。
  * 渡るのは本人が入れた問いと、続けて聞くときの同じ相談の前の往復（問いと AI の答え、直前の数往復）だけ。農場の名前、位置、記録は送らない。
  */
 export async function consultAskCall(
   input: { question: string } | { topicId: string },
-  judge: boolean,
   history: ConsultTurn[] = [],
-  // 本人が「この飼い方で相談する」を選んだときだけ渡す、登録した飼育目的と飼い方。なければ送らない
+  // 本人が「登録した農場の情報で相談する」を選んだときだけ渡す条件（飼育目的・飼い方・市町村コード・近くの発生・鶏舎ごとの羽数）。なければ送らない
   farm: ConsultFarmCondition | null = null,
 ): Promise<ConsultAskResponse> {
   const { functions } = await getFirebase();
-  const res = await httpsCallable<{ question?: string; topicId?: string; judge?: boolean; history?: ConsultTurn[]; farm?: ConsultFarmCondition }, ConsultAskResponse>(
+  const res = await httpsCallable<{ question?: string; topicId?: string; history?: ConsultTurn[]; farm?: ConsultFarmCondition }, ConsultAskResponse>(
     functions,
     "consultAsk",
     // 既定は 70 秒。サーバーは Claude を待つので、返しまで待つ（draftNeighborExplainerCall と同じ）
     { timeout: 130_000 },
-  )({ ...input, ...(judge ? { judge: true } : {}), ...(history.length > 0 ? { history } : {}), ...(farm ? { farm } : {}) });
+  )({ ...input, ...(history.length > 0 ? { history } : {}), ...(farm ? { farm } : {}) });
   return res.data;
 }

@@ -4,7 +4,7 @@ import path from "node:path";
 import { findForbiddenPhrases } from "@hpai/shared/wording";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import PrivacyPage, { PrivacyContent } from "./PrivacyPage";
+import PrivacyPage, { PrivacyContent, reviewedOnText } from "./PrivacyPage";
 import { PRIVACY_NOTICE, PRIVACY_REVIEWED_ON } from "./privacyNotice";
 
 afterEach(() => {
@@ -130,7 +130,7 @@ describe("PRIVACY_NOTICE（文の正）", () => {
 
   it("相談の画面で書いた文（続けて聞くときは直前のやりとりも）を Claude に送ること、保存もログへの記録もしないことが、プライバシーの説明と画面に出る", () => {
     const line =
-      "「AIに対策を相談」で書いた文は、答えを作るために Claude（Anthropic）に渡します。続けて聞くときは、同じ相談の直前のやりとり（問いと答え、3 往復まで）も渡します。農場名、位置、記録は渡しません。入力した文は、このサイトのサーバーには保存せず、ログにも残しません。";
+      "「AIに対策を相談」で書いた文は、答えを作るために Claude（Anthropic）に渡します。続けて聞くときは、同じ相談の直前のやりとり（問いと答え、3 往復まで）も渡します。農場の名前と記録は渡しません。農場の情報は、次の段落のとおり、本人が選んだときだけ渡します。入力した文は、このサイトのサーバーには保存せず、ログにも残しません。";
     expect(PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs).toContain(line);
     renderPage();
     expect(pageText()).toContain(line);
@@ -144,12 +144,12 @@ describe("PRIVACY_NOTICE（文の正）", () => {
     expect(pageText()).toContain(line);
   });
 
-  it("登録した飼い方と羽数の幅を相談に渡すのは本人が選んだときだけで、正確な羽数と鶏舎の造りは渡さないことが、保存場所と目的と画面に出る", () => {
+  it("登録した農場の情報（町の名前・近くの発生・鶏舎ごとの羽数・飼育目的・飼い方）を相談に渡すのは本人が選んだときだけで、マス目・緯度経度・農場の名前・鶏舎の名前・記録は渡さないことが、保存場所と目的と画面に出る", () => {
     const line =
-      "「AIに対策を相談」で『この飼い方で相談する』を選んだときだけ、農場の設定に登録した採卵か肉用かと飼い方と、羽数の幅（例: 採卵鶏・平飼い・1,000〜2,999 羽）も Claude に渡します。羽数は、空舎を除く鶏舎の飼養羽数の合計から作った幅（1,000 羽未満、1,000〜2,999 羽、3,000 羽以上）だけを送り、正確な羽数は送りません。鶏舎の造りは渡しません。今回使った条件は、答えの近くに出し、この端末のこれまでの相談にも残します。";
+      "「AIに対策を相談」で『登録した農場の情報で相談する』を選んだときだけ、次の情報も Claude に渡します。農場の設定に登録した採卵か肉用かと飼い方、農場のある市町村の名前（例: 岡山県西粟倉村）、近くの発生の状況（このサイトが数えた約 60 km 以内の今季の発生の件数と、区域に入っている可能性があるか）、鶏舎ごとの鳥の種類と飼養羽数と空舎かどうか（鶏舎は「鶏舎 1」のような番号で渡し、名前は渡しません）。約 1km のマス目、緯度経度、農場の名前、鶏舎の名前、鶏舎の造り、死亡数や点検などの記録は渡しません。渡した条件は、このサイトのサーバーには保存せず、ログにも残しません。今回使った条件は、答えの近くに出し、この端末のこれまでの相談にも残します。";
     expect(PRIVACY_NOTICE.find((s) => s.heading === "保存場所")!.paragraphs).toContain(line);
     const purpose =
-      "採卵か肉用かと飼い方（ケージ飼いか平飼いか）と、飼養羽数の合計から作った羽数の幅は、「AIに対策を相談」で本人が『この飼い方で相談する』を選んだときだけ、答えに使う資料を選ぶ条件にも使います。";
+      "採卵か肉用か、飼い方（ケージ飼いか平飼いか）、市町村、鶏舎ごとの鳥の種類と飼養羽数は、「AIに対策を相談」で本人が『登録した農場の情報で相談する』を選んだときだけ、答えに使う資料を選ぶ条件にも使います。そのときの近くの発生の件数と区域に入っている可能性は、約 1km のマス目からこの端末の画面で数え、マス目そのものは渡しません。";
     const purposes = PRIVACY_NOTICE.find((s) => s.heading === "目的")!.paragraphs;
     expect(purposes).toContain(purpose);
     // 「ここに書いた目的のほかには使いません」より前に書く
@@ -302,7 +302,8 @@ describe("確認日", () => {
 
   it("値があれば確認日を出し、『確認中です』は出さない", () => {
     renderPage(<PrivacyContent reviewedOn="2026-11-07" />);
-    expect(pageText()).toContain("確認日 2026-11-07");
+    expect(pageText()).toContain("確認日 2026年11月7日");
+    expect(pageText()).not.toContain("2026-11-07");
     expect(pageText()).not.toContain("文面は確認中です");
     expect(pageText()).not.toContain("確認日はまだありません");
   });
@@ -313,7 +314,8 @@ describe("確認日", () => {
       expect(pageText()).toContain("文面は確認中です");
       expect(pageText()).toContain("確認日はまだありません");
     } else {
-      expect(pageText()).toContain(`確認日 ${PRIVACY_REVIEWED_ON}`);
+      expect(pageText()).toContain(`確認日 ${reviewedOnText(PRIVACY_REVIEWED_ON)}`);
+      expect(reviewedOnText("2026-11-07")).toBe("2026年11月7日");
     }
   });
 });

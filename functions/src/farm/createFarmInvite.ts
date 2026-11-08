@@ -1,6 +1,7 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { toJstIso } from "@hpai/shared/dates";
+import { JUDGE_FARM_ID } from "@hpai/shared/judge";
 import type { Farm, Invite } from "@hpai/shared/types";
 import { FARM_INVITE_TTL_MS, generateInviteCode, hashInviteCode } from "./inviteCode";
 
@@ -21,6 +22,7 @@ export interface Caller {
  * 農場に会員を足す招待リンクを作る。7 日で切れ、1 回だけ使える。
  * claim の member に加えて、その農場の memberUids に入っている人だけが作れる（他の農場へ自分を足せないように）。
  * 平文は返り値だけで、保存は指紋だけ。
+ * 審査員用の見本の農場（JUDGE_FARM_ID）には招待を作れない（審査員の会員は 1 つで、ほかの人を足さない）。
  */
 export async function handleCreateFarmInvite(
   deps: CreateFarmInviteDeps,
@@ -32,6 +34,7 @@ export async function handleCreateFarmInvite(
   if (typeof farmId !== "string" || farmId === "" || farmId.length > 128 || farmId.includes("/")) {
     throw new HttpsError("invalid-argument", "農場の指定が違います");
   }
+  if (farmId === JUDGE_FARM_ID) throw new HttpsError("failed-precondition", "審査員用の見本の農場には招待を作れません");
 
   const farmSnap = await deps.db.collection("farms").doc(farmId).get();
   if (!farmSnap.exists) throw new HttpsError("not-found", "農場が見つかりません");

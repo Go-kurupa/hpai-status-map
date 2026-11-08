@@ -1,4 +1,5 @@
 import type { GeoStore, MuniEntry } from "@hpai/shared/geo";
+import { JUDGE_FARM_ID } from "@hpai/shared/judge";
 import { PREFS } from "@hpai/shared/pref";
 import type { Farm } from "@hpai/shared/types";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -105,7 +106,7 @@ function RegisterStatus({
         href={farm ? "#houses" : undefined}
       />
       <StatTile
-        label="家保の連絡先"
+        label="家畜保健衛生所の連絡先"
         value={ok(farm && farm.kahoContact.trim() !== "" ? "登録済み" : "未登録")}
         href={farm ? "#kaho" : undefined}
       />
@@ -287,6 +288,8 @@ function FarmSettings() {
   }
 
   const farm = load.farm;
+  // 審査員用の見本の農場（2026-11-08）。会員の追加と全データの削除の節を出さず、1 行で断る（関数の側でも止めている）
+  const judgeFarm = farm?.id === JUDGE_FARM_ID;
   const registered = farm && geo ? geo.index[farm.muniCode] : undefined;
   // 町の一覧を読めなかったとき（一覧に町がないときも）は、5 桁の市町村コードを出さず「読み込めませんでした」と言う
   const pointState: "ok" | "loading" | "failed" = registered ? "ok" : geo || geoFailed ? "failed" : "loading";
@@ -486,25 +489,29 @@ function FarmSettings() {
             />
           </section>
 
-          <section>
-            <h2>会員を追加する</h2>
-            <p>同じ農場の会員を追加するには、招待リンクを作って送ります。</p>
-            <Button onClick={() => void makeInvite()} disabled={inviting}>
-              招待リンクを作る
-            </Button>
-            {inviteUrl ? (
-              <div className="settings-form">
-                <label htmlFor="invite-url">招待リンク</label>
-                <input id="invite-url" className="invite-url" type="text" readOnly value={inviteUrl} onFocus={(e) => e.currentTarget.select()} />
-                <p className="settings-note">このリンクは 7 日で切れ、1 回だけ使えます。送る相手を確かめてください。</p>
-              </div>
-            ) : null}
-            {inviteFailed ? (
-              <p className="settings-error" role="alert">
-                招待リンクを作れませんでした。もう一度試してください。
-              </p>
-            ) : null}
-          </section>
+          {judgeFarm ? (
+            <p className="settings-note">審査員用の見本の農場です。記録は作り物です。削除と招待は止めています。</p>
+          ) : (
+            <section>
+              <h2>会員を追加する</h2>
+              <p>同じ農場の会員を追加するには、招待リンクを作って送ります。</p>
+              <Button onClick={() => void makeInvite()} disabled={inviting}>
+                招待リンクを作る
+              </Button>
+              {inviteUrl ? (
+                <div className="settings-form">
+                  <label htmlFor="invite-url">招待リンク</label>
+                  <input id="invite-url" className="invite-url" type="text" readOnly value={inviteUrl} onFocus={(e) => e.currentTarget.select()} />
+                  <p className="settings-note">このリンクは 7 日で切れ、1 回だけ使えます。送る相手を確かめてください。</p>
+                </div>
+              ) : null}
+              {inviteFailed ? (
+                <p className="settings-error" role="alert">
+                  招待リンクを作れませんでした。もう一度試してください。
+                </p>
+              ) : null}
+            </section>
+          )}
         </>
       ) : (
         pointSection
@@ -525,8 +532,8 @@ function FarmSettings() {
         </ul>
       </nav>
 
-      {/* 取り消せないので一番下に畳んで置く。見本の農場には出さない。見出しは置かず、畳んだ欄の summary が節の見出しの役 */}
-      {farm && store.mode !== "sample" ? (
+      {/* 取り消せないので一番下に畳んで置く。見本の口（再現）と審査員用の見本の農場には出さない。見出しは置かず、畳んだ欄の summary が節の見出しの役 */}
+      {farm && store.mode !== "sample" && !judgeFarm ? (
         <section id="delete" ref={deleteRef} className="settings-delete-section">
           <Fold summary="農場の全データを削除する">
             <DeleteFarmForm farm={farm} onDone={() => setDeleted(true)} />

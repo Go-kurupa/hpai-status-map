@@ -301,11 +301,11 @@ describe("舞台裏の画面（実物の検査の一覧と、リンク）", () =
     expect(t).not.toMatch(/[a-z]+_[a-z_]+/);
     expect(t).not.toMatch(/primaryDate|radiiKm|stageEvents|row\d/);
   });
-  it("末尾に見本の農場で試すリンクがあり、リンクは .tap-link", async () => {
+  it("末尾のリンクは .tap-link。見本の農場（/sample）へのリンクはない（2026-11-08 から提出フォームでだけ案内する）", async () => {
     await show();
-    const sample = screen.getByRole("link", { name: "見本の農場で試す" });
-    expect(sample.getAttribute("href")).toBe("/sample");
-    for (const l of [sample, screen.getByRole("link", { name: "再現に戻る" }), screen.getByRole("link", { name: /試験の結果を見る/ })]) expect(l.classList.contains("tap-link")).toBe(true);
+    expect(screen.queryByRole("link", { name: "見本の農場で試す" })).toBeNull();
+    expect(document.querySelector('a[href^="/sample"]')).toBeNull();
+    for (const l of [screen.getByRole("link", { name: "再現に戻る" }), screen.getByRole("link", { name: /試験の結果を見る/ })]) expect(l.classList.contains("tap-link")).toBe(true);
   });
 });
 

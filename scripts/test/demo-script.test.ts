@@ -96,12 +96,26 @@ describe("docs/demo-script.md", () => {
     for (const w of ["姫路市", "約 28 km", "津山市", "約 16 km", "輪は距離の目安で、発表の区域ではありません", "県の連絡が正です"]) expect(r[3], w).toContain(w);
   });
 
+  // 見本の農場（/sample）は 2026-11-08 に、審査員用の 2 本目の URL として戻した。サイトの中の入口は再現の中の『見本の農場で試す』だけ
   it("場面 4 は段階の切り替えの基準を農場が決めると語り、4 事例と見本の農場を通す", () => {
     const r = scenes[3]!;
     expect(r[1]).toContain("/replay");
     expect(r[1]).toContain("/sample/todo");
+    expect(r[2]).toContain("『見本の農場で試す』");
+    expect(r[2]).not.toContain("ページの下のリンク");
     expect(r[2]).toContain("12 月の 4 事例");
     for (const w of ["消毒", "働く人への注意喚起", "車両の消毒", "コロナ", "作品が決めず、農場が決めます", "下書き"]) expect(r[3], w).toContain(w);
+  });
+
+  // 2026-11-08: 場面 5 は審査員用のリンクで入る見本の農場の記録。リンクの文字列は台本に書かず、映さない
+  it("場面 5 は審査員用のリンクで入り、記録は作り物だと語る。リンクの文字列を書かず、映さないものに入れる", () => {
+    const r = scenes[4]!;
+    expect(r[1]).toContain("`/judge#…`");
+    expect(r[1]).toContain("/record/deaths");
+    expect(r[1]).not.toContain("/sample");
+    expect(r[3]).toContain("鶏舎と記録は作り物です");
+    expect(doc).not.toMatch(/\/judge#[^…]/u);
+    expect(doc.slice(doc.indexOf("映さないもの"))).toContain("審査員用のリンクの # の後ろの文字列");
   });
 
   it("場面 7 に毎朝の全国まとめ（定型と総括 1 文。合わなければ定型だけ）がある", () => {

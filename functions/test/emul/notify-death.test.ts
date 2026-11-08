@@ -1,8 +1,12 @@
 // M-13: 死亡率の基準に当たったとき、同じ農場の会員へすぐ知らせる。模擬環境（demo-hpai）。本物のメールは送らない。
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { addDays } from "@hpai/shared/dates";
+import { JUDGE_FARM_ID } from "@hpai/shared/judge";
 import type { DeathRecord } from "@hpai/shared/types";
+import { getAuth } from "firebase-admin/auth";
 import { db } from "../../src/admin";
+import { ensureJudgeFarm } from "../../src/farm/judgeFarm";
+import { makeEmailOf } from "../../src/notify/liveDeps";
 import { handleDeathWrite } from "../../src/notify/onDeathWritten";
 import { runMorningDigest } from "../../src/notify/digest";
 import { settleHitSlot } from "../../src/notify/hitSlots";
@@ -461,6 +465,26 @@ describe("handleDeathWrite", () => {
     expect(capped.state).toBe("capped");
     expect(capped.cappedAlert).toBeUndefined();
     expect(mail.sent).toHaveLength(3);
+  });
+
+  it("審査員用の見本の農場では、基準に当たる死亡数を記録してもメールは 0 通（審査員の会員はメールアドレスを持たない）", async () => {
+    if (!process.env.FIREBASE_AUTH_EMULATOR_HOST) throw new Error("Auth の模擬環境が要ります");
+    await ensureJudgeFarm({ db, auth: getAuth(), now: () => NOW });
+    // 本番と同じ宛先の引き方（Auth のメールアドレス）
+    const { deps, mail } = makeDeps({ emailOf: makeEmailOf((uid) => getAuth().getUser(uid)) });
+    const r = rec(TODAY, "house-1", 60, { flockSizeAt: 1200 });
+    await db.doc(`farms/${JUDGE_FARM_ID}/deaths/${idOf(r)}`).set(r);
+    await handleDeathWrite(deps, JUDGE_FARM_ID, idOf(r), r);
+    expect(mail.calls).toEqual([]);
+    expect(mail.sent).toEqual([]);
+    // 審査員の農場は知らせの記録も作らない（failed の記録を毎時の送り直しが拾い続けないように）。運営者の箱にも出ない
+    const hits = Object.values(await sentNoticeDocs()).filter((d) => d.farmId === JUDGE_FARM_ID);
+    expect(hits).toEqual([]);
+    expect(await reviewQueueIds()).toEqual([]);
+    // 毎時の送り直しでも届かず、箱にも出ない
+    await runRetryFailed(deps, fakeGeo());
+    expect(mail.calls).toEqual([]);
+    expect(await reviewQueueIds()).toEqual([]);
   });
 
   it("宛先がなくて送れなかった日も枠を返す（送れた知らせだけが枠を使う）", async () => {

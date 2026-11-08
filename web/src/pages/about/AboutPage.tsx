@@ -51,6 +51,7 @@ export default function AboutPage({ focus }: { focus?: AboutSection }) {
               <Link to={l.to} className="tap-link">
                 {l.label}
               </Link>
+              <p className="about-link-note">{l.note}</p>
             </li>
           ))}
         </ul>

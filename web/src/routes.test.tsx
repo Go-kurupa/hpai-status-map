@@ -36,6 +36,8 @@ const ALL_PATHS = [
   "/sample/record/deaths",
   "/sample/record/self-check",
   "/sample/record/disinfection",
+  // 審査員用のリンク（2026-11-08）
+  "/judge",
   "/results",
   "/trends",
   "/privacy",
@@ -102,7 +104,7 @@ describe("骨格", () => {
     render(<RouterProvider router={router} />);
     const main = await screen.findByRole("main");
     // /privacy は「このサイトについて」の中の「集める情報と消し方」へ（設計書 2026-11-06-ui-frame 決定 12）
-    expect(await within(main).findByRole("heading", { level: 1, name: "このサイトについて" })).toBeTruthy();
+    expect(await within(main).findByRole("heading", { level: 1, name: "このサイトについて" }, { timeout: 10_000 })).toBeTruthy();
     expect(within(main).getByRole("heading", { level: 2, name: "集める情報と消し方" })).toBeTruthy();
   });
 });

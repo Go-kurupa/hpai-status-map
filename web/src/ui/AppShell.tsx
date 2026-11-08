@@ -17,7 +17,8 @@ function under(path: string, base: string): boolean {
  * 道筋と会員の印から、今の画面の帯の種類と、メニューの項目・選択中を決める（設計書 2026-11-06-ui-frame 3 章）。
  * 見本の中は「養鶏事業者の方」を見本の画面へ向け、設定を出さない（今までの見本の決まり）。
  * 見本の外は、記録と設定を会員の印があるときだけ出し、ないときは会員のログインを出す（決定 15）。
- * 審査員向けの見本（記録を試す、去年の再現）はメニューに並べず、「このサイトについて」から開く（決定 16）。
+ * 去年の再現はメニューに並べず、「このサイトについて」から開く（決定 16）。見本の農場（記録を試す）は、メニューにもサイトの案内にも並べず、
+ * 再現の中の『見本の農場で試す』と提出フォームの審査員向けの欄から開く（2026-11-08）。
  */
 export function shellContextOf(pathname: string, member = false): { mode: ShellMode; groups: MenuGroup[]; currentLabel: string | null } {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") || "/" : pathname;

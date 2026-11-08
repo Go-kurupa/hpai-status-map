@@ -1,3 +1,4 @@
+import { formatJaDate } from "@hpai/shared/jaDate";
 import type { IsoDate } from "@hpai/shared/types";
 import { Link } from "react-router";
 import "./privacy.css";
@@ -11,6 +12,11 @@ export function operatorName(): string | null {
   return name === "" ? null : name;
 }
 
+/** "2026-11-07" → "2026年11月7日"（月日は shared の formatJaDate） */
+export function reviewedOnText(d: IsoDate): string {
+  return `${d.slice(0, 4)}年${formatJaDate(d)}`;
+}
+
 function ReviewStatus({ reviewedOn }: { reviewedOn: IsoDate | null }) {
   if (reviewedOn === null) {
     return (
@@ -19,7 +25,7 @@ function ReviewStatus({ reviewedOn }: { reviewedOn: IsoDate | null }) {
       </p>
     );
   }
-  return <p className="privacy-review">確認日 {reviewedOn}</p>;
+  return <p className="privacy-review">確認日 {reviewedOnText(reviewedOn)}</p>;
 }
 
 /**

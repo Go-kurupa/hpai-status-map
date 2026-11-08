@@ -21,8 +21,8 @@ import { isOutOfScopeQuestion } from "@hpai/shared/consult/scope";
 import { parseStatsQuery, type StatsQuery } from "@hpai/shared/consult/stats";
 import { jstDateOf } from "@hpai/shared/dates";
 import { findTopic } from "@hpai/shared/consult/topics";
-import type { ConsultCard, ConsultTurn, ConsultFarmCondition } from "@hpai/shared/consult/types";
-import { SCALE_LABEL } from "@hpai/shared/consult/farmCondition";
+import type { ConsultCard, ConsultTurn, ConsultFarmCondition, ConsultFarmUsed } from "@hpai/shared/consult/types";
+import { farmNumberTexts, townNameOf, type MuniNameIndex } from "@hpai/shared/consult/farmCondition";
 import { OUT_OF_SCOPE_TEXT, validateAsk, validateFollowUps } from "@hpai/shared/consult/validate";
 import { buildAskRequest, CONSULT_MAX_CARDS, CONSULT_MODEL } from "../../functions/src/consult/claude";
 import { decodeMessage } from "../../functions/src/read/claude";
@@ -30,6 +30,7 @@ import { decodeMessage } from "../../functions/src/read/claude";
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const CASES_PATH = path.join(ROOT, "evals", "consult", "cases.json");
 const CARDS_PATH = path.join(ROOT, "data", "consult", "cards.json");
+const MUNI_INDEX_PATH = path.join(ROOT, "data", "geo", "muni-index.json");
 const RESULTS_DIR = path.join(ROOT, "evals", "consult");
 const RAW_DIR = path.join(ROOT, "private", "consult", "raw");
 const JPY_PER_USD = 155;
@@ -45,8 +46,23 @@ export interface EvalCase {
   first?: { question: string } | { topicId: string };
   expect: { outOfScope?: boolean; minCards?: number; outOfScopeOrCleanAnswer?: boolean; stats?: StatsQuery[] };
   scopeGuardHit: boolean;
-  /** 本人が「この飼い方で相談する」を選んだときの条件（F2。羽数の幅 scale は G）。無ければ条件なしの相談 */
+  /**
+   * 本人が「登録した農場の情報で相談する」を選んだときの条件（画面が送る形。2026-11-08 から町・近くの発生・鶏舎ごとの羽数）。無ければ条件なしの相談。
+   * 町の名前は、本番の関数と同じく地理の索引から引いて足す（usedFarmOf）
+   */
   farm?: ConsultFarmCondition;
+}
+
+let muniIndex: MuniNameIndex | null = null;
+
+/** 本番の関数（withTown）と同じく、市町村コードから町の名前を索引で引いて足す。索引にないコードは throw（問いの組の誤り） */
+export function usedFarmOf(c: Pick<EvalCase, "id" | "farm">, index?: MuniNameIndex): ConsultFarmUsed | null {
+  if (!c.farm) return null;
+  if (!c.farm.muniCode) return c.farm;
+  const idx = index ?? (muniIndex ??= JSON.parse(fs.readFileSync(MUNI_INDEX_PATH, "utf8")) as MuniNameIndex);
+  const town = townNameOf(idx, c.farm.muniCode);
+  if (town === null) throw new Error(`${c.id}: 市町村コード ${c.farm.muniCode} が索引にありません`);
+  return { ...c.farm, town };
 }
 
 export interface Outcome {
@@ -172,7 +188,7 @@ async function runDry(client: Anthropic, cases: EvalCase[], cards: ConsultCard[]
       continue;
     }
     called += c.kind === "follow_up" ? 2 : 1;
-    const p = buildAskRequest(cards, q, [], "", c.farm ?? null);
+    const p = buildAskRequest(cards, q, [], "", usedFarmOf(c));
     try {
       const n = (await client.messages.countTokens({ model: p.model, system: p.system, messages: p.messages })).input_tokens;
       tokens += n;
@@ -193,9 +209,10 @@ async function runOne(client: Anthropic, c: EvalCase, cards: ConsultCard[], stam
   if (isOutOfScopeQuestion(q)) return fixedResult(c, ["out_of_scope_question"]);
 
   const started = Date.now();
+  const farm = usedFarmOf(c);
   let message: Anthropic.Message;
   try {
-    message = await client.messages.create(buildAskRequest(cards, q, history, jstDateOf(new Date()), c.farm ?? null));
+    message = await client.messages.create(buildAskRequest(cards, q, history, jstDateOf(new Date()), farm));
   } catch (e) {
     const failures = [`api_error:${errorCode(e)}`];
     return { ...fixedResult(c, failures), called: true, passed: false, ms: Date.now() - started, reasons: failures };
@@ -210,14 +227,14 @@ async function runOne(client: Anthropic, c: EvalCase, cards: ConsultCard[], stam
   };
   const costUsd = estimateUsd(CONSULT_MODEL, usage);
   fs.mkdirSync(RAW_DIR, { recursive: true });
-  fs.writeFileSync(path.join(RAW_DIR, `consult-eval-${stamp}-${c.id}.json`), `${JSON.stringify({ id: c.id, question: q, history, farm: c.farm ?? null, message }, null, 2)}\n`, "utf8");
+  fs.writeFileSync(path.join(RAW_DIR, `consult-eval-${stamp}-${c.id}.json`), `${JSON.stringify({ id: c.id, question: q, history, farm, message }, null, 2)}\n`, "utf8");
 
   const attempt = decodeMessage(message, z.unknown());
   const raw = attempt.ok ? (attempt.value as { outOfScope?: unknown } | null) : null;
   const outOfScopeRaw = typeof raw?.outOfScope === "boolean" ? raw.outOfScope : null;
-  // 本番の関数と同じく、羽数の幅の語の数字も許す
-  const scaleText = c.farm?.scale ? [SCALE_LABEL[c.farm.scale]] : [];
-  const result = validateAsk(attempt.ok ? attempt.value : null, cards.map((x) => x.id), cards, CONSULT_MAX_CARDS, [...history.map((t) => t.question), q, ...scaleText]);
+  // 本番の関数と同じく、条件で渡した数（鶏舎の番号・羽数とその合計・近くの発生の件数と距離）だけを許す
+  const farmText = farm ? farmNumberTexts(farm) : [];
+  const result = validateAsk(attempt.ok ? attempt.value : null, cards.map((x) => x.id), cards, CONSULT_MAX_CARDS, [...history.map((t) => t.question), q, ...farmText]);
   const followUps = !result.outOfScope && attempt.ok ? validateFollowUps((attempt.value as { followUps?: unknown } | null)?.followUps) : [];
   const failures = [...(attempt.ok ? [] : [`claude:${attempt.reason}`]), ...result.failures];
   const rawValue = attempt.ok ? (attempt.value as { outOfScope?: unknown; stats?: unknown } | null) : null;

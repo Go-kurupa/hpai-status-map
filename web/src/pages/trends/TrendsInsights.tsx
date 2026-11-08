@@ -2,7 +2,6 @@
 // 要点 → 項目の帯（シーズンで切り替え）→ 押すと詳しい欄。PC では右の欄、スマホ（64rem 未満）では押した帯のすぐ下に出す。
 // 発生した農場の記録で、発生していない農場との比べではない。この断りは要点の枠から外さない。
 import { useState } from "react";
-import { Link } from "react-router";
 import { useNarrow } from "../map/useNarrow";
 import { isSuppressed, type InsightCounts, type InsightNoticing, type InsightSeason, type TrendInsights } from "./insightsTypes";
 import { TREND_LABELS, type TrendKey } from "./types";
@@ -186,7 +185,7 @@ function Noticing({ n }: { n: InsightNoticing }) {
         ))}
       </div>
       <p className="tr-note">
-        日々の死亡数を記録しておくと、普段との違いに気づきやすくなります。<Link to="/sample/record/deaths" className="tap-link">死亡数の記録を見本で試す</Link>
+        日々の死亡数を記録しておくと、普段との違いに気づきやすくなります。
       </p>
     </section>
   );

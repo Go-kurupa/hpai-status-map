@@ -1,5 +1,6 @@
 import { UNMEASURED_USAGE, type MeasuredUsage } from "@hpai/shared/replay";
 import type { EvalSummary } from "@hpai/shared/types";
+import { formatJaDate } from "@hpai/shared/jaDate";
 import { findForbiddenPhrases } from "@hpai/shared/wording";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -101,13 +102,12 @@ describe("/results（まだ何も測っていない）", () => {
     expect(calls.sort()).toEqual(["/evals/summary.json", "/replay/measured-usage.json"]);
   });
 
-  it("実測の節に円もドルも数字の結果もない。円は『見積もり（推定）』の節にだけある", async () => {
+  it("実測の節に円もドルも数字の結果もない。円は『計算』の節にだけあり、仮定した見積もりと書く", async () => {
     await show();
     expect(region(/読み取りの試験/).textContent).not.toMatch(/\d/);
     expect(region(/再現 1 回分/).textContent).not.toMatch(/円|ドル|\$/);
     const calc = region(/計算/);
-    expect(calc.textContent).toContain("見積もり（推定）");
-    expect(calc.textContent).toContain("実測ではありません");
+    expect(calc.textContent).toContain("円の額は、1 事例 12 文書と仮定した見積もりです");
     expect(calc.textContent).toContain("2,160 円"); // 24 事例
     expect(calc.textContent).toContain("7,560 円"); // 84 事例
     expect(calc.textContent).toContain("3,000 円");
@@ -136,7 +136,7 @@ describe("/results（試験の結果がある）", () => {
   it("時点を出し、分母つきの結果と note を並べる。unmeasured と無い指標は『まだ測っていません』", async () => {
     await show({ summary: SUMMARY });
     const s = region(/読み取りの試験/);
-    expect(s.textContent).toContain("2026-11-05 17:30");
+    expect(s.textContent).toContain("時点: 2026年11月5日 17:30");
     expect(within(s).getByText("24/24 件")).toBeTruthy();
     expect(s.textContent).toContain("前季の確認の発表が 国の事例の一覧と一致");
     expect(within(s).getAllByText("0/54 文書", { selector: "td" })).toHaveLength(3);
@@ -178,7 +178,7 @@ describe("/results（再現 1 回分を測った）", () => {
     expect(s.textContent).toContain("claude-opus-5-5");
     expect(s.textContent).toContain("100,000");
     expect(s.textContent).toContain("10,000");
-    expect(s.textContent).toContain("2026-11-06 10:00");
+    expect(s.textContent).toContain("時点: 2026年11月6日 10:00");
     expect(s.textContent).not.toContain("まだ測っていません");
   });
 
@@ -188,7 +188,7 @@ describe("/results（再現 1 回分を測った）", () => {
     const calc = region(/計算/);
     expect(calc.textContent).toContain("再現の実測から");
     expect(calc.textContent).toContain("2,592 円");
-    expect(calc.textContent).toContain("見積もり（推定）"); // 仮定の行は実測の行と分けて残る
+    expect(calc.textContent).toContain("仮定から出した見積もり"); // 仮定の表は実測の表と分けて残る
   });
 });
 
@@ -205,7 +205,7 @@ describe("/results（実物の data/replay/measured-usage.json）", () => {
       expect(s.textContent, model).toContain(t.inputTokens.toLocaleString("en-US"));
       expect(s.textContent, model).toContain(t.outputTokens.toLocaleString("en-US"));
     }
-    expect(s.textContent).toContain(real.measuredAt!.slice(0, 10));
+    expect(s.textContent).toContain(`${real.measuredAt!.slice(0, 4)}年${formatJaDate(real.measuredAt!.slice(0, 10))}`);
     expect(calls.sort()).toEqual(["/evals/summary.json", "/replay/measured-usage.json"]);
   });
 
@@ -262,36 +262,49 @@ describe("/results（読み込めなかった）", () => {
   });
 });
 
-describe("見積もり（推定）と実測の分離、前提の開示（レビュー I-1、I-2、I-3）", () => {
-  const estimateBox = () => within(region(/計算/)).getByRole("heading", { name: /見積もり（推定）。実測ではありません/ }).parentElement!;
+// 断りは節の冒頭と各表の上の文に 1 回ずつ。表の行の見出しは短い名前にし、「推定」「仮定」を行ごとに繰り返さない
+// （2026-11-08 レビューの提案。前のレビュー I-1〜I-3 の「行ごとに推定と書く」決まりを、冒頭の 1 回へ移した）
+describe("見積もりと実測の分離、前提の開示（断りは 1 回）", () => {
+  const estimateBox = () => within(region(/計算/)).getByRole("heading", { name: "仮定から出した見積もり" }).parentElement!;
+  const lead = () => region(/計算/).querySelector("p")!;
 
-  it("見積もりは実測の表とは別の表。見出しと表の題に『見積もり（推定）。実測ではありません』がある", async () => {
+  it("見積もりは実測の表とは別の表。表の名前は、すぐ上の見出し（caption を重ねない）", async () => {
     await show({ usage: MEASURED_USAGE, summary: SUMMARY });
     const tables = within(region(/計算/)).getAllByRole("table");
     expect(tables).toHaveLength(2);
-    expect(within(tables[0]!).getByText(/実測の 1 文書あたり費用から計算/)).toBeTruthy(); // 題
-    expect(within(tables[1]!).getByText("見積もり（推定）。実測ではありません")).toBeTruthy(); // 題
-    expect(tables[0]!.textContent).not.toContain("主の AIだけ"); // 実測の表に仮定だけの見積もりの行が混ざらない
-    expect(tables[0]!.textContent).not.toContain("Haiku にも同じ量");
+    expect(within(region(/計算/)).getByRole("table", { name: "実測の使用量から計算した費用" })).toBe(tables[0]);
+    expect(within(region(/計算/)).getByRole("table", { name: "仮定から出した見積もり" })).toBe(tables[1]);
+    for (const t of tables) expect(t.querySelector("caption")).toBeNull();
+    expect(tables[0]!.textContent).not.toContain("主の AI だけ"); // 実測の表に仮定だけの見積もりの行が混ざらない
+    expect(tables[0]!.textContent).not.toContain("確かめ役の AI も含む");
     expect(estimateBox().contains(tables[1]!)).toBe(true);
   });
 
-  it("実測の行の円の額は、仮定の文書数を使うことを行の中に書く。方式不明も書く", async () => {
+  it("節の冒頭に、円の額は 1 事例 12 文書の仮定による見積もりと 1 回だけ書く。実測があるときだけ、実測は 1 文書あたりの額だけと書く", async () => {
     await show({ usage: MEASURED_USAGE, summary: SUMMARY });
-    const tables = within(region(/計算/)).getAllByRole("table");
-    for (const row of within(tables[0]!).getAllByRole("row").slice(1)) expect(row.textContent, row.textContent ?? "").toContain("12 文書の仮定を使う");
-    expect(tables[0]!.textContent).toContain("実行方式は記録なし");
+    expect(lead().textContent).toContain("円の額は、1 事例 12 文書と仮定した見積もりです。");
+    expect(lead().textContent).toContain("実測の使用量から出したのは、1 文書あたりの額だけです。");
+    const calc = region(/計算/).textContent!;
+    expect(calc.split("12 文書と仮定").length - 1).toBe(1);
+    expect(calc).not.toContain("推定");
+    cleanup();
+    await show();
+    expect(lead().textContent).toContain("円の額は、1 事例 12 文書と仮定した見積もりです。");
+    expect(lead().textContent).not.toContain("実測"); // 何も測っていないときに「実測」と言わない
   });
 
-  it("円の額が出る行（表の行と段落）は、実測由来の行も含めて、行の中に『推定』がある", async () => {
+  it("行の見出しは短い名前で、『推定』『仮定』『見積もり』を繰り返さない。試験の行の実行方式は、表の上の文に書く", async () => {
     await show({ usage: MEASURED_USAGE, summary: SUMMARY });
-    const calc = region(/計算/);
-    for (const row of Array.from(calc.querySelectorAll("tbody tr"))) {
-      if (/円|\$/.test(row.textContent ?? "")) expect(row.textContent, row.textContent ?? "").toContain("推定");
-    }
-    for (const p of Array.from(calc.querySelectorAll("p")).filter((x) => /円|\$\d/.test(x.textContent ?? "") && !(x.textContent ?? "").includes("運用の上限"))) {
-      expect(p.textContent, p.textContent ?? "").toContain("推定");
-    }
+    const heads = Array.from(region(/計算/).querySelectorAll("tbody th")).map((h) => h.textContent);
+    expect(heads).toEqual(["再現の実測から", "読み取りの試験から", "主の AI だけ", "確かめ役の AI も含む"]);
+    for (const h of heads) expect(h).not.toMatch(/推定|仮定|見積もり|足/);
+    const measuredBox = within(region(/計算/)).getByRole("heading", { name: "実測の使用量から計算した費用" }).parentElement!;
+    expect(measuredBox.textContent).toContain("実行方式（通常の API か Batch か）は記録がありません");
+  });
+
+  it("試験の結果がなければ、実行方式の文は出さない", async () => {
+    await show({ usage: MEASURED_USAGE });
+    expect(region(/計算/).textContent).not.toContain("実行方式");
   });
 
   it("何も測っていなくても、見積もりの表は見出し付きで 1 つだけ出る（実測の表は出ない）", async () => {
@@ -300,13 +313,15 @@ describe("見積もり（推定）と実測の分離、前提の開示（レビ�
     expect(within(region(/計算/)).queryByRole("heading", { name: /実測の使用量から計算/ })).toBeNull();
   });
 
-  it("主の AI だけの行は確かめ役の AI（Haiku）を含まないと画面に書き、Haiku を足した行も出す。増分はまだ測っていません", async () => {
+  it("主の AI だけの行は確かめ役の AI（Haiku）を含まないと表の上に書き、Haiku も含む行も出す。増え方はまだ測っていない", async () => {
     await show();
     const box = estimateBox();
-    expect(box.textContent).toContain("確かめ役の AI（Haiku）の費用を含みません");
-    expect(box.textContent).toContain("増分はまだ測っていません");
-    expect(within(box).getByRole("row", { name: /主の AI だけ.*確かめ役の AI を含まない/ }).textContent).toContain("（確かめ役の AI を除く）");
-    const withSecond = within(box).getByRole("row", { name: /Haiku.*足した/ });
+    expect(box.textContent).toContain("「主の AI だけ」は、確かめ役の AI（Haiku）の費用を含みません");
+    expect(box.textContent).toContain("Haiku にも同じ量を読ませたと仮定して合わせた数です。実際の増え方はまだ測っていません。");
+    expect(box.textContent).toContain("1 文書あたりの額も仮定の数です");
+    expect(box.textContent).not.toMatch(/足し|増分/);
+    expect(within(box).getByRole("row", { name: /主の AI だけ/ }).textContent).toContain("1 か月に");
+    const withSecond = within(box).getByRole("row", { name: /確かめ役の AI も含む/ });
     // 0.05 + 0.00125（Haiku 5.5 の単価で同じ 5,000/1,500）= 0.05125 ドル → 24 事例 × 12 × 150 = 2,214 円
     expect(withSecond.textContent).toContain("$0.05125");
     expect(withSecond.textContent).toContain("2,214 円");
@@ -317,6 +332,20 @@ describe("見積もり（推定）と実測の分離、前提の開示（レビ�
     expect(region(/計算/).textContent).toContain("通常の API");
     expect(region(/計算/).textContent).toContain("Batch");
     expect(region(/計算/).textContent).toContain("約半分");
+  });
+});
+
+describe("見出しの段と時点の書き方", () => {
+  it("単独の /results: 題は h1、節は h2、計算の中の見出しは h3", async () => {
+    await show({ usage: MEASURED_USAGE, summary: SUMMARY });
+    expect(screen.getByRole("heading", { level: 2, name: "1 シーズンの費用（計算）" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "実測の使用量から計算した費用" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "仮定から出した見積もり" })).toBeTruthy();
+  });
+
+  it("時点の日付が形の違う文字やありえない日付でも、画面を止めずにそのまま出す", async () => {
+    await show({ summary: { ...SUMMARY, measuredAt: "2026-13-45T10:00:00+09:00" } });
+    expect(region(/読み取りの試験/).textContent).toContain("時点: 2026-13-45T10:00:00+09:00");
   });
 });
 

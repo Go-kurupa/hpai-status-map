@@ -37,8 +37,17 @@ const firstSection = (): string => {
 
 describe("README: 最初の節（審査員が登録なしで触れる入口）", () => {
   const first = firstSection();
-  it("登録なしで触れる 5 つの画面がある", () => {
-    for (const p of ["/replay", "/replay/backstage", "/sample", "/results", "/public"]) expect(first, p).toContain(p);
+  it("登録なしで触れる 4 つの画面がある", () => {
+    for (const p of ["/replay", "/replay/backstage", "/results", "/public"]) expect(first, p).toContain(p);
+  });
+  // 2026-11-08: 相談の試しの入口（/consult?judge=1）を外し、審査員用のリンクに替えた。見本の農場（/sample）は 2 本目のリンクとして提出フォームで案内する。リンクの実物は書かない
+  it("会員の画面は審査員用のリンク、見本の農場は 2 本目のリンクで開けると書く。/sample と ?judge=1 と /judge# のリンクは書かない", () => {
+    expect(first).toContain("会員の画面（死亡・消毒の記録、農場と通知の設定、AIに対策を相談）は、提出フォームの審査員向けの欄のリンクで、審査員用の見本の農場の会員として開けます。");
+    expect(first).not.toContain("/sample");
+    expect(first).not.toContain("judge=1");
+    // 2026-11-08: 見本の農場（/sample）を、審査員用の 2 本目の URL として戻した。URL は書かず、提出フォームで案内する
+    expect(first).toContain("近くで発生した場合の画面（2025 年 12 月の再現の中の見本の農場）は、提出フォームの審査員向けの欄の 2 本目のリンクで開けます。");
+    expect(readme).not.toMatch(/\/judge#/u);
   });
   it("順路に全国の流れ、周辺の過去の表、毎朝の札、経路図がある。メールは登録した方だけと分ける", () => {
     for (const w of ["全国の流れ", "/area/", "/trends", "経路図", "直近 14 日", "発表の区域ではありません", "メールは登録した方だけ"]) expect(first, w).toContain(w);

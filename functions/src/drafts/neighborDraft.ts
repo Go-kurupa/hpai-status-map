@@ -28,6 +28,8 @@ export const NEIGHBOR_SYSTEM =
 
 /** 会員 1 人が 1 日（日本時間）に説明文を頼める回数。 */
 export const NEIGHBOR_DAILY_LIMIT = 10;
+/** 審査員用の会員（全員が 1 つの会員）は、審査員の全員で 1 日 30 回まで（2026-11-08） */
+export const NEIGHBOR_JUDGE_DAILY_LIMIT = 30;
 /** 入力の文の長さの上限（文字の数）。 */
 export const NEIGHBOR_MAX_INPUT = 2000;
 /** Claude の返事の長さの上限（文字の数）。超えたら雛形に戻す。 */

@@ -2,16 +2,17 @@
 // 話題を押すか文で聞くと、集めた資料のカードから、短いおすすめと根拠が返る。続けて聞くと、同じ相談の前の往復も関数へ渡す。
 // おすすめの文と続けて聞く候補は Claude の下書き。引用・資料・根拠の札・注意書きは、カードのデータをそのまま出す（Claude は書き換えない）。
 // 資料の行は、応答のカードに付いた source から出す（静的な /consult/cards.json は、足し済みの判定で、足したカードの id から対策の文を引くのにだけ使う）。
-// これまでの相談は、会員の分だけ、この端末のブラウザに残す（consultHistory.ts）。審査員の入口（?judge=1）は残さず、会員の確認も通さない。
-// 会員は、農場の設定に登録した飼育目的と飼い方（と、鶏舎の飼養羽数の合計から作った羽数の幅。正確な羽数は送らない）を、
-// 質問の欄の前で確かめて「この飼い方で相談する」を選んだときだけ、条件として送れる。
+// これまでの相談は、会員の分だけ、この端末のブラウザに残す（consultHistory.ts）。会員だけの画面（2026-11-08 審査員の試しの入口 ?judge=1 は外した）。
+// 会員は、農場の設定に登録した飼育目的と飼い方、町（市町村コード。名前は関数が引く）、近くの発生の状況（対策項目と地図と同じ計算。farmNearby.ts）、
+// 鶏舎ごとの鳥の種類と飼養羽数（鶏舎の名前は送らない）を、質問の欄の前で確かめて「登録した農場の情報で相談する」を選んだときだけ、条件として送れる
+// （2026-11-08 豪さんの決定。約 1km のマス目・緯度経度・農場の名前・記録は送らない）。
 // 条件を付けて送る前に、質問の文と登録が食い違えば送らずに訂正を促す（送るかは本人が選ぶ）。答えの近くに今回使った条件を出す。
-// 審査員の入口は農場を読まず、条件の欄を出さない。
-import { conditionLabel, conditionOfFarm, findFarmConflicts, registeredLabel, scaleOfHouses, type FarmConflict } from "@hpai/shared/consult/farmCondition";
+import { conditionLabel, conditionOfFarm, findFarmConflicts, housesOfFarm, registeredLabel, type FarmConflict } from "@hpai/shared/consult/farmCondition";
 import { CONSULT_TOPICS, type ConsultTopic } from "@hpai/shared/consult/topics";
 import { STATS_SOURCE, type ConsultStats } from "@hpai/shared/consult/stats";
-import { CONSULT_MAX_QUESTION, EVIDENCE_LABEL, type ConsultAnswerCard, type ConsultFarmCondition, type FlockScale } from "@hpai/shared/consult/types";
-import type { Farm } from "@hpai/shared/types";
+import { CONSULT_MAX_QUESTION, EVIDENCE_LABEL, type ConsultAnswerCard, type ConsultFarmCondition, type ConsultHouse } from "@hpai/shared/consult/types";
+import { JUDGE_UID } from "@hpai/shared/judge";
+import type { Farm, FarmPoint } from "@hpai/shared/types";
 import { FIXED_TEXT } from "@hpai/shared/wording";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useLocation } from "react-router";
@@ -42,6 +43,7 @@ import {
 } from "./consultHistory";
 import { loadConsultCatalog, type ConsultCatalog } from "./cardsData";
 import { CONSULT_TEXT, attributionText, conflictText } from "./consultTexts";
+import { useFarmPlace, type FarmPlace } from "./farmNearby";
 import { useReviewStore } from "./reviewStore";
 import "./consult.css";
 
@@ -137,7 +139,7 @@ function isAdded(g: { action: string; ids: readonly string[] }, added: AddedStat
 }
 
 /** 答えのすぐ下の「この答えの対策」。その場で対策項目に足せる（会員だけ）。足したら対策項目への道を出す */
-function ActionsView({ cards, canAdd, add, onAdd }: { cards: readonly ConsultAnswerCard[]; canAdd: boolean; add: AddState; onAdd: (cardId: string) => void }) {
+function ActionsView({ cards, add, onAdd }: { cards: readonly ConsultAnswerCard[]; add: AddState; onAdd: (cardId: string) => void }) {
   const groups = groupActions(cards);
   const anyAdded = groups.some((g) => isAdded(g, add));
   return (
@@ -152,21 +154,19 @@ function ActionsView({ cards, canAdd, add, onAdd }: { cards: readonly ConsultAns
           return (
             <li key={g.action} className="consult-action" data-testid="consult-action">
               <p className="consult-action-name">{g.action}</p>
-              {canAdd ? (
-                added ? (
-                  <Button disabled>
-                    <span aria-hidden="true">✓ </span>
-                    {CONSULT_TEXT.added}
-                  </Button>
-                ) : adding ? (
-                  <Button disabled>{CONSULT_TEXT.adding}</Button>
-                ) : (
-                  <Button onClick={() => onAdd(g.ids[0]!)}>
-                    <span aria-hidden="true">＋ </span>
-                    {CONSULT_TEXT.add}
-                  </Button>
-                )
-              ) : null}
+              {added ? (
+                <Button disabled>
+                  <span aria-hidden="true">✓ </span>
+                  {CONSULT_TEXT.added}
+                </Button>
+              ) : adding ? (
+                <Button disabled>{CONSULT_TEXT.adding}</Button>
+              ) : (
+                <Button onClick={() => onAdd(g.ids[0]!)}>
+                  <span aria-hidden="true">＋ </span>
+                  {CONSULT_TEXT.add}
+                </Button>
+              )}
               {failed ? (
                 <p role="alert" className="consult-error">
                   {noFarm ? (
@@ -184,7 +184,7 @@ function ActionsView({ cards, canAdd, add, onAdd }: { cards: readonly ConsultAns
           );
         })}
       </ul>
-      {canAdd && anyAdded ? (
+      {anyAdded ? (
         <p>
           <Link to="/todo" className="consult-to-todo">
             {CONSULT_TEXT.toTodo}
@@ -196,7 +196,8 @@ function ActionsView({ cards, canAdd, add, onAdd }: { cards: readonly ConsultAns
   );
 }
 
-function noticeText(notice: "daily_limit" | "budget_stop" | "unavailable", judge: boolean): string {
+/** judge: 審査員の会員（JUDGE_UID）。回数は審査員の全員で数えるので、会員 1 人の回数（10 回）を出さない */
+export function noticeText(notice: "daily_limit" | "budget_stop" | "unavailable", judge = false): string {
   if (notice === "unavailable") return CONSULT_TEXT.unavailable;
   if (notice === "budget_stop") return CONSULT_TEXT.budgetStop;
   return judge ? CONSULT_TEXT.dailyLimitJudge : CONSULT_TEXT.dailyLimit;
@@ -301,7 +302,7 @@ function AnswerView({ turn, judge, add, onAdd }: { turn: ConsultHistoryTurn; jud
         <>
           {result.farm ? <p className="consult-condition-used">{CONSULT_TEXT.conditionUsed(conditionLabel(result.farm))}</p> : null}
           <p className="consult-answer">{result.answer}</p>
-          <ActionsView cards={result.cards} canAdd={!judge} add={add} onAdd={onAdd} />
+          <ActionsView cards={result.cards} add={add} onAdd={onAdd} />
         </>
       ) : null}
       {result.stats ? <StatsView stats={result.stats} /> : null}
@@ -347,18 +348,18 @@ function TurnView({
 }
 
 /**
- * 会員の農場の登録（飼育目的と飼い方）と、鶏舎の羽数から作った幅（scale。作れなければ null）。読めなかったときは「未登録」と言わない。
- * 正確な羽数は持たない（幅だけ）
+ * 会員の農場の登録（飼育目的と飼い方、市町村とマス目）と、送る形にした鶏舎（housesOfFarm。名前を落とす。作れなければ null）。
+ * 読めなかったときは「未登録」と言わない。マス目は近くの発生を数えるためだけに持ち、送らない
  */
 type FarmLoad =
   | { status: "loading" }
   | { status: "failed" }
-  | { status: "ready"; farm: Pick<Farm, "production" | "rearing"> | null; scale: FlockScale | null };
+  | { status: "ready"; farm: Pick<Farm, "production" | "rearing" | "muniCode" | "meshCode" | "frequentMuniCodes"> | null; houses: ConsultHouse[] | null };
 
 /**
  * 自分の農場と鶏舎を読む（会員の画面だけ）。会員（uid）が替わったら読み直す。農場の reject を「農場なし」に丸めない。
- * 鶏舎（記録の口 listHouses）が読めないときは、幅を作らないだけ（推測で埋めない）。両方がそろってから ready にする
- * （先に選べると、最初の 1 回だけ幅なしで送ることになる）
+ * 鶏舎（記録の口 listHouses）が読めないときは、鶏舎を送らないだけ（推測で埋めない）。両方がそろってから ready にする
+ * （先に選べると、最初の 1 回だけ鶏舎なしで送ることになる）
  */
 function useFarmLoad(uid: string | null): FarmLoad {
   const records = useRecordStore();
@@ -366,15 +367,15 @@ function useFarmLoad(uid: string | null): FarmLoad {
   useEffect(() => {
     let off = false;
     setState({ status: "loading" });
-    const scale = Promise.resolve()
+    const houses = Promise.resolve()
       .then(() => records.listHouses())
       .then(
-        (houses) => scaleOfHouses(houses),
+        (list) => housesOfFarm(list),
         () => null,
       );
     Promise.resolve()
       .then(() => records.getFarm())
-      .then((farm) => scale.then((s) => ({ farm: farm ?? null, scale: s })))
+      .then((farm) => houses.then((h) => ({ farm: farm ?? null, houses: h })))
       .then(
         (v) => !off && setState({ status: "ready", ...v }),
         () => !off && setState({ status: "failed" }),
@@ -386,22 +387,42 @@ function useFarmLoad(uid: string | null): FarmLoad {
   return state;
 }
 
-/** 質問の欄の前の、登録した条件（飼育目的と飼い方と羽数の幅）の欄。登録があれば「この飼い方で相談する」を選べる。未登録・読めないときは選べない */
-function ConditionPanel({ load, use, onUse }: { load: FarmLoad; use: boolean; onUse: (v: boolean) => void }) {
+/** 今送るなら付く条件。登録・鶏舎・近くの発生（決まったものだけ）から作る。飼育目的も飼い方も未登録なら null */
+function conditionNow(load: FarmLoad | null, place: FarmPlace | null): ConsultFarmCondition | null {
+  if (load?.status !== "ready" || !load.farm) return null;
+  const nearby = place?.nearby.status === "ready" ? place.nearby.nearby : null;
+  return conditionOfFarm(load.farm, { houses: load.houses, nearby });
+}
+
+/**
+ * 質問の欄の前の、登録した農場の情報の欄。飼育目的か飼い方の登録があれば「登録した農場の情報で相談する」を選べる。未登録・読めないときは選べない。
+ * 選ぶと、渡すもの（町の名前・近くの発生・鶏舎ごとの羽数・飼育目的・飼い方）と渡さないものを出す。近くの発生が決まっていなければ、そう書く（0 件と言わない）
+ */
+function ConditionPanel({ load, place, use, onUse }: { load: FarmLoad; place: FarmPlace | null; use: boolean; onUse: (v: boolean) => void }) {
   if (load.status === "loading") return null;
-  const condition = load.status === "ready" && load.farm ? conditionOfFarm(load.farm, load.scale) : null;
+  const condition = conditionNow(load, place);
+  // 町の名前は表示のため（送るのはコード。名前は関数が引く）。索引が読めないときはコードで出す
+  const town = condition?.muniCode ? (place?.townName ?? CONSULT_TEXT.conditionTownCode(condition.muniCode)) : null;
+  const nearbyStatus = place?.nearby.status ?? "unavailable";
   return (
     <div className="consult-condition" data-testid="consult-condition">
       {load.status === "failed" ? (
         <p className="consult-note">{CONSULT_TEXT.conditionLoadFailed}</p>
-      ) : condition && load.farm ? (
+      ) : condition && load.status === "ready" && load.farm ? (
         <>
-          <p className="consult-condition-head">{CONSULT_TEXT.conditionHead(registeredLabel(load.farm, load.scale))}</p>
+          <p className="consult-condition-head">{CONSULT_TEXT.conditionHead(registeredLabel(load.farm))}</p>
           <label className="consult-condition-use">
             <input type="checkbox" checked={use} onChange={(e) => onUse(e.target.checked)} />
             {CONSULT_TEXT.conditionUse}
           </label>
-          {use ? <p className="consult-note">{CONSULT_TEXT.conditionSends(conditionLabel(condition))}</p> : null}
+          {use ? (
+            <>
+              <p className="consult-note">{CONSULT_TEXT.conditionSends(conditionLabel({ ...condition, ...(town ? { town } : {}) }))}</p>
+              {nearbyStatus === "loading" ? <p className="consult-note">{CONSULT_TEXT.conditionNearbyLoading}</p> : null}
+              {nearbyStatus === "unavailable" ? <p className="consult-note">{CONSULT_TEXT.conditionNearbyUnavailable}</p> : null}
+              <p className="consult-note">{CONSULT_TEXT.conditionNotSent}</p>
+            </>
+          ) : null}
         </>
       ) : (
         <p className="consult-note">
@@ -588,21 +609,24 @@ interface PendingConflict {
 }
 
 function ConsultBody({
-  judge,
   uid,
   initialQuestion = "",
   farmLoad = null,
+  place = null,
 }: {
-  judge: boolean;
   uid: string | null;
   initialQuestion?: string;
-  /** 会員の農場の登録。審査員の入口は null（条件の欄を出さない） */
+  /** 会員の農場の登録。null なら条件の欄を出さない */
   farmLoad?: FarmLoad | null;
+  /** 登録した農場の近くの発生の状況と町の名前 */
+  place?: FarmPlace | null;
 }) {
   const id = useId();
   const store = useReviewStore();
-  // 会員の分だけ、この端末に残す。審査員の入口と、uid が分からないとき（見本）は残さない
-  const key = !judge && uid ? historyKey(uid) : null;
+  // 会員の分だけ、この端末に残す。uid が分からないときは残さない
+  const key = uid ? historyKey(uid) : null;
+  // 審査員の会員（審査員は全員この会員）。回数の上限の文に会員 1 人の回数を出さない
+  const judge = uid === JUDGE_UID;
   const [conversations, setConversations] = useState<ConsultConversation[]>(() => (key ? loadConversations(key) : []));
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [view, setView] = useState<"chat" | "history">("chat");
@@ -612,10 +636,11 @@ function ConsultBody({
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  // 「この飼い方で相談する」。最初は選ばない（本人が選んだときだけ条件を送る）
+  // 「登録した農場の情報で相談する」。最初は選ばない（本人が選んだときだけ条件を送る）
   const [useCondition, setUseCondition] = useState(false);
   const [conflict, setConflict] = useState<PendingConflict | null>(null);
-  const condition: ConsultFarmCondition | null = farmLoad?.status === "ready" && farmLoad.farm ? conditionOfFarm(farmLoad.farm, farmLoad.scale) : null;
+  // 送る時点の条件（近くの発生は、決まっていれば入る。まだなら入れない）
+  const condition = conditionNow(farmLoad, place);
   const [reviews, setReviews] = useState<ReadonlySet<string>>(new Set());
   const [reviewsFailed, setReviewsFailed] = useState(false);
   // カードの一覧。足したカードの id から対策の文を引く。読めなければ null のまま（id だけで判定する）
@@ -645,7 +670,6 @@ function ConsultBody({
   }, [key]);
 
   useEffect(() => {
-    if (judge) return;
     let off = false;
     store.listReviews().then(
       (ids) => !off && setReviews(new Set(ids)),
@@ -658,7 +682,7 @@ function ConsultBody({
     return () => {
       off = true;
     };
-  }, [judge, store]);
+  }, [store]);
 
   const current = conversations.find((c) => c.id === currentId) ?? null;
   const turns = current?.turns ?? [];
@@ -718,7 +742,7 @@ function ConsultBody({
       const { consultAskCall } = await import("../auth/callables");
       const past = base ? historyForAsk(base.turns) : [];
       // 条件がなければ今までどおり（条件の引数を渡さない）
-      const result = farm ? await consultAskCall(input, judge, past, farm) : await consultAskCall(input, judge, past);
+      const result = farm ? await consultAskCall(input, past, farm) : await consultAskCall(input, past);
       // 待っている間に会員が替わったら、前の会員の一覧を今の画面と置き場所に混ぜない。
       // 送った時点で会員が未定（ログインの状態を読み込み中）だったなら同じ人なので、今の置き場所に入れる
       if (sentKey !== null && loadedKey.current !== sentKey) return;
@@ -803,7 +827,7 @@ function ConsultBody({
   const addState: AddState = { ...addedState, failedIds: addFailed, noFarmIds, addingIds: adding };
   const onAdd = (cardId: string) => void add(cardId);
 
-  // 「この飼い方で相談する」は相談のたびに選ぶ（設定の画面の案内のとおり）。新しい相談・別の相談を開くときは外す
+  // 「登録した農場の情報で相談する」は相談のたびに選ぶ（設定の画面の案内のとおり）。新しい相談・別の相談を開くときは外す
   const startNew = () => {
     if (busy) return;
     setCurrentId(null);
@@ -871,7 +895,6 @@ function ConsultBody({
           </Button>
         </div>
       </div>
-      {judge ? <p className="consult-judge">{CONSULT_TEXT.judgeBanner}</p> : null}
 
       <div className="consult-body">
       {showHistory ? (
@@ -886,7 +909,7 @@ function ConsultBody({
           onRemove={removeConversation}
           onRemoveAll={removeAll}
           headingRef={historyHeading}
-          added={judge ? null : addedState}
+          added={addedState}
         />
       ) : null}
       {showChat ? (
@@ -946,6 +969,7 @@ function ConsultBody({
             {farmLoad ? (
               <ConditionPanel
                 load={farmLoad}
+                place={place}
                 use={useCondition}
                 onUse={(v) => {
                   setUseCondition(v);
@@ -1020,7 +1044,17 @@ function MemberConsult({ initialQuestion }: { initialQuestion: string }) {
   const auth = useAuthUser();
   const uid = auth.user?.uid ?? null;
   const farmLoad = useFarmLoad(uid);
-  return <ConsultBody judge={false} uid={uid} initialQuestion={initialQuestion} farmLoad={farmLoad} />;
+  // 近くの発生は登録した農場のマス目で数える（端末の中の地点は使わない）。同じ農場なら同じ値（計算し直さない）
+  const farm = farmLoad.status === "ready" ? farmLoad.farm : null;
+  const meshCode = farm?.meshCode ?? null;
+  const muniCode = farm?.muniCode ?? null;
+  const frequent = JSON.stringify(farm?.frequentMuniCodes ?? []);
+  const point = useMemo<FarmPoint | null>(
+    () => (meshCode && muniCode ? { meshCode, muniCode, frequentMuniCodes: JSON.parse(frequent) as string[] } : null),
+    [meshCode, muniCode, frequent],
+  );
+  const place = useFarmPlace(point);
+  return <ConsultBody uid={uid} initialQuestion={initialQuestion} farmLoad={farmLoad} place={place} />;
 }
 
 /** ?q= の文（前後の空白を除き、上限の字数まで）。対策項目からの入口が使う */
@@ -1030,9 +1064,7 @@ function initialQuestionOf(params: URLSearchParams): string {
 
 export default function ConsultPage() {
   const params = new URLSearchParams(useLocation().search);
-  const judge = params.get("judge") === "1";
   const initialQuestion = initialQuestionOf(params);
-  if (judge) return <ConsultBody judge uid={null} initialQuestion={initialQuestion} />;
   return (
     <RequireMember>
       <MemberConsult initialQuestion={initialQuestion} />

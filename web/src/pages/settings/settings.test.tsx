@@ -1,6 +1,7 @@
 import type { MuniEntry } from "@hpai/shared/geo";
 import { formatJaDate } from "@hpai/shared/jaDate";
 import type { Farm } from "@hpai/shared/types";
+import { JUDGE_FARM_ID } from "@hpai/shared/judge";
 import { latLngToMesh3 } from "@hpai/shared/mesh";
 import { findForbiddenPhrases, findWordingViolations } from "@hpai/shared/wording";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -331,6 +332,28 @@ describe("/settings/farm", () => {
     expect(input.value).toBe("https://hpai.example.test/join/ABC");
     expect(createInvite.fn).toHaveBeenCalledWith("f1");
     expect(screen.getByText(/7 日で切れ、1 回だけ/)).toBeTruthy();
+  });
+
+  // 審査員用の見本の農場（2026-11-08）。削除と招待は関数の側でも止めている
+  it("審査員用の見本の農場では、会員を追加する節と全データの削除を出さず、断りの 1 行を出す", async () => {
+    farm = { id: JUDGE_FARM_ID, ...farmFixture("judge-demo", { name: "審査員用の見本の農場" }) };
+    const { container } = mount("/settings/farm");
+    expect(await screen.findByText("審査員用の見本の農場です。記録は作り物です。削除と招待は止めています。")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "会員を追加する" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "招待リンクを作る" })).toBeNull();
+    expect(screen.queryByText("農場の全データを削除する")).toBeNull();
+    expect(container.querySelector("#delete")).toBeNull();
+    // ほかの節（農場の情報、鶏舎）は今までどおり
+    expect(screen.getByRole("heading", { name: "農場の情報" })).toBeTruthy();
+    expect(findWordingViolations("審査員用の見本の農場です。記録は作り物です。削除と招待は止めています。")).toEqual([]);
+    expect(findForbiddenPhrases("審査員用の見本の農場です。記録は作り物です。削除と招待は止めています。")).toEqual([]);
+  });
+
+  it("審査員用でない農場には、会員を追加する節と全データの削除が出て、断りの 1 行は出ない", async () => {
+    mount("/settings/farm");
+    expect(await screen.findByRole("heading", { name: "会員を追加する" })).toBeTruthy();
+    expect(await screen.findByText("農場の全データを削除する", { selector: "summary" })).toBeTruthy();
+    expect(screen.queryByText(/審査員用の見本の農場です/)).toBeNull();
   });
 
   it("農場がないうちは招待リンクを出さない", async () => {
@@ -758,10 +781,10 @@ describe("農場の設定の画面の型（2026-11-07 業務画面の作り直�
     // 鶏舎の札は一覧を読み終えるまで「…」なので、読み終えるのを待つ（混んだ PC で揺れないように）
     await waitFor(() => expect(tile("鶏舎")?.textContent).toContain("0件"));
     expect(tile("鶏舎")?.className).toContain("is-alert");
-    expect(tile("家保の連絡先")?.textContent).toContain("登録済み");
+    expect(tile("家畜保健衛生所の連絡先")?.textContent).toContain("登録済み");
     expect(tile("地点")?.querySelector("a")?.getAttribute("href")).toBe("#point");
     expect(tile("鶏舎")?.querySelector("a")?.getAttribute("href")).toBe("#houses");
-    expect(tile("家保の連絡先")?.querySelector("a")?.getAttribute("href")).toBe("#kaho");
+    expect(tile("家畜保健衛生所の連絡先")?.querySelector("a")?.getAttribute("href")).toBe("#kaho");
     for (const id of ["point", "houses", "kaho", "farm-info"]) expect(document.getElementById(id)?.tagName).toBe("SECTION");
   });
 
@@ -776,7 +799,7 @@ describe("農場の設定の画面の型（2026-11-07 業務画面の作り直�
     await waitFor(() => expect(tile("鶏舎")?.textContent).toBe("鶏舎2件合計 1,200 羽"));
     expect(tile("鶏舎")?.className).not.toContain("is-alert");
     expect(tile("農場名")?.textContent).toBe("農場名未登録");
-    expect(tile("家保の連絡先")?.textContent).toBe("家保の連絡先未登録");
+    expect(tile("家畜保健衛生所の連絡先")?.textContent).toBe("家畜保健衛生所の連絡先未登録");
   });
 
   it("配信を止めていれば、通知の札は『止めています』で、通知の設定へのリンクを添える。確かめられなければ札を出さない", async () => {
@@ -869,7 +892,8 @@ describe("農場の設定の見出しと並び（2026-11-08 レビュー）", ()
     mount("/settings/farm");
     const box = await screen.findByLabelText("家畜保健衛生所の連絡先");
     expect(box.tagName).toBe("TEXTAREA");
-    expect(screen.getAllByText("家畜保健衛生所の連絡先")).toHaveLength(1);
+    // 札の名前（登録の状況）を除くと、見出しの 1 回だけ（欄の名前は見える文にしない）
+    expect(screen.getAllByText("家畜保健衛生所の連絡先").filter((el) => !el.closest(".stat-tiles"))).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 2, name: "家畜保健衛生所の連絡先" })).toBeTruthy();
   });
 

@@ -195,18 +195,24 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await expect(page.getByText("合計 1,900 羽（空舎を除く）", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /を編集$/ })).toHaveCount(2);
 
-  // 登録した飼い方で相談する（F2、羽数の幅は G）。選んだときだけ条件を送り、質問の文と登録が食い違えば送らずに訂正を促す
+  // 登録した農場の情報で相談する（2026-11-08 豪さんの決定で、飼育目的・飼い方に町・近くの発生・鶏舎ごとの羽数を足した）。
+  // 選んだときだけ条件を送り、質問の文と登録が食い違えば送らずに訂正を促す
   const asks: Record<string, unknown>[] = [];
   page.on("request", (r) => {
     if (r.method() === "POST" && r.url().includes("consultAsk")) asks.push((r.postDataJSON() as { data: Record<string, unknown> }).data);
   });
   await page.goto("/consult?emulator=1");
-  // 羽数の幅（G）: 鶏舎の合計 1,200＋700＝1,900 羽から「1,000〜2,999 羽」。正確な羽数は送らない
-  await expect(page.getByText("登録した条件: 採卵鶏・平飼い・1,000〜2,999 羽")).toBeVisible();
-  const useIt = page.getByRole("checkbox", { name: "この飼い方で相談する" });
+  // 見出しは飼育目的と飼い方。渡すものは町の名前と鶏舎ごとの羽数（鶏舎の名前は「鶏舎 1」の番号に替える。並びは一覧の順なので順は見ない）
+  await expect(page.getByText("登録した条件: 採卵鶏・平飼い", { exact: true })).toBeVisible();
+  const useIt = page.getByRole("checkbox", { name: "登録した農場の情報で相談する" });
   await expect(useIt).not.toBeChecked();
   await useIt.check();
-  await expect(page.getByText("条件として送るのは「採卵鶏・平飼い・1,000〜2,999 羽」だけです。鶏舎の造り・正確な羽数・農場名・場所・記録は送りません。")).toBeVisible();
+  const condition = page.getByTestId("consult-condition");
+  await expect(condition).toContainText("AI に渡すのは「採卵鶏・平飼い・岡山県津山市・");
+  await expect(condition).toContainText(": 採卵鶏 1,200 羽");
+  await expect(condition).toContainText(": 採卵鶏 700 羽");
+  await expect(condition).not.toContainText("号舎");
+  await expect(condition).toContainText("約 1km のマス目・緯度経度・農場の名前・鶏舎の名前・鶏舎の造り・記録は渡しません。");
   await page.getByLabel("聞きたいこと").fill("ケージ飼いの網の穴は？");
   await page.getByRole("button", { name: "送る" }).click();
   await expect(page.getByTestId("consult-conflict")).toContainText("質問ではケージ飼い、登録は平飼いです。登録を直すか、送り方を選んでください。");
@@ -218,10 +224,21 @@ test("農場の設定を保存し、再読み込みで残り、登録した町�
   await page.getByLabel("聞きたいこと").fill("長靴の消毒で、まず見直すことは？");
   await page.getByRole("button", { name: "送る" }).click();
   await expect(page.getByText(UNAVAILABLE)).toBeVisible({ timeout: 120_000 });
-  // 送ったのは食い違いのない 1 回だけで、条件は飼育目的と飼い方と羽数の幅だけ（鶏舎の造り・正確な羽数・農場名・場所は送らない）
+  // 送ったのは食い違いのない 1 回だけ。条件は飼育目的・飼い方・市町村コード・鶏舎ごとの羽数（名前なし）と、
+  // 確かめられたときだけの近くの発生（模擬環境のこの時点では今季の事例がないので、送るなら 0 件・可能性は見つかっていない）。
+  // 鶏舎の造り・農場名・鶏舎の名前・マス目・行き来する町・羽数の幅は送らない
   expect(asks).toHaveLength(1);
-  expect(asks[0]!["farm"]).toEqual({ production: "layer", rearing: "floor", scale: "1000to3000" });
-  expect(JSON.stringify(asks[0])).not.toMatch(/open|テスト農場|33203|meshCode|1900|1200|700|flockSize/);
+  const farm = asks[0]!["farm"] as Record<string, unknown>;
+  const { nearby, houses, ...rest } = farm;
+  expect(rest).toEqual({ production: "layer", rearing: "floor", muniCode: "33203" });
+  expect(new Set((houses as unknown[]).map((h) => JSON.stringify(h)))).toEqual(
+    new Set([
+      JSON.stringify({ birdType: "採卵鶏", flockSize: 1200, empty: false }),
+      JSON.stringify({ birdType: "採卵鶏", flockSize: 700, empty: false }),
+    ]),
+  );
+  if (nearby !== undefined) expect(nearby).toEqual({ casesWithin60km: 0, zone: "none" });
+  expect(JSON.stringify(asks[0])).not.toMatch(/open|テスト農場|号舎|meshCode|01100|scale|1900/);
   // スマホ幅で横にはみ出さない
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 

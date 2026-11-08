@@ -155,7 +155,7 @@ describe("発生農場はどう気づいたか（段階 2）", () => {
     ],
   };
 
-  it("抽出の集計があれば枠を出し、数えなかった件数と記録の見本への道を添える", async () => {
+  it("抽出の集計があれば枠を出し、数えなかった件数と死亡数の記録の 1 文を添える（見本の農場へのリンクは置かない。2026-11-08 から提出フォームでだけ案内する）", async () => {
     narrow(false);
     stub({ ...INSIGHTS, noticing: NOTICING });
     show();
@@ -163,7 +163,8 @@ describe("発生農場はどう気づいたか（段階 2）", () => {
     expect(sec.textContent).toMatch(/まとまった死亡・急な大量死\s*20 件/u);
     expect(sec.textContent).toContain("根拠の文を原文で確かめられなかった 2 件は数えていません");
     expect(sec.textContent).toContain("通報の早さや遅さを評価するものではありません");
-    expect(within(sec).getByRole("link", { name: "死亡数の記録を見本で試す" }).getAttribute("href")).toBe("/sample/record/deaths");
+    expect(sec.textContent).toContain("日々の死亡数を記録しておくと、普段との違いに気づきやすくなります。");
+    expect(sec.querySelector('a[href^="/sample"]')).toBeNull();
     expect(findWordingViolations(sec.textContent ?? "")).toEqual([]);
   });
 
