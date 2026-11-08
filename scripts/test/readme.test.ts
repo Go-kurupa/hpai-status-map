@@ -55,7 +55,7 @@ describe("README: 最初の節（審査員が登録なしで触れる入口）",
   });
   it("登録がいらないこと、本番の URL を利用者が入れる印がある", () => {
     expect(first).toMatch(/登録(は)?(いりません|不要|なし)/u);
-    expect(readme).toContain("<!-- 本番の URL は利用者が入れる -->");
+    expect(first).toContain("https://hpai-status-map.web.app/");
   });
 });
 
@@ -83,9 +83,9 @@ describe("README: 運営者と地域（利用者が入れる）", () => {
 });
 
 describe("README: 何のための道具か", () => {
-  const sec = section("何のための道具か");
+  const sec = section("なぜ作ったか");
   it("家畜保健衛生所の速報を全国の俯瞰と過去で補う。切り替えの基準は農場が決める", () => {
-    for (const w of ["家畜保健衛生所の速報を全国の俯瞰と過去で補い", "他人事", "全国の俯瞰", "基準は作品が決めず、農場が決めます"]) expect(sec, w).toContain(w);
+    for (const w of ["家畜保健衛生所の速報を全国の俯瞰と過去で補い", "他人事", "全国の俯瞰", "基準はこのサイトが決めず、農場が決めます"]) expect(sec, w).toContain(w);
   });
 });
 
