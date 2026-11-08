@@ -16,7 +16,7 @@
 
 ## Global Constraints
 
-- 基点は `feat/hpai-map` の先頭（11/6 夜は `075a64c`）。始める前に `git log -1` と `git status` を確かめる。
+- 基点は `feat/hpai-map` の先頭（11/6 夜は `4ed843f`）。始める前に `git log -1` と `git status` を確かめる。
 - 別のセッションが触る範囲には入らない。
   - 相談機能: `shared/src/consult/`、`functions/src/consult/`、`scripts/consult/`、`data/consult/`、`web/src/pages/consult/`
   - README.md

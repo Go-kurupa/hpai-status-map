@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 基点は `feat/hpai-map` の `46558a5`（別のセッションの決定 15・16）以降。始める前に `git log -1` で確かめる。
+- 基点は `feat/hpai-map` の `9150ede`（別のセッションの決定 15・16）以降。始める前に `git log -1` で確かめる。
 - `web/src/ui/AppShell.tsx`、`web/src/ui/SectionTabs.tsx`、`web/src/pages/about/*` は触らない（別のセッションの担当）。e2e の `helpers/frame.ts` も触らない。
 - 文言は設計書 3 章の表どおりに一字一句そろえる。`texts.ts` の `TEXT` から使い、部品に直書きしない（`SvgMap.tsx` の読み上げの文だけは今も直書きなので、その場で書き換える）。
 - 禁句（安全・安心・区域の外です）を使わない。
