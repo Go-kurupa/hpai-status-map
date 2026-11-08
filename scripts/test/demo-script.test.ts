@@ -100,8 +100,9 @@ describe("docs/demo-script.md", () => {
   it("場面 4 は段階の切り替えの基準を農場が決めると語り、4 事例と近くで発生した場合の見え方を通す", () => {
     const r = scenes[3]!;
     expect(r[1]).toContain("/replay");
-    expect(r[1]).toContain("/sample");
-    expect(r[1]).toContain("/sample/todo");
+    // 2026-11-08 提出後: 2 本目の URL の経路は公開の文書に書かず、提出フォームのリンクの言い方にする
+    expect(r[1]).toContain("提出フォームの審査員向けの欄の 2 本目のリンク");
+    expect(r[1]).not.toContain("/sample");
     expect(r[2]).toContain("『近くで発生した場合の見え方』");
     expect(r[2]).not.toContain("見本の農場で試す");
     expect(r[2]).not.toContain("見本を終わる");
@@ -113,7 +114,8 @@ describe("docs/demo-script.md", () => {
   // 2026-11-08: 場面 5 は審査員用のリンクで入る見本の農場の記録。リンクの文字列は台本に書かず、映さない
   it("場面 5 は審査員用のリンクで入り、記録は作り物だと語る。リンクの文字列を書かず、映さないものに入れる", () => {
     const r = scenes[4]!;
-    expect(r[1]).toContain("`/judge#…`");
+    expect(r[1]).toContain("提出フォームの審査員向けの欄の 1 本目のリンク");
+    expect(r[1]).not.toContain("/judge");
     expect(r[1]).toContain("/record/deaths");
     expect(r[1]).not.toContain("/sample");
     expect(r[3]).toContain("鶏舎と記録は作り物です");
