@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { AsOf, AsOfPrecisionContext, formatAsOf } from "./AsOf";
 import { Button } from "./Button";
 import { writeMemberMark } from "../data/memberMark";
-import { AppShell, OPERATOR_NOTE, shellContextOf } from "./AppShell";
+import { AppShell, OPERATOR_NOTE, SAMPLE_MENU_NOTE, shellContextOf } from "./AppShell";
 import { RouteError } from "./RouteError";
 import { ClassBlock } from "./ClassBlock";
 import { Fold } from "./Fold";
@@ -306,6 +306,14 @@ describe("shellContextOf", () => {
     expect(shellContextOf("/sample/todo").mode).toBe("sample");
     expect(shellContextOf("/samplex").mode).toBeNull();
     expect(shellContextOf("/todo").mode).toBeNull();
+  });
+  it("/sample の中だけ、養鶏事業者の方の下に 1 本目のリンクへの注意書きが付く（会員でも、ほかの画面では付かない）", () => {
+    const noteOf = (p: string, member = false) => shellContextOf(p, member).groups.find((g) => g.farm)?.note;
+    expect(noteOf("/sample")).toBe(SAMPLE_MENU_NOTE);
+    expect(noteOf("/sample/todo")).toBe(SAMPLE_MENU_NOTE);
+    expect(noteOf("/")).toBeUndefined();
+    expect(noteOf("/todo", true)).toBeUndefined();
+    expect(noteOf("/replay")).toBeUndefined();
   });
   it("/recordx は記録に当たらない（会員）", () => {
     const items = (p: string) => shellContextOf(p, true).groups.flatMap((g) => g.items);

@@ -296,6 +296,13 @@ button:focus-visible {
 .menu-group-farm .menu-group-label {
   color: var(--farm);
 }
+/* /sample の中だけ、対策項目の下の注意書き（作者の決定で赤字） */
+.menu-note {
+  margin: 4px 8px 0;
+  color: var(--lv1);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
 .menu-group-farm .menu-link {
   color: var(--farm-ink);
 }

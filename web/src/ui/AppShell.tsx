@@ -13,7 +13,10 @@ export const CONTEXT_BAND = {
 } as const;
 export type MenuItem = { to: string; label: string; current: boolean };
 /** farm: 養鶏事業者の方（関係者向け）。一番下に置き、緑の枠と文字で見分ける（2026-11-07 作者の決定 案 A） */
-export type MenuGroup = { label: string; items: MenuItem[]; collapsible?: boolean; farm?: boolean };
+export type MenuGroup = { label: string; items: MenuItem[]; collapsible?: boolean; farm?: boolean; note?: string };
+
+/** 近くで発生した場合の見え方（/sample）の中だけ、対策項目の下に出す注意書き（2026-11-08 作者の決定: 赤字の※） */
+export const SAMPLE_MENU_NOTE = "※ AIに対策を相談、死亡・消毒の記録、農場と通知の設定は、提出フォームの 1 本目のリンクで見られます。";
 
 function under(path: string, base: string): boolean {
   return path === base || path.startsWith(`${base}/`);
@@ -68,6 +71,7 @@ export function shellContextOf(pathname: string, member = false): { mode: ShellM
       // 掲示用の貼り紙は入口だけ外した（画面と /poster は残す。2026-11-06 作者の決定: 入口の注意の紙は各自で作れる）
       items: farm,
       farm: true,
+      ...(mode === "sample" ? { note: SAMPLE_MENU_NOTE } : {}),
     },
   ];
   const currentLabel = groups.flatMap((g) => g.items).find((i) => i.current)?.label ?? null;
@@ -98,6 +102,7 @@ function Menu({ groups, onPick }: { groups: MenuGroup[]; onPick: () => void }) {
           <div key={gi} className={g.farm ? "menu-group menu-group-farm" : "menu-group"}>
             {g.label ? <p className="menu-group-label">{g.label}</p> : null}
             {links}
+            {g.note ? <p className="menu-note">{g.note}</p> : null}
           </div>
         );
       })}
