@@ -51,3 +51,7 @@ web/public/oaza/
 web/test-results/
 web/playwright-report/
 web/dist-e2e/
+
+# 動画の撮影素材（位置情報を含む）と動画の制作用のプログラムは公開しない
+video/素材/
+video/remotion/
