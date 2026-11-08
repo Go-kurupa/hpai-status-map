@@ -26,9 +26,10 @@ function section(titlePart: string): string {
   return [lines[start]!, ...(end >= 0 ? rest.slice(0, end) : rest)].join("\n");
 }
 
+// 2026-11-08: 冒頭に「なぜ作ったか」「できること」を置いたので、最初の節ではなく審査員の節を題で探す
 const firstSection = (): string => {
   const lines = readme.split("\n");
-  const start = lines.findIndex((l) => /^## /u.test(l));
+  const start = lines.findIndex((l) => /^## 審査員の方へ/u.test(l));
   expect(start).toBeGreaterThanOrEqual(0);
   const rest = lines.slice(start + 1);
   const end = rest.findIndex((l) => /^## /u.test(l));
@@ -367,6 +368,11 @@ describe("README: リンク", () => {
       expect(l, l).not.toMatch(/^(\.\/)?(private\/|HANDOFF\.md|CLAUDE\.local\.md|data\/private\/|\.superpowers\/|\.env)/u);
       expect(l, l).not.toContain("participant-guide-themes-and-judging");
     }
+  });
+  // 2026-11-08: 冒頭に節を足したので、審査員の 2 本目の URL（/sample）を書かないことを README 全体で確かめる
+  it("審査員の 2 本目の URL（/sample）を、README のどこにも書かない", () => {
+    expect(readme).not.toMatch(/web\.app\/sample|\]\(\/sample|`\/sample/u);
+    for (const l of links) expect(l, l).not.toMatch(/^\/sample|\/sample(\/|$|\?|#)/u);
   });
   it("外部のリンクは https", () => {
     for (const l of links) if (/^http:/u.test(l)) throw new Error(`http のリンク: ${l}`);
