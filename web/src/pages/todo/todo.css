@@ -199,10 +199,14 @@
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+/* 解除の見込みの枠は中立の線（2026-11-08 直し 5）。赤（--lv1）は「区域に入っていれば求められること」の枠だけに残す */
 .lift-region {
   margin: 0 0 16px;
   padding: 12px var(--gutter);
-  border: 2px solid var(--lv1);
+  border: 2px solid var(--line);
+}
+.lift-block > h3 {
+  font-size: 1.1rem;
 }
 .lift-block + .lift-block {
   margin-top: 12px;
@@ -246,4 +250,93 @@
 .worker-message-warn {
   margin: 0 0 8px;
   font-weight: 700;
+}
+/* 目次（段階 1 だけ。2026-11-08）。札は押せる高さ 48px 以上（--tap）。色は増やさず、確認リストの枠の線の種類を札の左の縦線に写す。
+   赤（--lv1）は区域の札の縦線だけ */
+.todo-toc {
+  margin: 0 0 var(--s2);
+}
+.todo-toc-label {
+  margin: 0 0 4px;
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+/* PC は同じ幅の札の 2 列（2 / 1 / 2 のような折り返しにしない）。スマホは 1 列 */
+.todo-toc ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* 同じ行の札の高さをそろえる（折り返した札の隣が段違いにならないように） */
+.todo-toc li {
+  display: flex;
+}
+.todo-toc a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg);
+  text-decoration: none;
+}
+/* 札そのものが押せるので、名前に下線は付けない。触れたとき・キーボードの焦点では枠の色と名前の下線で示す */
+.todo-toc-name {
+  color: var(--accent);
+}
+.todo-toc a:hover,
+.todo-toc a:focus-visible {
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+/* 枠の種類の印がない札（解除の見込み・声かけ文）は、左の辺も色を変える */
+.todo-toc a:not([class*="toc-"]):hover,
+.todo-toc a:not([class*="toc-"]):focus-visible {
+  border-left-color: var(--accent);
+}
+.todo-toc a:hover .todo-toc-name,
+.todo-toc a:focus-visible .todo-toc-name {
+  text-decoration: underline;
+}
+.todo-toc-num {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.todo-toc-note {
+  margin-left: auto;
+  color: var(--sub);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.todo-toc a.toc-if_in_zone {
+  border-left: 3px solid var(--lv1);
+}
+.todo-toc a.toc-always {
+  border-left: 2px solid var(--fg);
+}
+.todo-toc a.toc-good_to_check {
+  border-left: 2px dashed var(--muted);
+}
+/* スマホの幅では縦 1 列。札は全幅で、名前は左・項目数は右 */
+@media (max-width: 40rem) {
+  .todo-toc ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* 目次から移った節は焦点を受けるが、押した印の枠は出さない（キーボードの焦点の枠は押せるものだけ） */
+.todo-page section[tabindex="-1"]:focus {
+  outline: none;
+}
+/* 出典を枠でまとめたときの、項目の位置（灰色の「出典の」＋位置のリンク）。間隔はほかの行（p）と同じにし、
+   押せる高さは出典の行（.source-line a）と同じく上下の padding で確保する（行の高さを広げない） */
+.todo-pos a {
+  padding-block: 11px;
 }

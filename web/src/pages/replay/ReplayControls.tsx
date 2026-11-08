@@ -57,6 +57,8 @@ function useBandDistance(current: ReplayEvent | null, spot: FarmPoint, enabled: 
 /**
  * 再現の時計の操作。switches を渡さないとき（/sample）は、12 月の 4 事例を仮の地点（見本の農場の鶏舎の場所）で見るだけで、
  * 流れと見る場所の切り替え、舞台裏へのリンクを出さない。
+ * startNote を渡すと、開いたときの出来事にいる間だけ、なぜそこから始まるかの 1 段落を操作のすぐ後ろに出す（/sample だけ。2026-11-08）。
+ * 今の出来事の行（.replay-now）の文には混ぜない。スマホの幅では replay.css が地図の下へ回す（地図の高さの予算を変えない）
  */
 export function ReplayControls({
   scenario,
@@ -64,6 +66,7 @@ export function ReplayControls({
   spot,
   heading,
   switches,
+  startNote,
 }: {
   scenario: ReplayScenario;
   dataSource: ReplayDataSource;
@@ -71,6 +74,7 @@ export function ReplayControls({
   /** 読み上げだけの見出し（h1）。見た目は帯が見せている */
   heading: string;
   switches?: ReplaySwitches;
+  startNote?: { order: number; lead: string; text: string };
 }) {
   const order = useSyncExternalStore(dataSource.subscribeOrder, dataSource.currentOrder);
   const total = scenario.events.length;
@@ -115,6 +119,12 @@ export function ReplayControls({
           </p>
         </div>
       </div>
+      {startNote && order === startNote.order ? (
+        <p className="replay-hint replay-start-note">
+          <span className="replay-start-lead">{startNote.lead}</span>
+          {startNote.text}
+        </p>
+      ) : null}
 
       <div className="replay-below">
         {isNational ? <p className="replay-hint">全国の流れでは、メールの下書きは出しません。</p> : null}

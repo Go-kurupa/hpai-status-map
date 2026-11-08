@@ -9,4 +9,11 @@ export const SAMPLE_TEXT = {
   loading: "再現を読み込んでいます",
   failed: "再現のデータを読み込めませんでした",
   retry: "もう一度読む",
+  /**
+   * 開いたときの出来事にいる間だけ、操作の下に出す。なぜそこから始まるか（2026-11-08）。
+   * 番号・全体の数・町・段階の語は、再現のデータ（開いたときの出来事）から作る。文頭の札は、地図の断りと分けて読めるように
+   */
+  startLead: (order: number, total: number): string => `${order} / ${total} について: `,
+  startNote: (order: number, muniName: string, stageWord: string): string =>
+    `${order} 番目の出来事から始めています。見本の農場の近く（${muniName}）で${stageWord}が発表された日です。上の「前へ」で、それより前の出来事も見られます。`,
 } as const;

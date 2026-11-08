@@ -54,7 +54,7 @@ vi.mock("../../firebase", () => ({
   },
 }));
 
-import { sampleStartOrder } from "./SampleFrame";
+import { sampleStartNote, sampleStartOrder } from "./SampleFrame";
 import SampleLayout from "./SampleLayout";
 import SamplePage from "./SamplePage";
 import SampleTodoPage from "./SampleTodoPage";
@@ -193,6 +193,57 @@ describe("/sample（地図）", () => {
     expect(h1s[0]!.className).toBe("replay-heading");
   });
 
+  // 2026-11-08: 4 / 14 から始まる理由を、開いたときの出来事にいる間だけ添える。今の出来事の 1 行（.replay-now）には混ぜない
+  // 2 周目: 文頭に「4 / 14 について: 」の札。番号・全体の数・町・段階の語は再現のデータから作る
+  const START_TEXT = `4 / ${scenario.events.length} について: 4 番目の出来事から始めています。見本の農場の近く（津山市）で疑いが発表された日です。上の「前へ」で、それより前の出来事も見られます。`;
+
+  it("開いた直後は、なぜ 4 番目から始まるかの 1 段落が出る（文頭は太字の「4 / 14 について: 」）。「次へ」で消え、「前へ」で戻ると出る。今の出来事の 1 行は従来どおり", async () => {
+    mount("/sample");
+    await mapReady();
+    const note = () => document.querySelector(".replay-start-note");
+    expect(note()?.textContent).toBe(START_TEXT);
+    expect(note()?.querySelector(".replay-start-lead")?.textContent).toBe(`4 / ${scenario.events.length} について: `);
+    expect(note()?.classList.contains("replay-hint")).toBe(true);
+    expect(document.querySelector(".replay-now")?.textContent).toBe("12 月 19 日 津山市 疑い");
+    // 操作のすぐ後ろ（今の出来事の行の中ではない）
+    expect(note()!.previousElementSibling?.classList.contains("replay-top")).toBe(true);
+    expect(note()!.closest(".replay-now-row")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+    await waitFor(() => expect(document.querySelector(".replay-now")?.textContent).toBe("12 月 20 日 津山市 確定"));
+    expect(note()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "前へ" }));
+    await waitFor(() => expect(document.querySelector(".replay-now")?.textContent).toBe("12 月 19 日 津山市 疑い"));
+    expect(note()?.textContent).toBe(START_TEXT);
+    expect(findForbiddenPhrases(START_TEXT)).toEqual([]);
+    expect(START_TEXT).not.toMatch(/足す|つける|おして/u);
+  });
+
+  it("sampleStartNote: 文はデータの開始の出来事から作る（番号・全体の数・町・段階の語）。出来事がない、段階の語がないときは出さない", () => {
+    const order = sampleStartOrder(scenario, sample);
+    expect(sampleStartNote(scenario, order)).toEqual({
+      order,
+      lead: `${order} / ${scenario.events.length} について: `,
+      text: START_TEXT.slice(`${order} / ${scenario.events.length} について: `.length),
+    });
+    // 別の出来事（5 番目: 12 月 20 日 津山市 確定）を開始にしても、文がその出来事に合う
+    expect(sampleStartNote(scenario, 5)?.text).toBe("5 番目の出来事から始めています。見本の農場の近く（津山市）で確定が発表された日です。上の「前へ」で、それより前の出来事も見られます。");
+    expect(sampleStartNote(scenario, 0)).toBeNull();
+    expect(sampleStartNote(scenario, scenario.events.length + 1)).toBeNull();
+    const noStage = { ...scenario, events: scenario.events.map((e) => ({ ...e, date: "2000-01-01" })) };
+    expect(sampleStartNote(noStage, order)).toBeNull();
+  });
+
+  it("理由の文は、スマホの幅では地図の下（地図の高さの予算を変えない）、PC の幅では操作の行の下に全幅", () => {
+    const css = readFileSync(path.resolve(import.meta.dirname, "../replay/replay.css"), "utf8");
+    const narrow = /@media \(max-width: 63\.99rem\) \{([\s\S]*?)\n\}/.exec(css)![1]!;
+    const wide = /@media \(min-width: 64rem\) \{([\s\S]*?)\n\}/.exec(css)![1]!;
+    expect(/\.replay-start-note \{([^}]*)\}/.exec(narrow)?.[1]).toMatch(/order:\s*3/);
+    // 地図の断り（※ 輪は距離の目安…）の続きに見えないよう、上を 8px 以上あける
+    expect(Number(/margin-top:\s*(\d+)px/.exec(/\.replay-start-note \{([^}]*)\}/.exec(narrow)![1]!)?.[1])).toBeGreaterThanOrEqual(8);
+    expect(/\.replay-start-note \{([^}]*)\}/.exec(wide)?.[1]).toMatch(/grid-column:\s*1 \/ -1/);
+    expect(/\.replay-start-note \{([^}]*)\}/.exec(wide)?.[1]).toMatch(/order:\s*-2/);
+  });
+
   it("前へ・次へと日付の一覧で、再現の画面と同じく時刻を動かせる", async () => {
     mount("/sample");
     await mapReady();
@@ -271,6 +322,23 @@ describe("/sample/todo（対策項目）", () => {
     const lift = await screen.findByRole("region", { name: TODO_TEXT.liftHeading });
     expect(lift.textContent).toContain("津山市");
     await waitFor(() => expect(lift.textContent).toContain("未定です"));
+  });
+
+  it("目次が 5 件（解除の見込み（津山市）、声かけ文、区域、いつも、確かめておくとよいこと）。題の行のすぐ下", async () => {
+    mount("/sample/todo");
+    await screen.findByRole("region", { name: TODO_TEXT.liftHeading });
+    const nav = await screen.findByRole("navigation", { name: TODO_TEXT.tocLabel });
+    const names = within(nav)
+      .getAllByRole("link")
+      .map((a) => a.textContent?.replace(/^\d+/u, ""));
+    expect(names).toHaveLength(5);
+    expect(names.slice(0, 2)).toEqual(["解除の見込み（津山市）", WORKER_MESSAGE_TEXT.heading]);
+    expect(names[2]).toMatch(/^区域に入っていれば求められること \d+ 項目$/);
+    expect(names[3]).toMatch(/^いつも求められていること \d+ 項目$/);
+    expect(names[4]).toMatch(/^確かめておくとよいこと \d+ 項目$/);
+    // 短い確認（区域に入っている可能性…）のすぐ下（目次で押し下げない）
+    expect(nav.previousElementSibling?.getAttribute("aria-label")).toBe("短い確認");
+    for (const a of within(nav).getAllByRole("link")) expect(document.querySelector(a.getAttribute("href")!)).not.toBeNull();
   });
 
   it("声かけ文は雛形（Claude の下書きではない）で、津山市の名前が入っている", async () => {

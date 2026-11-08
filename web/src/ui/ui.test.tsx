@@ -624,6 +624,8 @@ describe("機械の検査: css", () => {
     ".menu-btn",
     ".menu-close",
     ".menu-link",
+    // 対策項目の目次の札（2026-11-08。押すとその節へ移る）
+    ".todo-toc a",
   ]);
   const isControl = (selector: string) =>
     selector.split(", ").every((s) => RADIUS_CONTROL.has(s) || /(?:^| )(?:select|textarea|input(?:\[[^\]]*\])?)$/.test(s));
@@ -786,7 +788,8 @@ describe("機械の検査: ソフトの質感（設計書 2-2）", () => {
     expect(body(".map-notice", MAP)).not.toMatch(/(?:^|[\s;])border:\s*(?!0)/);
   });
   it("黒い太い枠は、状態を示す名指しのものだけ", () => {
-    const allowed = new Set([".class-always", ".state-unknown", ".death-hit"]);
+    // 対策項目の目次の「いつも求められていること」の札は、その枠（.class-always）の線を左の縦線に写す（2026-11-08）
+    const allowed = new Set([".class-always", ".state-unknown", ".death-hit", ".todo-toc a.toc-always"]);
     const bad = cssRules().filter(
       (r) => /(?:^|[\s;])border(?:-\w+)?:\s*[2-9]px\s+\w+\s+(?:var\(--fg\)|#000\b)/.test(r.body) && !allowed.has(r.selector),
     );

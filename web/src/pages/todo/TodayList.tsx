@@ -291,7 +291,7 @@ export function TodayList({
   const firstDisinfection = sorted.find((r) => r.key.startsWith("dis:"))?.key ?? null;
 
   return (
-    <section className="today-list" role="region" aria-label={TODAY_TEXT.heading}>
+    <section className="today-list" role="region" aria-label={TODAY_TEXT.heading} id="todo-today" tabIndex={-1}>
       <div className="today-head">
         <h2>{TODAY_TEXT.heading}</h2>
         {ranks ? (

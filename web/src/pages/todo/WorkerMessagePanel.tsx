@@ -57,7 +57,7 @@ export function WorkerMessagePanel({ caseId, facts }: { caseId: string; facts: D
   const staleSuspected = loaded !== null && stage === "confirmed" && normalizeForMatch(loaded.text).includes("疑い");
 
   return (
-    <section className="worker-message" role="region" aria-label={T.heading}>
+    <section className="worker-message" role="region" aria-label={T.heading} id="todo-worker" tabIndex={-1}>
       <h2>{T.heading}</h2>
       <p>{T.lead}</p>
       {loaded === null ? (

@@ -504,11 +504,15 @@ button:focus-visible {
   padding: 12px var(--gutter);
   background: var(--surface);
 }
-.class-block > h2 {
+.class-block > :is(h2, h3) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+/* 「確認リスト」の見出し（h2）の中の枠の見出し（2026-11-08）。h2 より一段小さく */
+.class-block > h3 {
+  font-size: 1.15rem;
 }
 .class-always {
   border: 2px solid var(--fg);

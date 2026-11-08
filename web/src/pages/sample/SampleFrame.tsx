@@ -3,7 +3,7 @@
 // 再現の時計は、見本の農場（鶏舎の場所 = 再現の仮の地点）にメールが届く最初の出来事（12月19日 津山市 疑い）から始める。
 // 記録の口は SampleRecordStore（端末の中だけ）。対策項目が農場の飼い方と消毒の「やった」を読むために使う。会員の状態も Firebase も読まない。
 // 口と時計は読み込みの後に 1 度だけ作り、地図と対策項目の間を移っても同じものを使う（ページの再読み込みで元に戻る）。
-import { lastOrderOn, type ReplayScenario, type SampleFarmData } from "@hpai/shared/replay";
+import { eventStage, lastOrderOn, STAGE_LABEL, type ReplayScenario, type SampleFarmData } from "@hpai/shared/replay";
 import type { FarmPoint } from "@hpai/shared/types";
 import { useEffect, useState, type ReactNode } from "react";
 import { useOutletContext } from "react-router";
@@ -24,6 +24,15 @@ export interface SampleEnv {
   scenario: ReplayScenario;
   dataSource: ReplayDataSource;
   spot: FarmPoint;
+  /** 開いたときの出来事の番号と、なぜそこから始まるかの文（sampleStartNote）。その出来事にいる間だけ出す */
+  startNote: StartNote | null;
+}
+
+export interface StartNote {
+  order: number;
+  /** 文頭の札（「4 / 14 について: 」） */
+  lead: string;
+  text: string;
 }
 
 async function fetchJson<T>(name: string): Promise<T> {
@@ -63,6 +72,20 @@ export function sampleStartOrder(scenario: ReplayScenario, data: SampleFarmData)
 }
 
 /**
+ * 開いたときの出来事の理由の文。番号・全体の数・町の名前・段階の語は再現のデータから作る（文と開始の出来事がずれないように）。
+ * 出来事がない、町の名前か段階の語がないときは null（理由の文を出さない）
+ */
+export function sampleStartNote(scenario: ReplayScenario, order: number): StartNote | null {
+  const e = scenario.events[order - 1];
+  if (!e) return null;
+  const stage = eventStage(e);
+  const word = stage ? STAGE_LABEL[stage] : undefined;
+  const muniName = e.caseAfter.muniName ?? "";
+  if (!word || !muniName) return null;
+  return { order, lead: SAMPLE_TEXT.startLead(order, scenario.events.length), text: SAMPLE_TEXT.startNote(order, muniName, word) };
+}
+
+/**
  * 声かけ文の元になる事例を決める draftFactsOf（M-18）は、再現の事例（confirmState "replay"）を「下書きを作らない事例」として外す。
  * 対策項目の画面では雛形の声かけ文を見せたいので、この画面の中だけ、事例の印を通常の自動（auto）に替える。
  * 替えるのは画面の中の複製だけで、データのファイルと再現の画面には届かない。Claude は呼ばない（sample の口と再現の時計は getCaseDraft を呼ばない）。
@@ -81,8 +104,9 @@ function SampleReady({ scenario: loaded, data, children }: Loaded & { children: 
   const [env] = useState(() => {
     const scenario = withTemplateDraftCases(loaded);
     const dataSource = new ReplayDataSource(scenario, fetchHistory);
+    const startOrder = sampleStartOrder(scenario, data);
     // 子の画面が今日を読む前に、再現の時計を開いたときの時刻に合わせる（購読者はまだいないので、通知は要らない）
-    dataSource.seek(sampleStartOrder(scenario, data));
+    dataSource.seek(startOrder);
     const spot: FarmPoint = {
       meshCode: data.farm.meshCode,
       muniCode: data.farm.muniCode,
@@ -93,11 +117,12 @@ function SampleReady({ scenario: loaded, data, children }: Loaded & { children: 
       dataSource,
       recordStore: new SampleRecordStore(data),
       spot,
+      startNote: sampleStartNote(scenario, startOrder),
     };
   });
   return (
     <ReplayFrame scenario={env.scenario} dataSource={env.dataSource} spot={env.spot} recordStore={env.recordStore} note={SAMPLE_TEXT.farmNote}>
-      {children({ scenario: env.scenario, dataSource: env.dataSource, spot: env.spot })}
+      {children({ scenario: env.scenario, dataSource: env.dataSource, spot: env.spot, startNote: env.startNote })}
     </ReplayFrame>
   );
 }

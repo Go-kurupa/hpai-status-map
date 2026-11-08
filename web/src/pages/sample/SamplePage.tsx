@@ -7,11 +7,17 @@ import { useSampleEnv } from "./SampleFrame";
 import { SAMPLE_TEXT } from "./sampleTexts";
 
 export default function SamplePage() {
-  const { scenario, dataSource, spot } = useSampleEnv();
+  const { scenario, dataSource, spot, startNote } = useSampleEnv();
   return (
     // 操作の後ろの部分は、replay.css が地図の下へ動かす（去年の再現の画面と同じ並び）
     <div className="replay-stage">
-      <ReplayControls scenario={scenario} dataSource={dataSource} spot={spot} heading={SAMPLE_TEXT.heading} />
+      <ReplayControls
+        scenario={scenario}
+        dataSource={dataSource}
+        spot={spot}
+        heading={SAMPLE_TEXT.heading}
+        startNote={startNote ?? undefined}
+      />
       {/* 最初は選択地域付近（見本の農場のまわりの距離の輪が見える広さ）。去年の再現の画面の 4 事例は全国の広さのまま */}
       <MapPage nearFirst />
     </div>

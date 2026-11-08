@@ -17,6 +17,18 @@ export const TODO_TEXT = {
   less: "確認リストを閉じる",
   /** ボタンの直前の 1 行。開くと何が並ぶか */
   moreLead: "国の指針から、この農場で確かめることを出典つきで並べています",
+  /** 確認リストの群の見出し（見本と会員でない人の画面。目次の飛び先にもなる） */
+  checklistHeading: "確認リスト",
+  // 目次（見出しのある節が 4 つ以上のときだけ。段階 1）
+  tocLabel: "目次",
+  /** 目次の札に添える、確認リストの枠の項目数 */
+  tocItems: (n: number): string => `${n} 項目`,
+  /** 目次の「解除の見込み」に添える町の名前。発生が複数の町なら「津山市ほか」 */
+  tocTowns: (names: string[]): string => (names.length > 1 ? `${names[0]}ほか` : (names[0] ?? "")),
+  /** 枠の中の項目がすべて同じ出典のとき、項目ごとの位置の前に灰色で置く語（リンクは位置の部分だけ）。何の位置かを示す */
+  sourcePositionLead: "出典の",
+  /** 枠の中の項目がすべて同じ出典のとき、項目ごとの位置のリンクの読み上げの名前（同じ位置の文が並ぶため、資料名を入れる） */
+  sourcePositionLabel: (title: string, position: string): string => `出典: ${title}（${position}）`,
   // 解除の見込み（段階 1 だけ）
   liftHeading: "解除の見込み",
   liftUndetermined: "未定です。防疫措置（殺処分と消毒などの作業）が終わると、見込みの日を計算します",

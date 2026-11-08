@@ -264,6 +264,16 @@ describe("ReplayPage", () => {
     expect(pos.getAttribute("aria-live")).toBeNull();
   });
 
+  it("開いたときの出来事の理由の文（近くで発生した場合の見え方だけのもの）は、どの出来事でも出さない", async () => {
+    await show();
+    await mapReady();
+    expect(document.querySelector(".replay-start-note")).toBeNull();
+    fireEvent.click(item(/12 月 19 日.*津山市.*疑い/));
+    await waitFor(() => expect(document.querySelector(".replay-now")?.textContent).toBe("12 月 19 日 津山市 疑い"));
+    expect(document.querySelector(".replay-start-note")).toBeNull();
+    expect(document.body.textContent).not.toContain("番目の出来事から始めています");
+  });
+
   it("メールの枠は日付の一覧より前にある。日付の一覧は『日付の一覧から選ぶ』の畳みの中", async () => {
     await show();
     await mapReady();

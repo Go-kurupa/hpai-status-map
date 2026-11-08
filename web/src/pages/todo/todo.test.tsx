@@ -49,9 +49,9 @@ vi.mock("../consult/cardsData", () => ({
   loadConsultCatalog: () => (reviewBox.catalogFail ? Promise.reject(new Error("読み込めません")) : Promise.resolve(reviewBox.catalog)),
 }));
 
-import TodoPage, { orderSections } from "./TodoPage";
+import TodoPage, { orderSections, sharedSource } from "./TodoPage";
 import { STANDARD_NUMBER_NOTE } from "@hpai/shared/checklist/items";
-import { buildChecklist } from "@hpai/shared/checklist";
+import { buildChecklist, shortReminder } from "@hpai/shared/checklist";
 
 // 守る文は箇条書きで「文（出典: 名前）」と名前のリンクに分けて出す（URL は本文に出さない）
 const riskItem = () => screen.queryAllByRole("listitem").find((li) => li.textContent?.includes(RISK_SENTENCE)) ?? null;
@@ -676,9 +676,12 @@ describe("消毒への道、段階 1 の並び、番号の注意", () => {
     const blocksWithStd = new Set(buildChecklist({ level: 1, production: null, housing: null }).filter((s) => s.items.some((i) => i.source.note?.includes(STANDARD_NUMBER_NOTE))).map((s) => s.class));
     expect(container.textContent!.split(STANDARD_NUMBER_NOTE).length - 1).toBe(blocksWithStd.size);
     const i17 = items.find((i) => i.id === "always-17")!;
-    const position = i17.source.note!.replace(STANDARD_NUMBER_NOTE, "").trim();
+    // 出典を枠でまとめたので、項目には位置（末尾の「。」を除く）だけを、出典と同じ URL のリンクで残す（2026-11-08 直し 2）
+    const position = i17.source.note!.replace(STANDARD_NUMBER_NOTE, "").trim().replace(/。$/u, "");
     expect(position.length).toBeGreaterThan(0);
-    expect(container.textContent).toContain(position);
+    const link = within(container.querySelector<HTMLElement>(".class-always")!).getByRole("link", { name: `出典: ${i17.source.title}（${position}）` });
+    expect(link.textContent).toBe(position);
+    expect(link.getAttribute("href")).toBe(i17.source.url);
   });
 
   it("農場が読み込めているとき取り消しがない旨が 1 回出る（会員は今日のやることの消毒の行）。農場がなければ出ない", async () => {
@@ -1199,5 +1202,266 @@ describe("足した対策の実施の記録（まだ・後でやる・やった�
     fireEvent.click(within(row).getByRole("button", { name: "外す", hidden: true }));
     await waitFor(() => expect(reviewRows()).toHaveLength(1));
     expect(reviewBox.store.removeReview).toHaveBeenCalledWith("maff-M02");
+  });
+});
+
+// 2026-11-08 レビュー 1 周目の設計: 目次（段階 1 だけ）、確認リストの見出し、段階 1 の短い確認の重なり、出典の集約、解除の見込みの枠の色
+describe("目次（見出しのある節が 4 つ以上のときだけ）", () => {
+  const toc = () => screen.queryByRole("navigation", { name: "目次" });
+  const tocNames = () => within(toc()!).getAllByRole("link").map((a) => a.textContent?.replace(/^\d+/u, "") ?? "");
+  const short = (heading: string) => heading.split("（")[0]!;
+  const level1Sections = () => orderSections(1, buildChecklist({ level: 1, production: null, housing: null }));
+
+  it("見本と会員でない人の段階 1: 短い確認のすぐ下に 5 件。画面の順で、確認リストの枠には項目数を添える（buildChecklist の数と同じ）", async () => {
+    farm = null;
+    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
+    await screen.findByRole("region", { name: "解除の見込み" });
+    const nav = toc()!;
+    expect(nav).not.toBeNull();
+    // 短い確認（区域に入っている可能性…）を目次で押し下げない: 目次は短い確認のすぐ下、解除の見込みより上（2026-11-08 2 周目）
+    const reminder = screen.getByRole("list", { name: "短い確認" });
+    expect(nav.previousElementSibling).toBe(reminder);
+    expect(reminder.previousElementSibling?.classList.contains("as-of")).toBe(true);
+    expect(nav.compareDocumentPosition(screen.getByRole("region", { name: "解除の見込み" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // 「目次」の文字は見出しにしない（ページの見出しの並びを変えない）
+    expect(screen.queryByRole("heading", { name: "目次" })).toBeNull();
+    const sections = level1Sections();
+    expect(tocNames()).toEqual([
+      "解除の見込み（津山市）",
+      "働く人への声かけ文",
+      ...sections.map((s) => `${short(s.heading)} ${s.items.length} 項目`),
+    ]);
+    expect(sections.map((s) => s.class)).toEqual(["if_in_zone", "always", "good_to_check"]);
+    // 番号は 1 から順に
+    expect(within(nav).getAllByRole("link").map((a) => a.querySelector(".todo-toc-num")?.textContent)).toEqual(["1", "2", "3", "4", "5"]);
+    // 飛び先はどれも画面にあり、目次の順と画面の順が同じ
+    const targets = within(nav)
+      .getAllByRole("link")
+      .map((a) => container.querySelector<HTMLElement>(a.getAttribute("href")!)!);
+    expect(targets.every((t) => t !== null)).toBe(true);
+    for (let i = 1; i < targets.length; i++) expect(targets[i - 1]!.compareDocumentPosition(targets[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // 赤（--lv1 の縦線）は区域の札だけ。ほかの札は枠の線の種類を写す
+    const classes = within(nav)
+      .getAllByRole("link")
+      .map((a) => a.className);
+    expect(classes).toEqual(["", "", "toc-if_in_zone", "toc-always", "toc-good_to_check"]);
+  });
+
+  it("「確認リストを閉じる」で確認リストの 3 件が目次から消える（残りが 4 つ未満なので目次ごと出ない）。開き直すと戻る", async () => {
+    farm = null;
+    mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
+    await screen.findByRole("region", { name: "解除の見込み" });
+    expect(tocNames()).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: LESS }));
+    expect(toc()).toBeNull();
+    openMore();
+    expect(tocNames()).toHaveLength(5);
+  });
+
+  it("段階 4 と段階 2 には目次がない（確認リストを開いても）", async () => {
+    farm = null;
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    await ready();
+    openMore();
+    expect(toc()).toBeNull();
+    cleanup();
+    farm = null;
+    mount(<TodoPage />, { ds: makeDs({ cases: [inTottori()] }) });
+    await screen.findByText("近くの町で発表がありました。県の発表を確かめましょう");
+    openMore();
+    expect(screen.getByRole("heading", { name: "いつも求められていること" })).toBeTruthy();
+    expect(toc()).toBeNull();
+  });
+
+  it("札を押すと、その節へ動かして焦点を移す（節は tabIndex -1）", async () => {
+    const original = Element.prototype.scrollIntoView;
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    try {
+      farm = null;
+      mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
+      await screen.findByRole("region", { name: "解除の見込み" });
+      const always = within(toc()!).getByRole("link", { name: /^いつも求められていること/ });
+      fireEvent.click(always);
+      const block = screen.getByRole("heading", { name: "いつも求められていること" }).closest("section")!;
+      expect(document.activeElement).toBe(block);
+      expect(block.getAttribute("tabindex")).toBe("-1");
+      expect(scroll).toHaveBeenCalledTimes(1);
+      expect(scroll.mock.contexts[0]).toBe(block);
+      expect(scroll.mock.calls[0]![0]).toEqual({ block: "start" });
+      fireEvent.click(within(toc()!).getByRole("link", { name: "働く人への声かけ文" }));
+      expect(document.activeElement).toBe(screen.getByRole("region", { name: "働く人への声かけ文" }));
+      fireEvent.click(within(toc()!).getByRole("link", { name: "解除の見込み（津山市）" }));
+      expect(document.activeElement).toBe(screen.getByRole("region", { name: "解除の見込み" }));
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it("会員の段階 1: 4 件（解除の見込み、区域、今日のやること、参照）。今日のやることには件数を添えない", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
+    await todayList();
+    const zone = level1Sections().find((s) => s.class === "if_in_zone")!;
+    expect(tocNames()).toEqual(["解除の見込み（津山市）", `区域に入っていれば求められること ${zone.items.length} 項目`, "今日のやること", "参照"]);
+    // 短い確認のすぐ下（題の行と短い確認の間に入れない）
+    expect(toc()!.previousElementSibling).toBe(screen.getByRole("list", { name: "短い確認" }));
+    for (const a of within(toc()!).getAllByRole("link")) expect(document.querySelector(a.getAttribute("href")!)).not.toBeNull();
+  });
+
+  it("会員の段階 4 には目次がない", async () => {
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    await todayList();
+    expect(toc()).toBeNull();
+  });
+
+  it("解除の見込みが複数の町なら「（最初の町）ほか」", () => {
+    expect(TODO_TEXT.tocTowns(["津山市"])).toBe("津山市");
+    expect(TODO_TEXT.tocTowns(["津山市", "美作市"])).toBe("津山市ほか");
+    expect(TODO_TEXT.tocTowns([])).toBe("");
+  });
+
+  it("新しい文言（目次、項目数、確認リストの見出し、出典の位置の読み上げ）に禁止語がなく、「足す」「つける」「おして」を使わない", () => {
+    const words = [TODO_TEXT.tocLabel, TODO_TEXT.tocItems(6), TODO_TEXT.tocTowns(["津山市", "美作市"]), TODO_TEXT.checklistHeading, TODO_TEXT.sourcePositionLabel("資料", "項目 17")].join("\n");
+    expect(findForbiddenPhrases(words)).toEqual([]);
+    expect(words).not.toMatch(/足す|つける|おして/u);
+  });
+});
+
+describe("目次以外の直し（2026-11-08）", () => {
+  it("確認リストの群に見出し「確認リスト」（h2）があり、その下に説明の 1 行と開くボタン。中の 3 枠の見出しは h3（見本と会員でない人）", async () => {
+    farm = null;
+    mount(<TodoPage />, { ds: makeDs({ cases: [farAway()] }) });
+    await ready();
+    const h = screen.getByRole("heading", { level: 2, name: TODO_TEXT.checklistHeading });
+    const group = h.closest("section")!;
+    expect(group.id).toBe("todo-checklist");
+    expect(within(group).getByText(TODO_TEXT.moreLead)).toBeTruthy();
+    expect(within(group).getByRole("button", { name: MORE })).toBeTruthy();
+    openMore();
+    expect(within(group).getByRole("heading", { level: 3, name: "いつも求められていること" })).toBeTruthy();
+    expect(within(group).queryAllByRole("heading", { level: 2 })).toEqual([h]);
+  });
+
+  it("段階 1 の短い確認から「正式な情報は県の連絡です」を除く（解除の見込みの枠が出す）。見本・会員でない人と、会員の両方。段階 2 は今のまま", async () => {
+    farm = null;
+    mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
+    const region = await screen.findByRole("region", { name: "解除の見込み" });
+    const reminder = screen.getByRole("list", { name: "短い確認" });
+    expect(within(reminder).getAllByRole("listitem").map((li) => li.textContent)).toEqual(shortReminder(1).filter((l) => l !== FIXED_TEXT.prefContactIsAuthority));
+    expect(within(reminder).getAllByRole("listitem")).toHaveLength(3);
+    expect(region.textContent).toContain(FIXED_TEXT.prefContactIsAuthority);
+    cleanup();
+    // 会員の段階 1 も同じ（2026-11-08 2 周目）。画面の中で 1 回だけ（解除の見込みの枠）
+    farm = farmFixture();
+    mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
+    await todayList();
+    const memberReminder = screen.getByRole("list", { name: "短い確認" });
+    expect(within(memberReminder).getAllByRole("listitem")).toHaveLength(3);
+    expect(memberReminder.textContent).not.toContain(FIXED_TEXT.prefContactIsAuthority);
+    expect(within(screen.getByRole("region", { name: "解除の見込み" })).getByText(/正式な情報は県の連絡です/)).toBeTruthy();
+    cleanup();
+    farm = null;
+    mount(<TodoPage />, { ds: makeDs({ cases: [inTottori()] }) });
+    await screen.findByText("近くの町で発表がありました。県の発表を確かめましょう");
+    expect(within(screen.getByRole("list", { name: "短い確認" })).getAllByRole("listitem")).toHaveLength(4);
+  });
+
+  it("出典の集約: 全項目が同じ出典の枠（区域・いつも）は見出しの直下に出典を 1 回、各項目は位置だけを同じ URL のリンクで。混ざる枠（確かめておくとよいこと）は今のまま各項目に", async () => {
+    farm = null;
+    const { container } = mount(<TodoPage />, { ds: makeDs({ cases: [inTsuyama()] }) });
+    await screen.findByRole("region", { name: "解除の見込み" });
+    const sections = orderSections(1, buildChecklist({ level: 1, production: null, housing: null }));
+    for (const s of sections) {
+      const block = container.querySelector<HTMLElement>(`.class-${s.class}`)!;
+      const lines = block.querySelectorAll(".source-line");
+      if (s.class === "good_to_check") {
+        // 出典が混ざる: 枠の上には出さず、各項目に 1 行ずつ
+        expect(sharedSource(s.items)).toBeNull();
+        expect(block.querySelector(":scope > .source-line")).toBeNull();
+        expect(lines).toHaveLength(s.items.length);
+        continue;
+      }
+      const src = s.items[0]!.source;
+      expect(sharedSource(s.items)).toEqual(src);
+      // 見出しの直下に 1 回だけ
+      expect(lines).toHaveLength(1);
+      expect(block.querySelector(":scope > h3")!.nextElementSibling).toBe(lines[0]);
+      expect(lines[0]!.textContent).toBe(`出典: ${src.title}`);
+      // 各項目から出典へたどれる: 位置のリンクが出典と同じ URL
+      const rows = block.querySelectorAll<HTMLElement>(".todo-items > li");
+      expect(rows).toHaveLength(s.items.length);
+      s.items.forEach((item, i) => {
+        const a = rows[i]!.querySelector<HTMLAnchorElement>(".todo-pos a")!;
+        // 何の位置か分かるよう、灰色の「出典の」を前に置く（リンクは位置の部分だけ）
+        expect(a.parentElement!.textContent).toBe(`${TODO_TEXT.sourcePositionLead}${a.textContent}`);
+        expect(a.parentElement!.classList.contains("todo-note")).toBe(true);
+        expect(a.getAttribute("href")).toBe(src.url);
+        expect(a.getAttribute("target")).toBe("_blank");
+        expect(a.textContent!.length).toBeGreaterThan(0);
+        expect(a.textContent).not.toMatch(/。$/u);
+        expect(a.getAttribute("aria-label")).toBe(`出典: ${src.title}（${a.textContent}）`);
+        expect(rows[i]!.textContent).not.toContain("出典:");
+      });
+    }
+    // 区域の枠の位置は「第 9 の 1(5)、留意事項 48」のような文
+    const zoneLinks = [...container.querySelectorAll(".class-if_in_zone .todo-pos a")].map((a) => a.textContent);
+    expect(zoneLinks[0]).toBe("第 9 の 1(5)、留意事項 48");
+  });
+
+  it("sharedSource: 空、出典の混ざり、位置のない項目は null（まとめない）", () => {
+    const items = buildChecklist({ level: 1, production: null, housing: null }).flatMap((s) => s.items);
+    const always = items.filter((i) => i.class === "always");
+    expect(sharedSource([])).toBeNull();
+    expect(sharedSource(always)?.title).toBe(always[0]!.source.title);
+    expect(sharedSource(items)).toBeNull();
+    const noPos = { ...always[0]!, source: { ...always[0]!.source, note: null } };
+    expect(sharedSource([...always, noPos])).toBeNull();
+  });
+
+  it("消毒の記録の画面（DisinfectionPanel）は、枠の部品を使うが、目次の飛び先にも出典の集約にもならない。枠の見出しは h2 のまま", async () => {
+    const { container } = mount(<DisinfectionPanel />, { path: "/record/disinfection", ds: makeDs({ cases: [farAway()] }) });
+    await screen.findByText(/^次にすること: /);
+    const blocks = container.querySelectorAll(".class-block");
+    expect(blocks.length).toBeGreaterThan(0);
+    for (const b of blocks) {
+      expect(b.hasAttribute("id")).toBe(false);
+      expect(b.hasAttribute("tabindex")).toBe(false);
+      expect(b.querySelector(":scope > .source-line")).toBeNull();
+      expect(b.querySelector(":scope > h2")).not.toBeNull();
+      expect(b.querySelector(":scope > h3")).toBeNull();
+    }
+  });
+
+  it("CSS: 解除の見込みの枠は中立の線（--line）で赤を使わない。赤は区域の枠と、目次の区域の札の縦線だけ。解除の見込みの h3 は 1.1rem", () => {
+    const todoCss = readFileSync(path.resolve(import.meta.dirname, "todo.css"), "utf8");
+    const theme = readFileSync(path.resolve(import.meta.dirname, "../../ui/theme.css"), "utf8");
+    const rule = (css: string, sel: string) => new RegExp(`(?:^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? null;
+    const lift = rule(todoCss, ".lift-region")!;
+    expect(lift).toMatch(/border:\s*2px solid var\(--line\)/);
+    expect(lift).not.toContain("--lv1");
+    expect(rule(todoCss, ".lift-block > h3")).toMatch(/font-size:\s*1\.1rem/);
+    expect(rule(theme, ".class-if_in_zone")).toMatch(/var\(--lv1\)/);
+    // todo.css で --lv1 を使うのは、目次の区域の札だけ
+    const lv1 = [...todoCss.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter((m) => m[2]!.includes("--lv1")).map((m) => m[1]!.trim().split("\n").at(-1));
+    expect(lv1).toEqual([".todo-toc a.toc-if_in_zone"]);
+  });
+
+  it("CSS（2 周目）: 目次は PC で同じ幅の 2 列、スマホで 1 列。札の名前に下線を付けず、触れたとき・焦点で示す。位置のリンクは上下の padding で押せる高さ（行は広げない）", () => {
+    const todoCss = readFileSync(path.resolve(import.meta.dirname, "todo.css"), "utf8");
+    const theme = readFileSync(path.resolve(import.meta.dirname, "../../ui/theme.css"), "utf8");
+    const rule = (css: string, sel: string) => new RegExp(`(?:^|\\n)\\s*${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? null;
+    expect(rule(todoCss, ".todo-toc ol")).toMatch(/display:\s*grid/);
+    expect(rule(todoCss, ".todo-toc ol")).toMatch(/grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+    const narrow = /@media \(max-width: 40rem\) \{([\s\S]*?)\n\}/.exec(todoCss.slice(todoCss.indexOf(".todo-toc {")))![1]!;
+    expect(rule(narrow, ".todo-toc ol")).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/);
+    expect(rule(todoCss, ".todo-toc-name")).not.toMatch(/text-decoration/);
+    expect(todoCss).toMatch(/\.todo-toc a:hover \.todo-toc-name,\s*\.todo-toc a:focus-visible \.todo-toc-name\s*\{\s*text-decoration:\s*underline/);
+    const pos = rule(todoCss, ".todo-pos a")!;
+    expect(pos).toMatch(/padding-block:\s*11px/);
+    expect(pos).not.toMatch(/min-height/);
+    expect(rule(todoCss, ".todo-pos")).toBeNull();
+    // 枠の見出しは h2 でも h3 でも同じ並び。h3 は一段小さい
+    expect(theme).toMatch(/\.class-block > :is\(h2, h3\) \{/);
+    expect(rule(theme, ".class-block > h3")).toMatch(/font-size:\s*1\.15rem/);
   });
 });

@@ -1,6 +1,6 @@
 import type { IsoDate } from "@hpai/shared/types";
 
-function isWebUrl(url: string): boolean {
+export function isWebUrl(url: string): boolean {
   try {
     const p = new URL(url).protocol;
     return p === "https:" || p === "http:";
